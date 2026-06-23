@@ -6,6 +6,8 @@ Migrasi data dari backup lama ke Supabase baru harus bertahap, aman, dan bisa di
 
 Fase 2 ini belum melakukan restore, belum menjalankan SQL, dan belum memindahkan data.
 
+Seluruh keputusan migrasi Fase 2 pada dokumen ini sudah final.
+
 ## Data yang Dimigrasikan
 
 Data inti:
@@ -34,6 +36,7 @@ Jangan migrasikan:
 - visitor stats lama
 - session/token lama
 - file Storage yatim
+- feedback lama
 - data forum/journey/music/game/quiz/top score/random name pada fase inti
 
 ## Prinsip Migrasi
@@ -98,10 +101,16 @@ Untuk santri:
 
 Password awal:
 
-- gunakan password sementara yang harus diganti, atau
-- kirim reset link jika email valid tersedia.
+- dibuat oleh admin melalui Supabase Auth;
+- diserahkan kepada santri/wali melalui prosedur operasional lembaga;
+- tidak dicetak di laporan migrasi;
+- tidak disimpan pada tabel aplikasi.
 
-Keputusan detail password awal perlu dikonfirmasi sebelum implementasi migrasi.
+Catatan:
+
+- Santri tetap login dengan Nomor Induk Qiroati sebagai username dan password.
+- Email internal hanya dipakai sebagai identifier teknis Supabase Auth dan tidak ditampilkan kepada santri/wali.
+- Nomor Induk Qiroati harus mengikuti format resmi lembaga, unik, konsisten, tanpa spasi, dan disimpan sebagai `text`.
 
 ### Tahap 3 - Data Akademik
 
@@ -174,8 +183,11 @@ Migrasi:
 - `website_content`
 - `news`
 - `announcements`
-- `feedbacks` jika masih relevan
 - asset resmi di storage
+
+Tidak dimigrasikan:
+
+- feedback lama
 
 Validasi:
 
@@ -204,6 +216,7 @@ Yang tidak boleh masuk laporan:
 - password
 - token
 - foto pribadi
+- password awal
 
 ## Strategi Rollback
 
@@ -221,7 +234,7 @@ Jangan rollback dengan mengubah database produksi lama.
 - [ ] RLS diuji dengan akun dummy.
 - [ ] Edge Function auth siap.
 - [ ] Bucket storage siap.
-- [ ] Strategi password awal disetujui.
+- [ ] Prosedur admin untuk membuat dan menyerahkan password awal santri siap.
 - [ ] Script migrasi tidak mencetak data pribadi.
 - [ ] Validasi agregat disiapkan.
 - [ ] Backup lama tetap lokal dan tidak masuk Git.

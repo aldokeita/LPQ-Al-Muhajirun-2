@@ -4,6 +4,8 @@
 
 RLS harus aktif pada semua tabel operasional. Policy lama tidak dipakai ulang.
 
+Seluruh keputusan RLS Fase 2 pada dokumen ini sudah final.
+
 Larangan:
 
 - Jangan memakai `OR true`.
@@ -35,7 +37,8 @@ Larangan:
 | `classes` | tidak | ALL | SELECT kelasnya | SELECT kelas sendiri | SELECT assignment |
 | `class_memberships` | tidak | ALL | SELECT kelasnya | SELECT sendiri | SELECT assignment |
 | `attendance` | tidak | ALL | SELECT/INSERT/UPDATE kelasnya | SELECT sendiri | SELECT assignment |
-| `payments` | tidak | ALL, DELETE admin saja | SELECT terbatas jika diperlukan | SELECT sendiri | tidak |
+| `payments` | tidak | ALL, DELETE admin saja | tidak untuk detail | SELECT sendiri | tidak |
+| `payment_status_summary` | tidak | SELECT | SELECT status kelasnya | SELECT sendiri | tidak |
 | `expenses` | tidak | ALL admin saja | tidak | tidak | tidak |
 | `hafalan_items` | tidak | ALL | SELECT | SELECT | SELECT |
 | `hafalan_progress` | tidak | ALL | SELECT/INSERT/UPDATE kelasnya | SELECT sendiri | SELECT assignment |
@@ -116,7 +119,7 @@ Policy:
 
 - admin ALL.
 - guru SELECT/INSERT/UPDATE absensi santri kelasnya dan absensi dirinya.
-- guru tidak boleh DELETE kecuali diputuskan nanti; koreksi lebih baik UPDATE dengan `correction_reason`.
+- guru tidak boleh DELETE; koreksi absensi dilakukan dengan UPDATE dan `correction_reason`.
 - santri SELECT absensi sendiri.
 - pentashih SELECT absensi area assignment, terutama MMQ/guru jika diperlukan.
 
@@ -126,8 +129,11 @@ Policy:
 
 - admin ALL termasuk DELETE.
 - santri SELECT pembayaran sendiri.
+- guru tidak boleh SELECT langsung ke detail `payments`.
+- guru tidak boleh melihat nominal, metode pembayaran, catatan transaksi, `transaction_id`, atau detail keuangan lain.
+- guru hanya boleh membaca status pembayaran santri di kelasnya melalui `payment_status_summary`.
+- status yang terlihat guru hanya `Lunas` atau `Belum Lunas`.
 - guru tidak boleh DELETE.
-- guru secara default tidak perlu melihat detail pembayaran, kecuali nanti diputuskan untuk wali kelas.
 - anon tidak boleh SELECT.
 
 ### Expenses
@@ -167,6 +173,34 @@ Policy:
 - admin ALL.
 - insert notifikasi sebaiknya lewat Edge Function atau trigger server-side.
 
+## Storage RLS Avatar Santri
+
+Bucket:
+
+- `avatars`
+
+Path foto profil santri:
+
+```text
+avatars/santri/<auth.uid()>/profile.webp
+```
+
+Policy final:
+
+- santri boleh SELECT/INSERT/UPDATE/DELETE hanya file pada folder `santri/<auth.uid()>/`.
+- santri tidak boleh mengubah atau menghapus foto santri lain.
+- admin boleh SELECT/INSERT/UPDATE/DELETE semua foto profil.
+- guru boleh SELECT/INSERT/UPDATE/DELETE foto profil santri yang berada pada kelas yang diampu.
+- guru tidak boleh mengelola foto santri di luar kelasnya.
+- upload baru menggantikan file lama agar tidak ada tumpukan file profil.
+
+Validasi:
+
+- format yang diizinkan: JPG, JPEG, PNG, WebP.
+- ukuran maksimal disarankan 2 MB.
+- validasi dilakukan di frontend dan di backend/Storage policy atau Edge Function signed upload.
+- admin tetap boleh menghapus foto yang tidak pantas.
+
 ## Helper yang Direkomendasikan
 
 Nanti pada migration:
@@ -200,3 +234,6 @@ Skenario wajib:
 - anon hanya bisa membaca konten publik.
 - hanya admin bisa membaca `expenses`.
 - hanya admin bisa delete `payments`.
+- guru hanya melihat `Lunas`/`Belum Lunas` dari `payment_status_summary`, bukan detail `payments`.
+- santri tidak bisa upload avatar ke folder `avatars/santri/<uid_santri_lain>/`.
+- guru tidak bisa mengelola avatar santri di luar kelasnya.

@@ -11,6 +11,17 @@ Role final:
 - `santri`
 - `pentashih`
 
+## Keputusan Final Fase 2
+
+Seluruh keputusan autentikasi Fase 2 pada dokumen ini sudah final.
+
+- Password awal santri dibuat oleh admin.
+- Santri login memakai Nomor Induk Qiroati sebagai username dan password.
+- Nomor Induk Qiroati memakai format resmi lembaga, unik, konsisten, tanpa spasi, dan disimpan sebagai `text`.
+- Email internal hanya identifier teknis Supabase Auth yang tersembunyi.
+- Email internal tidak ditampilkan kepada santri/wali dan tidak dipakai pada form login.
+- Edge Function login santri tidak membuat JWT custom dan tidak membaca/menyimpan password plaintext di tabel aplikasi.
+
 ## Sumber Kebenaran Role
 
 Gunakan kombinasi berikut:
@@ -65,7 +76,8 @@ Alur:
 3. Edge Function membuat `user_profiles` dengan `role = 'santri'`.
 4. Edge Function membuat `santri` dengan `id = auth.users.id`.
 5. Edge Function membuat mapping `auth_login_aliases` untuk Nomor Induk Qiroati.
-6. Password awal diatur melalui Supabase Auth, bukan disimpan di tabel `santri`.
+6. Admin membuat password awal melalui Supabase Auth, bukan menyimpannya di tabel `santri`.
+7. Admin menyerahkan username Nomor Induk Qiroati dan password awal kepada santri/wali melalui prosedur operasional lembaga.
 
 ## Login Santri dengan Nomor Induk Qiroati
 
@@ -83,7 +95,7 @@ Alur aman:
 1. Validasi input kosong/format.
 2. Normalisasi nomor induk.
 3. Cari mapping aktif di `auth_login_aliases`.
-4. Ambil `internal_email`.
+4. Ambil identifier Auth internal, misalnya `internal_email`.
 5. Panggil Supabase Auth sign-in server-side dengan email internal dan password.
 6. Jika berhasil, kembalikan session Supabase Auth resmi ke frontend.
 7. Jika gagal, kembalikan pesan umum: "Nomor Induk Qiroati atau password salah."
@@ -156,7 +168,7 @@ Nomor Induk Qiroati dipetakan ke email internal. Contoh konsep:
 santri+<uuid>@auth.lpqalmuhajirun.local
 ```
 
-Nilai ini hanya detail teknis. User tetap melihat dan memakai Nomor Induk Qiroati.
+Nilai ini hanya detail teknis Supabase Auth. Santri/wali tetap melihat dan memakai Nomor Induk Qiroati sebagai username. Email internal tidak ditampilkan di profil santri/wali, tidak dipakai di form login, dan tidak dikirim sebagai informasi akun kepada santri/wali.
 
 ## Error dan Keamanan
 
@@ -179,7 +191,7 @@ Password lama tidak dimigrasikan.
 Strategi:
 
 1. Buat akun Auth baru.
-2. Set password awal sementara atau kirim link reset.
+2. Admin membuat password awal santri.
 3. Minta user mengganti password.
 4. Jangan import kolom `password` dari tabel lama.
 

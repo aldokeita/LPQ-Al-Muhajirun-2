@@ -1,5 +1,7 @@
 # 18 - Storage and Edge Functions
 
+Seluruh keputusan Storage dan Edge Function Fase 2 pada dokumen ini sudah final.
+
 ## Storage Bucket
 
 ### `avatars`
@@ -12,26 +14,37 @@ Dipakai untuk:
 Read:
 
 - authenticated users boleh membaca avatar.
-- public read bisa dipertimbangkan jika avatar tampil di halaman publik, tetapi default lebih aman adalah authenticated read.
+- public read tidak menjadi default untuk avatar santri/guru.
 
 Write:
 
 - admin boleh upload/update/delete semua avatar.
 - guru boleh update avatar sendiri.
-- santri boleh update avatar sendiri jika fitur ini tetap dipertahankan.
+- santri boleh upload, mengganti, dan menghapus foto profil miliknya sendiri.
 - upload foto santri oleh admin/guru sebaiknya memakai signed URL.
+- guru boleh mengelola foto profil santri hanya untuk kelas yang diampu.
 
 Pola folder:
 
 ```text
-avatars/santri/<santri_id>/<filename>
-avatars/guru/<guru_id>/<filename>
+avatars/santri/<auth.uid()>/profile.webp
+avatars/guru/<auth.uid()>/profile.webp
 ```
 
 Batas file:
 
-- maksimal 5 MB.
+- maksimal disarankan 2 MB untuk foto profil santri.
 - MIME: `image/jpeg`, `image/png`, `image/webp`.
+- ekstensi yang diizinkan: JPG, JPEG, PNG, WebP.
+
+Policy khusus foto santri:
+
+- santri hanya boleh menulis ke folder `santri/<auth.uid()>/`.
+- santri tidak boleh mengubah foto santri lain.
+- upload baru menggantikan foto lama agar file tidak menumpuk.
+- admin boleh menghapus foto yang tidak pantas.
+- guru hanya boleh mengelola foto santri jika santri tersebut berada pada kelas yang diampu.
+- validasi tipe dan ukuran dilakukan di frontend dan backend/Storage policy atau Edge Function.
 
 ### `website-assets`
 
@@ -126,6 +139,17 @@ Keamanan:
 - tidak expose email internal.
 - tidak membuat JWT custom.
 - hanya membaca `auth_login_aliases` di server.
+- menerima Nomor Induk Qiroati dan password.
+- mencari mapping Nomor Induk Qiroati ke akun Supabase Auth.
+- memakai identifier Auth internal, misalnya email internal tersembunyi.
+- memverifikasi password melalui Supabase Auth.
+- mengembalikan session Supabase Auth resmi.
+- tidak membaca atau menyimpan password plaintext di tabel aplikasi.
+
+Catatan:
+
+- Santri/wali hanya melihat Nomor Induk Qiroati sebagai username.
+- Email internal hanya mekanisme teknis di belakang layar dan tidak dipakai pada form login.
 
 ### `manage-user`
 
@@ -141,6 +165,7 @@ Operasi:
 - buat/update `user_profiles`.
 - buat/update `guru` atau `santri`.
 - buat/update `auth_login_aliases` untuk santri.
+- membuat password awal santri/guru/pentashih melalui Supabase Auth sesuai aksi admin.
 
 Keamanan:
 
@@ -169,6 +194,9 @@ Keamanan:
 - validasi user berhak upload path tersebut.
 - validasi MIME dan ukuran.
 - kembalikan signed URL jangka pendek.
+- untuk avatar santri, path final adalah `avatars/santri/<auth.uid()>/profile.webp`.
+- untuk guru yang mengelola avatar santri, cek relasi kelas aktif sebelum signed URL diberikan.
+- untuk santri, tolak path yang tidak berada di folder `santri/<auth.uid()>/`.
 
 ### `reset-user-password`
 

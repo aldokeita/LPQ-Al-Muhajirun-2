@@ -6,6 +6,20 @@ Backend baru LPQ Al-Muhajirun Metode Qiroati Baturaja dirancang sebagai project 
 
 Fase 2 ini hanya desain. Belum ada project Supabase, migration SQL, restore database, deployment, atau perubahan frontend.
 
+## Keputusan Final Fase 2
+
+Seluruh keputusan desain Fase 2 pada dokumen ini dianggap final untuk tahap perancangan backend.
+
+- Santri login dengan Nomor Induk Qiroati sebagai username dan password.
+- Password awal santri dibuat oleh admin melalui alur akun resmi Supabase Auth.
+- Email internal santri hanya identifier teknis Supabase Auth di belakang layar, tidak ditampilkan kepada santri/wali, dan tidak dipakai pada form login.
+- Edge Function login santri memetakan Nomor Induk Qiroati ke akun Supabase Auth, memverifikasi password lewat Supabase Auth, lalu mengembalikan session Supabase Auth resmi tanpa JWT custom.
+- Nomor Induk Qiroati memakai format resmi lembaga, wajib unik, konsisten, tanpa spasi, dan disimpan sebagai `text` agar angka nol di depan tidak hilang.
+- Santri boleh mengubah foto profilnya sendiri pada folder Storage miliknya.
+- Guru hanya boleh melihat status pembayaran santri di kelasnya sebagai `Lunas` atau `Belum Lunas`, tanpa nominal, metode pembayaran, catatan transaksi, atau detail keuangan lain.
+- Soft delete disimpan permanen sampai dibersihkan oleh admin teknis.
+- Feedback lama tidak dimigrasikan.
+
 ## Prinsip Arsitektur
 
 1. **Supabase Auth resmi untuk semua role**
@@ -59,14 +73,25 @@ Fase 2 ini hanya desain. Belum ada project Supabase, migration SQL, restore data
 5. Edge Function mengembalikan session Supabase Auth resmi.
 6. Frontend memakai session itu seperti user Supabase biasa.
 
-Catatan: tidak ada JWT custom dan tidak ada password plaintext di tabel `santri`.
+Catatan: tidak ada JWT custom, tidak ada password plaintext di tabel `santri`, dan email internal tidak pernah ditampilkan kepada santri/wali.
 
 ### Guru Mengelola Santri Kelasnya
 
 1. Guru login.
 2. RLS mengecek apakah santri terkait ada pada `class_memberships` aktif untuk kelas yang diampu guru.
 3. Guru hanya bisa membaca/mengubah data akademik santri kelasnya.
-4. Guru tidak bisa membaca pengeluaran lembaga dan tidak bisa menghapus pembayaran.
+4. Guru hanya boleh melihat status pembayaran santri kelasnya dalam bentuk `Lunas` atau `Belum Lunas`.
+5. Guru tidak bisa membaca nominal, metode pembayaran, catatan transaksi, detail transaksi, pengeluaran lembaga, dan tidak bisa menghapus pembayaran.
+
+### Foto Profil Santri
+
+1. Foto profil santri disimpan di bucket `avatars` dengan path tetap `avatars/santri/<auth.uid()>/profile.webp`.
+2. Santri boleh upload, mengganti, dan menghapus foto profil miliknya sendiri.
+3. Santri tidak boleh mengubah foto santri lain.
+4. Admin boleh mengelola seluruh foto profil.
+5. Guru hanya boleh mengelola foto profil santri pada kelas yang diampu.
+6. Upload baru menggantikan file lama agar foto tidak menumpuk.
+7. Validasi tipe dan ukuran file dilakukan di frontend dan server/Storage policy atau Edge Function.
 
 ### Pentashih
 
@@ -105,7 +130,7 @@ Tabel lama yang terkait fitur ini tidak perlu dibuat pada migration inti pertama
 - Edge Function boleh memakai service-role key hanya di server.
 - Jangan expose tabel private seperti `auth_login_aliases` ke client.
 - Jangan memakai `select('*')` untuk data sensitif pada implementasi frontend berikutnya.
-- Gunakan soft delete untuk data profil dan transaksi penting.
+- Gunakan soft delete untuk data profil dan transaksi penting, dan simpan permanen sampai dibersihkan oleh admin teknis.
 - Gunakan audit field pada data operasional.
 
 ## Urutan Implementasi yang Disarankan Setelah Desain Disetujui

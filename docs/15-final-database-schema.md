@@ -8,8 +8,10 @@ Konvensi umum:
 
 - Semua tabel inti memakai `id uuid primary key default gen_random_uuid()`, kecuali tabel profil yang `id`-nya sama dengan `auth.users.id`.
 - Tabel penting memakai `created_at`, `updated_at`, `created_by`, `updated_by`.
-- Data yang tidak boleh hilang memakai `deleted_at` untuk soft delete.
+- Data yang tidak boleh hilang memakai `deleted_at` untuk soft delete. Soft delete disimpan permanen sampai dibersihkan oleh admin teknis.
 - Role final: `admin`, `guru`, `santri`, `pentashih`.
+- Nomor Induk Qiroati disimpan sebagai `text`, mengikuti format resmi lembaga, unik, konsisten, tanpa spasi, dan tidak dinormalisasi menjadi angka agar angka nol di depan tidak hilang.
+- Seluruh keputusan Fase 2 pada dokumen ini sudah final.
 
 ## Core Identity
 
@@ -57,11 +59,15 @@ Constraint/index:
 - unique `(alias_type, normalized_alias)`
 - unique `auth_user_id` untuk alias nomor induk aktif
 - index `is_active`
+- check `alias_value = btrim(alias_value)`
+- check `alias_value !~ '\s'`
 
 Catatan:
 
 - Nomor Induk Qiroati tidak menjadi email publik.
-- Email internal bisa berbentuk teknis, misalnya domain internal project. Nilai aslinya tidak perlu ditampilkan ke user.
+- `alias_value` dan `normalized_alias` memakai tipe `text` agar angka nol di depan tetap tersimpan.
+- Email internal bisa berbentuk teknis, misalnya domain internal project. Nilai aslinya tidak ditampilkan kepada santri/wali dan tidak dipakai pada form login.
+- Password tidak pernah disimpan di tabel ini.
 
 ## Santri dan Guru
 
@@ -83,6 +89,7 @@ Kolom penting:
 - `no_hp_ortu text`
 - `email text`
 - `foto_url text`
+- `avatar_path text`
 - `rfid_tag text`
 - `current_class_id uuid references classes(id)`
 - `sesi_mengaji text`
@@ -96,6 +103,8 @@ Kolom penting:
 Constraint/index:
 
 - unique `nomor_induk_qiroati`
+- check `nomor_induk_qiroati = btrim(nomor_induk_qiroati)`
+- check `nomor_induk_qiroati !~ '\s'`
 - unique `rfid_tag` where not null
 - index `current_class_id`
 - index `status`
@@ -105,6 +114,12 @@ Kolom yang tidak boleh ada:
 
 - `password`
 - token/session
+
+Catatan:
+
+- `foto_url` boleh menjadi URL/cache publik internal jika dibutuhkan UI, tetapi sumber Storage yang disarankan adalah `avatar_path`.
+- Path foto profil santri mengikuti pola tetap `avatars/santri/<auth.uid()>/profile.webp`.
+- Santri boleh mengganti foto profil sendiri melalui policy/Edge Function yang membatasi path berdasarkan `auth.uid()`.
 
 ### `guru`
 
@@ -349,6 +364,31 @@ Constraint/index:
 - index `tanggal_pembayaran`
 - unique `transaction_id` where not null
 
+### `payment_status_summary`
+
+View atau materialized view terbatas untuk kebutuhan guru.
+
+Kolom yang boleh tersedia:
+
+- `santri_id uuid`
+- `bulan integer`
+- `tahun integer`
+- `status text check (status in ('Lunas','Belum Lunas'))`
+- `class_id uuid`
+
+Larangan:
+
+- tidak memuat `jumlah`
+- tidak memuat `metode_pembayaran`
+- tidak memuat `catatan`
+- tidak memuat `transaction_id`
+- tidak memuat detail transaksi lain
+
+Catatan:
+
+- Guru hanya boleh membaca status pembayaran santri yang berada di kelas yang diampu melalui view ini.
+- Detail asli tetap berada di `payments` dan hanya admin/santri pemilik yang boleh mengakses sesuai RLS.
+
 ### `expenses`
 
 - `id uuid primary key`
@@ -466,6 +506,11 @@ Kolom tambahan:
 - `created_at`
 - `handled_by uuid references auth.users(id)`
 - `handled_at timestamptz`
+
+Catatan:
+
+- Tabel ini boleh dibuat untuk feedback baru.
+- Feedback lama dari sistem lama tidak dimigrasikan.
 
 ### `notifications`
 

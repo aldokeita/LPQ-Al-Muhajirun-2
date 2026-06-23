@@ -1,170 +1,88 @@
 # 20 - Phase 2 Decisions Needed
 
-Dokumen ini hanya berisi keputusan yang masih perlu jawaban sebelum implementasi backend/migration dimulai. Banyak keputusan inti sudah dipilih:
+## Status
 
-- login santri memakai Edge Function + Supabase Auth resmi;
-- pentashih memakai assignment kelas/MMQ;
-- kelas memakai model gabungan `santri.current_class_id` dan `class_memberships`.
+Seluruh keputusan Fase 2 telah diselesaikan.
 
-## 1. Cara Memberikan Password Awal Santri
+Dokumen ini tidak lagi berisi pertanyaan terbuka. Semua keputusan di bawah menjadi dasar final untuk desain backend Supabase baru LPQ Al-Muhajirun Metode Qiroati Baturaja.
 
-### Konteks
+## Keputusan Final
 
-Password lama tidak boleh dimigrasikan. Setiap santri perlu password baru di Supabase Auth.
+### Autentikasi Santri
 
-### Pilihan
+- Santri tetap login menggunakan Nomor Induk Qiroati sebagai username dan password.
+- Password awal santri dibuat oleh admin.
+- Password lama tidak dimigrasikan.
+- Password tidak disimpan sebagai plaintext di tabel aplikasi.
+- Login santri dilakukan melalui Edge Function `signin-with-nomor-induk`.
+- Edge Function menerima Nomor Induk Qiroati dan password.
+- Edge Function mencari mapping Nomor Induk Qiroati ke akun Supabase Auth.
+- Edge Function memakai identifier Auth internal, misalnya email internal tersembunyi.
+- Edge Function memverifikasi password melalui Supabase Auth.
+- Edge Function mengembalikan session Supabase Auth resmi.
+- Edge Function tidak membuat JWT custom.
 
-1. **Password sementara dibuat admin**
-   Admin membuat password awal dan menyerahkannya ke wali/santri.
+### Email Internal Santri
 
-2. **Reset link lewat email**
-   Sistem mengirim link reset password ke email santri/wali jika email valid tersedia.
+- Email internal hanya mekanisme teknis Supabase Auth di belakang layar.
+- Email internal tidak ditampilkan kepada santri/wali.
+- Email internal tidak dipakai di form login.
+- Santri/wali hanya melihat Nomor Induk Qiroati sebagai username.
 
-3. **Password awal massal lalu wajib ganti**
-   Semua akun diberi pola password sementara, lalu user wajib mengganti.
+### Nomor Induk Qiroati
 
-### Rekomendasi Codex
+- Nomor Induk Qiroati memakai format resmi lembaga.
+- Nomor Induk Qiroati wajib unik.
+- Nomor Induk Qiroati harus konsisten dan tanpa spasi.
+- Nomor Induk Qiroati disimpan sebagai tipe `text` agar angka nol di depan tidak hilang.
 
-Pilihan 1 untuk launch awal, karena tidak semua santri/wali mungkin punya email valid.
+### Foto Profil Santri
 
-### Dampak
+- Santri boleh upload, mengganti, dan menghapus foto profilnya sendiri.
+- Santri tidak boleh mengubah foto santri lain.
+- Admin boleh mengelola seluruh foto profil.
+- Guru hanya boleh mengelola foto profil santri pada kelas yang diampu.
+- Path file memakai pola `avatars/santri/<auth.uid()>/profile.webp`.
+- File yang diizinkan: JPG, JPEG, PNG, WebP.
+- Ukuran maksimal disarankan 2 MB.
+- Upload baru menggantikan foto lama agar file tidak menumpuk.
+- Validasi tipe dan ukuran dilakukan di frontend dan backend/Storage policy atau Edge Function.
+- Admin tetap dapat menghapus foto yang tidak pantas.
 
-- Pilihan 1 mudah dijalankan, tetapi admin harus menjaga distribusi password.
-- Pilihan 2 lebih rapi, tetapi butuh email valid dan konfigurasi SMTP.
-- Pilihan 3 cepat, tetapi paling berisiko jika pola password mudah ditebak.
+### Akses Guru ke Pembayaran
 
-## 2. Apakah Santri Boleh Mengubah Foto Profil Sendiri
+- Guru hanya boleh melihat status pembayaran santri di kelasnya.
+- Status yang terlihat hanya `Lunas` dan `Belum Lunas`.
+- Guru tidak boleh melihat nominal pembayaran.
+- Guru tidak boleh melihat metode pembayaran.
+- Guru tidak boleh melihat catatan transaksi.
+- Guru tidak boleh melihat `transaction_id` atau detail keuangan lainnya.
+- Guru tidak boleh menghapus pembayaran.
 
-### Konteks
+### Soft Delete
 
-Frontend lama memiliki upload foto santri. Ini bisa menjadi risiko jika tidak dikontrol.
+- Soft delete disimpan permanen.
+- Data soft deleted hanya dibersihkan oleh admin teknis melalui prosedur terpisah.
+- Kebijakan ini berlaku untuk data penting seperti santri, guru, pembayaran, absensi, dan data operasional lain.
 
-### Pilihan
+### Feedback Lama
 
-1. **Admin/guru saja yang mengubah foto**
-2. **Santri boleh upload sendiri dengan moderasi**
-3. **Santri boleh upload langsung tanpa moderasi**
+- Feedback lama tidak dimigrasikan.
+- Tabel `feedbacks` boleh dibuat untuk feedback baru setelah backend baru aktif.
 
-### Rekomendasi Codex
+## Keputusan yang Tidak Berubah
 
-Pilihan 1 untuk launch awal.
+- Auth memakai Supabase Auth resmi untuk `admin`, `guru`, `santri`, dan `pentashih`.
+- `user_profiles.role` menjadi sumber kebenaran role aplikasi.
+- Pentashih memakai assignment kelas/MMQ melalui tabel assignment.
+- Kelas memakai model gabungan `santri.current_class_id` dan `class_memberships`.
+- Fitur forum, journey, music player, game/gatcha, quiz, top score, random name, dan backup/restore UI tetap deferred.
+- Backup/restore dilakukan melalui Supabase Dashboard atau `pg_dump`, bukan UI admin.
 
-### Dampak
+## Keputusan Terbuka
 
-- Pilihan 1 paling aman dan sederhana.
-- Pilihan 2 lebih fleksibel tetapi butuh alur moderasi.
-- Pilihan 3 tidak disarankan untuk lembaga pendidikan anak.
+Tidak ada keputusan Fase 2 yang masih terbuka.
 
-## 3. Apakah Guru Boleh Melihat Status Pembayaran Santri Kelasnya
+## Langkah Berikutnya
 
-### Konteks
-
-Guru hanya boleh mengelola kelasnya. Data pembayaran termasuk data sensitif.
-
-### Pilihan
-
-1. **Tidak boleh melihat pembayaran**
-2. **Boleh melihat status lunas/belum saja**
-3. **Boleh melihat detail pembayaran lengkap kelasnya**
-
-### Rekomendasi Codex
-
-Pilihan 2 jika operasional guru membutuhkan informasi tunggakan; jika tidak, pilih 1.
-
-### Dampak
-
-- Pilihan 1 paling aman.
-- Pilihan 2 membantu operasional tanpa membuka detail transaksi.
-- Pilihan 3 lebih sensitif dan perlu alasan operasional kuat.
-
-## 4. Masa Retensi Data Soft Delete
-
-### Konteks
-
-Data santri, guru, pembayaran, dan absensi sebaiknya tidak langsung hard delete.
-
-### Pilihan
-
-1. **Soft delete permanen sampai admin teknis membersihkan**
-2. **Soft delete dengan retensi 1 tahun**
-3. **Hard delete untuk data non-keuangan**
-
-### Rekomendasi Codex
-
-Pilihan 1 untuk awal, lalu buat kebijakan arsip setelah sistem stabil.
-
-### Dampak
-
-- Pilihan 1 aman untuk audit, tetapi data menumpuk.
-- Pilihan 2 lebih rapi, tetapi butuh proses arsip.
-- Pilihan 3 tidak disarankan untuk data pendidikan/keuangan.
-
-## 5. Format Nomor Induk Qiroati
-
-### Konteks
-
-Nomor Induk Qiroati menjadi alias login santri. Formatnya harus konsisten agar mapping aman.
-
-### Pilihan
-
-1. **Angka saja**
-2. **Teks bebas dengan normalisasi spasi/huruf besar**
-3. **Format resmi lembaga yang ditentukan sebelum migrasi**
-
-### Rekomendasi Codex
-
-Pilihan 3.
-
-### Dampak
-
-- Pilihan 1 sederhana tetapi mungkin tidak cocok dengan data lama.
-- Pilihan 2 fleksibel tetapi rawan duplikat format.
-- Pilihan 3 paling rapi untuk jangka panjang, tetapi perlu keputusan lembaga.
-
-## 6. Apakah `feedbacks` Lama Dimigrasikan
-
-### Konteks
-
-Feedback dari pengunjung bisa berisi pesan lama yang mungkin tidak relevan.
-
-### Pilihan
-
-1. **Tidak migrasikan feedback lama**
-2. **Migrasikan hanya feedback yang belum ditangani**
-3. **Migrasikan semua feedback**
-
-### Rekomendasi Codex
-
-Pilihan 1, kecuali ada pesan aktif yang masih perlu ditindaklanjuti.
-
-### Dampak
-
-- Pilihan 1 paling bersih.
-- Pilihan 2 menjaga tugas aktif.
-- Pilihan 3 membawa data lama yang mungkin tidak perlu.
-
-## 7. Email Domain Internal untuk Akun Santri
-
-### Konteks
-
-Santri login dengan Nomor Induk Qiroati, tetapi Supabase Auth tetap membutuhkan identifier internal seperti email.
-
-### Pilihan
-
-1. **Gunakan domain internal teknis**
-   Contoh konsep: `santri+uuid@auth.lpqalmuhajirun.local`
-
-2. **Gunakan domain produksi**
-   Contoh konsep: `santri+uuid@lpqalmuhajirun.id`
-
-3. **Gunakan email wali jika valid**
-
-### Rekomendasi Codex
-
-Pilihan 1 untuk akun login internal, karena tidak membingungkan wali/santri dan tidak bergantung pada email valid.
-
-### Dampak
-
-- Pilihan 1 paling stabil untuk login nomor induk.
-- Pilihan 2 terlihat resmi tetapi bisa membingungkan jika email tidak benar-benar ada.
-- Pilihan 3 bagus untuk reset email, tetapi data email wali mungkin tidak selalu tersedia.
+Tahap berikutnya dapat mulai menyusun rencana implementasi teknis backend, termasuk urutan migration SQL, helper RLS, bucket Storage, Edge Function, data dummy, dan test plan. Implementasi tetap perlu dilakukan bertahap dan diuji di project Supabase baru, bukan pada database produksi lama.
