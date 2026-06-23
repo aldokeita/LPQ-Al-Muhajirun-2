@@ -1,0 +1,24 @@
+## Pages
+- [- LPQ Al-Muhajirun](/announcementdetail): No description available
+- [- LPQ Al-Muhajirun](/forumtopic): No description available
+- [- LPQ Al-Muhajirun](/newsdetail): No description available
+- [- Parenting LPQ](/parentingarticle): No description available
+- [Absensi Digital - LPQ Al-Muhajirun](/digitalattendance): No description available
+- [Berita - LPQ Al-Muhajirun](/news): Berita dan kegiatan terbaru dari LPQ Al-Muhajirun.
+- [Brosur & Pustaka - LPQ Al-Muhajirun](/brochure): Unduh brosur pendaftaran resmi dan materi pustaka dari LPQ Al-Muhajirun. Dapatkan informasi lengkap mengenai program kami.
+- [Dashboard - LPQ Al-Muhajirun](/dashboard): Dashboard sistem manajemen LPQ Al-Muhajirun
+- [Diskusi Wali Santri - LPQ Al-Muhajirun](/walidiscussion): Jadwal diskusi online untuk wali santri LPQ Al-Muhajirun.
+- [Fasilitas - LPQ Al-Muhajirun](/facilities): Lihat fasilitas lengkap yang kami sediakan di LPQ Al-Muhajirun.
+- [Forum Diskusi - LPQ Al-Muhajirun](/forum): Forum diskusi untuk wali murid, santri, dan guru LPQ Al-Muhajirun.
+- [Galeri Kegiatan - LPQ Al-Muhajirun Metode Qiroati Baturaja](/gallery): Dokumentasi kegiatan santri LPQ Al-Muhajirun Metode Qiroati Baturaja.
+- [Gatcha Challenge - LPQ Al-Muhajirun Metode Qiroati Baturaja](/gatchagame): No description available
+- [Informasi Pendaftaran 2025-2026 - LPQ Al-Muhajirun](/registrationinfo): Informasi lengkap pendaftaran santri baru LPQ Al-Muhajirun tahun ajaran 2025-2026
+- [Kontak - LPQ Al-Muhajirun](/contact): Hubungi LPQ Al-Muhajirun untuk informasi lebih lanjut
+- [Login - LPQ Al-Muhajirun](/login): Login ke sistem LPQ Al-Muhajirun untuk mengakses dashboard
+- [Media Edukatif - LPQ Al-Muhajirun](/edumedia): Jelajahi media edukatif Islami, termasuk game tebak huruf hijaiyah dan kamus tajwid mini, untuk pembelajaran yang menyenangkan.
+- [Papan Skor Santri Terbaik - LPQ Al-Muhajirun Metode Qiroati Baturaja](/topscore): Leaderboard Top 10 Santri dengan poin tertinggi di LPQ Al-Muhajirun Metode Qiroati Baturaja.
+- [Parenting - LPQ Al-Muhajirun](/parenting): Artikel dan informasi parenting Islami dari LPQ Al-Muhajirun.
+- [Pengumuman - LPQ Al-Muhajirun](/announcement): Pengumuman resmi terbaru dari LPQ Al-Muhajirun.
+- [Profil Lembaga - LPQ Al-Muhajirun](/profile): Profil lengkap LPQ Al-Muhajirun, lembaga pendidikan Al-Qur
+- [Quiz Hafalan Gacha - LPQ Al-Muhajirun Metode Qiroati Baturaja](/quizhafalan): No description available
+- [Sistem Mengaji - LPQ Al-Muhajirun](/system): Pelajari alur dan sistem pembelajaran mengaji dengan metode Qiroati di LPQ Al-Muhajirun.

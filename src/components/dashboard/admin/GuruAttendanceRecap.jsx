@@ -1,0 +1,638 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '@/lib/customSupabaseClient';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/use-toast';
+import { Download, UserCheck, Search, Eye, Lock, Unlock, RefreshCw, Edit, BarChart, CheckCircle2, Clock, XCircle, Calendar } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import * as XLSX from 'xlsx';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import GuruPerformanceSummary from './GuruPerformanceSummary';
+import { determineAttendanceStatus, calculateTimeDifference, formatTimestamp } from '@/utils/AttendanceStatusLogic';
+
+const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+// Hardcoded for fallback
+const defaultSessionTimes = {
+  'Pagi': '08:00',
+  'Siang': '14:00',
+  'Sore': '16:00',
+  'Malam': '18:30', 
+};
+
+const GuruAttendanceRecap = ({ isReadOnly = false }) => {
+    const { role, user } = useAuth();
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [gurus, setGurus] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+    const [availableYears, setAvailableYears] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedGuruDetail, setSelectedGuruDetail] = useState(null);
+    const [holidays, setHolidays] = useState(new Set());
+    
+    // Admin Edit Session State
+    const [isSessionEditOpen, setIsSessionEditOpen] = useState(false);
+    const [sessionEditGuru, setSessionEditGuru] = useState(null);
+    const [tempSessions, setTempSessions] = useState([]); 
+    const [availableSessionsForGuru, setAvailableSessionsForGuru] = useState([]); 
+    const [overriddenSessions, setOverriddenSessions] = useState({}); 
+
+    // Advanced Edit Modal State (replaces simple confirmation dialog)
+    const [editModal, setEditModal] = useState({ isOpen: false, data: null });
+    const [editTime, setEditTime] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const canEdit = !isReadOnly && role === 'admin';
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        
+        let attQuery = supabase.from('attendance').select('*').eq('role', 'guru');
+        let guruQuery = supabase.from('guru').select('id, nama, foto_url, no_hp');
+        const classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori'); 
+        const overridesQuery = supabase.from('website_content').select('content').eq('key', 'guru_session_overrides').maybeSingle();
+
+        if (role === 'guru' && user) {
+             attQuery = attQuery.eq('user_id', user.id);
+             guruQuery = guruQuery.eq('id', user.id);
+        }
+
+        const { data: att } = await attQuery;
+        const { data: guruList } = await guruQuery;
+        const { data: classList } = await classQuery;
+        const { data: overrides } = await overridesQuery;
+
+        const startDate = `${selectedYear}-01-01`;
+        const endDate = `${selectedYear}-12-31`;
+        const { data: calendarData } = await supabase.from('academic_calendar').select('date').gte('date', startDate).lte('date', endDate).eq('is_holiday', true);
+
+        if (att && guruList && classList) {
+            setAttendanceData(att);
+            setGurus(guruList);
+            setClasses(classList);
+            
+            if (overrides?.content) {
+                setOverriddenSessions(overrides.content);
+            }
+            
+            const years = [...new Set(att.map(a => new Date(a.attendance_date).getFullYear()))].sort((a,b) => b-a);
+            const currentYear = new Date().getFullYear();
+            if (!years.includes(currentYear)) years.unshift(currentYear);
+            setAvailableYears(years);
+            
+            if (calendarData) {
+                setHolidays(new Set(calendarData.map(c => c.date)));
+            }
+        }
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, [selectedYear]); 
+
+    const handleSaveAttendance = async () => {
+        if (!editModal.data) return;
+        setIsSubmitting(true);
+        
+        const { guruId, dateStr, sesi, record } = editModal.data;
+        const sessionStart = `${dateStr}T${defaultSessionTimes[sesi] || '08:00'}:00`;
+        const checkInTs = editTime ? `${dateStr}T${editTime}` : null;
+        
+        let newStatus = 'Tidak Hadir';
+        if (checkInTs) {
+             newStatus = determineAttendanceStatus(checkInTs, sessionStart);
+        }
+
+        try {
+            // Save to attendance table
+            if (record?.id) {
+                await supabase.from('attendance').update({
+                    check_in_time: editTime || null,
+                    check_in_timestamp: checkInTs,
+                    status: newStatus
+                }).eq('id', record.id);
+            } else {
+                await supabase.from('attendance').insert({
+                    user_id: guruId,
+                    role: 'guru',
+                    attendance_date: dateStr,
+                    check_in_time: editTime || null,
+                    check_in_timestamp: checkInTs,
+                    sesi: sesi,
+                    status: newStatus
+                });
+            }
+
+            // Also save to mmq_absensi to strictly satisfy cross-compatibility logic if needed
+            await supabase.from('mmq_absensi').upsert({
+                guru_id: guruId,
+                tanggal_absensi: dateStr,
+                status: newStatus,
+                check_in_timestamp: checkInTs
+            }, { onConflict: 'guru_id,tanggal_absensi' });
+
+            toast({ title: "Berhasil", description: "Kehadiran guru diperbarui." });
+            setEditModal({ isOpen: false, data: null });
+            fetchData();
+        } catch (err) {
+            toast({ title: "Gagal", description: err.message, variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleEditSessions = (guru) => {
+        const guruClasses = classes.filter(c => c.id_guru === guru.id);
+        const derivedSessions = [...new Set(guruClasses.map(c => c.sesi).filter(s => s))];
+        const existingOverride = overriddenSessions[guru.id];
+        
+        setSessionEditGuru(guru);
+        setAvailableSessionsForGuru(derivedSessions); 
+        setTempSessions(existingOverride || derivedSessions);
+        setIsSessionEditOpen(true);
+    };
+
+    const saveSessionOverride = async () => {
+        if (!sessionEditGuru) return;
+        const newOverrides = { ...overriddenSessions, [sessionEditGuru.id]: tempSessions };
+        
+        const { error } = await supabase.from('website_content').upsert(
+            { key: 'guru_session_overrides', content: newOverrides },
+            { onConflict: 'key' }
+        );
+
+        if (error) {
+            toast({ title: "Gagal Menyimpan", description: error.message, variant: "destructive" });
+        } else {
+            toast({ title: "Berhasil", description: "Jadwal sesi guru diperbarui manual." });
+            setOverriddenSessions(newOverrides);
+            setIsSessionEditOpen(false);
+        }
+    };
+
+    const toggleSession = (sesi) => {
+        setTempSessions(prev => 
+            prev.includes(sesi) ? prev.filter(s => s !== sesi) : [...prev, sesi]
+        );
+    };
+
+    const recapData = useMemo(() => {
+        const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const activeDays = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        for(let d=1; d<=daysInMonth; d++) {
+            const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const date = new Date(selectedYear, selectedMonth, d);
+            const dayOfWeek = date.getDay(); 
+            
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const isHoliday = holidays.has(dateStr);
+
+            if (!isWeekend && !isHoliday) {
+                activeDays.push({ day: d, isPast: date <= today });
+            }
+        }
+
+        let filteredGurus = gurus;
+        if (searchTerm) filteredGurus = gurus.filter(g => g.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        const processedData = filteredGurus.map(guru => {
+            let assignedSessions = [];
+            
+            if (overriddenSessions[guru.id]) {
+                assignedSessions = overriddenSessions[guru.id];
+            } else {
+                const guruClasses = classes.filter(c => c.id_guru === guru.id);
+                assignedSessions = [...new Set(guruClasses.map(c => c.sesi).filter(s => s))];
+            }
+            
+            assignedSessions.sort();
+            
+            if (assignedSessions.length === 0) return null; 
+
+            const pastActiveDaysCount = activeDays.filter(d => d.isPast).length;
+            let totalSessionsExpected = pastActiveDaysCount * assignedSessions.length;
+            let totalSessionsAttended = 0;
+            let sessionBreakdown = {};
+            
+            assignedSessions.forEach(s => sessionBreakdown[s] = 0);
+
+            let dailyDetails = {};
+
+            activeDays.forEach(({ day, isPast }) => {
+                const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                dailyDetails[day] = {};
+                
+                assignedSessions.forEach(sesi => {
+                    const attendanceRecord = attendanceData.find(a => 
+                        a.user_id === guru.id && 
+                        a.attendance_date === dateStr && 
+                        a.sesi === sesi
+                    );
+                    
+                    let computedRecordStatus = 'Tidak Hadir';
+                    const sessionStartTs = `${dateStr}T${defaultSessionTimes[sesi] || '08:00'}:00`;
+                    
+                    if (attendanceRecord) {
+                        if (attendanceRecord.check_in_timestamp) {
+                            computedRecordStatus = determineAttendanceStatus(attendanceRecord.check_in_timestamp, sessionStartTs);
+                        } else {
+                            computedRecordStatus = attendanceRecord.status;
+                        }
+                    }
+                    
+                    dailyDetails[day][sesi] = {
+                        isPresent: !!attendanceRecord,
+                        id: attendanceRecord?.id || null,
+                        record: attendanceRecord || null,
+                        computedStatus: computedRecordStatus,
+                        dateStr: dateStr,
+                        isPast: isPast
+                    };
+                    
+                    if(attendanceRecord && isPast) { 
+                        totalSessionsAttended++;
+                        sessionBreakdown[sesi] = (sessionBreakdown[sesi] || 0) + 1;
+                    }
+                });
+            });
+
+            const percentage = totalSessionsExpected > 0 ? Math.round((totalSessionsAttended / totalSessionsExpected) * 100) : 0;
+
+            return {
+                ...guru,
+                assignedSessions,
+                totalSessionsExpected,
+                totalSessionsAttended,
+                percentage,
+                dailyDetails,
+                activeDays: activeDays.map(d => d.day), 
+                sessionBreakdown
+            };
+        }).filter(Boolean);
+
+        if (selectedGuruDetail) {
+            const updatedDetail = processedData.find(g => g.id === selectedGuruDetail.id);
+            if (updatedDetail && JSON.stringify(updatedDetail) !== JSON.stringify(selectedGuruDetail)) {
+                setSelectedGuruDetail(updatedDetail);
+            }
+        }
+
+        return processedData;
+    }, [attendanceData, gurus, classes, selectedYear, selectedMonth, searchTerm, selectedGuruDetail, holidays, overriddenSessions]);
+
+    const handleExport = () => {
+        const exportData = [];
+        recapData.forEach(guru => {
+            const row = {
+                'Nama Guru': guru.nama,
+                'Sesi Diampu': guru.assignedSessions.join(', '),
+                'Total Wajib Hadir (Sesi)': guru.totalSessionsExpected,
+                'Total Realisasi (Sesi)': guru.totalSessionsAttended,
+                'Persentase': `${guru.percentage}%`
+            };
+            guru.activeDays.forEach(day => {
+                guru.assignedSessions.forEach(sesi => {
+                    const detail = guru.dailyDetails[day][sesi];
+                    row[`Tgl ${day} (${sesi})`] = !detail.isPast ? '-' : (detail.computedStatus || 'Tidak Hadir');
+                });
+            });
+            exportData.push(row);
+        });
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rekap Guru");
+        XLSX.writeFile(wb, `Rekap_Absensi_Guru_${months[selectedMonth]}_${selectedYear}.xlsx`);
+        toast({ title: "Ekspor Berhasil" });
+    };
+
+    const getProgressColor = (percentage) => {
+        if (percentage >= 71) return 'bg-green-500';
+        if (percentage >= 41) return 'bg-amber-500';
+        return 'bg-red-500';
+    };
+
+    const getProgressBgColor = (percentage) => {
+        if (percentage >= 71) return 'bg-green-100';
+        if (percentage >= 41) return 'bg-amber-100';
+        return 'bg-red-100';
+    };
+
+    // Derived modal data values
+    const isReadOnlyMode = editModal.data?.readOnly;
+    const sessionStartTs = editModal.data ? `${editModal.data.dateStr}T${defaultSessionTimes[editModal.data.sesi] || '08:00'}:00` : null;
+    const checkInTs = editTime && editModal.data ? `${editModal.data.dateStr}T${editTime}` : null;
+    const computedStatusForModal = isReadOnlyMode 
+        ? (editModal.data?.computedStatus || 'Tidak Hadir') 
+        : (checkInTs ? determineAttendanceStatus(checkInTs, sessionStartTs) : 'Tidak Hadir');
+    const timeDiff = calculateTimeDifference(checkInTs || editModal.data?.record?.check_in_timestamp, sessionStartTs);
+
+    return (
+        <Tabs defaultValue="rekap_absensi" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-6">
+                <TabsTrigger value="rekap_absensi" className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" /> Rekap Absensi
+                </TabsTrigger>
+                <TabsTrigger value="kinerja_guru" className="flex items-center gap-2">
+                    <BarChart className="w-4 h-4" /> Rekap Kinerja
+                </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="rekap_absensi">
+                <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6">
+                     <div className="flex flex-wrap justify-between items-center gap-4">
+                        <h2 className="text-2xl font-bold text-accent-foreground flex items-center gap-2">Rekap Absensi Guru Per Sesi</h2>
+                        <div className="flex flex-wrap gap-2">
+                            <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{availableYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select>
+                            <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}</SelectContent></Select>
+                            <Button onClick={fetchData} variant="outline" size="icon" title="Refresh Data"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}/></Button>
+                            <Button onClick={handleExport} className="bg-green-600 hover:bg-green-700 text-white"><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
+                        </div>
+                    </div>
+
+                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/><Input placeholder="Cari guru..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9"/></div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {recapData.map(guru => (
+                            <div key={guru.id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border p-4 hover:shadow-md transition-all flex flex-col relative group">
+                                {canEdit && (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleEditSessions(guru); }} 
+                                        className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Edit Sesi Manual"
+                                    >
+                                        <Edit className="w-4 h-4"/>
+                                    </button>
+                                )}
+                                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-4 text-center sm:text-left">
+                                    <Avatar className="h-16 w-16 sm:h-14 sm:w-14 border-2 border-slate-100 shadow-sm shrink-0"><AvatarImage src={guru.foto_url} /><AvatarFallback>{guru.nama.charAt(0)}</AvatarFallback></Avatar>
+                                    <div className="overflow-hidden w-full">
+                                        <h3 className="font-bold text-lg truncate">{guru.nama}</h3>
+                                        <div className="flex flex-wrap justify-center sm:justify-start gap-1 mt-1">
+                                            {guru.assignedSessions.map(s => <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>)}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-2 mb-4 flex-grow">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Kehadiran Sesi</span>
+                                        <span className="font-bold">{guru.totalSessionsAttended} / {guru.totalSessionsExpected}</span>
+                                    </div>
+                                    <Progress value={guru.percentage} className={`h-2 ${getProgressBgColor(guru.percentage)}`} indicatorClassName={getProgressColor(guru.percentage)} />
+                                    <p className="text-right text-xs text-muted-foreground">{guru.percentage}% Kehadiran</p>
+                                </div>
+
+                                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700 text-xs space-y-1 mb-4">
+                                    <p className="font-semibold mb-2 border-b pb-1">Detail Kehadiran (Hingga Hari Ini):</p>
+                                    {Object.entries(guru.sessionBreakdown).map(([sesi, count]) => (
+                                        <div key={sesi} className="flex justify-between">
+                                            <span className="text-muted-foreground">{sesi}</span>
+                                            <span>{count} Sesi</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                <Button variant="outline" className="w-full mt-auto" onClick={() => setSelectedGuruDetail(guru)}>
+                                    <Eye className="w-4 h-4 mr-2"/> Lihat Detail & Edit
+                                </Button>
+                            </div>
+                        ))}
+                        {recapData.length === 0 && <div className="col-span-full text-center py-8 text-muted-foreground">Tidak ada data guru atau jadwal mengajar ditemukan.</div>}
+                    </div>
+
+                    <Dialog open={!!selectedGuruDetail} onOpenChange={(open) => !open && setSelectedGuruDetail(null)}>
+                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center justify-between">
+                                    <span>Detail Absensi: {selectedGuruDetail?.nama}</span>
+                                    {canEdit ? 
+                                        <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-600 border-blue-200"><Unlock className="w-3 h-3 mr-1"/> Mode Edit Aktif</Badge> : 
+                                        <Badge variant="outline" className="ml-2 bg-slate-50 text-slate-500 border-slate-200"><Lock className="w-3 h-3 mr-1"/> Read Only</Badge>
+                                    }
+                                </DialogTitle>
+                                <p className="text-sm text-muted-foreground">Bulan: {months[selectedMonth]} {selectedYear}</p>
+                                {canEdit && <p className="text-xs text-blue-500 mt-1">Klik pada sel sesi (Hari Berjalan) untuk melihat timestamp dan edit status</p>}
+                            </DialogHeader>
+                            {selectedGuruDetail && (
+                                <div className="mt-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                        {selectedGuruDetail.activeDays.map(day => (
+                                            <div key={day} className="border rounded-lg p-2 text-center bg-slate-50 dark:bg-slate-800/50">
+                                                <div className="font-bold text-lg mb-1">{day}</div>
+                                                <div className="space-y-1">
+                                                    {selectedGuruDetail.assignedSessions.map(sesi => {
+                                                        const detail = selectedGuruDetail.dailyDetails[day][sesi];
+                                                        
+                                                        if (!detail.isPast) {
+                                                            return (
+                                                                <div key={sesi} className="text-xs px-1 py-1 rounded bg-slate-100 text-slate-400 dark:bg-slate-800 border border-slate-200">
+                                                                    {sesi}: -
+                                                                </div>
+                                                            )
+                                                        }
+
+                                                        const statusStr = detail.computedStatus?.toLowerCase() || '';
+                                                        let icon = <XCircle className="w-3 h-3 text-red-500" />;
+                                                        let bgClass = "bg-red-100 text-red-700 dark:bg-red-900/30 border-red-200";
+                                                        let label = 'Tidak Hadir';
+                                                        
+                                                        if (statusStr.includes('hadir') || statusStr === 'on_time') {
+                                                            icon = <CheckCircle2 className="w-3 h-3 text-green-500" />;
+                                                            bgClass = "bg-green-100 text-green-700 dark:bg-green-900/30 border-green-200";
+                                                            label = 'Hadir';
+                                                        } else if (statusStr.includes('terlambat')) {
+                                                            icon = <Clock className="w-3 h-3 text-amber-500" />;
+                                                            bgClass = "bg-amber-100 text-amber-700 dark:bg-amber-900/30 border-amber-200";
+                                                            label = 'Terlambat';
+                                                        }
+
+                                                        return (
+                                                            <div 
+                                                                key={sesi} 
+                                                                onClick={() => {
+                                                                    if (detail.isPast) {
+                                                                        setEditModal({
+                                                                            isOpen: true,
+                                                                            data: {
+                                                                                guruId: selectedGuruDetail.id,
+                                                                                guruName: selectedGuruDetail.nama,
+                                                                                dateStr: detail.dateStr,
+                                                                                sesi,
+                                                                                record: detail.record,
+                                                                                computedStatus: detail.computedStatus,
+                                                                                readOnly: !canEdit
+                                                                            }
+                                                                        });
+                                                                        
+                                                                        if (detail.record?.check_in_time) {
+                                                                            setEditTime(detail.record.check_in_time);
+                                                                        } else if (!detail.record && canEdit) {
+                                                                            setEditTime(''); // empty for manual input
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className={`text-xs px-1 py-1 rounded flex flex-col items-center justify-center gap-1 transition-all duration-200
+                                                                    ${bgClass}
+                                                                    ${canEdit || detail.isPast ? 'cursor-pointer hover:scale-105 hover:shadow-sm active:scale-95' : 'cursor-default'}
+                                                                `}
+                                                            >
+                                                                <span className="font-semibold">{sesi}</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    {icon} {label}
+                                                                </div>
+                                                                {detail.record?.check_in_time && (
+                                                                    <span className="text-[10px] opacity-70">
+                                                                        {detail.record.check_in_time.substring(0, 5)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Advanced Edit Modal - Replaces Confirmation Dialog */}
+                    <Dialog open={editModal.isOpen} onOpenChange={(open) => !open && setEditModal({ isOpen: false, data: null })}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Detail & Edit Kehadiran Guru</DialogTitle>
+                                <DialogDescription>
+                                    Informasi kehadiran {editModal.data?.guruName} pada tanggal {editModal.data?.dateStr} ({editModal.data?.sesi})
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                    <Calendar className="w-5 h-5 text-blue-500" />
+                                    <div>
+                                        <p className="text-xs text-slate-500">Waktu Sesi</p>
+                                        <p className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                                            {sessionStartTs ? formatTimestamp(sessionStartTs) : '-'}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {isReadOnlyMode ? (
+                                    <>
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            <div>
+                                                <p className="text-xs text-slate-500">Waktu Absensi (Timestamp)</p>
+                                                <p className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                                                    {editModal.data?.record?.check_in_timestamp ? formatTimestamp(editModal.data.record.check_in_timestamp) : 'Belum Absen'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className={`p-4 rounded-xl border flex items-center justify-between
+                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' : 
+                                              computedStatusForModal === 'Hadir' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                                            <div className="flex items-center gap-2">
+                                                {computedStatusForModal === 'Terlambat' ? <Clock className="w-5 h-5" /> : computedStatusForModal === 'Hadir' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                                <div>
+                                                    <p className="text-sm font-semibold">Status: {computedStatusForModal}</p>
+                                                    {computedStatusForModal === 'Terlambat' && <p className="text-xs mt-1">Terlambat: {timeDiff} menit</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="space-y-2 border-t pt-4">
+                                            <label className="text-sm font-medium">Edit Waktu Hadir</label>
+                                            <Input 
+                                                type="time" 
+                                                step="1" 
+                                                value={editTime} 
+                                                onChange={(e) => setEditTime(e.target.value)} 
+                                                className="font-mono"
+                                            />
+                                            <p className="text-xs text-muted-foreground">Kosongkan untuk merubah status menjadi Tidak Hadir.</p>
+                                        </div>
+                                        <div className={`p-4 rounded-xl border flex items-center gap-2
+                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' : 
+                                              computedStatusForModal === 'Hadir' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                                            {computedStatusForModal === 'Terlambat' ? <Clock className="w-5 h-5" /> : computedStatusForModal === 'Hadir' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                            <div>
+                                                <p className="text-sm font-semibold">Status yang akan disimpan: {computedStatusForModal}</p>
+                                                {computedStatusForModal === 'Terlambat' && <p className="text-xs mt-1">Terlambat: {timeDiff} menit</p>}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setEditModal({ isOpen: false, data: null })}>
+                                    {isReadOnlyMode ? 'Tutup' : 'Batal'}
+                                </Button>
+                                {!isReadOnlyMode && (
+                                    <Button 
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white" 
+                                        onClick={handleSaveAttendance}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                    </Button>
+                                )}
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isSessionEditOpen} onOpenChange={setIsSessionEditOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Edit Sesi Mengajar: {sessionEditGuru?.nama}</DialogTitle>
+                                <DialogDescription>
+                                    Pilih sesi yang dihitung sebagai kewajiban hadir.
+                                    Hanya menampilkan sesi yang sesuai dengan jadwal kelas guru.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid grid-cols-2 gap-4 py-4">
+                                {availableSessionsForGuru.length > 0 ? (
+                                    availableSessionsForGuru.map(sesi => (
+                                        <div key={sesi} className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-slate-50 cursor-pointer" onClick={() => toggleSession(sesi)}>
+                                            <Checkbox checked={tempSessions.includes(sesi)} onCheckedChange={() => toggleSession(sesi)} />
+                                            <span className="font-medium">{sesi}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                     <div className="col-span-2 text-center text-muted-foreground text-sm py-4">
+                                        Guru ini tidak memiliki jadwal kelas aktif. Tidak ada sesi untuk diedit.
+                                     </div>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsSessionEditOpen(false)}>Batal</Button>
+                                <Button onClick={saveSessionOverride}>Simpan Perubahan</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </TabsContent>
+            
+            <TabsContent value="kinerja_guru">
+                <GuruPerformanceSummary />
+            </TabsContent>
+        </Tabs>
+    );
+};
+
+export default GuruAttendanceRecap;
