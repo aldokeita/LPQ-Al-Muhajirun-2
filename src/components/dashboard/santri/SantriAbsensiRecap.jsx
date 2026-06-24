@@ -78,7 +78,11 @@ const SantriAbsensiRecap = () => {
                     .eq('user_id', user.id)
                     .order('attendance_date', { ascending: true }),
                 supabase.from('academic_calendar').select('date').eq('is_holiday', true),
-                supabase.from('santri').select('*, class:id_kelas(sesi)').eq('id', user.id).single()
+                supabase
+                    .from('santri')
+                    .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, kategori, status, class:current_class_id(sesi, nama_kelas)')
+                    .eq('id', user.id)
+                    .single()
             ]);
 
             if (attendanceRes.error) {
@@ -187,7 +191,7 @@ const SantriAbsensiRecap = () => {
             sessionStartTime: sessionStart,
             lateMinutes: record ? calculateTimeDifference(record.check_in_timestamp, sessionStart) : 0,
             sesi: santriData?.sesi_mengaji || santriData?.class?.sesi,
-            class_id: santriData?.id_kelas,
+            class_id: santriData?.current_class_id,
         });
         setIsModalOpen(true);
     };

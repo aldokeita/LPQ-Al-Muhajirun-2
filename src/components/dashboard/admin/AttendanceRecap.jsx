@@ -30,14 +30,14 @@ const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
     const [attendance, setAttendance] = useState([]);
     const [availableYears, setAvailableYears] = useState([]);
     const [chartData, setChartData] = useState([]);
-    
+
     useEffect(() => {
         if (!santri) return;
         const fetchDetail = async () => {
             try {
                 const { data, error } = await supabase.from('attendance').select('attendance_date').eq('user_id', santri.id).order('attendance_date');
                 if (error) throw error;
-                
+
                 setAttendance(data || []);
                 const years = [...new Set((data || []).map(a => parseInt(a.attendance_date.split('-')[0])))].sort((a,b) => b-a);
                 const currentYear = new Date().getFullYear();
@@ -50,7 +50,7 @@ const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
         };
         fetchDetail();
     }, [santri, year]);
-    
+
     useEffect(() => {
         if (!santri) return;
         const yearAttendance = attendance.filter(a => parseInt(a.attendance_date.split('-')[0]) === year);
@@ -116,13 +116,13 @@ const AttendanceRecap = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [holidays, setHolidays] = useState(new Set());
     const [activeTab, setActiveTab] = useState('tpq');
-    
+
     const [previewImage, setPreviewImage] = useState(null);
     const [attendanceDetails, setAttendanceDetails] = useState(null);
 
     const fetchAllData = useCallback(async () => {
         setIsLoading(true);
-        
+
         const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
         const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
         const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -135,15 +135,17 @@ const AttendanceRecap = () => {
                 .lte('attendance_date', endDate)
                 .range(0, 4999);
 
-            const { data: santri, error: sanError } = await supabase.from('santri').select('id, nama_lengkap, sesi_mengaji, id_kelas, foto_url, kategori');
+            const { data: santri, error: sanError } = await supabase
+                .from('santri')
+                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, kategori, status');
             const { data: guru, error: guruError } = await supabase.from('guru').select('id, nama, foto_url');
-            
-            let classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru');
+
+            let classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, is_active').eq('is_active', true);
             if (role === 'guru') {
                 classQuery = classQuery.eq('id_guru', user?.id);
             }
             const { data: classData, error: classError } = await classQuery;
-            
+
             const calendarStartDate = `${selectedYear}-01-01`;
             const calendarEndDate = `${selectedYear}-12-31`;
             const { data: calendarData, error: calError } = await supabase.from('academic_calendar').select('date, is_holiday').gte('date', calendarStartDate).lte('date', calendarEndDate).eq('is_holiday', true);
@@ -154,11 +156,11 @@ const AttendanceRecap = () => {
 
             setAttendanceData(attendance || []);
             setAllUsers([
-                ...(santri || []).map(s => ({ ...s, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })), 
+                ...(santri || []).map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })),
                 ...(guru || []).map(g => ({ ...g, name: g.nama, role: 'guru' }))
             ]);
             setClasses(classData || []);
-            
+
             // Auto-select class for guru if they have one and 'all' is selected
             if (role === 'guru' && classData && classData.length > 0 && selectedClass === 'all') {
                 setSelectedClass(classData[0].id);
@@ -167,10 +169,10 @@ const AttendanceRecap = () => {
             const holidaySet = new Set((calendarData || []).map(c => c.date));
             setHolidays(holidaySet);
 
-            const years = [selectedYear, new Date().getFullYear()]; 
+            const years = [selectedYear, new Date().getFullYear()];
             const uniqueYears = [...new Set(years)].sort((a,b) => b-a);
             setAvailableYears(uniqueYears);
-            
+
         } catch (err) {
              console.error("Exception fetching data:", err);
              toast({ title: "Error", description: err.message || "Gagal memuat data rekap.", variant: "destructive" });
@@ -205,12 +207,12 @@ const AttendanceRecap = () => {
                 user_id: user.id,
                 attendance_date: dateStr,
                 sesi: user.sesi_mengaji || 'Pagi',
-                class_id: user.id_kelas,
+                class_id: user.current_class_id || user.id_kelas,
                 user_role: user.role
             });
             return;
         }
-        
+
         const timestamp = record?.check_in_timestamp || record?.created_at;
         const computedStatus = determineAttendanceStatus(timestamp, sessionStartTime);
         const diff = calculateTimeDifference(timestamp, sessionStartTime);
@@ -224,7 +226,7 @@ const AttendanceRecap = () => {
             user_id: user.id,
             attendance_date: dateStr,
             sesi: user.sesi_mengaji || 'Pagi',
-            class_id: user.id_kelas,
+            class_id: user.current_class_id || user.id_kelas,
             user_role: user.role
         });
     };
@@ -234,12 +236,12 @@ const AttendanceRecap = () => {
         const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const utcDate = new Date(Date.UTC(selectedYear, selectedMonth, d));
-            const dayOfWeek = utcDate.getUTCDay(); 
-            
+            const dayOfWeek = utcDate.getUTCDay();
+
             const isHoliday = holidays.has(dateStr);
             const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
@@ -247,7 +249,7 @@ const AttendanceRecap = () => {
                 weekdaysInMonth.push(d);
             }
         }
-        
+
         const pastSessionDaysCount = weekdaysInMonth.filter(d => new Date(selectedYear, selectedMonth, d) <= today).length;
 
         const filteredAttendance = attendanceData.filter(a => {
@@ -264,13 +266,13 @@ const AttendanceRecap = () => {
             usersToRecap = allUsers.filter(u => u.role === 'santri' && u.kategori === 'Dewasa');
         }
 
-        if (selectedClass !== 'all') { usersToRecap = usersToRecap.filter(u => u.id_kelas === selectedClass); }
+        if (selectedClass !== 'all') { usersToRecap = usersToRecap.filter(u => (u.current_class_id || u.id_kelas) === selectedClass); }
         if (searchTerm) { usersToRecap = usersToRecap.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase())); }
-        
+
         const userRecap = usersToRecap.map(user => {
             const attendanceByDate = {};
             let totalHadir = 0;
-            
+
             weekdaysInMonth.forEach(day => {
                 const dateToCompare = new Date(selectedYear, selectedMonth, day);
                 const isPast = dateToCompare <= today;
@@ -280,16 +282,16 @@ const AttendanceRecap = () => {
                     const [y, m, d] = datePart.split('-').map(Number);
                     return a.user_id === user.id && d === day;
                 });
-                
+
                 if (isPast) {
                     attendanceByDate[day] = attendanceRecord ? 'H' : 'A';
                     attendanceByDate[`${day}_record`] = attendanceRecord;
                     if (attendanceRecord) totalHadir++;
                 } else {
-                    attendanceByDate[day] = 'F'; 
+                    attendanceByDate[day] = 'F';
                 }
             });
-            
+
             let attendancePercentage = 0;
             if (totalHadir === 0) {
                 attendancePercentage = 0;
@@ -298,15 +300,16 @@ const AttendanceRecap = () => {
             } else if (pastSessionDaysCount > 0) {
                 attendancePercentage = Math.round((totalHadir / pastSessionDaysCount) * 100);
             }
-            
-            return { 
-                id: user.id, 
-                name: user.name, 
-                role: user.role, 
+
+            return {
+                id: user.id,
+                name: user.name,
+                role: user.role,
                 photo: user.foto_url,
                 sesi_mengaji: user.sesi_mengaji,
-                id_kelas: user.id_kelas,
-                ...attendanceByDate, 
+                id_kelas: user.current_class_id || user.id_kelas,
+                current_class_id: user.current_class_id || user.id_kelas,
+                ...attendanceByDate,
                 totalHadir,
                 attendancePercentage
             };
@@ -315,10 +318,10 @@ const AttendanceRecap = () => {
         userRecap.sort((a, b) => {
             let valA = a[sortKey];
             let valB = b[sortKey];
-            
+
             if (typeof valA === 'string') valA = valA.toLowerCase();
             if (typeof valB === 'string') valB = valB.toLowerCase();
-            
+
             if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
             if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
             return 0;
@@ -326,7 +329,7 @@ const AttendanceRecap = () => {
 
         return { userRecap, weekdaysInMonth };
     }, [attendanceData, allUsers, selectedYear, selectedMonth, selectedClass, searchTerm, sortKey, sortOrder, holidays, activeTab]);
-    
+
     const chartData = useMemo(() => {
         return recapData.weekdaysInMonth.map(day => {
             let hadirCount = recapData.userRecap.filter(user => user[day] === 'H').length;
@@ -361,7 +364,7 @@ const AttendanceRecap = () => {
             toast({ title: "Ekspor Berhasil", description: "File rekap absensi telah diunduh." });
         } catch (error) { toast({ title: "Ekspor Gagal", description: error.message, variant: 'destructive' }); }
     };
-    
+
     const openDetailModal = (santri) => {
         setDetailSantri(santri);
         setIsDetailOpen(true);
@@ -436,7 +439,7 @@ const AttendanceRecap = () => {
                         ))}
                     </div>
                 </div>
-                
+
                 <TabsContent value={activeTab} className="space-y-4">
                     <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                         <div className="relative flex-grow w-full">
@@ -458,7 +461,7 @@ const AttendanceRecap = () => {
                             </Select>
                         </div>
                     </div>
-                    
+
                     <div className="overflow-x-auto border rounded-xl shadow-sm max-h-[70vh] custom-scrollbar bg-white dark:bg-slate-950 relative">
                         <table className="w-full text-sm min-w-max border-collapse">
                             <thead className="bg-slate-100 dark:bg-slate-900 sticky top-0 z-30 shadow-sm">
@@ -495,7 +498,7 @@ const AttendanceRecap = () => {
                                             const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                                             const sessionStart = getSessionStartTimestamp(dateStr, user.sesi_mengaji || 'Pagi');
                                             let displayStatus = status === 'H' ? 'Hadir' : (status === 'A' ? 'Tidak Hadir' : 'Future');
-                                            
+
                                             if (status === 'H' && record) {
                                                 displayStatus = determineAttendanceStatus(record.check_in_timestamp || record.created_at, sessionStart);
                                             }
@@ -506,8 +509,8 @@ const AttendanceRecap = () => {
                                                         <span className="text-slate-300 dark:text-slate-700 flex justify-center">-</span>
                                                     ) : (
                                                         <div className="flex items-center justify-center w-full h-full">
-                                                            <AttendanceStatusIcon 
-                                                                status={displayStatus} 
+                                                            <AttendanceStatusIcon
+                                                                status={displayStatus}
                                                                 onClick={() => handleIconClick(record, day, user)}
                                                             />
                                                         </div>
@@ -535,7 +538,7 @@ const AttendanceRecap = () => {
                 </TabsContent>
             </Tabs>
         </div>
-        
+
         <SantriRecapDetailModal santri={detailSantri} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
         <AttendanceDetailsModal isOpen={!!attendanceDetails} onClose={() => setAttendanceDetails(null)} details={attendanceDetails} onSuccess={fetchAllData} />
 
@@ -549,9 +552,9 @@ const AttendanceRecap = () => {
                             <User className="w-20 h-20 text-slate-400" />
                         </div>
                     )}
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-sm"
                         onClick={() => setPreviewImage(null)}
                     >

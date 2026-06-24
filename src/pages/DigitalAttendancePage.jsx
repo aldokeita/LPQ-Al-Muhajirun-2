@@ -13,23 +13,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MediaPlayerWidget from '@/components/MediaPlayerWidget';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { enableDeferredFeatures } from '@/lib/featureFlags';
+import {
+  buildSantriAttendancePayload,
+  getAttendanceErrorMessage,
+  getSantriSession,
+  isActiveSantri,
+  normalizeRfidTag,
+} from '@/lib/attendanceAdapters';
 
 // --- Animated Background Particles ---
 const Particle = ({ delay, isDark }) => (
     <motion.div
         className={`absolute rounded-full blur-[2px] ${isDark ? 'bg-white/20' : 'bg-[#4CAF50]/30'}`}
         initial={{ y: "110vh", x: Math.random() * 100 + "vw", opacity: 0, scale: 0 }}
-        animate={{ 
-            y: "-10vh", 
-            opacity: [0, 0.4, 0], 
+        animate={{
+            y: "-10vh",
+            opacity: [0, 0.4, 0],
             scale: [0, Math.random() * 2 + 0.5, 0],
             rotate: 360
         }}
-        transition={{ 
-            duration: Math.random() * 15 + 20, 
-            repeat: Infinity, 
-            delay: delay, 
-            ease: "linear" 
+        transition={{
+            duration: Math.random() * 15 + 20,
+            repeat: Infinity,
+            delay: delay,
+            ease: "linear"
         }}
         style={{ width: Math.random() * 10 + 4, height: Math.random() * 10 + 4 }}
     />
@@ -54,24 +61,24 @@ const guruQuotes = [
 ];
 
 const motivationalMessages = [
-    "Semangat belajar mengajinya ya!", 
-    "Jadilah anak yang taat bagi kedua orang tua!", 
-    "Menuntut ilmu itu wajib bagi setiap muslim.", 
-    "Barang siapa menempuh jalan mencari ilmu, Allah mudahkan jalan ke surga.", 
-    "Hafalanmu adalah cahayamu.", 
-    "Teruslah berbuat baik kepada orang tua.", 
-    "Jangan lupa sholat 5 waktu ya!", 
-    "Ilmu adalah harta yang tidak akan habis.", 
-    "Hafalanmu hari ini adalah tabungan untuk surgamu nanti. Semangat!", 
-    "Jangan takut salah baca ya, Allah tetap akan catat usahamu kok.", 
-    "Lelahmu dalam belajar itu bernilai jihad lho. Keren!", 
-    "Anak sholeh/sholehah adalah harta terindah Ayah Bunda.", 
-    "Jadilah alasan Ayah dan Bunda tersenyum hari ini.", 
-    "Bersih itu ciri orang beriman. Sampahnya dibuang di tempatnya ya.", 
-    "Jujur itu hebat! Santri LPQ Al-Muhajirun pantang berbohong.", 
-    "Siapa yang bersungguh-sungguh, pasti akan berhasil. Man Jadda Wajada!", 
-    "Hari ini pembelajar, besok jadi pemimpin. Aamiin!", 
-    "Absen diterima! Silakan masuk, pintu ilmu sudah terbuka.", 
+    "Semangat belajar mengajinya ya!",
+    "Jadilah anak yang taat bagi kedua orang tua!",
+    "Menuntut ilmu itu wajib bagi setiap muslim.",
+    "Barang siapa menempuh jalan mencari ilmu, Allah mudahkan jalan ke surga.",
+    "Hafalanmu adalah cahayamu.",
+    "Teruslah berbuat baik kepada orang tua.",
+    "Jangan lupa sholat 5 waktu ya!",
+    "Ilmu adalah harta yang tidak akan habis.",
+    "Hafalanmu hari ini adalah tabungan untuk surgamu nanti. Semangat!",
+    "Jangan takut salah baca ya, Allah tetap akan catat usahamu kok.",
+    "Lelahmu dalam belajar itu bernilai jihad lho. Keren!",
+    "Anak sholeh/sholehah adalah harta terindah Ayah Bunda.",
+    "Jadilah alasan Ayah dan Bunda tersenyum hari ini.",
+    "Bersih itu ciri orang beriman. Sampahnya dibuang di tempatnya ya.",
+    "Jujur itu hebat! Santri LPQ Al-Muhajirun pantang berbohong.",
+    "Siapa yang bersungguh-sungguh, pasti akan berhasil. Man Jadda Wajada!",
+    "Hari ini pembelajar, besok jadi pemimpin. Aamiin!",
+    "Absen diterima! Silakan masuk, pintu ilmu sudah terbuka.",
     "Terima kasih sudah hadir. Kehadiranmu sangat berarti buat kakak."
 ];
 
@@ -93,18 +100,18 @@ const canCheckIn = (sesi, userRole, isPentashih = false) => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' };
-    
+
     const now = new Date();
     const sessionConfig = sessionTimes[sesi];
     if (!sessionConfig) {
          return { can: false, message: `Sesi ${sesi} tidak valid saat ini.` };
     }
-    
+
     const [hours, minutes] = sessionConfig.start.split(':');
     const startTime = new Date();
     startTime.setHours(hours, minutes, 0, 0);
     const sixtyMinutesBefore = new Date(startTime.getTime() - 60 * 60 * 1000);
-    
+
     if (now < sixtyMinutesBefore) {
         const timeString = sixtyMinutesBefore.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         return { can: false, message: `Absensi sesi ${sesi} baru dibuka pukul ${timeString}.` };
@@ -118,7 +125,7 @@ const DigitalClock = ({ showSeconds = true }) => {
     const timerId = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timerId);
   }, []);
-  
+
   return <div className="flex flex-col items-center justify-center space-y-2 relative z-20">
             <div className="text-6xl md:text-8xl font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#1B5E20] to-[#4CAF50] dark:from-[#4CAF50] dark:to-[#D4AF37] drop-shadow-sm dark:drop-shadow-[0_0_15px_rgba(76,175,80,0.5)] transition-all duration-300">
                 {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: showSeconds ? '2-digit' : undefined })}
@@ -147,9 +154,9 @@ const DigitalAttendancePage = () => {
   }, []);
 
   const getLevelInfo = (points = 0, gender) => {
-      const defaultInfo = { 
-          label: 'Level C', 
-          color: '#4CAF50', 
+      const defaultInfo = {
+          label: 'Level C',
+          color: '#4CAF50',
           badgeIcon: <Book className="w-8 h-8 text-[#4CAF50]" />,
           enableGradient: false,
           cardBgColor: '#ffffff',
@@ -158,22 +165,22 @@ const DigitalAttendancePage = () => {
           avatarBorderThickness: 4,
           textGradient: false
       };
-      
+
       if (!levelConfig) return defaultInfo;
       const levels = gender === 'Perempuan' ? levelConfig.female : levelConfig.male;
-      
+
       if (!Array.isArray(levels) || levels.length === 0) return defaultInfo;
-      
+
       const matchedLevel = levels.find(l => points >= (l.min || 0) && points <= (l.max || 9999)) || levels[0];
       if (!matchedLevel) return defaultInfo;
-      
+
       let icon = <Book className="w-8 h-8" style={{ color: matchedLevel.color }} />;
       if ((matchedLevel.name || '').toLowerCase().includes('mahir') || (matchedLevel.name || '').toLowerCase().includes('s')) {
           icon = <Crown className="w-10 h-10 animate-bounce drop-shadow-md" style={{ color: matchedLevel.color }} />;
       } else if ((matchedLevel.name || '').toLowerCase().includes('menengah') || (matchedLevel.name || '').toLowerCase().includes('a')) {
           icon = <Globe2 className="w-10 h-10 animate-pulse" style={{ color: matchedLevel.color }} />;
       }
-      
+
       return {
           label: matchedLevel.name,
           color: matchedLevel.color,
@@ -198,7 +205,7 @@ const DigitalAttendancePage = () => {
 
   const processScan = async (tagToProcess) => {
       if (!tagToProcess || isLoading) return;
-      const tag = tagToProcess.trim();
+      const tag = normalizeRfidTag(tagToProcess);
 
       // Pentashih handling
       if (lastScan?.type === 'success' && lastScan.isPentashih && lastScan.rfid === tag) {
@@ -229,7 +236,7 @@ const DigitalAttendancePage = () => {
           try {
             const nowTime = new Date().toTimeString().split(' ')[0];
             const timestamp = new Date().toISOString();
-            
+
             if (lastScan.isMMQ) {
                  const { error: updErr } = await supabase.from('mmq_attendance').update({ check_in_timestamp: timestamp }).eq('id', lastScan.attendanceId);
                  if (updErr) throw updErr;
@@ -240,22 +247,22 @@ const DigitalAttendancePage = () => {
                 const levelInfo = (lastScan.role === 'santri' && lastScan.kategori !== 'Dewasa') ? getLevelInfo(lastScan.points, lastScan.gender) : null;
                 setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, levelInfo, message: 'Absensi berhasil diperbarui!', quote: lastScan.pendingQuote }));
             }
-          } catch (err) { setLastScan({ type: 'error', message: err.message, name: 'Error' }); } 
+          } catch (err) { setLastScan({ type: 'error', message: err.message, name: 'Error' }); }
           finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return; }
         } else { setLastScan(null); setRfidTag(''); return; }
       }
 
       setIsLoading(true);
       setLastScan({ type: 'scanning' });
-      
+
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         const todayDate = new Date();
-        const todayStr = todayDate.toLocaleDateString('en-CA'); 
-        
+        const todayStr = todayDate.toLocaleDateString('en-CA');
+
         let user = null, userRole = '', sesiUser = '', kategori = '';
         let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
-        
+
         // Check MMQ Schedule if it's a Guru
         if (guruData) {
             user = guruData; userRole = 'guru';
@@ -274,7 +281,7 @@ const DigitalAttendancePage = () => {
                     console.log(`\n--- [MMQ ABSENSI] CHECK-IN START FOR ${user.nama} ---`);
                     const timestamp = new Date().toISOString();
                     const sessionStart = new Date(`${todayStr}T${mmqSchedule.start_time}`).toISOString();
-                    
+
                     // Determine raw status from logic
                     let rawStatus = determineAttendanceStatus(timestamp, sessionStart);
                     const timeDiff = calculateTimeDifference(timestamp, sessionStart);
@@ -342,19 +349,19 @@ const DigitalAttendancePage = () => {
                     }
 
                     const randomQuote = adultQuotes[Math.floor(Math.random() * adultQuotes.length)];
-                    
+
                     if (existingMMQ) {
                         console.log(`[MMQ Check-in] Guru already checked in (ID: ${existingMMQ.id}). Prompting confirmation.`);
-                        setLastScan({ 
-                            type: 'confirmation', 
-                            role: 'guru', 
+                        setLastScan({
+                            type: 'confirmation',
+                            role: 'guru',
                             isMMQ: true,
-                            message: 'Konfirmasi Kehadiran MMQ', 
-                            name: user.nama, 
-                            photo: user.foto_url, 
-                            rfid: tag, 
-                            attendanceId: existingMMQ.id, 
-                            pendingQuote: randomQuote 
+                            message: 'Konfirmasi Kehadiran MMQ',
+                            name: user.nama,
+                            photo: user.foto_url,
+                            rfid: tag,
+                            attendanceId: existingMMQ.id,
+                            pendingQuote: randomQuote
                         });
                         return;
                     }
@@ -386,7 +393,7 @@ const DigitalAttendancePage = () => {
 
                     let msg = `Absensi MMQ: ${validStatus}`;
                     if (validStatus === 'Terlambat') msg += ` (${timeDiff} menit)`;
-                    
+
                     setLastScan({
                         type: 'mmq_success',
                         name: user.nama,
@@ -398,11 +405,11 @@ const DigitalAttendancePage = () => {
                     });
                 } catch (err) {
                     console.error("[MMQ Exception] Caught error during MMQ process:", err);
-                    setLastScan({ 
-                        type: 'error', 
-                        message: err.message || "Terjadi kesalahan sistem saat absensi MMQ.", 
-                        name: user.nama || "Error", 
-                        photo: user?.foto_url 
+                    setLastScan({
+                        type: 'error',
+                        message: err.message || "Terjadi kesalahan sistem saat absensi MMQ.",
+                        name: user.nama || "Error",
+                        photo: user?.foto_url
                     });
                 }
                 return; // Early return to bypass regular attendance
@@ -421,14 +428,26 @@ const DigitalAttendancePage = () => {
                 if (now >= oneHourBefore && now <= endTime) { sesiUser = sesi; break; }
             }
         } else {
-          let { data: santriData } = await supabase.from('santri').select('*, class:id_kelas(*)').eq('rfid_tag', tag).maybeSingle();
-          if (santriData) { 
+          let { data: santriData } = await supabase
+            .from('santri')
+            .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
+            .eq('rfid_tag', tag)
+            .maybeSingle();
+          if (santriData) {
+              if (!isActiveSantri(santriData.status)) {
+                  setLastScan({ type: 'warning', message: 'Santri nonaktif tidak dapat dicatat absensinya.', name: santriData.nama_lengkap, photo: santriData.foto_url });
+                  return;
+              }
+              if (!santriData.current_class_id) {
+                  setLastScan({ type: 'warning', message: 'Santri belum memiliki kelas aktif.', name: santriData.nama_lengkap, photo: santriData.foto_url });
+                  return;
+              }
               user = santriData; userRole = 'santri'; kategori = santriData.kategori || 'Anak';
-              sesiUser = santriData.sesi_mengaji || santriData.class?.sesi || 'Pagi'; 
+              sesiUser = getSantriSession(santriData);
           }
         }
-        
-        if (!user) { setLastScan({ type: 'error', message: 'Kartu tidak terdaftar!', name: 'Tidak Dikenal' }); return; }
+
+        if (!user) { setLastScan({ type: 'error', message: 'RFID tidak dikenal. Tidak ada absensi yang dibuat.', name: 'Tidak Dikenal' }); return; }
 
         const isPentashih = userRole === 'guru' && ((user.roles && user.roles.includes('Pentashih')) || (user.jabatan && user.jabatan.toLowerCase().includes('pentashih')));
         const checkInStatus = canCheckIn(sesiUser, userRole, isPentashih);
@@ -443,16 +462,16 @@ const DigitalAttendancePage = () => {
               const uniqueSessions = [...new Set((guruClasses || []).map(c => c.sesi))];
               const scheduledSessionsCount = uniqueSessions.length;
               const totalMonthAttendance = attendanceCountResult.count || 0;
-              const hoursTaught = (totalMonthAttendance * 1.25).toFixed(2); 
+              const hoursTaught = (totalMonthAttendance * 1.25).toFixed(2);
               const uniqueDates = [...new Set(historyResult.data?.map(h => h.attendance_date) || [])];
               let streak = 0;
-              const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1); 
+              const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1);
               while (true) {
                   const dateStr = checkDate.toLocaleDateString('en-CA');
-                  if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); } 
+                  if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
                   else { const day = checkDate.getDay(); if (day === 0 || day === 6) { checkDate.setDate(checkDate.getDate() - 1); continue; } break; }
               }
-              if ((attendanceCountResult.count || 0) > 0) streak++; 
+              if ((attendanceCountResult.count || 0) > 0) streak++;
               const timeMap = { 'Pagi': 8, 'Siang': 14, 'Sore': 16, 'Malam': 18 };
               const sortedSessions = uniqueSessions.sort((a, b) => (timeMap[a] || 0) - (timeMap[b] || 0));
               const currentHour = new Date().getHours();
@@ -460,7 +479,7 @@ const DigitalAttendancePage = () => {
               if (!nextSession && sortedSessions.length > 0) { nextSession = `${sortedSessions[0]} (Besok)`; } else if (!nextSession) { nextSession = "-"; } else { const startTime = sessionTimes[nextSession]?.start || ''; nextSession = `${nextSession} (${startTime})`; }
               const quote = guruQuotes[Math.floor(Math.random() * guruQuotes.length)];
               setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: guruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
-              return; 
+              return;
         }
 
         if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, rfid: tag }); return; }
@@ -470,7 +489,7 @@ const DigitalAttendancePage = () => {
              const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
              existingAttendance = data;
         } else {
-             const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).maybeSingle();
+             const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
              existingAttendance = data;
         }
 
@@ -486,10 +505,14 @@ const DigitalAttendancePage = () => {
              setLastScan({ ...successData, message: 'Absensi diperbarui!', time: nowTime });
              return;
           }
+          if (userRole === 'santri') {
+             setLastScan({ ...successData, type: 'warning', message: 'Santri sudah tercatat hadir pada sesi ini.', time: existingAttendance.check_in_time });
+             return;
+          }
           setLastScan({ type: 'confirmation', role: userRole, kategori, message: 'Konfirmasi Kehadiran', name: user.nama || user.nama_lengkap, photo: user.foto_url, rfid: tag, attendanceId: existingAttendance.id, pendingQuote: randomQuote, points: user.points, jilid: user.jilid, gender: user.jenis_kelamin, jabatan: user.jabatan, no_hp: user.no_hp });
           return;
         }
-        
+
         const timestamp = new Date().toISOString();
         let sessionStartTime = null;
         if (sessionTimes[sesiUser]) {
@@ -497,16 +520,19 @@ const DigitalAttendancePage = () => {
         }
         const attendanceStatusText = determineAttendanceStatus(timestamp, sessionStartTime);
 
-        const newAttendance = { 
-            user_id: user.id, 
-            role: userRole, 
-            attendance_date: todayStr, 
-            check_in_time: new Date().toTimeString().split(' ')[0], 
-            check_in_timestamp: timestamp,
-            class_id: userRole === 'santri' ? user.id_kelas : null, 
-            sesi: sesiUser || (isPentashih ? 'Flex' : 'Pagi'), 
-            status: attendanceStatusText
-        };
+        const newAttendance = userRole === 'santri'
+          ? buildSantriAttendancePayload({ santri: user, timestamp: new Date(), status: attendanceStatusText })
+          : {
+              user_id: user.id,
+              role: userRole,
+              attendance_date: todayStr,
+              check_in_time: new Date().toTimeString().split(' ')[0],
+              check_in_timestamp: timestamp,
+              class_id: null,
+              sesi: sesiUser || (isPentashih ? 'Flex' : 'Pagi'),
+              status: attendanceStatusText,
+              source: 'rfid',
+          };
         const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
 
         if (userRole === 'guru' && !isPentashih) {
@@ -518,7 +544,7 @@ const DigitalAttendancePage = () => {
             });
         }
 
-        if (insertError) { setLastScan({ type: 'error', message: insertError.message, name: user.nama || user.nama_lengkap, photo: user.foto_url }); } 
+        if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
           let newPoints = user.points || 0;
           if (userRole === 'santri' && !isAdult) { await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 }); newPoints += 1; }
@@ -535,13 +561,13 @@ const DigitalAttendancePage = () => {
              const { data: historyResult } = await supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30);
              const uniqueDates = [...new Set(historyResult?.map(h => h.attendance_date) || [])];
               let streak = 0;
-              const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1); 
+              const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1);
               while (true) {
                   const dateStr = checkDate.toLocaleDateString('en-CA');
-                  if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); } 
+                  if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
                   else { const day = checkDate.getDay(); if (day === 0 || day === 6) { checkDate.setDate(checkDate.getDate() - 1); continue; } break; }
               }
-              streak++; 
+              streak++;
               guruStats = { hours: hoursTaught, streak, session: sesiUser };
           }
           setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, points: newPoints, levelInfo, adultStats, guruStats });
@@ -684,10 +710,10 @@ const DigitalAttendancePage = () => {
 
      if (scan.type === 'success' && scan.role === 'santri') {
          const { label, color, badgeIcon, enableGradient, textColor, avatarBorderThickness, textGradient } = scan.levelInfo || { label: 'Level C', color: '#4CAF50', badgeIcon: <Book className="w-8 h-8"/>, enableGradient: false, textColor: '#333333', avatarBorderThickness: 4, textGradient: false };
-         const textGradientClass = "bg-clip-text text-transparent bg-gradient-to-r from-[#D4AF37] to-yellow-500"; 
+         const textGradientClass = "bg-clip-text text-transparent bg-gradient-to-r from-[#D4AF37] to-yellow-500";
          return (
-            <motion.div 
-                key="success" 
+            <motion.div
+                key="success"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
@@ -696,43 +722,43 @@ const DigitalAttendancePage = () => {
             >
                 <div className="relative mb-8 mt-2">
                     <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="absolute -top-6 -right-6 glass-card p-4 rounded-2xl z-20 flex items-center justify-center border-t-white/40 border-l-white/40" style={{ borderColor: color }}>{badgeIcon}</motion.div>
-                    
+
                     <Avatar className="w-64 h-64 rounded-[2.5rem] premium-shadow" style={{ borderWidth: `${avatarBorderThickness}px`, borderColor: color, borderStyle: 'solid', boxShadow: `0 0 30px color-mix(in srgb, ${color} 50%, transparent)` }}><AvatarImage src={scan.photo} className="object-cover" /><AvatarFallback className="rounded-[2.5rem] text-7xl font-bold text-slate-300">{scan.name?.[0]}</AvatarFallback></Avatar>
-                    
+
                     <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 glass-card px-8 py-2 rounded-full z-20 whitespace-nowrap min-w-[140px] text-center border-t-white/40 border-l-white/40" style={{ borderColor: color }}>
                       <span className={`text-sm font-black uppercase tracking-[0.2em] ${enableGradient ? 'gradient-text' : ''}`} style={{ color: enableGradient ? 'inherit' : color }}>{label}</span>
                     </div>
                 </div>
-                
+
                 <div className="text-center space-y-4 mt-4 w-full">
                     <h2 className={`text-5xl font-black leading-tight px-4 drop-shadow-sm text-foreground ${textGradient ? textGradientClass : ''}`} style={{ color: textGradient ? undefined : textColor }}>{scan.name}</h2>
-                    
+
                     <div className="flex items-center justify-center gap-3 opacity-90 mt-2">
                       <div className="flex items-center gap-2 px-5 py-2 rounded-full glass-card border-t-white/40 border-l-white/40">
                         <Clock className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                         <span className="font-mono text-xl font-bold text-slate-700 dark:text-slate-200">{scan.time}</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-center gap-4 mt-4">
-                      {scan.jilid && 
+                      {scan.jilid &&
                         <div className="glass-card px-6 py-3 rounded-2xl text-center border-t-white/40 border-l-white/40">
                           <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider mb-1">Jilid</p>
                           <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{scan.jilid}</p>
                         </div>
                       }
-                      {scan.points !== undefined && 
+                      {scan.points !== undefined &&
                         <div className="glass-card px-6 py-3 rounded-2xl text-center border-t-white/40 border-l-white/40">
                           <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider mb-1">Poin</p>
                           <p className="text-2xl font-black text-yellow-600 dark:text-yellow-400">{scan.points}</p>
                         </div>
                       }
                     </div>
-                    
+
                     <div className="pt-6 pb-2">
                       <p className="text-xl font-medium text-slate-700 dark:text-slate-200 opacity-90">{scan.message}</p>
                     </div>
-                    
+
                     {scan.quote && (
                       <div className="mt-4 max-w-lg mx-auto p-5 glass-card rounded-2xl border-t-white/40 border-l-white/40 text-center">
                         <div className="mb-3 animate-shine font-bold uppercase text-sm tracking-widest flex items-center justify-center gap-2">
@@ -744,7 +770,7 @@ const DigitalAttendancePage = () => {
                       </div>
                     )}
                 </div>
-                
+
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="absolute top-6 left-6">
                   <div className="bg-[#4CAF50] text-white p-3 rounded-full premium-shadow border-2 border-white/20">
                     <CheckCircle className="w-7 h-7" />

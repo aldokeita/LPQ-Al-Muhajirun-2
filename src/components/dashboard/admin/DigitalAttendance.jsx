@@ -7,6 +7,14 @@ import { Fingerprint, Search, CheckCircle, XCircle, AlertTriangle, Clock, HelpCi
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '@/components/ui/use-toast';
+import {
+    buildSantriAttendancePayload,
+    getAttendanceErrorMessage,
+    getLocalDateString,
+    getSantriSession,
+    isActiveSantri,
+    normalizeRfidTag,
+} from '@/lib/attendanceAdapters';
 
 const sessionTimes = {
   'Pagi': { start: '08:00', end: '09:15' },
@@ -49,7 +57,7 @@ const DigitalAttendance = () => {
         window.addEventListener('click', reFocusHandler);
         return () => window.removeEventListener('click', reFocusHandler);
     }, []);
-    
+
     // Countdown logic
     useEffect(() => {
         if (lastScan?.type === 'confirmation' && lastScan.timer > 0) {
@@ -72,7 +80,7 @@ const DigitalAttendance = () => {
                 await ndef.scan();
                 setNfcStatus('scanning');
                 toast({ title: "NFC Ready", description: "Silakan tempelkan kartu." });
-                
+
                 ndef.onreading = event => {
                     const serialNumber = event.serialNumber;
                     if (serialNumber) {
@@ -81,7 +89,7 @@ const DigitalAttendance = () => {
                         processScan(formattedTag);
                     }
                 };
-                
+
                 ndef.onreadingerror = () => {
                     toast({ title: "NFC Error", description: "Gagal membaca kartu.", variant: "destructive" });
                 };
@@ -100,21 +108,21 @@ const DigitalAttendance = () => {
         const today = new Date();
         const dayOfWeek = today.getDay();
         if (dayOfWeek === 0 || dayOfWeek === 6) { return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' }; }
-        
+
         const sessionStartTime = sessionTimes[sesi]?.start;
         if (!sessionStartTime) return { can: false, message: `Sesi ${sesi} tidak valid.` };
 
         if (role === 'santri') {
             return { can: true, message: '' };
         }
-        
+
         const now = new Date();
         const [hours, minutes] = sessionStartTime.split(':');
         const startTime = new Date();
         startTime.setHours(hours, minutes, 0, 0);
 
         const oneHourBefore = new Date(startTime.getTime() - 60 * 60 * 1000);
-        
+
         if (now < oneHourBefore) {
             const timeString = oneHourBefore.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
             return { can: false, message: `Absensi sesi ${sesi} baru dibuka pukul ${timeString}.` };
@@ -124,7 +132,7 @@ const DigitalAttendance = () => {
 
     const processScan = async (tagToProcess) => {
         if (!tagToProcess || isLoading) return;
-        const tag = tagToProcess.trim();
+        const tag = normalizeRfidTag(tagToProcess);
 
         if (lastScan?.type === 'confirmation') {
              if (tag === lastScan.rfid) {
@@ -132,10 +140,10 @@ const DigitalAttendance = () => {
                  try {
                     const nowTime = new Date().toTimeString().split(' ')[0];
                     const timestamp = new Date().toISOString();
-                    
+
                     const { error } = await supabase
                         .from('attendance')
-                        .update({ 
+                        .update({
                             check_in_time: nowTime,
                             check_in_timestamp: timestamp // Updated timestamp field
                         })
@@ -143,12 +151,12 @@ const DigitalAttendance = () => {
 
                     if (error) throw error;
 
-                    setLastScan({ 
-                        type: 'success', 
-                        message: `Absensi berhasil diperbarui!`, 
-                        name: lastScan.name, 
-                        photo: lastScan.photo, 
-                        time: nowTime 
+                    setLastScan({
+                        type: 'success',
+                        message: `Absensi berhasil diperbarui!`,
+                        name: lastScan.name,
+                        photo: lastScan.photo,
+                        time: nowTime
                     });
                  } catch (err) {
                     setLastScan({ type: 'error', message: err.message, name: 'Error' });
@@ -164,15 +172,15 @@ const DigitalAttendance = () => {
 
         setIsLoading(true);
         setLastScan({type: 'scanning'});
-        
+
         try {
             await new Promise(resolve => setTimeout(resolve, 500));
-            
-            const today = new Date().toISOString().split('T')[0];
+
+            const today = getLocalDateString();
 
             let user = null, userRole = '', sesiUser = '';
             let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
-            
+
             if (guruData) {
                 user = guruData; userRole = 'guru';
                 const now = new Date();
@@ -190,60 +198,53 @@ const DigitalAttendance = () => {
                      setLastScan({ type: 'warning', message: 'Tidak ada sesi mengajar yang sedang berlangsung.', name: user.nama, photo: user.foto_url });
                      return;
                 }
-            } else { 
-                let { data: santriData } = await supabase.from('santri').select('*, class:id_kelas(*)').eq('rfid_tag', tag).maybeSingle();
-                if (santriData) { 
-                    user = santriData; 
-                    userRole = 'santri'; 
-                    sesiUser = santriData.sesi_mengaji || santriData.class?.sesi; 
+            } else {
+                let { data: santriData } = await supabase
+                    .from('santri')
+                    .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
+                    .eq('rfid_tag', tag)
+                    .maybeSingle();
+                if (santriData) {
+                    if (!isActiveSantri(santriData.status)) {
+                        setLastScan({ type: 'warning', message: 'Santri nonaktif tidak dapat dicatat absensinya.', name: santriData.nama_lengkap, photo: santriData.foto_url });
+                        return;
+                    }
+                    if (!santriData.current_class_id) {
+                        setLastScan({ type: 'warning', message: 'Santri belum memiliki kelas aktif.', name: santriData.nama_lengkap, photo: santriData.foto_url });
+                        return;
+                    }
+                    user = santriData;
+                    userRole = 'santri';
+                    sesiUser = getSantriSession(santriData);
                 }
             }
-            
-            if (!user) { setLastScan({ type: 'error', message: 'Kartu tidak terdaftar!', name: 'Tidak Dikenal' }); return; }
+
+            if (!user) { setLastScan({ type: 'error', message: 'RFID tidak dikenal. Tidak ada absensi yang dibuat.', name: 'Tidak Dikenal' }); return; }
 
             const checkInStatus = canCheckIn(sesiUser, userRole);
             if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url }); return; }
 
-            let existingAttendance = null;
-            if (userRole === 'guru') {
-                const { data } = await supabase.from('attendance').select('id').eq('user_id', user.id).eq('attendance_date', today).eq('sesi', sesiUser).maybeSingle();
-                existingAttendance = data;
-            } else { 
-                const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', today).maybeSingle();
-                existingAttendance = data;
-            }
-
-            if (existingAttendance) { 
-                setLastScan({
-                    type: 'confirmation',
-                    message: 'Tap kartu sekali lagi untuk update absensi.',
-                    name: user.nama || user.nama_lengkap,
-                    photo: user.foto_url,
-                    rfid: tag,
-                    attendanceId: existingAttendance.id,
-                    timer: 5
-                });
-                return;
-            }
-            
-            const timestamp = new Date().toISOString();
-            const newAttendance = { 
-                user_id: user.id, 
-                role: userRole, 
-                attendance_date: today, 
-                check_in_time: new Date().toTimeString().split(' ')[0], 
-                check_in_timestamp: timestamp, // Includes new column explicitly
-                class_id: userRole === 'santri' ? user.id_kelas : null, 
-                sesi: sesiUser, 
-                status: 'Hadir' 
-            };
+            const timestamp = new Date();
+            const newAttendance = userRole === 'santri'
+                ? buildSantriAttendancePayload({ santri: user, timestamp })
+                : {
+                    user_id: user.id,
+                    role: userRole,
+                    attendance_date: today,
+                    check_in_time: timestamp.toTimeString().split(' ')[0],
+                    check_in_timestamp: timestamp.toISOString(),
+                    class_id: null,
+                    sesi: sesiUser,
+                    status: 'Hadir',
+                    source: 'rfid',
+                };
             const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
 
-            if (insertError) { setLastScan({ type: 'error', message: insertError.message, name: user.nama || user.nama_lengkap, photo: user.foto_url });
+            if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url });
             } else { setLastScan({ type: 'success', message: `Absensi sesi ${sesiUser} berhasil!`, name: user.nama || user.nama_lengkap, photo: user.foto_url, time: newAttendance.check_in_time }); }
         } finally {
-            setIsLoading(false); 
-            setRfidTag(''); 
+            setIsLoading(false);
+            setRfidTag('');
             setTimeout(() => inputRef.current?.focus(), 100);
         }
     };
@@ -269,7 +270,7 @@ const DigitalAttendance = () => {
             </div>
           </motion.div>
         }
-        
+
         if (!scan) return <div className="h-48"></div>;
         const baseClasses = "flex flex-col items-center justify-center p-6 rounded-2xl text-white text-center shadow-lg transition-all duration-500";
         const currentVariant = variants[scan.type];
@@ -277,7 +278,7 @@ const DigitalAttendance = () => {
         return (<motion.div key={scan.name + scan.message} initial={{ opacity: 0, y: 50, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -50, scale: 0.9 }} className={`${baseClasses} ${currentVariant.bg}`}>
                 {currentVariant.icon}
                 {scan.photo && (
-                    <motion.div 
+                    <motion.div
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
