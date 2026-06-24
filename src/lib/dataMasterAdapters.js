@@ -28,6 +28,7 @@ export const pickSantriProfileFields = (input) => {
     alamat: input.alamat || null,
     no_hp_ortu: input.no_hp_ortu || null,
     foto_url: input.foto_url || null,
+    avatar_path: input.avatar_path || null,
     rfid_tag: input.rfid_tag || null,
     current_class_id: input.current_class_id ?? input.id_kelas ?? null,
     sesi_mengaji: input.sesi_mengaji || null,

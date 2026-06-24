@@ -36,6 +36,7 @@ import {
   updateMurojaahReview,
   upsertHafalanProgress
 } from '@/lib/academicAdapters';
+import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 
 const jilidOptions = [
   'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
@@ -69,22 +70,28 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
         if (!file) return;
         const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (!validTypes.includes(file.type)) { toast({ title: "Format Salah", description: "Hanya file JPG, PNG, atau WebP yang diperbolehkan.", variant: "destructive" }); return; }
-        if (file.size > 5 * 1024 * 1024) { toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 5MB.", variant: "destructive" }); return; }
+        if (file.size > 2 * 1024 * 1024) { toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 2 MB.", variant: "destructive" }); return; }
         setIsUploading(true);
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${formData.id}/${Date.now()}.${fileExt}`;
-        const filePath = `guru/${fileName}`;
         try {
-          const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-          if (uploadError) throw uploadError;
-          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          const finalUrl = `${publicUrl}?t=${Date.now()}`;
+          const { signedUrl } = await uploadAvatar({ ownerType: 'guru', ownerId: formData.id, file });
+          const finalUrl = signedUrl || formData.foto_url || '';
           setFormData(prev => ({...prev, foto_url: finalUrl }));
-          const { error: updateError } = await supabase.from('guru').update({ foto_url: finalUrl }).eq('id', formData.id);
-          if (updateError) throw updateError;
-          toast({ title: "Foto Berhasil Diupload", description: "Foto profil Anda telah diperbarui." });
+          toast({ title: "Foto Berhasil Diupload", description: "Foto profil tersimpan di Storage dan tetap tampil setelah refresh." });
           onProfileUpdate();
-        } catch (error) { console.error(error); toast({ title: 'Upload Gagal', description: error.message, variant: 'destructive' }); } finally { setIsUploading(false); }
+        } catch (error) { toast({ title: 'Upload Gagal', description: getStorageErrorMessage(error), variant: 'destructive' }); } finally { setIsUploading(false); e.target.value = ''; }
+    };
+    const handleDeletePhoto = async () => {
+        setIsUploading(true);
+        try {
+          await deleteAvatar({ ownerType: 'guru', ownerId: formData.id });
+          setFormData(prev => ({ ...prev, foto_url: '' }));
+          toast({ title: "Foto Dihapus", description: "Foto profil Anda telah dihapus dari Storage." });
+          onProfileUpdate();
+        } catch (error) {
+          toast({ title: 'Hapus Foto Gagal', description: getStorageErrorMessage(error), variant: 'destructive' });
+        } finally {
+          setIsUploading(false);
+        }
     };
     const triggerPhotoUpload = () => photoInputRef.current?.click();
     const handleSubmit = async (e) => {
@@ -116,7 +123,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
                             {isUploading && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
                             <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-md transition-transform group-hover:scale-110"><Upload className="w-5 h-5 text-primary"/></div>
                         </div>
-                        <div className="w-full space-y-2"><label className="text-sm font-semibold">URL Foto Profil</label><div className="flex gap-2"><Input id="foto_url" value={formData.foto_url} onChange={handleInputChange} placeholder="https://..." className="bg-background" /><Button type="button" size="sm" variant="outline" onClick={triggerPhotoUpload} disabled={isUploading}>{isUploading ? "Uploading..." : "Pilih File"}</Button></div><p className="text-xs text-muted-foreground">Klik foto untuk mengganti (Max 5MB)</p></div>
+                        <div className="w-full space-y-2"><label className="text-sm font-semibold">URL Foto Profil</label><div className="flex flex-wrap gap-2"><Input id="foto_url" value={formData.foto_url} onChange={handleInputChange} placeholder="https://..." className="bg-background" /><Button type="button" size="sm" variant="outline" onClick={triggerPhotoUpload} disabled={isUploading}>{isUploading ? "Uploading..." : "Pilih File"}</Button><Button type="button" size="sm" variant="outline" onClick={handleDeletePhoto} disabled={isUploading || !formData.foto_url}>Hapus</Button></div><p className="text-xs text-muted-foreground">Klik foto untuk mengganti (Max 2 MB)</p></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="nama">Nama Lengkap</label><Input id="nama" type="text" value={formData.nama || ''} onChange={handleInputChange} required className="border-border focus:ring-2" /></div>
@@ -177,7 +184,12 @@ const GuruDashboard = () => {
         setIsLoading(true);
         const { data: guru } = await supabase.from('guru').select('*').eq('id', user.id).single();
         if(guru) {
-            setGuruData(guru);
+            const foto_url = await resolveAvatarUrl({
+                ownerType: 'guru',
+                ownerId: guru.id,
+                fallbackUrl: guru.foto_url,
+            });
+            setGuruData({ ...guru, foto_url });
             const todayStr = new Date().toLocaleDateString('en-CA');
 
             const [

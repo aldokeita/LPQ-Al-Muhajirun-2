@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
+import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 
 const HafalanItemManager = ({ category }) => {
   const [items, setItems] = useState([]);
@@ -187,10 +188,15 @@ const ContentManagement = () => {
     else if (type === 'galleryPhotos') folder = 'gallery';
     else if (type === 'testimonials') folder = 'testimonials';
 
-    const filePath = `${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
-    const { error } = await supabase.storage.from('website-assets').upload(filePath, file, { cacheControl: '3600', upsert: false });
-    if (error) { toast({ title: "Upload Gagal!", description: error.message, variant: "destructive" }); return; }
-    const { data: { publicUrl } } = supabase.storage.from('website-assets').getPublicUrl(filePath);
+    const assetKey = type === 'logoUrl' ? 'logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : null);
+    let publicUrl = '';
+    try {
+      const result = await uploadWebsiteAsset({ folder, key: assetKey, file });
+      publicUrl = result.publicUrl;
+    } catch (error) {
+      toast({ title: "Upload Gagal!", description: getStorageErrorMessage(error), variant: "destructive" });
+      return;
+    }
 
     if (['logoUrl', 'ctaBackgroundUrl'].includes(type)) { setContent(prev => ({ ...prev, [type]: publicUrl })); }
     else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); }
@@ -204,10 +210,13 @@ const ContentManagement = () => {
     const file = e.target.files[0];
     if (!file) return;
     const folder = 'hero-slides';
-    const filePath = `${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '-')}`;
-    const { error } = await supabase.storage.from('website-assets').upload(filePath, file, { cacheControl: '3600' });
-    if (error) return toast({ title: "Upload Gagal!", variant: "destructive" });
-    const { data: { publicUrl } } = supabase.storage.from('website-assets').getPublicUrl(filePath);
+    let publicUrl = '';
+    try {
+      const result = await uploadWebsiteAsset({ folder, key: `slide-${slideId}`, file });
+      publicUrl = result.publicUrl;
+    } catch (error) {
+      return toast({ title: "Upload Gagal!", description: getStorageErrorMessage(error), variant: "destructive" });
+    }
     setContent(prev => ({ ...prev, heroSlides: prev.heroSlides.map(slide => slide.id === slideId ? { ...slide, url: publicUrl } : slide) }));
   };
 

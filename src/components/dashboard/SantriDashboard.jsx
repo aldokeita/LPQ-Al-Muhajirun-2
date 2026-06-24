@@ -22,6 +22,7 @@ import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDeta
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { createMurojaahSubmission, fetchHafalanItems, getAcademicErrorMessage, progressStatusToComplete } from '@/lib/academicAdapters';
+import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 
 /**
  * SANTRI AUTHENTICATION FLOW DOCUMENTATION:
@@ -220,28 +221,27 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 150 * 1024) {
-            toast({
-                title: "Ukuran File Terlalu Besar",
-                description: "Ukuran foto maksimal adalah 150KB. Silakan kompres foto Anda terlebih dahulu.",
-                variant: "destructive"
-            });
-            return;
-        }
-
         setIsUploading(true);
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${santri.id}-${Date.now()}.${fileExt}`;
-        const filePath = `santri-profiles/${fileName}`;
-
         try {
-            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-            if (uploadError) throw uploadError;
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            setFormData(prev => ({ ...prev, foto_url: publicUrl }));
-            toast({ title: "Foto Berhasil Diupload", description: "Jangan lupa klik Simpan Perubahan untuk menerapkan." });
+            const { path, signedUrl } = await uploadAvatar({ ownerType: 'santri', ownerId: santri.id, file });
+            setFormData(prev => ({ ...prev, avatar_path: path, foto_url: signedUrl || prev.foto_url }));
+            toast({ title: "Foto Berhasil Diupload", description: "Foto profil tersimpan di Storage dan tetap tampil setelah refresh." });
         } catch (error) {
-            toast({ title: "Gagal Upload Foto", description: error.message, variant: "destructive" });
+            toast({ title: "Gagal Upload Foto", description: getStorageErrorMessage(error), variant: "destructive" });
+        } finally {
+            setIsUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleDeletePhoto = async () => {
+        setIsUploading(true);
+        try {
+            await deleteAvatar({ ownerType: 'santri', ownerId: santri.id });
+            setFormData(prev => ({ ...prev, avatar_path: null, foto_url: '' }));
+            toast({ title: "Foto Dihapus", description: "Foto profil Anda telah dihapus dari Storage." });
+        } catch (error) {
+            toast({ title: "Gagal Hapus Foto", description: getStorageErrorMessage(error), variant: "destructive" });
         } finally {
             setIsUploading(false);
         }
@@ -266,8 +266,8 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
                             <Avatar className="w-24 h-24 border-4 border-white shadow-md"><AvatarImage src={formData.foto_url} /><AvatarFallback>{formData.nama_lengkap?.charAt(0)}</AvatarFallback></Avatar>
                             <div className="space-y-2 flex-1">
                                 <h4 className="fontsemibold text-sm text-blue-800 dark:text-blue-300">Ganti Foto Profil</h4>
-                                <div className="text-xs text-muted-foreground space-y-1"><p>Pastikan wajah Anda terlihat jelas.</p><p className="font-semibold text-orange-600">Maksimal ukuran file: 150KB.</p></div>
-                                <div className="flex gap-2 mt-2"><Button type="button" size="sm" variant="outline" onClick={() => photoInputRef.current?.click()} disabled={isUploading}><Upload className="w-4 h-4 mr-2" /> {isUploading ? 'Mengupload...' : 'Pilih Foto'}</Button><input type="file" ref={photoInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} /></div>
+                                <div className="text-xs text-muted-foreground space-y-1"><p>Pastikan wajah Anda terlihat jelas.</p><p className="font-semibold text-orange-600">Maksimal ukuran file: 2 MB.</p></div>
+                                <div className="flex flex-wrap gap-2 mt-2"><Button type="button" size="sm" variant="outline" onClick={() => photoInputRef.current?.click()} disabled={isUploading}><Upload className="w-4 h-4 mr-2" /> {isUploading ? 'Mengupload...' : 'Pilih Foto'}</Button><Button type="button" size="sm" variant="outline" onClick={handleDeletePhoto} disabled={isUploading || !formData.foto_url}>Hapus Foto</Button><input type="file" ref={photoInputRef} className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} /></div>
                             </div>
                         </div>
                     </div>
@@ -315,7 +315,13 @@ const SantriDashboard = ({ isAdult = false }) => {
     ]);
 
         if (santriResult.data) {
-        const santri = { ...santriResult.data, id_kelas: santriResult.data.current_class_id };
+        const foto_url = await resolveAvatarUrl({
+            ownerType: 'santri',
+            ownerId: santriResult.data.id,
+            avatarPath: santriResult.data.avatar_path,
+            fallbackUrl: santriResult.data.foto_url,
+        });
+        const santri = { ...santriResult.data, foto_url, id_kelas: santriResult.data.current_class_id };
         setSantriData(santri);
 
         const todayStr = new Date().toLocaleDateString('en-CA');
@@ -340,11 +346,23 @@ const SantriDashboard = ({ isAdult = false }) => {
         if (santri.current_class_id) {
             const { data: classMemberships } = await supabase
                 .from('class_memberships')
-                .select('santri:santri_id(id,nama_lengkap,foto_url,jilid)')
+                .select('santri:santri_id(id,nama_lengkap,foto_url,avatar_path,jilid)')
                 .eq('class_id', santri.current_class_id)
                 .eq('status', 'active');
             const { data: friendsAttendance } = await supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('class_id', santri.current_class_id);
-            if (classMemberships) setClassmates(classMemberships.map(item => item.santri).filter(Boolean));
+            if (classMemberships) {
+                const classmatesWithAvatars = await Promise.all(classMemberships.map(async (item) => {
+                    if (!item.santri) return null;
+                    const friendAvatar = await resolveAvatarUrl({
+                        ownerType: 'santri',
+                        ownerId: item.santri.id,
+                        avatarPath: item.santri.avatar_path,
+                        fallbackUrl: item.santri.foto_url,
+                    });
+                    return { ...item.santri, foto_url: friendAvatar };
+                }));
+                setClassmates(classmatesWithAvatars.filter(Boolean));
+            }
             if (friendsAttendance) setClassmatesAttendance(friendsAttendance);
         }
     }

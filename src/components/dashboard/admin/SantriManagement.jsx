@@ -21,6 +21,7 @@ import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNot
 import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
+import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -430,7 +431,7 @@ const SantriManagement = () => {
       const [santriRes, classesRes, configRes] = await Promise.all([
         supabase
           .from('santri')
-          .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at')
+          .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at')
           .order('nama_lengkap'),
         supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
         supabase.from('website_content').select('content').eq('key', 'anakSessionConfig').maybeSingle()
@@ -521,35 +522,23 @@ const SantriManagement = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (!enableEdgeFunctions) {
-        toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+    if (!editingSantri?.id) {
+        toast({ title: "Simpan Akun Terlebih Dahulu", description: "Avatar memakai path berdasarkan UUID akun. Simpan data santri sebelum upload foto.", variant: "destructive" });
         e.target.value = '';
         return;
     }
 
     setIsUploading(true);
 
-    const santriId = editingSantri?.id || `new-${Date.now()}`;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${santriId}.${fileExt}`;
-    const filePath = `santri/${fileName}`;
-
     try {
-        const { data: signedUrlData, error: signedUrlError } = await supabase.functions.invoke('generate-signed-upload-url', {
-            body: { bucket: 'avatars', path: filePath, contentType: file.type }
-        });
-        if (signedUrlError) throw signedUrlError;
-
-        const { error: uploadError } = await supabase.storage.from('avatars').uploadToSignedUrl(filePath, signedUrlData.token, file);
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        setFormData(prev => ({ ...prev, foto_url: `${publicUrl}?t=${new Date().getTime()}` }));
+        const { path, signedUrl } = await uploadAvatar({ ownerType: 'santri', ownerId: editingSantri.id, file });
+        setFormData(prev => ({ ...prev, avatar_path: path, foto_url: signedUrl || prev.foto_url }));
         toast({ title: "Upload Berhasil" });
     } catch (error) {
-        toast({ title: "Upload Gagal", description: error.message, variant: "destructive" });
+        toast({ title: "Upload Gagal", description: getStorageErrorMessage(error), variant: "destructive" });
     } finally {
         setIsUploading(false);
+        e.target.value = '';
     }
   };
 
@@ -1071,9 +1060,10 @@ const SantriManagement = () => {
                     </Avatar>
                     <div className="flex-1 w-full space-y-2">
                         <div className="flex gap-2">
-                             <Button type="button" onClick={triggerPhotoUpload} variant="outline" disabled={isUploading || !enableEdgeFunctions} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : undefined}>{isUploading ? 'Mengunggah...' : 'Upload Foto'}</Button>
-                             <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                             <Button type="button" onClick={triggerPhotoUpload} variant="outline" disabled={isUploading || !enableEdgeFunctions || !editingSantri?.id} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : (!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined)}>{isUploading ? 'Mengunggah...' : 'Upload Foto'}</Button>
+                             <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
                         </div>
+                        <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
                         <div className="relative">
                             <Input type="text" placeholder="https://example.com/foto.jpg" value={formData.foto_url || ''} onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })} className="pl-9 text-xs" />
                             <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>

@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import * as XLSX from 'xlsx';
 import { getOperationalRoleFromGuruForm, pickGuruProfileFields } from '@/lib/dataMasterAdapters';
+import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
 
 const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
 
@@ -191,8 +192,8 @@ const GuruManagement = () => {
         return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 5MB.", variant: "destructive" });
+    if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 2 MB.", variant: "destructive" });
         return;
     }
 
@@ -206,21 +207,14 @@ const GuruManagement = () => {
         }
         
         setIsUploading(true);
-        const guruId = editingGuru?.id || `new-${Date.now()}`;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${guruId}/${Date.now()}.${fileExt}`;
-        const filePath = `guru/${fileName}`;
         
         try {
-          console.log(`Uploading photo to: ${filePath}`);
-          const { data, error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-          if (uploadError) {
-              console.error("Storage Upload Error:", uploadError);
-              throw new Error(uploadError.message);
+          if (!editingGuru?.id) {
+              throw new Error("Avatar memakai path berdasarkan UUID akun. Simpan data guru terlebih dahulu sebelum upload foto.");
           }
-          
-          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          const finalUrl = `${publicUrl}?t=${Date.now()}`;
+          const ownerType = formData.roles?.includes('Pentashih') ? 'pentashih' : 'guru';
+          const { signedUrl } = await uploadAvatar({ ownerType, ownerId: editingGuru.id, file });
+          const finalUrl = signedUrl || formData.foto_url || '';
           
           setFormData(prev => ({...prev, foto_url: finalUrl }));
           setPreviewImage(finalUrl);
@@ -228,7 +222,6 @@ const GuruManagement = () => {
           if (editingGuru) {
               const { error: updateError } = await supabase.from('guru').update({ foto_url: finalUrl }).eq('id', editingGuru.id);
               if (updateError) {
-                  console.error("DB Photo Update Error:", updateError);
                   throw new Error("Gagal menyimpan URL foto ke database.");
               }
               toast({ title: "Foto Tersimpan", description: "Foto profil berhasil diperbarui secara otomatis." });
@@ -238,8 +231,7 @@ const GuruManagement = () => {
           }
 
         } catch (error) { 
-            console.error("Full Photo Upload Error:", error);
-            toast({ title: 'Upload Gagal', description: error.message, variant: 'destructive' }); 
+            toast({ title: 'Upload Gagal', description: getStorageErrorMessage(error), variant: 'destructive' });
         } finally { 
             setIsUploading(false); 
             URL.revokeObjectURL(objectUrl);
@@ -472,10 +464,10 @@ const GuruManagement = () => {
                   </Avatar>
                   <div className="flex-1 w-full space-y-3">
                       <div className="flex items-center gap-3">
-                           <Button type="button" onClick={triggerPhotoUpload} variant="secondary" className="bg-white dark:bg-slate-800 shadow-sm" disabled={isUploading}>
+                           <Button type="button" onClick={triggerPhotoUpload} variant="secondary" className="bg-white dark:bg-slate-800 shadow-sm" disabled={isUploading || !editingGuru?.id}>
                                {isUploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Mengunggah...</> : <><Upload className="w-4 h-4 mr-2"/> Upload Foto Profil</>}
                            </Button>
-                           <span className="text-xs text-muted-foreground">JPG, PNG, WebP (Max 5MB)</span>
+                           <span className="text-xs text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</span>
                            <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
                       </div>
                       <div className="relative">
