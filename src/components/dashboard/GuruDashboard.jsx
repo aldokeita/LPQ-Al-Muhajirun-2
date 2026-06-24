@@ -26,6 +26,16 @@ import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { enableDeferredFeatures } from '@/lib/featureFlags';
+import {
+  buildProgressMap,
+  fetchClassesWithActiveSantriForTeacher,
+  fetchHafalanItems,
+  fetchHafalanProgress,
+  fetchMurojaahSubmissions,
+  getAcademicErrorMessage,
+  updateMurojaahReview,
+  upsertHafalanProgress
+} from '@/lib/academicAdapters';
 
 const jilidOptions = [
   'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
@@ -73,25 +83,25 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
           const { error: updateError } = await supabase.from('guru').update({ foto_url: finalUrl }).eq('id', formData.id);
           if (updateError) throw updateError;
           toast({ title: "Foto Berhasil Diupload", description: "Foto profil Anda telah diperbarui." });
-          onProfileUpdate(); 
+          onProfileUpdate();
         } catch (error) { console.error(error); toast({ title: 'Upload Gagal', description: error.message, variant: 'destructive' }); } finally { setIsUploading(false); }
     };
     const triggerPhotoUpload = () => photoInputRef.current?.click();
     const handleSubmit = async (e) => {
         e.preventDefault();
         const { id, password, ...updateData } = formData;
-        let passwordUpdated = true; 
-        if (password) { 
+        let passwordUpdated = true;
+        if (password) {
             const passwordError = validatePassword(password);
             if (passwordError) { toast({ title: "Validasi Password Gagal", description: passwordError, variant: "destructive" }); return; }
-            passwordUpdated = await updateUserPassword(password); 
+            passwordUpdated = await updateUserPassword(password);
         }
         if(!passwordUpdated) { toast({ title: "Gagal Ganti Password", variant: "destructive"}); return; }
         const { error } = await supabase.from('guru').update(updateData).eq('id', id);
-        if (error) { toast({ title: "Gagal Memperbarui Profil", description: error.message, variant: "destructive"}); } 
+        if (error) { toast({ title: "Gagal Memperbarui Profil", description: error.message, variant: "destructive"}); }
         else { toast({ title: "Berhasil!", description: "Profil Anda telah diperbarui."}); onProfileUpdate(); onOpenChange(false); }
     };
-    
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -142,7 +152,7 @@ const GuruDashboard = () => {
   const [currentSubmission, setCurrentSubmission] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [hafalanProgress, setHafalanProgress] = useState({});
-  const [hafalanItems, setHafalanItems] = useState([]); 
+  const [hafalanItems, setHafalanItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
@@ -152,7 +162,7 @@ const GuruDashboard = () => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [santriToTransfer, setSantriToTransfer] = useState(null);
   const [paymentStatusBySantri, setPaymentStatusBySantri] = useState({});
-  
+
   // Modals for Attendance
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceDetails, setAttendanceDetails] = useState(null);
@@ -169,25 +179,23 @@ const GuruDashboard = () => {
         if(guru) {
             setGuruData(guru);
             const todayStr = new Date().toLocaleDateString('en-CA');
-            
-            // Fetch multiple progress tables accurately via Promise.all
+
             const [
-                hafalanItemsRes, 
-                progressRes, 
-                submissionsRes, 
-                classesRes, 
-                santriBirthdaysRes, 
+                hafalanItemsData,
+                progressData,
+                submissionsData,
+                classList,
+                santriBirthdaysRes,
                 guruBirthdaysRes
             ] = await Promise.all([
-                supabase.from('hafalan_items').select('*'),
-                supabase.from('hafalan_progress').select('*'),
-                supabase.from('murojaah_submissions').select('*, santri:santri_id(nama_lengkap)').order('created_at', { ascending: false }),
-                supabase.from('classes').select('*, santri(*)').eq('id_guru', guru.id),
+                fetchHafalanItems(),
+                fetchHafalanProgress(),
+                fetchMurojaahSubmissions(),
+                fetchClassesWithActiveSantriForTeacher(guru.id),
                 supabase.from('santri').select('tanggal_lahir').eq('status', 'Aktif'),
                 supabase.from('guru').select('tanggal_lahir')
             ]);
-            
-            const classList = classesRes.data || [];
+
             setMyClasses(classList);
 
             if (classList.length > 0) {
@@ -197,7 +205,7 @@ const GuruDashboard = () => {
                     .select('*')
                     .in('class_id', classIds)
                     .eq('attendance_date', todayStr);
-                
+
                 if (attendanceRes) {
                     setDailyAttendance(attendanceRes);
                 }
@@ -217,20 +225,11 @@ const GuruDashboard = () => {
                 });
                 setPaymentStatusBySantri(statusMap);
             }
-            
-            if (hafalanItemsRes.data) setHafalanItems(hafalanItemsRes.data);
-            
-            // Map legacy progress 
-            const progressMap = {};
-            if (progressRes.data) { 
-                progressRes.data.forEach(item => { 
-                    progressMap[`${item.santri_id}-${item.category}-${item.item_name}`] = item.hafal; 
-                }); 
-            }
 
-            setHafalanProgress(progressMap); 
-            setMurojaahSubmissions(submissionsRes.data || []);
-            
+            setHafalanItems(hafalanItemsData || []);
+            setHafalanProgress(buildProgressMap(progressData || []));
+            setMurojaahSubmissions(submissionsData || []);
+
             if (santriBirthdaysRes.data || guruBirthdaysRes.data) {
                 const currentMonth = new Date().getMonth() + 1;
                 let count = 0;
@@ -254,16 +253,20 @@ const GuruDashboard = () => {
   useEffect(() => { fetchGuruData(); }, [fetchGuruData]);
 
   const refreshSubmissions = async () => {
-      const { data } = await supabase.from('murojaah_submissions').select('*, santri:santri_id(nama_lengkap)').order('created_at', { ascending: false });
-      setMurojaahSubmissions(data || []);
+      try {
+          const data = await fetchMurojaahSubmissions();
+          setMurojaahSubmissions(data || []);
+      } catch (error) {
+          toast({ title: 'Gagal memuat murojaah', description: getAcademicErrorMessage(error), variant: 'destructive' });
+      }
   };
 
   const openDetailModal = (santri) => { setSelectedSantri(santri); setIsDetailOpen(true); };
-  const openHafalanModal = (santri, category) => { 
+  const openHafalanModal = (santri, category) => {
       const filteredItems = hafalanItems.filter(i => i.category === category);
-      setSelectedSantri(santri); 
-      setSelectedHafalan({ category, items: filteredItems }); 
-      setIsHafalanOpen(true); 
+      setSelectedSantri(santri);
+      setSelectedHafalan({ category, items: filteredItems });
+      setIsHafalanOpen(true);
   };
   const openMurojaahModal = (submission) => { setIsManualMurojaahActive(false); setCurrentSubmission(submission); setFeedback(submission.feedback || ''); setIsMurojaahOpen(true); };
 
@@ -277,61 +280,40 @@ const GuruDashboard = () => {
 
     const category = selectedHafalan.category;
     const itemName = item.item_name;
-    const key = `${selectedSantri.id}-${category}-${itemName}`;
+    const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${category}-${itemName}`;
     const newStatus = !hafalanProgress[key];
-    
+
     // Optimistic Update
     setHafalanProgress(prev => ({...prev, [key]: newStatus}));
-    
-    try {
-        const { data: existing } = await supabase.from('hafalan_progress')
-            .select('id')
-            .eq('santri_id', selectedSantri.id)
-            .eq('category', category)
-            .eq('item_name', itemName)
-            .maybeSingle();
 
-        if (existing) {
-             const { error } = await supabase.from('hafalan_progress').update({ 
-                 hafal: newStatus,
-                 status: newStatus ? 'Lancar' : 'Belum',
-                 teacher_id: user.id,
-                 updated_at: new Date().toISOString()
-             }).eq('id', existing.id);
-             if (error) throw error;
-        } else {
-             const { error } = await supabase.from('hafalan_progress').insert({ 
-                 santri_id: selectedSantri.id, 
-                 category: category, 
-                 jenis_hafalan: category.toLowerCase(),
-                 item_name: itemName, 
-                 hafal: newStatus,
-                 status: newStatus ? 'Lancar' : 'Belum',
-                 teacher_id: user.id
-             });
-             if (error) throw error;
-        }
-        
+    try {
+        await upsertHafalanProgress({ santriId: selectedSantri.id, item: { ...item, category, item_name: itemName }, complete: newStatus, userId: user.id });
+
         toast({ title: newStatus ? "Hafalan Tercapai" : "Hafalan Dibatalkan", description: `Item "${itemName}" telah diperbarui.`, duration: 2000 });
     } catch (error) {
-        console.error('Error updating hafalan (try-catch caught):', error);
-        toast({ title: "Gagal Update Data", description: `Gagal memperbarui "${itemName}". Database error.`, variant: "destructive" });
+        toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
         setHafalanProgress(prev => ({...prev, [key]: !newStatus})); // Revert optimistic update
     }
   };
 
   const handleSubmitFeedback = async () => {
     if (!currentSubmission) return;
-    await supabase.from('murojaah_submissions').update({ status: 'dinilai', feedback: feedback, target_guru_id: user.id }).eq('id', currentSubmission.id);
-    toast({ title: 'Berhasil', description: 'Umpan balik telah disimpan.' }); setIsMurojaahOpen(false); setCurrentSubmission(null); refreshSubmissions();
+    try {
+      await updateMurojaahReview({ id: currentSubmission.id, status: 'diterima', feedback, userId: user.id });
+      toast({ title: 'Berhasil', description: 'Umpan balik telah disimpan.' });
+      setIsMurojaahOpen(false);
+      setCurrentSubmission(null);
+      refreshSubmissions();
+    } catch (error) {
+      toast({ title: 'Gagal menyimpan umpan balik', description: getAcademicErrorMessage(error), variant: 'destructive' });
+    }
   };
-  
+
   const confirmDeleteSubmission = (submissionId) => {
     setConfirmDialog({
         isOpen: true, title: 'Hapus Setoran', description: 'Apakah Anda yakin ingin menghapus setoran ini?',
         onConfirm: async () => {
-            await supabase.from('murojaah_submissions').delete().eq('id', submissionId);
-            toast({ title: "Berhasil", description: "Setoran telah dihapus." }); refreshSubmissions(); if (currentSubmission?.id === submissionId) { setCurrentSubmission(null); setIsMurojaahOpen(false); }
+            toast({ title: "Aksi tidak tersedia", description: "Penghapusan setoran murojaah tidak dibuka untuk guru pada fase ini.", variant: "destructive" });
         }
     });
   };
@@ -341,31 +323,12 @@ const GuruDashboard = () => {
         toast({ title: "Gagal", description: "Silakan pilih santri dan item hafalan.", variant: "destructive" });
         return;
     }
-    
+
     setIsSubmittingManual(true);
-    const payload = {
-        santri_id: manualMurojaahForm.santri_id,
-        category: manualMurojaahForm.category,
-        item_name: manualMurojaahForm.item_name,
-        recording_url: '#', // Manual insert implies face-to-face evaluation, no recording
-        status: 'dinilai',
-        feedback: manualMurojaahForm.feedback || 'Dinilai secara langsung.',
-        target_guru_id: user.id
-    };
-
-    const { error } = await supabase.from('murojaah_submissions').insert(payload);
     setIsSubmittingManual(false);
-
-    if (error) {
-        toast({ title: "Gagal Simpan Setoran", description: error.message, variant: "destructive" });
-    } else {
-        toast({ title: "Berhasil", description: "Setoran hafalan manual berhasil disimpan." });
-        setManualMurojaahForm({ santri_id: '', category: 'Surat', item_name: '', feedback: '' });
-        refreshSubmissions();
-        setIsManualMurojaahActive(false);
-    }
+    toast({ title: "Belum tersedia", description: "Input setoran manual guru ditunda. Santri dapat mengajukan murojaah dari dashboard santri.", variant: "destructive" });
   };
-  
+
   const pendingSubmissionsCount = useMemo(() => murojaahSubmissions.filter(sub => sub.status === 'menunggu').length, [murojaahSubmissions]);
   const allMySantri = useMemo(() => myClasses.flatMap(c => c.santri), [myClasses]);
   const getCurrentPaymentStatus = useCallback((santriId) => paymentStatusBySantri[santriId] || 'Belum Lunas', [paymentStatusBySantri]);
@@ -384,9 +347,9 @@ const GuruDashboard = () => {
     setIsJilidModalOpen(true);
   };
 
-  const initiateTransfer = (santri) => { 
-    setSantriToTransfer(santri); 
-    setIsTransferModalOpen(true); 
+  const initiateTransfer = (santri) => {
+    setSantriToTransfer(santri);
+    setIsTransferModalOpen(true);
   };
 
   const confirmJilidChange = async () => {
@@ -403,9 +366,9 @@ const GuruDashboard = () => {
   const openAttendanceModal = (santri, cls, attendanceRecord) => {
       const todayStr = new Date().toLocaleDateString('en-CA');
       const sessionStart = getSessionStartTimestamp(todayStr, santri.sesi_mengaji || cls.sesi);
-      
-      const computedStatus = attendanceRecord 
-          ? determineAttendanceStatus(attendanceRecord.check_in_timestamp, sessionStart) 
+
+      const computedStatus = attendanceRecord
+          ? determineAttendanceStatus(attendanceRecord.check_in_timestamp, sessionStart)
           : 'Tidak Hadir';
 
       setAttendanceDetails({
@@ -424,22 +387,22 @@ const GuruDashboard = () => {
   };
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin mr-2"/>Memuat data guru...</div>;
-  
+
   const isFemale = guruData?.jenis_kelamin === 'Perempuan';
   const themeGradient = isFemale ? 'from-teal-500 to-emerald-600' : 'from-green-600 to-green-800';
   const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
   const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
-  const avatarGlow = "animate-pulse-glow"; 
+  const avatarGlow = "animate-pulse-glow";
   const itemsByJilid = selectedHafalan.items ? {
-      1: selectedHafalan.items.filter(i => !i.jilid || i.jilid === 1), 2: selectedHafalan.items.filter(i => i.jilid === 2), 3: selectedHafalan.items.filter(i => i.jilid === 3), 4: selectedHafalan.items.filter(i => i.jilid === 4), 5: selectedHafalan.items.filter(i => i.jilid === 5), 6: selectedHafalan.items.filter(i => i.jilid === 6),
+      1: selectedHafalan.items.filter(i => !i.jilid || String(i.jilid) === '1'), 2: selectedHafalan.items.filter(i => String(i.jilid) === '2'), 3: selectedHafalan.items.filter(i => String(i.jilid) === '3'), 4: selectedHafalan.items.filter(i => String(i.jilid) === '4'), 5: selectedHafalan.items.filter(i => String(i.jilid) === '5'), 6: selectedHafalan.items.filter(i => String(i.jilid) === '6'),
   } : {};
-  
+
   const getProgressData = () => {
       if (!selectedSantri || !selectedHafalan.category) return {};
       const data = {};
-      selectedHafalan.items.forEach(item => { 
-          const key = `${selectedSantri.id}-${selectedHafalan.category}-${item.item_name}`; 
-          data[item.item_name] = !!hafalanProgress[key]; 
+      selectedHafalan.items.forEach(item => {
+          const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${selectedHafalan.category}-${item.item_name}`;
+          data[item.item_name] = !!hafalanProgress[key];
       });
       return data;
   };
@@ -508,7 +471,7 @@ const GuruDashboard = () => {
                                     {(cls.santri || []).map((santri, index) => {
                                         const attendanceRecord = dailyAttendance.find(a => a.user_id === santri.id);
                                         const status = attendanceRecord ? determineAttendanceStatus(attendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), santri.sesi_mengaji || cls.sesi)) : 'Tidak Hadir';
-                                        
+
                                         return (
                                             <tr key={santri.id} className="border-b border-border/50 last:border-0 hover:bg-secondary/5 transition-colors duration-200">
                                                 <td className="py-3 px-4 text-muted-foreground">{index + 1}</td>
@@ -521,8 +484,8 @@ const GuruDashboard = () => {
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     <div className="flex justify-center w-full">
-                                                        <AttendanceStatusIcon 
-                                                            status={status} 
+                                                        <AttendanceStatusIcon
+                                                            status={status}
                                                             onClick={() => openAttendanceModal(santri, cls, attendanceRecord)}
                                                             className="hover:scale-110 transition-transform cursor-pointer shadow-sm"
                                                         />
@@ -573,7 +536,7 @@ const GuruDashboard = () => {
       </div>
       <SantriDetailModal santri={selectedSantri} isOpen={isDetailOpen} onOpenChange={setIsDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
       {selectedSantri && (<Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}><DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>Progres Hafalan {selectedHafalan.category}</DialogTitle><DialogDescription>Santri: {selectedSantri.nama_lengkap} (Klik item untuk menandai hafalan)</DialogDescription></DialogHeader><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">{[1, 2, 3, 4, 5, 6].map(jilid => (<HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} progressData={currentProgressData} onItemClick={handleHafalanToggle} isInteractive={true} />))}</div></DialogContent></Dialog>)}
-      
+
       <Dialog open={isMurojaahOpen} onOpenChange={setIsMurojaahOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">
             <DialogHeader className="p-6 pb-2 border-b">
@@ -591,15 +554,15 @@ const GuruDashboard = () => {
                         <h4 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mb-2">Menunggu Penilaian ({pendingSubmissionsCount})</h4>
                         {murojaahSubmissions.filter(s => s.status === 'menunggu').map(sub => (
                             <Button key={sub.id} variant={currentSubmission?.id === sub.id && !isManualMurojaahActive ? "default" : "outline"} className={cn("w-full justify-start text-left h-auto py-3 px-4 shadow-sm", currentSubmission?.id === sub.id && !isManualMurojaahActive ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary/30")} onClick={() => openMurojaahModal(sub)}>
-                                <div><p className="font-semibold text-sm truncate">{sub.santri?.nama_lengkap}</p><p className="text-xs opacity-80 mt-0.5 truncate">{sub.category} - {sub.item_name}</p></div>
+                                <div><p className="font-semibold text-sm truncate">{sub.santri?.nama_lengkap}</p><p className="text-xs opacity-80 mt-0.5 truncate">{sub.type} - {sub.content}</p></div>
                             </Button>
                         ))}
                         {murojaahSubmissions.filter(s => s.status === 'menunggu').length === 0 && <p className="text-sm text-muted-foreground py-2 text-center">Belum ada setoran baru.</p>}
-                        
+
                         <h4 className="text-xs font-bold text-foreground/60 uppercase tracking-wider mt-6 mb-2">Sudah Dinilai</h4>
-                        {murojaahSubmissions.filter(s => s.status === 'dinilai').map(sub => (
+                        {murojaahSubmissions.filter(s => ['diterima', 'perlu_perbaikan', 'direview'].includes(s.status)).map(sub => (
                             <Button key={sub.id} variant={currentSubmission?.id === sub.id && !isManualMurojaahActive ? "default" : "ghost"} className={cn("w-full justify-start text-left h-auto py-2 px-4 opacity-75 hover:opacity-100", currentSubmission?.id === sub.id && !isManualMurojaahActive ? "bg-primary text-primary-foreground" : "hover:bg-secondary/30")} onClick={() => openMurojaahModal(sub)}>
-                                <div className="truncate"><p className="font-medium text-sm truncate">{sub.santri?.nama_lengkap}</p><p className="text-[10px] opacity-70 truncate">{sub.item_name}</p></div>
+                                <div className="truncate"><p className="font-medium text-sm truncate">{sub.santri?.nama_lengkap}</p><p className="text-[10px] opacity-70 truncate">{sub.content}</p></div>
                             </Button>
                         ))}
                     </div>
@@ -649,17 +612,17 @@ const GuruDashboard = () => {
                             <div className="bg-secondary/20 p-4 rounded-xl border border-border">
                                 <h3 className="font-bold text-xl text-foreground font-serif">{currentSubmission.santri?.nama_lengkap}</h3>
                                 <div className="flex items-center gap-2 mt-2 text-sm text-foreground/80">
-                                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">{currentSubmission.category}</span>
+                                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">{currentSubmission.type}</span>
                                     <span>•</span>
-                                    <span className="font-medium">{currentSubmission.item_name}</span>
+                                    <span className="font-medium">{currentSubmission.content}</span>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1"><CalendarCheck className="w-3 h-3"/> Disubmit pada: {new Date(currentSubmission.created_at).toLocaleString('id-ID')}</p>
                             </div>
-                            
+
                             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900">
                                 <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2"><PlayCircle className="w-4 h-4"/> Bukti Rekaman</h4>
                                 <div className="bg-white dark:bg-slate-800 p-3 rounded-lg text-sm break-all font-mono text-muted-foreground shadow-sm">
-                                    {currentSubmission.recording_url !== '#' ? <a href={currentSubmission.recording_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Download / Putar Audio</a> : <span className="italic">Tidak ada file audio (Setoran Manual)</span>}
+                                    {currentSubmission.recording_path ? <span className="text-blue-600">Rekaman tersimpan</span> : <span className="italic">Tidak ada file audio</span>}
                                 </div>
                             </div>
 
@@ -675,7 +638,7 @@ const GuruDashboard = () => {
                                     <p className="text-sm italic text-foreground/80">"{currentSubmission.feedback || 'Telah diverifikasi.'}"</p>
                                 </div>
                             )}
-                            
+
                             <div className="pt-8 text-center">
                                 <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => confirmDeleteSubmission(currentSubmission.id)}>
                                     <Trash2 className="w-4 h-4 mr-2" /> Hapus Setoran Ini
@@ -692,7 +655,7 @@ const GuruDashboard = () => {
             </div>
         </DialogContent>
       </Dialog>
-      
+
       <MmqSection open={isMmqOpen} onOpenChange={setIsMmqOpen} guru={guruData} />
       {guruData && <EditGuruProfileModal isOpen={isEditProfileOpen} onOpenChange={setIsEditProfileOpen} guruData={guruData} onProfileUpdate={fetchGuruData} themeColor={themeGradient} />}
       <Dialog open={isRecapOpen} onOpenChange={setIsRecapOpen}><DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Rekap Absensi Guru</DialogTitle></DialogHeader><div className="mt-4"><GuruAttendanceRecap isReadOnly={true} /></div></DialogContent></Dialog>

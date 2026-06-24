@@ -41,28 +41,31 @@ export const calculateAttendanceData = async (santriId, startDate, endDate) => {
 
 export const getHafalanProgressData = async (santriId) => {
     try {
-        // Fetch from all relevant tables to ensure complete accuracy
-        const [progressRes, doaRes, sholatRes, suratRes] = await Promise.all([
-            supabase.from('hafalan_progress').select('*').eq('santri_id', santriId),
-            supabase.from('hafalan_doa').select('*').eq('student_id', santriId),
-            supabase.from('hafalan_sholat').select('*').eq('student_id', santriId),
-            supabase.from('hafalan_surat').select('*').eq('student_id', santriId)
+        const [itemsRes, progressRes] = await Promise.all([
+            supabase.from('hafalan_items').select('id,category,jilid,item_name,item_order,is_active,created_at').eq('is_active', true).order('item_order'),
+            supabase.from('hafalan_progress').select('id,santri_id,item_id,category,item_name,status,created_at,updated_at').eq('santri_id', santriId)
         ]);
 
-        let allItems = [];
-        
-        if (progressRes.data) {
-            allItems = [...allItems, ...progressRes.data.map(d => ({...d, is_completed: d.hafal, display_name: d.item_name}))];
-        }
-        if (doaRes.data) {
-            allItems = [...allItems, ...doaRes.data.map(d => ({...d, category: 'Doa', is_completed: d.hafalan_status === 'hafal', display_name: d.doa_name, created_at: d.updated_at}))];
-        }
-        if (sholatRes.data) {
-            allItems = [...allItems, ...sholatRes.data.map(d => ({...d, category: 'Sholat', is_completed: d.status === 'hafal', display_name: d.prayer_name, created_at: d.updated_at}))];
-        }
-        if (suratRes.data) {
-            allItems = [...allItems, ...suratRes.data.map(d => ({...d, category: 'Surat', is_completed: d.status === 'hafal', display_name: d.surah_name, created_at: d.updated_at}))];
-        }
+        if (itemsRes.error) throw itemsRes.error;
+        if (progressRes.error) throw progressRes.error;
+
+        const progressByItemId = new Map((progressRes.data || []).filter(item => item.item_id).map(item => [item.item_id, item]));
+        const progressByName = new Map((progressRes.data || []).map(item => [`${item.category}-${item.item_name}`, item]));
+        const allItems = (itemsRes.data || []).map(item => {
+            const progress = progressByItemId.get(item.id) || progressByName.get(`${item.category}-${item.item_name}`);
+            return {
+                ...item,
+                ...progress,
+                id: progress?.id || item.id,
+                item_id: item.id,
+                category: item.category,
+                item_name: item.item_name,
+                is_completed: progress?.status === 'lulus',
+                hafal: progress?.status === 'lulus',
+                display_name: item.item_name,
+                created_at: progress?.updated_at || progress?.created_at || item.created_at
+            };
+        });
 
         const doa = allItems.filter(d => d.category === 'Doa');
         const sholat = allItems.filter(d => d.category === 'Sholat');

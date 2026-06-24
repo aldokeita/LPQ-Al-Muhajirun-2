@@ -21,14 +21,15 @@ import SantriPaymentHistory from '@/components/dashboard/santri/SantriPaymentHis
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { createMurojaahSubmission, fetchHafalanItems, getAcademicErrorMessage, progressStatusToComplete } from '@/lib/academicAdapters';
 
 /**
  * SANTRI AUTHENTICATION FLOW DOCUMENTATION:
- * 
+ *
  * 1. Login Trigger: Santri inputs `nama_panggilan` (as username) and `nomor_induk_qiroati` (as password) in LoginPage.jsx.
  * 2. Auth Context: LoginPage calls `signInWithUsername(username, password)` from SupabaseAuthContext.jsx.
  * 3. Auth Call: The context invokes the `signin-with-nomor-induk` Edge Function.
- * 4. Database Logic: 
+ * 4. Database Logic:
  *    - The function checks the `santri` table.
  *    - It first tries email + password (for Santri Dewasa).
  *    - It falls back to `nama_panggilan` + `nomor_induk_qiroati` (for Santri Anak/TPQ).
@@ -82,10 +83,10 @@ const getSessionStartTimestamp = (dateStr, sesiName) => {
 const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
   const progressData = {};
   items.forEach(i => {
-      progressData[i.item_name] = hafalanData.some(h => 
-          (h.category === title || h.jenis_hafalan === title.toLowerCase()) && 
-          h.item_name === i.item_name && 
-          h.hafal === true
+      progressData[i.item_name] = hafalanData.some(h =>
+          (h.item_id === i.id || h.category === title) &&
+          h.item_name === i.item_name &&
+          progressStatusToComplete(h.status)
       );
   });
 
@@ -106,7 +107,7 @@ const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
         <CardContent className="space-y-4">
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                  {[1,2,3,4,5,6].map(jilid => (
-                     <HafalanDisplay 
+                     <HafalanDisplay
                         key={jilid}
                         jilid={jilid}
                         items={itemsByJilid[jilid]}
@@ -124,7 +125,7 @@ const MurojaahRecorder = ({ santriId, hafalanItems, onSubmissionSuccess, isAdult
     const [selectedCategory, setSelectedCategory] = useState('Surat');
     const [selectedItem, setSelectedItem] = useState('');
     const [isUploading, setIsUploading] = useState(false);
-    
+
     const categories = [...new Set(hafalanItems.map(i => i.category))];
     const filteredItems = hafalanItems.filter(i => i.category === selectedCategory).map(i => i.item_name);
 
@@ -132,16 +133,20 @@ const MurojaahRecorder = ({ santriId, hafalanItems, onSubmissionSuccess, isAdult
         if(!selectedItem) return;
         setIsUploading(true);
         setTimeout(async () => {
-            const { error } = await supabase.from('murojaah_submissions').insert({ 
-                santri_id: santriId, 
-                category: selectedCategory, 
-                item_name: selectedItem, 
-                recording_url: '#', 
-                status: 'menunggu' 
-            });
+            let error = null;
+            try {
+                await createMurojaahSubmission({
+                    santriId,
+                    type: selectedCategory,
+                    content: selectedItem,
+                    userId: santriId
+                });
+            } catch (err) {
+                error = err;
+            }
             setIsUploading(false);
             if (error) {
-                toast({ title: 'Gagal', description: error.message, variant: 'destructive'});
+                toast({ title: 'Gagal', description: getAcademicErrorMessage(error), variant: 'destructive'});
             } else {
                 setSelectedItem('');
                 toast({ title: 'Berhasil', description: 'Setoran hafalan berhasil dikirim!'});
@@ -216,10 +221,10 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
         if (!file) return;
 
         if (file.size > 150 * 1024) {
-            toast({ 
-                title: "Ukuran File Terlalu Besar", 
-                description: "Ukuran foto maksimal adalah 150KB. Silakan kompres foto Anda terlebih dahulu.", 
-                variant: "destructive" 
+            toast({
+                title: "Ukuran File Terlalu Besar",
+                description: "Ukuran foto maksimal adalah 150KB. Silakan kompres foto Anda terlebih dahulu.",
+                variant: "destructive"
             });
             return;
         }
@@ -295,7 +300,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   const [dailyAttendance, setDailyAttendance] = useState([]);
   const [classmates, setClassmates] = useState([]);
   const [classmatesAttendance, setClassmatesAttendance] = useState([]);
-  
+
   // Own Attendance modal state
   const [myAttendanceRecord, setMyAttendanceRecord] = useState(null);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -304,20 +309,20 @@ const SantriDashboard = ({ isAdult = false }) => {
     if (!user) return;
 
     const [santriResult, itemsResult, videosResult] = await Promise.all([
-        supabase.from('santri').select('*, class:id_kelas(*, guru:id_guru(nama))').eq('id', user.id).single(),
-        supabase.from('hafalan_items').select('*').order('item_order'),
+        supabase.from('santri').select('*, class:current_class_id(*, guru:id_guru(nama))').eq('id', user.id).single(),
+        fetchHafalanItems(),
         supabase.from('website_content').select('content').eq('key', 'hafalanVideos').maybeSingle()
     ]);
 
-    if (santriResult.data) {
-        setSantriData(santriResult.data);
-        const santri = santriResult.data;
-        
+        if (santriResult.data) {
+        const santri = { ...santriResult.data, id_kelas: santriResult.data.current_class_id };
+        setSantriData(santri);
+
         const todayStr = new Date().toLocaleDateString('en-CA');
-        
+
         const [hafalanData, submissionsData, attendanceData] = await Promise.all([
             supabase.from('hafalan_progress').select('*').eq('santri_id', santri.id),
-            supabase.from('murojaah_submissions').select('*').eq('santri_id', santri.id).order('created_at', { ascending: false }),
+            supabase.from('murojaah_submissions').select('id,santri_id,type,content,recording_path,status,feedback,submitted_at,reviewed_at,created_at').eq('santri_id', santri.id).order('created_at', { ascending: false }),
             supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('user_id', santri.id)
         ]);
 
@@ -331,31 +336,35 @@ const SantriDashboard = ({ isAdult = false }) => {
                 setMyAttendanceRecord(null);
             }
         }
-        
-        if (santri.id_kelas) {
-            const { data: classFriends } = await supabase.from('santri').select('id, nama_lengkap, foto_url, jilid').eq('id_kelas', santri.id_kelas).eq('status', 'Aktif').order('nama_lengkap');
-            const { data: friendsAttendance } = await supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('class_id', santri.id_kelas);
-            if (classFriends) setClassmates(classFriends);
+
+        if (santri.current_class_id) {
+            const { data: classMemberships } = await supabase
+                .from('class_memberships')
+                .select('santri:santri_id(id,nama_lengkap,foto_url,jilid)')
+                .eq('class_id', santri.current_class_id)
+                .eq('status', 'active');
+            const { data: friendsAttendance } = await supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('class_id', santri.current_class_id);
+            if (classMemberships) setClassmates(classMemberships.map(item => item.santri).filter(Boolean));
             if (friendsAttendance) setClassmatesAttendance(friendsAttendance);
         }
     }
-    if (itemsResult.data) setHafalanItems(itemsResult.data); 
+    if (Array.isArray(itemsResult)) setHafalanItems(itemsResult);
     if (videosResult.data?.content) setVideos(videosResult.data.content);
     else setVideos([{ id: 1, title: 'Hafalan Jilid 1', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', jilid: 'Jilid 1' }]);
   }, [user]);
 
   useEffect(() => { initializeData(); }, [initializeData]);
-  
+
   const openMyAttendanceModal = () => {
       setIsAttendanceModalOpen(true);
   };
 
   if (!santriData) return <div className="p-8 text-center text-muted-foreground">Memuat data santri...</div>;
-  
+
   const jilidVideos = videos.reduce((acc, video) => { const jilid = video.jilid || 'Lainnya'; if (!acc[jilid]) acc[jilid] = []; acc[jilid].push(video); return acc; }, {});
   const hasAttendedToday = dailyAttendance.includes(santriData.id);
 
-  const myStatus = myAttendanceRecord 
+  const myStatus = myAttendanceRecord
     ? determineAttendanceStatus(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), santriData.sesi_mengaji || santriData.class?.sesi))
     : 'Tidak Hadir';
 
@@ -406,7 +415,7 @@ const SantriDashboard = ({ isAdult = false }) => {
         </div>
         <Tabs defaultValue="overview" className="space-y-6">
             <TabsList className="bg-white dark:bg-[#112D4E] p-1 rounded-lg"><TabsTrigger value="overview">Ringkasan</TabsTrigger><TabsTrigger value="attendance">Rekap Absensi</TabsTrigger><TabsTrigger value="payments">Riwayat Pembayaran</TabsTrigger></TabsList>
-            
+
             <TabsContent value="overview">
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                      <div className="lg:col-span-2 space-y-8">
@@ -429,7 +438,7 @@ const SantriDashboard = ({ isAdult = false }) => {
                      </div>
                 </div>
             </TabsContent>
-            
+
             <TabsContent value="attendance">
                 <SantriAbsensiRecap />
             </TabsContent>
@@ -438,9 +447,9 @@ const SantriDashboard = ({ isAdult = false }) => {
                 <SantriPaymentHistory />
             </TabsContent>
         </Tabs>
-        
+
         <EditProfileDialog isOpen={isInfoModalOpen} onOpenChange={setIsInfoModalOpen} santri={santriData} onUpdate={initializeData} />
-        
+
         <Dialog open={isHafalanModalOpen} onOpenChange={setIsHafalanModalOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Video Hafalan Santri</DialogTitle><DialogDescription>Pilih kategori video hafalan yang ingin ditonton.</DialogDescription></DialogHeader>
@@ -464,7 +473,7 @@ const SantriDashboard = ({ isAdult = false }) => {
             </DialogContent>
         </Dialog>
         {playingVideo && (<Dialog open={!!playingVideo} onOpenChange={() => setPlayingVideo(null)}><DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-none"><div className="aspect-video w-full h-full relative">{playingVideo.google_drive_embed ? (<iframe className="w-full h-full" src={extractSrc(playingVideo.google_drive_embed)} title={playingVideo.title} allow="autoplay" allowFullScreen></iframe>) : (<iframe className="w-full h-full" src={getEmbedUrl(playingVideo.url)} title={playingVideo.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>)}</div></DialogContent></Dialog>)}
-        
+
         <AttendanceDetailsModal isOpen={isAttendanceModalOpen} onClose={() => setIsAttendanceModalOpen(false)} details={myAttendanceDetails} onSuccess={initializeData} />
     </div>
   );

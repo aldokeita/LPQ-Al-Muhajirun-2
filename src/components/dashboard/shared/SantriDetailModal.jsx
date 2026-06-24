@@ -14,9 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { calculateAttendanceData, getHafalanProgressData, getPointsData, generateRaporPDF } from '@/utils/reportUtils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { getSessionName } from '@/utils/sessionMapping';
+import { fetchSantriNotes, getAcademicErrorMessage, saveSantriNote } from '@/lib/academicAdapters';
 
 const jilidOptions = [
-    'Pra TK A', 'Pra TK B', 'Pra TK C', 
+    'Pra TK A', 'Pra TK B', 'Pra TK C',
     'Jilid 1A', 'Jilid 1B', 'Jilid 1C',
     'Jilid 2A', 'Jilid 2B',
     'Jilid 3A', 'Jilid 3B',
@@ -38,7 +39,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const [hafalanData, setHafalanData] = useState(null);
     const [attendanceSummary, setAttendanceSummary] = useState(null);
     const [isReportViewOpen, setIsReportViewOpen] = useState(false);
-    
+
     // Calendar State
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -52,12 +53,11 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
     const fetchNotes = useCallback(async () => {
         if (!santri) return;
-        const { data, error } = await supabase.from('santri_notes').select('*, guru:guru_id(nama)').eq('santri_id', santri.id).order('created_at', { ascending: false });
-        if (error) { 
-            console.error('Error fetching notes:', error);
-            toast({ title: "Gagal memuat catatan", variant: 'destructive' }); 
-        } else { 
-            setNotes(data); 
+        try {
+            const data = await fetchSantriNotes(santri.id);
+            setNotes(data);
+        } catch (error) {
+            toast({ title: "Gagal memuat catatan", description: getAcademicErrorMessage(error), variant: 'destructive' });
         }
     }, [santri]);
 
@@ -70,7 +70,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             .order('changed_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-        
+
         let startDate = new Date(santri.created_at);
         if (data?.changed_at) {
             startDate = new Date(data.changed_at);
@@ -80,12 +80,12 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
         const now = new Date();
         const diffTime = Math.abs(now - startDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         setJilidDuration(diffDays);
 
     }, [santri]);
 
-    useEffect(() => { 
+    useEffect(() => {
         if (isOpen) {
             fetchNotes();
             fetchJilidHistory();
@@ -94,47 +94,19 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
     const handleSaveNote = async () => {
         if (!newNote.trim()) return;
-        let result;
-        if (editingNote) {
-            result = await supabase.from('santri_notes').update({ note: newNote }).eq('id', editingNote.id);
-        } else {
-            result = await supabase.from('santri_notes').insert({ santri_id: santri.id, guru_id: user.id, note: newNote });
-            
-            if (!result.error) {
-                try {
-                    const { data: santriData } = await supabase
-                        .from('santri')
-                        .select('class:id_kelas(id_guru)')
-                        .eq('id', santri.id)
-                        .single();
-                    
-                    const teacherId = santriData?.class?.id_guru;
-
-                    if (teacherId && teacherId !== user.id) {
-                        await supabase.from('notifications').insert({
-                            recipient_id: teacherId,
-                            sender_id: user.id,
-                            title: 'Catatan Baru Santri',
-                            message: `Ada catatan baru untuk santri ${santri.nama_lengkap}.`,
-                            type: 'note',
-                            related_id: santri.id,
-                            is_read: false
-                        });
-                    }
-                } catch (err) {
-                    console.error("Failed to send notification", err);
-                }
-            }
+        try {
+            await saveSantriNote({ noteId: editingNote?.id, santriId: santri.id, note: newNote, userId: user?.id });
+            toast({ title: "Catatan disimpan!" });
+            setNewNote('');
+            setEditingNote(null);
+            fetchNotes();
+        } catch (error) {
+            toast({ title: "Gagal menyimpan catatan", description: getAcademicErrorMessage(error), variant: 'destructive' });
         }
-
-        if (result.error) { toast({ title: "Gagal menyimpan catatan", variant: 'destructive' }); }
-        else { toast({ title: "Catatan disimpan!" }); setNewNote(''); setEditingNote(null); fetchNotes(); }
     };
 
     const handleDeleteNote = async (noteId) => {
-        if (!window.confirm("Yakin ingin menghapus catatan ini?")) return;
-        const { error } = await supabase.from('santri_notes').delete().eq('id', noteId);
-        if (error) { toast({ title: "Gagal menghapus", variant: 'destructive' }); } else { toast({ title: "Catatan dihapus" }); fetchNotes(); }
+        toast({ title: "Aksi tidak tersedia", description: "Penghapusan catatan santri ditunda pada fase ini.", variant: 'destructive' });
     };
 
     const fetchReportViewData = async () => {
@@ -179,7 +151,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         try {
             let startDate, endDate, periodText;
             const yearNum = parseInt(raporYear);
-            
+
             if (raporPeriodType === 'bulanan') {
                 const monthNum = parseInt(raporMonth);
                 startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
@@ -197,13 +169,13 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             const points = await getPointsData(santri.id, startDate, endDate);
 
             const doc = await generateRaporPDF(santri, attendance, hafalan, points, periodText);
-            
+
             // Clean filename
             const cleanName = santri.nama_lengkap.replace(/[^a-zA-Z0-9]/g, '_');
             const cleanPeriod = periodText.replace(/[^a-zA-Z0-9]/g, '_');
-            
+
             doc.save(`Rapor_${cleanName}_${cleanPeriod}.pdf`);
-            
+
             toast({ title: "Berhasil", description: "Rapor berhasil diunduh!" });
             setIsRaporDialogOpen(false);
         } catch (error) {
@@ -217,7 +189,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     // Calendar Helpers
     const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-    
+
     const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
 
@@ -240,8 +212,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <DialogDescription>Informasi lengkap & catatan perkembangan akademik.</DialogDescription>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     onClick={fetchReportViewData}
                                     disabled={isLoadingReportData}
                                     className="bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
@@ -249,8 +221,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                     {isLoadingReportData ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <History className="w-4 h-4 mr-2"/>}
                                     Preview Rapor
                                 </Button>
-                                <Button 
-                                    variant="default" 
+                                <Button
+                                    variant="default"
                                     onClick={() => setIsRaporDialogOpen(true)}
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
                                 >
@@ -259,7 +231,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                         </div>
                     </DialogHeader>
-                    
+
                     <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 pt-4 border-b border-slate-200 dark:border-slate-800 pb-6 relative">
                         <div className="flex flex-col gap-3 items-center">
                             <Avatar className="w-32 h-32 flex-shrink-0 border-4 border-slate-100 shadow-md">
@@ -288,7 +260,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm w-full bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Nama Lengkap</p>
@@ -325,11 +297,11 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <Award className="w-5 h-5 text-yellow-500"/> Catatan Guru & Perkembangan
                         </h3>
                         <div className="space-y-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                            <Textarea 
-                                placeholder="Tulis catatan, rekomendasi, atau evaluasi akademik..." 
-                                value={newNote} 
-                                onChange={(e) => setNewNote(e.target.value)} 
-                                className="border-slate-300 dark:border-slate-700 focus:border-primary min-h-[100px] resize-none" 
+                            <Textarea
+                                placeholder="Tulis catatan, rekomendasi, atau evaluasi akademik..."
+                                value={newNote}
+                                onChange={(e) => setNewNote(e.target.value)}
+                                className="border-slate-300 dark:border-slate-700 focus:border-primary min-h-[100px] resize-none"
                             />
                             <div className="flex justify-end gap-2">
                                 {editingNote && <Button variant="ghost" onClick={() => { setEditingNote(null); setNewNote('')}}>Batal Edit</Button>}
@@ -338,7 +310,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 </Button>
                             </div>
                         </div>
-                        
+
                         <div className="space-y-4 mt-6">
                             {notes.map(note => (
                                 <div key={note.id} className="text-sm p-4 border border-slate-200 dark:border-slate-800 rounded-xl relative group bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-200">
@@ -357,9 +329,6 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600" onClick={() => { setEditingNote(note); setNewNote(note.note); }}>
                                                     <Edit className="w-4 h-4"/>
-                                                </Button>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteNote(note.id)}>
-                                                    <Trash2 className="w-4 h-4"/>
                                                 </Button>
                                             </div>
                                         )}
@@ -398,7 +367,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </Button>
                         </div>
                     </div>
-                    
+
                     <div className="p-6 space-y-8 bg-white dark:bg-slate-950 m-4 rounded-2xl shadow-sm border print:m-0 print:border-none print:shadow-none">
                         {/* Header Rapor */}
                         <div className="text-center pb-6 border-b-2 border-indigo-100 dark:border-indigo-900/30">
@@ -431,7 +400,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                                 <History className="w-5 h-5 text-blue-500"/> Ringkasan Kehadiran
                             </h3>
-                            
+
                             <div className="rapor-table-container">
                                 <table className="rapor-table">
                                     <thead>
@@ -475,7 +444,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                                 <BookOpen className="w-5 h-5 text-green-500"/> Progres Hafalan Surat Pendek
                             </h3>
-                            
+
                             <div className="rapor-table-container">
                                 <table className="rapor-table">
                                     <thead>
@@ -515,7 +484,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 </table>
                             </div>
                         </div>
-                        
+
                         <div className="pt-8 border-t mt-8 print-hide text-center">
                             <p className="text-sm text-muted-foreground mb-4">Ingin mengunduh versi PDF resmi yang dilengkapi kop surat?</p>
                             <Button onClick={() => { setIsReportViewOpen(false); setIsRaporDialogOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700">
@@ -546,7 +515,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 </SelectContent>
                             </Select>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-4">
                             {raporPeriodType === 'bulanan' && (
                                 <div className="space-y-2">

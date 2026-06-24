@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Save, Trash2, CalendarOff, CalendarCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { deleteCalendarEvent, fetchCalendarEvents, getAcademicErrorMessage, saveCalendarEvent } from '@/lib/academicAdapters';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const months = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
@@ -16,6 +17,7 @@ const months = [
 ];
 
 const CalendarManagement = () => {
+  const { user } = useAuth();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [holidays, setHolidays] = useState({});
@@ -29,20 +31,15 @@ const CalendarManagement = () => {
     const startDate = `${selectedYear}-01-01`;
     const endDate = `${selectedYear}-12-31`;
     
-    const { data, error } = await supabase
-      .from('academic_calendar')
-      .select('*')
-      .gte('date', startDate)
-      .lte('date', endDate);
-
-    if (error) {
-      toast({ title: 'Gagal memuat kalender', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      const data = await fetchCalendarEvents({ startDate, endDate });
       const holidayMap = {};
       data.forEach(item => {
         holidayMap[item.date] = item;
       });
       setHolidays(holidayMap);
+    } catch (error) {
+      toast({ title: 'Gagal memuat kalender', description: getAcademicErrorMessage(error), variant: 'destructive' });
     }
     setIsLoading(false);
   }, [selectedYear]);
@@ -75,49 +72,32 @@ const CalendarManagement = () => {
   const handleSaveHoliday = async () => {
     if (!selectedDate) return;
 
-    const payload = {
-      date: selectedDate,
-      description: holidayForm.description,
-      is_holiday: holidayForm.is_holiday
-    };
-
-    const existing = holidays[selectedDate];
-    let error;
-    
-    if (existing?.id) {
-       const { error: upError } = await supabase.from('academic_calendar').update(payload).eq('id', existing.id);
-       error = upError;
-    } else {
-       const { data: check } = await supabase.from('academic_calendar').select('id').eq('date', selectedDate).maybeSingle();
-       if (check) {
-          const { error: upError } = await supabase.from('academic_calendar').update(payload).eq('id', check.id);
-          error = upError;
-       } else {
-          const { error: inError } = await supabase.from('academic_calendar').insert(payload);
-          error = inError;
-       }
-    }
-
-    if (error) {
-      toast({ title: 'Gagal menyimpan', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await saveCalendarEvent({
+        existingId: holidays[selectedDate]?.id,
+        selectedDate,
+        description: holidayForm.description,
+        isHoliday: holidayForm.is_holiday,
+        userId: user?.id
+      });
       toast({ title: 'Berhasil', description: 'Status tanggal diperbarui.' });
       setDialogOpen(false);
       fetchHolidays();
+    } catch (error) {
+      toast({ title: 'Gagal menyimpan', description: getAcademicErrorMessage(error), variant: 'destructive' });
     }
   };
 
   const handleDeleteHoliday = async () => {
     if (!selectedDate || !holidays[selectedDate]) return;
     
-    const { error } = await supabase.from('academic_calendar').delete().eq('id', holidays[selectedDate].id);
-    
-    if (error) {
-      toast({ title: 'Gagal menghapus', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await deleteCalendarEvent(holidays[selectedDate].id);
       toast({ title: 'Berhasil', description: 'Tanggal kembali aktif (Default).' });
       setDialogOpen(false);
       fetchHolidays();
+    } catch (error) {
+      toast({ title: 'Gagal menghapus', description: getAcademicErrorMessage(error), variant: 'destructive' });
     }
   };
 

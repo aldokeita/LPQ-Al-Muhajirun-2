@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
+import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
 
 const HafalanItemManager = ({ category }) => {
   const [items, setItems] = useState([]);
@@ -25,44 +26,40 @@ const HafalanItemManager = ({ category }) => {
 
   const fetchItems = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('hafalan_items')
-      .select('*')
-      .eq('category', category)
-      .order('item_order');
-      
-    if (error) {
-      toast({ title: "Gagal memuat item hafalan", variant: "destructive" });
-    } else {
+    try {
+      const data = await fetchHafalanItems(category);
       setItems(data || []);
+    } catch (error) {
+      toast({ title: "Gagal memuat item hafalan", description: getAcademicErrorMessage(error), variant: "destructive" });
     }
     setIsLoading(false);
   };
 
   const handleAddItem = async () => {
     if (!newItemName.trim()) return;
-    const { error } = await supabase.from('hafalan_items').insert({ 
-        category, 
-        item_name: newItemName, 
-        item_order: items.length + 1,
-        jilid: targetJilid // Use the selected target jilid for new items
-    });
-    if (error) {
-      toast({ title: "Gagal menambah item", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await createHafalanItem({
+        category,
+        itemName: newItemName,
+        itemOrder: items.length + 1,
+        jilid: targetJilid
+      });
       setNewItemName('');
       fetchItems();
       toast({ title: "Berhasil", description: "Item hafalan baru ditambahkan." });
+    } catch (error) {
+      toast({ title: "Gagal menambah item", description: getAcademicErrorMessage(error), variant: "destructive" });
     }
   };
 
   const handleDeleteItem = async (id) => {
     if (!window.confirm('Yakin ingin menghapus item ini?')) return;
-    const { error } = await supabase.from('hafalan_items').delete().eq('id', id);
-    if (error) {
-      toast({ title: "Gagal menghapus item", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await deactivateHafalanItem(id);
       fetchItems();
-      toast({ title: "Berhasil", description: "Item hafalan telah dihapus." });
+      toast({ title: "Berhasil", description: "Item hafalan telah dinonaktifkan." });
+    } catch (error) {
+      toast({ title: "Gagal menghapus item", description: getAcademicErrorMessage(error), variant: "destructive" });
     }
   };
 
@@ -70,26 +67,23 @@ const HafalanItemManager = ({ category }) => {
     // Optimistic update
     setItems(prev => prev.map(item => item.id === itemId ? { ...item, jilid: newJilid } : item));
 
-    const { error } = await supabase.from('hafalan_items')
-        .update({ jilid: newJilid })
-        .eq('id', itemId);
-        
-    if (error) {
-        toast({ title: "Gagal memindahkan item", description: error.message, variant: "destructive" });
-        fetchItems(); // Revert on error
-    } else {
+    try {
+        await updateHafalanItem(itemId, { jilid: newJilid });
         toast({ title: "Berhasil", description: `Item dipindahkan ke Jilid ${newJilid}` });
+    } catch (error) {
+        toast({ title: "Gagal memindahkan item", description: getAcademicErrorMessage(error), variant: "destructive" });
+        fetchItems(); // Revert on error
     }
   };
 
   // Group items by Jilid for display
   const itemsByJilid = {
-      1: items.filter(i => !i.jilid || i.jilid === 1), // Default to 1 if null
-      2: items.filter(i => i.jilid === 2),
-      3: items.filter(i => i.jilid === 3),
-      4: items.filter(i => i.jilid === 4),
-      5: items.filter(i => i.jilid === 5),
-      6: items.filter(i => i.jilid === 6),
+      1: items.filter(i => !i.jilid || String(i.jilid) === '1'), // Default to 1 if null
+      2: items.filter(i => String(i.jilid) === '2'),
+      3: items.filter(i => String(i.jilid) === '3'),
+      4: items.filter(i => String(i.jilid) === '4'),
+      5: items.filter(i => String(i.jilid) === '5'),
+      6: items.filter(i => String(i.jilid) === '6'),
   };
 
   return (
@@ -107,10 +101,10 @@ const HafalanItemManager = ({ category }) => {
             <Button onClick={handleAddItem}><Plus className="w-4 h-4 mr-2"/> Tambah</Button>
           </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {[1, 2, 3, 4, 5, 6].map(jilid => (
-              <HafalanDisplay 
+              <HafalanDisplay
                   key={jilid}
                   jilid={jilid}
                   items={itemsByJilid[jilid]}
@@ -121,7 +115,7 @@ const HafalanItemManager = ({ category }) => {
               />
           ))}
       </div>
-      
+
       <p className="text-xs text-muted-foreground text-center pt-2">
           Tip: Tarik dan lepas item hafalan untuk memindahkan antar Jilid.
       </p>
@@ -144,12 +138,12 @@ const ContentManagement = () => {
   const [activeTab, setActiveTab] = useState("homepage");
 
   useEffect(() => { fetchContent(); fetchSantriAndGuru(); fetchFeedbacks(); }, []);
-  
+
   const fetchFeedbacks = async () => {
     const { data, error } = await supabase.from('feedbacks').select('*').order('created_at', { ascending: false });
     if(!error) setFeedbacks(data);
   };
-  
+
   const handleDeleteFeedback = async (id) => {
     if (!window.confirm('Yakin ingin menghapus pesan ini?')) return;
     const { error } = await supabase.from('feedbacks').delete().eq('id', id);
@@ -197,11 +191,11 @@ const ContentManagement = () => {
     const { error } = await supabase.storage.from('website-assets').upload(filePath, file, { cacheControl: '3600', upsert: false });
     if (error) { toast({ title: "Upload Gagal!", description: error.message, variant: "destructive" }); return; }
     const { data: { publicUrl } } = supabase.storage.from('website-assets').getPublicUrl(filePath);
-    
-    if (['logoUrl', 'ctaBackgroundUrl'].includes(type)) { setContent(prev => ({ ...prev, [type]: publicUrl })); } 
-    else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); } 
-    else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); } 
-    else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); } 
+
+    if (['logoUrl', 'ctaBackgroundUrl'].includes(type)) { setContent(prev => ({ ...prev, [type]: publicUrl })); }
+    else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); }
+    else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); }
+    else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); }
     else { setFormState(prev => ({ ...prev, image_url: publicUrl })); }
     toast({ title: "Upload Berhasil!", description: `${file.name} berhasil diunggah.` });
   };
@@ -219,11 +213,11 @@ const ContentManagement = () => {
 
   const openModal = (type, item = null) => {
     setModalType(type);
-    if (item) { setEditingItem(item); setFormState(item); } 
+    if (item) { setEditingItem(item); setFormState(item); }
     else { setEditingItem(null); setFormState({}); }
     setIsModalOpen(true);
   };
-  
+
   const handleModalSubmit = () => {
     let updatedList;
     if (editingItem) updatedList = content[modalType].map(item => item.id === editingItem.id ? formState : item);
@@ -301,7 +295,7 @@ const ContentManagement = () => {
                 ))}
             </div>
         </div>
-        
+
         <TabsContent value="homepage" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             <div className="p-4 border rounded-lg"><h3 className="font-bold text-xl mb-4">Logo Website</h3><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} />{content.logoUrl && <img src={content.logoUrl} alt="Logo Preview" className="w-24 h-24 mt-2 bg-gray-200 p-2 rounded-md" />}</div>
             <div className="p-4 border rounded-lg">
