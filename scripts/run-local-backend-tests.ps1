@@ -101,7 +101,8 @@ with expected_migrations(version) as (
     ('20260624001600'),
     ('20260624001700'),
     ('20260624001800'),
-    ('20260624001900')
+    ('20260624001900'),
+    ('20260624002000')
 ),
 sensitive_tables(table_name) as (
   values
@@ -130,7 +131,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 19 and not exists (
+       (count(sm.version) = 20 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -257,6 +258,22 @@ select 'move santri to class rpc exists',
            and p.proname = 'move_santri_to_class'
        )::text,
        'rpc=move_santri_to_class'
+
+union all
+select 'payments period unique index exists',
+       exists (
+         select 1
+         from pg_indexes
+         where schemaname = 'public'
+           and tablename = 'payments'
+           and indexname = 'payments_active_santri_bulan_tahun_unique'
+           and indexdef ilike '%unique%'
+           and indexdef ilike '%santri_id%'
+           and indexdef ilike '%bulan%'
+           and indexdef ilike '%tahun%'
+           and indexdef ilike '%deleted_at IS NULL%'
+       )::text,
+       'index=payments_active_santri_bulan_tahun_unique'
 ;
 '@
 
@@ -271,6 +288,254 @@ select 'move santri to class rpc exists',
     $parts = $line -split "\|", 3
     if ($parts.Count -lt 3) {
       Add-TestResult "schema check parse" $false "unexpected output"
+      continue
+    }
+
+    Add-TestResult $parts[0] ($parts[1] -eq "true") $parts[2]
+  }
+}
+
+function Invoke-PaymentPeriodUniquenessTests {
+  $sql = @'
+do $$
+begin
+  delete from public.payments
+  where transaction_id like 'RUNNER-PERIOD-TEST-%';
+end
+$$;
+
+insert into public.payments (
+  santri_id,
+  bulan,
+  tahun,
+  jumlah,
+  tanggal_pembayaran,
+  metode_pembayaran,
+  status,
+  catatan,
+  transaction_id
+) values (
+  '10000000-0000-0000-0000-000000000101',
+  8,
+  2026,
+  10000,
+  current_date,
+  'Tunai',
+  'paid',
+  'RUNNER-PERIOD-TEST first',
+  'RUNNER-PERIOD-TEST-FIRST'
+);
+
+select 'payment period first insert succeeds' as check_name,
+       exists (
+         select 1 from public.payments where transaction_id = 'RUNNER-PERIOD-TEST-FIRST'
+       )::text as passed,
+       'santri=demo-a bulan=8 tahun=2026' as detail;
+
+select 'payment period duplicate rejected',
+       (select public.__payment_period_duplicate_rejected())::text,
+       'unique_violation=same santri/bulan/tahun';
+
+insert into public.payments (
+  santri_id,
+  bulan,
+  tahun,
+  jumlah,
+  tanggal_pembayaran,
+  metode_pembayaran,
+  status,
+  catatan,
+  transaction_id
+) values (
+  '10000000-0000-0000-0000-000000000101',
+  9,
+  2026,
+  10000,
+  current_date,
+  'Tunai',
+  'paid',
+  'RUNNER-PERIOD-TEST different-month',
+  'RUNNER-PERIOD-TEST-DIFFERENT-MONTH'
+);
+
+select 'payment different month succeeds',
+       exists (
+         select 1 from public.payments where transaction_id = 'RUNNER-PERIOD-TEST-DIFFERENT-MONTH'
+       )::text,
+       'bulan=9';
+
+insert into public.payments (
+  santri_id,
+  bulan,
+  tahun,
+  jumlah,
+  tanggal_pembayaran,
+  metode_pembayaran,
+  status,
+  catatan,
+  transaction_id
+) values (
+  '10000000-0000-0000-0000-000000000101',
+  8,
+  2027,
+  10000,
+  current_date,
+  'Tunai',
+  'paid',
+  'RUNNER-PERIOD-TEST different-year',
+  'RUNNER-PERIOD-TEST-DIFFERENT-YEAR'
+);
+
+select 'payment different year succeeds',
+       exists (
+         select 1 from public.payments where transaction_id = 'RUNNER-PERIOD-TEST-DIFFERENT-YEAR'
+       )::text,
+       'tahun=2027';
+
+insert into public.payments (
+  santri_id,
+  bulan,
+  tahun,
+  jumlah,
+  tanggal_pembayaran,
+  metode_pembayaran,
+  status,
+  catatan,
+  transaction_id
+) values (
+  '10000000-0000-0000-0000-000000000102',
+  8,
+  2026,
+  10000,
+  current_date,
+  'Tunai',
+  'paid',
+  'RUNNER-PERIOD-TEST different-santri',
+  'RUNNER-PERIOD-TEST-DIFFERENT-SANTRI'
+);
+
+select 'payment different santri same period succeeds',
+       exists (
+         select 1 from public.payments where transaction_id = 'RUNNER-PERIOD-TEST-DIFFERENT-SANTRI'
+       )::text,
+       'santri=demo-b';
+
+select 'payment update conflict rejected',
+       (select public.__payment_period_update_conflict_rejected())::text,
+       'unique_violation=update to existing period';
+
+delete from public.payments
+where transaction_id = 'RUNNER-PERIOD-TEST-FIRST';
+
+insert into public.payments (
+  santri_id,
+  bulan,
+  tahun,
+  jumlah,
+  tanggal_pembayaran,
+  metode_pembayaran,
+  status,
+  catatan,
+  transaction_id
+) values (
+  '10000000-0000-0000-0000-000000000101',
+  8,
+  2026,
+  10000,
+  current_date,
+  'Tunai',
+  'paid',
+  'RUNNER-PERIOD-TEST recreated',
+  'RUNNER-PERIOD-TEST-RECREATED'
+);
+
+select 'payment hard delete allows recreate',
+       exists (
+         select 1 from public.payments where transaction_id = 'RUNNER-PERIOD-TEST-RECREATED'
+       )::text,
+       'delete_model=hard_delete';
+
+delete from public.payments
+where transaction_id like 'RUNNER-PERIOD-TEST-%';
+'@
+
+  $helperSql = @'
+create or replace function public.__payment_period_duplicate_rejected()
+returns boolean
+language plpgsql
+as $$
+begin
+  insert into public.payments (
+    santri_id,
+    bulan,
+    tahun,
+    jumlah,
+    tanggal_pembayaran,
+    metode_pembayaran,
+    status,
+    catatan,
+    transaction_id
+  ) values (
+    '10000000-0000-0000-0000-000000000101',
+    8,
+    2026,
+    10000,
+    current_date,
+    'Tunai',
+    'paid',
+    'RUNNER-PERIOD-TEST duplicate',
+    'RUNNER-PERIOD-TEST-DUPLICATE'
+  );
+  return false;
+exception
+  when unique_violation then
+    return true;
+end;
+$$;
+
+create or replace function public.__payment_period_update_conflict_rejected()
+returns boolean
+language plpgsql
+as $$
+begin
+  update public.payments
+  set bulan = 8,
+      tahun = 2026
+  where transaction_id = 'RUNNER-PERIOD-TEST-DIFFERENT-MONTH';
+  return false;
+exception
+  when unique_violation then
+    return true;
+end;
+$$;
+'@
+
+  $cleanupSql = @'
+drop function if exists public.__payment_period_duplicate_rejected();
+drop function if exists public.__payment_period_update_conflict_rejected();
+delete from public.payments
+where transaction_id like 'RUNNER-PERIOD-TEST-%';
+'@
+
+  $helperSql | docker exec -i $DbContainer psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q
+  if ($LASTEXITCODE -ne 0) {
+    Add-TestResult "payment period helper setup" $false "psql exited with $LASTEXITCODE"
+    return
+  }
+
+  $output = $sql | docker exec -i $DbContainer psql -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -F "|"
+  $exitCode = $LASTEXITCODE
+  $cleanupSql | docker exec -i $DbContainer psql -U postgres -d postgres -q | Out-Null
+
+  if ($exitCode -ne 0) {
+    Add-TestResult "payment period uniqueness query" $false "psql exited with $exitCode"
+    return
+  }
+
+  foreach ($line in $output) {
+    if (-not $line) { continue }
+    $parts = $line -split "\|", 3
+    if ($parts.Count -lt 3) {
       continue
     }
 
@@ -321,6 +586,7 @@ try {
   Invoke-StepScript -Name "no-secret scan" -Path (Join-Path $PSScriptRoot "validate-no-secrets.ps1") | Out-Null
 
   Invoke-SchemaChecks
+  Invoke-PaymentPeriodUniquenessTests
   Invoke-SmokeTests
 
   Write-Host "SUMMARY passed=$script:Passed failed=$script:Failed"
