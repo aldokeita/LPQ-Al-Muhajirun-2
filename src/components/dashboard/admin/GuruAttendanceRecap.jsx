@@ -133,14 +133,6 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                 });
             }
 
-            // Also save to mmq_absensi to strictly satisfy cross-compatibility logic if needed
-            await supabase.from('mmq_absensi').upsert({
-                guru_id: guruId,
-                tanggal_absensi: dateStr,
-                status: newStatus,
-                check_in_timestamp: checkInTs
-            }, { onConflict: 'guru_id,tanggal_absensi' });
-
             toast({ title: "Berhasil", description: "Kehadiran guru diperbarui." });
             setEditModal({ isOpen: false, data: null });
             fetchData();

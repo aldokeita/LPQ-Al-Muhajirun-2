@@ -21,8 +21,8 @@ const MMQScheduleForm = ({ initialData, onSave, onCancel, isSaving }) => {
     const [formData, setFormData] = useState({
         day_of_week: '5',
         start_time: '10:00',
+        end_time: '11:00',
         location: 'LPQ Al-Muhajirun Metode Qiroati Baturaja',
-        notes: '',
         is_active: true
     });
 
@@ -31,9 +31,9 @@ const MMQScheduleForm = ({ initialData, onSave, onCancel, isSaving }) => {
             setFormData({
                 id: initialData.id,
                 day_of_week: String(initialData.day_of_week),
-                start_time: initialData.start_time.substring(0, 5), // 'HH:mm'
+                start_time: initialData.start_time?.substring(0, 5) || '10:00',
+                end_time: initialData.end_time?.substring(0, 5) || '',
                 location: initialData.location || '',
-                notes: initialData.notes || '',
                 is_active: initialData.is_active ?? true
             });
         }
@@ -58,8 +58,10 @@ const MMQScheduleForm = ({ initialData, onSave, onCancel, isSaving }) => {
         const submitData = {
             ...formData,
             day_of_week: parseInt(formData.day_of_week, 10),
-            // Ensure time format HH:MM:00 for DB
-            start_time: formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time
+            start_time: formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time,
+            end_time: formData.end_time
+                ? (formData.end_time.length === 5 ? `${formData.end_time}:00` : formData.end_time)
+                : null
         };
         
         onSave(submitData);
@@ -100,6 +102,17 @@ const MMQScheduleForm = ({ initialData, onSave, onCancel, isSaving }) => {
 
             <div className="space-y-2">
                 <Label className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-500" /> Jam Selesai
+                </Label>
+                <Input 
+                    type="time"
+                    value={formData.end_time}
+                    onChange={(e) => handleChange('end_time', e.target.value)}
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-red-500" /> Lokasi
                 </Label>
                 <Input 
@@ -107,15 +120,6 @@ const MMQScheduleForm = ({ initialData, onSave, onCancel, isSaving }) => {
                     value={formData.location}
                     onChange={(e) => handleChange('location', e.target.value)}
                     required
-                />
-            </div>
-
-            <div className="space-y-2">
-                <Label>Catatan (Opsional)</Label>
-                <Input 
-                    placeholder="Catatan tambahan jadwal..."
-                    value={formData.notes}
-                    onChange={(e) => handleChange('notes', e.target.value)}
                 />
             </div>
 

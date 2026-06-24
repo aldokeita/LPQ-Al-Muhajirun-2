@@ -274,11 +274,7 @@ const DigitalAttendancePage = () => {
                 .maybeSingle();
 
             if (mmqSchedule) {
-                // =========================================================
-                // MMQ DAY LOGIC (WITH COMPREHENSIVE VALIDATION & LOGGING)
-                // =========================================================
                 try {
-                    console.log(`\n--- [MMQ ABSENSI] CHECK-IN START FOR ${user.nama} ---`);
                     const timestamp = new Date().toISOString();
                     const sessionStart = new Date(`${todayStr}T${mmqSchedule.start_time}`).toISOString();
 
@@ -299,27 +295,13 @@ const DigitalAttendancePage = () => {
 
                     const isValidUUID = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-                    // 1. Validation Logging
-                    console.log(`[MMQ Validation] Current Date : ${todayStr}`);
-                    console.log(`[MMQ Validation] Check-in Time: ${timestamp}`);
-                    console.log(`[MMQ Validation] Session Start: ${sessionStart}`);
-                    console.log(`[MMQ Validation] Raw Status   : '${rawStatus}'`);
-                    console.log(`[MMQ Validation] Mapped Status: '${validStatus}'`);
-                    console.log(`[MMQ Validation] MMQ SessionID: '${mmqSchedule.id}'`);
-                    console.log(`[MMQ Validation] Guru ID      : '${user.id}'`);
-
-                    // 2. Strict Validations
                     if (!allowedStatuses.includes(validStatus)) {
-                        console.error(`[MMQ DB Error] Status '${validStatus}' is not allowed by CHECK constraint.`);
                         throw new Error(`Sistem Error: Status absensi '${validStatus}' tidak diizinkan.`);
                     }
 
                     if (!mmqSchedule.id) {
-                        console.error("[MMQ DB Error] mmq_session_id is NULL or missing from mmqSchedule payload.");
-                        // Try fetching fallback schedule
                         const { data: fallbackSchedule } = await supabase.from('mmq_schedule').select('id').eq('is_active', true).limit(1).maybeSingle();
                         if (fallbackSchedule?.id) {
-                            console.log(`[MMQ Fix] Using fallback schedule ID: ${fallbackSchedule.id}`);
                             mmqSchedule.id = fallbackSchedule.id;
                         } else {
                             throw new Error("Gagal: Sesi MMQ untuk hari ini tidak ditemukan di database.");
@@ -327,31 +309,27 @@ const DigitalAttendancePage = () => {
                     }
 
                     if (!isValidUUID(mmqSchedule.id)) {
-                        console.error(`[MMQ DB Error] Invalid mmq_session_id format: ${mmqSchedule.id}`);
                         throw new Error("Gagal: Format ID Jadwal MMQ tidak valid.");
                     }
 
                     if (!user.id || !isValidUUID(user.id)) {
-                        console.error(`[MMQ DB Error] Invalid guru_id format: ${user.id}`);
                         throw new Error("Gagal: Format ID Guru tidak valid.");
                     }
 
-                    // Check if already checked in
                     const { data: existingMMQ, error: checkError } = await supabase.from('mmq_attendance')
                         .select('id')
+                        .eq('schedule_id', mmqSchedule.id)
                         .eq('guru_id', user.id)
                         .eq('attendance_date', todayStr)
                         .maybeSingle();
 
                     if (checkError) {
-                        console.error("[MMQ DB Error] Failed checking existing attendance:", checkError);
                         throw new Error("Gagal memeriksa status absensi sebelumnya.");
                     }
 
                     const randomQuote = adultQuotes[Math.floor(Math.random() * adultQuotes.length)];
 
                     if (existingMMQ) {
-                        console.log(`[MMQ Check-in] Guru already checked in (ID: ${existingMMQ.id}). Prompting confirmation.`);
                         setLastScan({
                             type: 'confirmation',
                             role: 'guru',
@@ -366,30 +344,25 @@ const DigitalAttendancePage = () => {
                         return;
                     }
 
-                    // 3. Prepare Payload
                     const insertPayload = {
                         guru_id: user.id,
-                        mmq_session_id: mmqSchedule.id,
+                        schedule_id: mmqSchedule.id,
                         attendance_date: todayStr,
                         check_in_timestamp: timestamp,
                         status: validStatus
                     };
 
-                    console.log("[MMQ Check-in] Attempting INSERT with payload:", insertPayload);
-
-                    // 4. Execute Insert
                     const { error: mmqError } = await supabase.from('mmq_attendance').insert(insertPayload);
 
                     if (mmqError) {
-                        console.error("[MMQ DB Error] Database INSERT failed:", mmqError);
                         let friendlyMessage = "Gagal menyimpan absensi MMQ ke database.";
                         if (mmqError.message.includes("mmq_attendance_status_check")) {
                             friendlyMessage = `Gagal: Status "${validStatus}" tidak sesuai dengan aturan database. Hubungi admin.`;
+                        } else if (mmqError.code === '23505') {
+                            friendlyMessage = 'Guru sudah tercatat hadir pada jadwal MMQ ini.';
                         }
                         throw new Error(friendlyMessage);
                     }
-
-                    console.log("[MMQ Check-in] ✅ INSERT Successful!");
 
                     let msg = `Absensi MMQ: ${validStatus}`;
                     if (validStatus === 'Terlambat') msg += ` (${timeDiff} menit)`;
@@ -404,7 +377,6 @@ const DigitalAttendancePage = () => {
                         quote: randomQuote
                     });
                 } catch (err) {
-                    console.error("[MMQ Exception] Caught error during MMQ process:", err);
                     setLastScan({
                         type: 'error',
                         message: err.message || "Terjadi kesalahan sistem saat absensi MMQ.",
@@ -534,15 +506,6 @@ const DigitalAttendancePage = () => {
               source: 'rfid',
           };
         const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
-
-        if (userRole === 'guru' && !isPentashih) {
-            await supabase.from('mmq_absensi').insert({
-                guru_id: user.id,
-                tanggal_absensi: todayStr,
-                status: attendanceStatusText,
-                check_in_timestamp: timestamp
-            });
-        }
 
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {

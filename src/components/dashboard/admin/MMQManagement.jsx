@@ -229,7 +229,11 @@ const MMQManagement = () => {
                                             </Badge>
                                         </div>
                                         <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
-                                            <div className="flex items-center gap-2"><Clock className="w-4 h-4" /> {sch.start_time.substring(0, 5)} WIB</div>
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-4 h-4" />
+                                                {sch.start_time?.substring(0, 5) || '-'}
+                                                {sch.end_time ? ` - ${sch.end_time.substring(0, 5)}` : ''} WIB
+                                            </div>
                                             <div className="flex items-center gap-2"><BookOpen className="w-4 h-4" /> {sch.location}</div>
                                         </div>
                                         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">

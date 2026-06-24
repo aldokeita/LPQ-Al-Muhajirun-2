@@ -61,7 +61,7 @@ const MMQAttendanceModal = ({ isOpen, onClose, record, onSave, onDelete }) => {
             const updatedData = {
                 id: record.id,
                 guru_id: record.guru_id,
-                mmq_session_id: record.mmq_session_id,
+                schedule_id: record.schedule_id,
                 attendance_date: record.attendance_date,
                 check_in_timestamp: newTimestamp,
                 status: finalStatus,
