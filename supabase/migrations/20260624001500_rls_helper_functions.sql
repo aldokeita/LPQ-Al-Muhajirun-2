@@ -147,7 +147,8 @@ as $$ select auth.uid() = target_santri_id; $$;
 
 create or replace function public.consume_auth_rate_limit(
   p_purpose text,
-  p_identifier_hash text,
+  p_ip_hash text,
+  p_alias_hash text,
   p_max_attempts integer default 5,
   p_window_seconds integer default 300,
   p_block_seconds integer default 900
@@ -165,22 +166,27 @@ begin
     raise exception 'purpose is required';
   end if;
 
-  if p_identifier_hash is null or length(btrim(p_identifier_hash)) = 0 then
-    raise exception 'identifier hash is required';
+  if p_ip_hash is null or length(btrim(p_ip_hash)) = 0 then
+    raise exception 'ip hash is required';
   end if;
+
+  if p_alias_hash is null or length(btrim(p_alias_hash)) = 0 then
+    raise exception 'alias hash is required';
+  end if;
+
+  insert into public.auth_rate_limits(purpose, ip_hash, alias_hash, window_start, attempts, blocked_until)
+  values (p_purpose, p_ip_hash, p_alias_hash, v_now, 0, null)
+  on conflict (purpose, ip_hash, alias_hash) do nothing;
 
   select *
   into v_row
   from public.auth_rate_limits arl
   where arl.purpose = p_purpose
-    and arl.identifier_hash = p_identifier_hash
+    and arl.ip_hash = p_ip_hash
+    and arl.alias_hash = p_alias_hash
   for update;
 
-  if not found then
-    insert into public.auth_rate_limits(purpose, identifier_hash, window_start, attempts, blocked_until)
-    values (p_purpose, p_identifier_hash, v_now, 1, null)
-    returning * into v_row;
-  elsif v_row.blocked_until is not null and v_row.blocked_until > v_now then
+  if v_row.blocked_until is not null and v_row.blocked_until > v_now then
     return query select false, v_row.blocked_until, v_row.attempts;
     return;
   elsif v_row.window_start < v_now - make_interval(secs => p_window_seconds) then
@@ -193,8 +199,8 @@ begin
     returning * into v_row;
   else
     update public.auth_rate_limits
-    set attempts = attempts + 1,
-        blocked_until = case when attempts + 1 > p_max_attempts then v_now + make_interval(secs => p_block_seconds) else blocked_until end,
+    set attempts = v_row.attempts + 1,
+        blocked_until = case when v_row.attempts + 1 > p_max_attempts then v_now + make_interval(secs => p_block_seconds) else v_row.blocked_until end,
         updated_at = v_now
     where id = v_row.id
     returning * into v_row;
@@ -204,6 +210,5 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_auth_rate_limit(text, text, integer, integer, integer) from public;
-grant execute on function public.consume_auth_rate_limit(text, text, integer, integer, integer) to service_role;
-
+revoke all on function public.consume_auth_rate_limit(text, text, text, integer, integer, integer) from public;
+grant execute on function public.consume_auth_rate_limit(text, text, text, integer, integer, integer) to service_role;

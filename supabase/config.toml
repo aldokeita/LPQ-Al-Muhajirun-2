@@ -15,6 +15,10 @@ port = 54322
 shadow_port = 54320
 major_version = 15
 
+[db.seed]
+enabled = false
+sql_paths = ["./seed.sql"]
+
 [studio]
 enabled = true
 port = 54323
@@ -30,6 +34,14 @@ enable_signup = false
 enabled = true
 file_size_limit = "25MiB"
 
-[functions]
-enabled = true
+[functions.signin-with-nomor-induk]
+verify_jwt = false
 
+[functions.manage-user]
+verify_jwt = true
+
+[functions.reset-user-password]
+verify_jwt = true
+
+[functions.generate-signed-upload-url]
+verify_jwt = true

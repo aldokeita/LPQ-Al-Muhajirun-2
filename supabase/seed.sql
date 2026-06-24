@@ -79,37 +79,37 @@ values
   ('10000000-0000-0000-0000-000000000201', 'santri', current_date, '20000000-0000-0000-0000-000000000002', 'Sore', 'Hadir', 'manual')
 on conflict do nothing;
 
-insert into public.payments (santri_id, bulan, tahun, jumlah, tanggal_pembayaran, metode_pembayaran, status)
+insert into public.payments (id, santri_id, bulan, tahun, jumlah, tanggal_pembayaran, metode_pembayaran, status)
 values
-  ('10000000-0000-0000-0000-000000000101', 1, 2026, 10000, current_date, 'Demo Manual', 'paid'),
-  ('10000000-0000-0000-0000-000000000201', 1, 2026, 10000, current_date, 'Demo Manual', 'paid')
-on conflict do nothing;
+  ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000101', 1, 2026, 10000, current_date, 'Demo Manual', 'paid'),
+  ('40000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000201', 1, 2026, 10000, current_date, 'Demo Manual', 'paid')
+on conflict (id) do nothing;
 
-insert into public.expenses (tanggal_pengeluaran, kategori, deskripsi, jumlah)
-values (current_date, 'Demo', 'Pengeluaran dummy untuk pengujian lokal', 5000)
-on conflict do nothing;
+insert into public.expenses (id, tanggal_pengeluaran, kategori, deskripsi, jumlah)
+values ('40000000-0000-0000-0000-000000000101', current_date, 'Demo', 'Pengeluaran dummy untuk pengujian lokal', 5000)
+on conflict (id) do nothing;
 
-insert into public.hafalan_items (category, jilid, item_name, item_order)
+insert into public.hafalan_items (id, category, jilid, item_name, item_order)
 values
-  ('Doa Demo', 'Pra', 'Item Hafalan Demo 1', 1),
-  ('Surat Demo', 'Pra', 'Item Hafalan Demo 2', 2)
-on conflict do nothing;
+  ('50000000-0000-0000-0000-000000000001', 'Doa Demo', 'Pra', 'Item Hafalan Demo 1', 1),
+  ('50000000-0000-0000-0000-000000000002', 'Surat Demo', 'Pra', 'Item Hafalan Demo 2', 2)
+on conflict (id) do nothing;
 
-insert into public.hafalan_progress (santri_id, category, item_name, status)
-values ('10000000-0000-0000-0000-000000000101', 'Doa Demo', 'Item Hafalan Demo 1', 'proses')
-on conflict do nothing;
+insert into public.hafalan_progress (id, santri_id, item_id, category, item_name, status)
+values ('50000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000101', '50000000-0000-0000-0000-000000000001', 'Doa Demo', 'Item Hafalan Demo 1', 'proses')
+on conflict (id) do nothing;
 
 insert into public.mmq_schedule (id, day_of_week, start_time, end_time, location)
 values ('30000000-0000-0000-0000-000000000001', 5, '16:00', '17:00', 'Ruang Demo')
 on conflict (id) do nothing;
 
-insert into public.mmq_attendance (schedule_id, guru_id, attendance_date, status)
-values ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', current_date, 'Hadir')
-on conflict do nothing;
+insert into public.mmq_attendance (id, schedule_id, guru_id, attendance_date, status)
+values ('30000000-0000-0000-0000-000000000101', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', current_date, 'Hadir')
+on conflict (id) do nothing;
 
-insert into public.mmq_notulensi (schedule_id, tanggal, judul, isi, notulen_id)
-values ('30000000-0000-0000-0000-000000000001', current_date, 'Notulensi Demo', 'Isi notulensi dummy.', '10000000-0000-0000-0000-000000000002')
-on conflict do nothing;
+insert into public.mmq_notulensi (id, schedule_id, tanggal, judul, isi, notulen_id)
+values ('30000000-0000-0000-0000-000000000201', '30000000-0000-0000-0000-000000000001', current_date, 'Notulensi Demo', 'Isi notulensi dummy.', '10000000-0000-0000-0000-000000000002')
+on conflict (id) do nothing;
 
 insert into public.website_content (key, content, is_public)
 values

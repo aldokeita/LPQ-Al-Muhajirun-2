@@ -34,6 +34,66 @@ revoke all on public.auth_rate_limits from anon, authenticated;
 revoke all on public.payments from anon, authenticated;
 revoke all on public.expenses from anon, authenticated;
 
+grant usage on schema public to anon, authenticated;
+grant usage on schema public to service_role;
+
+grant select on public.website_content, public.news, public.announcements, public.academic_calendar to anon;
+grant insert on public.feedbacks to anon;
+
+grant select, insert, update, delete on
+  public.user_profiles,
+  public.guru,
+  public.santri,
+  public.classes,
+  public.class_memberships,
+  public.class_mutations,
+  public.pentashih_class_assignments,
+  public.attendance,
+  public.payments,
+  public.expenses,
+  public.hafalan_items,
+  public.hafalan_progress,
+  public.murojaah_submissions,
+  public.academic_calendar,
+  public.mmq_schedule,
+  public.mmq_attendance,
+  public.mmq_notulensi,
+  public.website_content,
+  public.news,
+  public.announcements,
+  public.feedbacks,
+  public.notifications,
+  public.santri_notes
+to authenticated;
+
+grant select, insert, update, delete on
+  public.user_profiles,
+  public.guru,
+  public.santri,
+  public.auth_login_aliases,
+  public.auth_rate_limits,
+  public.classes,
+  public.class_memberships,
+  public.class_mutations,
+  public.pentashih_class_assignments,
+  public.attendance,
+  public.payments,
+  public.expenses,
+  public.hafalan_items,
+  public.hafalan_progress,
+  public.murojaah_submissions,
+  public.academic_calendar,
+  public.mmq_schedule,
+  public.mmq_attendance,
+  public.mmq_notulensi,
+  public.website_content,
+  public.news,
+  public.announcements,
+  public.feedbacks,
+  public.notifications,
+  public.santri_notes
+to service_role;
+
 grant select on public.payment_status_summary to authenticated;
 
 create or replace view public.payment_status_summary as
@@ -63,6 +123,8 @@ from (
 where public.is_admin()
    or public.user_owns_santri_record(summary.santri_id)
    or public.guru_has_class_access(summary.class_id);
+
+grant select on public.payment_status_summary to authenticated;
 
 -- Public content.
 create policy website_content_anon_select_public on public.website_content

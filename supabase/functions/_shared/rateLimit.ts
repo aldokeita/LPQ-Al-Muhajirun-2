@@ -8,16 +8,19 @@ async function sha256(value: string): Promise<string> {
 
 export async function consumePersistentRateLimit(
   purpose: string,
-  identifier: string,
+  ipIdentifier: string,
+  aliasIdentifier: string,
   maxAttempts = 5,
   windowSeconds = 300,
   blockSeconds = 900,
 ) {
   const admin = getServiceRoleClient();
-  const identifierHash = await sha256(identifier);
+  const ipHash = await sha256(ipIdentifier);
+  const aliasHash = await sha256(aliasIdentifier);
   const { data, error } = await admin.rpc("consume_auth_rate_limit", {
     p_purpose: purpose,
-    p_identifier_hash: identifierHash,
+    p_ip_hash: ipHash,
+    p_alias_hash: aliasHash,
     p_max_attempts: maxAttempts,
     p_window_seconds: windowSeconds,
     p_block_seconds: blockSeconds,
@@ -27,7 +30,7 @@ export async function consumePersistentRateLimit(
     return {
       allowed: false,
       blockedUntil: null,
-      error: "Persistent rate limit is unavailable. Login function is not production-ready.",
+      error: `Persistent rate limit is unavailable: ${error.code ?? "unknown"} ${error.message}`,
     };
   }
 
@@ -38,4 +41,3 @@ export async function consumePersistentRateLimit(
     error: null,
   };
 }
-

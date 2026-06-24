@@ -20,11 +20,12 @@ Deno.serve(async (req) => {
 
     const rateLimit = await consumePersistentRateLimit(
       "signin-with-nomor-induk",
-      `${ip}:${nomorInduk}`,
+      ip,
+      nomorInduk,
     );
 
     if (rateLimit.error) {
-      logSafe("error", "login_rate_limit_unavailable", { request_id: rid });
+      logSafe("error", "login_rate_limit_unavailable", { request_id: rid, message: rateLimit.error });
       return fail(req, "RATE_LIMIT_UNAVAILABLE", "Login santri belum siap untuk production.", 503);
     }
 
@@ -97,4 +98,3 @@ Deno.serve(async (req) => {
     return fail(req, "INVALID_LOGIN", "Nomor Induk Qiroati atau password salah.", 401);
   }
 });
-

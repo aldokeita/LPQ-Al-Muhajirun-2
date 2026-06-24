@@ -35,6 +35,21 @@ Deno.serve(async (req) => {
     if (action === "create") {
       const displayName = requireString(profile.nama_lengkap ?? profile.nama, "Nama");
       const initialPassword = requireString(body.initial_password, "Password awal");
+      const nomorInduk = role === "santri" ? normalizeNomorInduk(profile.nomor_induk_qiroati) : null;
+
+      if (nomorInduk) {
+        const { data: existingAlias } = await admin
+          .from("auth_login_aliases")
+          .select("id")
+          .eq("alias_type", "nomor_induk_qiroati")
+          .eq("normalized_alias", nomorInduk)
+          .maybeSingle();
+
+        if (existingAlias) {
+          return fail(req, "DUPLICATE_NOMOR_INDUK", "Nomor Induk Qiroati sudah digunakan.", 409);
+        }
+      }
+
       const authEmail = role === "santri"
         ? `pending+${crypto.randomUUID()}@auth.lpqalmuhajirun.local`
         : requireString(profile.email, "Email");
@@ -69,10 +84,12 @@ Deno.serve(async (req) => {
         updated_by: user.id,
       });
 
-      if (profileError) return fail(req, "PROFILE_CREATE_FAILED", "Profil akun gagal dibuat.", 400);
+      if (profileError) {
+        await admin.auth.admin.deleteUser(userId);
+        return fail(req, "PROFILE_CREATE_FAILED", "Profil akun gagal dibuat.", 400);
+      }
 
       if (role === "santri") {
-        const nomorInduk = normalizeNomorInduk(profile.nomor_induk_qiroati);
         const { error: santriError } = await admin.from("santri").insert({
           id: userId,
           nomor_induk_qiroati: nomorInduk,
@@ -84,7 +101,10 @@ Deno.serve(async (req) => {
           created_by: user.id,
           updated_by: user.id,
         });
-        if (santriError) return fail(req, "SANTRI_CREATE_FAILED", "Data santri gagal dibuat.", 400);
+        if (santriError) {
+          await admin.auth.admin.deleteUser(userId);
+          return fail(req, "SANTRI_CREATE_FAILED", "Data santri gagal dibuat.", 400);
+        }
 
         const { error: aliasError } = await admin.from("auth_login_aliases").insert({
           auth_user_id: userId,
@@ -93,7 +113,10 @@ Deno.serve(async (req) => {
           internal_email: finalEmail,
           is_active: true,
         });
-        if (aliasError) return fail(req, "ALIAS_CREATE_FAILED", "Alias login santri gagal dibuat.", 400);
+        if (aliasError) {
+          await admin.auth.admin.deleteUser(userId);
+          return fail(req, "ALIAS_CREATE_FAILED", "Alias login santri gagal dibuat.", 400);
+        }
       } else {
         const { error: guruError } = await admin.from("guru").insert({
           id: userId,
@@ -106,7 +129,10 @@ Deno.serve(async (req) => {
           created_by: user.id,
           updated_by: user.id,
         });
-        if (guruError) return fail(req, "GURU_CREATE_FAILED", "Data guru gagal dibuat.", 400);
+        if (guruError) {
+          await admin.auth.admin.deleteUser(userId);
+          return fail(req, "GURU_CREATE_FAILED", "Data guru gagal dibuat.", 400);
+        }
       }
 
       logSafe("info", "manage_user_created", { request_id: rid, target_user_id: userId, role });
@@ -133,4 +159,3 @@ Deno.serve(async (req) => {
     return fail(req, "MANAGE_USER_FAILED", "Operasi akun gagal.", 400);
   }
 });
-

@@ -107,7 +107,8 @@ create index if not exists auth_login_aliases_active_idx on public.auth_login_al
 create table if not exists public.auth_rate_limits (
   id uuid primary key default gen_random_uuid(),
   purpose text not null,
-  identifier_hash text not null,
+  ip_hash text not null,
+  alias_hash text not null,
   window_start timestamptz not null,
   attempts integer not null default 0,
   blocked_until timestamptz,
@@ -116,6 +117,5 @@ create table if not exists public.auth_rate_limits (
   constraint auth_rate_limits_attempts_non_negative check (attempts >= 0)
 );
 
-create unique index if not exists auth_rate_limits_purpose_identifier_unique
-  on public.auth_rate_limits(purpose, identifier_hash);
-
+create unique index if not exists auth_rate_limits_purpose_ip_alias_unique
+  on public.auth_rate_limits(purpose, ip_hash, alias_hash);
