@@ -63,7 +63,7 @@ const LoginPage = () => {
     // Trim inputs to remove invisible whitespace that causes exact match failures
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
-    console.log(`[LoginPage] Attempting login. Trimmed Input: '${trimmedUsername}'`);
+    console.log('[LoginPage] Attempting login');
     try {
       const {
         user: loggedInUser,
@@ -90,7 +90,7 @@ const LoginPage = () => {
           description: errorMsg
         });
       } else if (loggedInUser) {
-        console.log('[LoginPage] Login successful, user:', loggedInUser);
+        console.log('[LoginPage] Login successful', { userId: loggedInUser.id });
         toast({
           title: "Login berhasil!",
           description: "Mengalihkan ke dashboard...",

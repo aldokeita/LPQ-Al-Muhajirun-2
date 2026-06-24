@@ -7,39 +7,24 @@ import GuruDashboard from '@/components/dashboard/GuruDashboard';
 import SantriDashboard from '@/components/dashboard/SantriDashboard';
 import PentashihDashboard from '@/components/dashboard/PentashihDashboard';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useToast } from '@/hooks/use-toast';
 
 const DashboardPage = () => {
   const { role, user } = useAuth();
-  const [guruProfile, setGuruProfile] = useState(null);
   const [santriProfile, setSantriProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [timeoutTriggered, setTimeoutTriggered] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
       console.log('DashboardPage mounted, Context State:', { role, userId: user?.id });
 
-      let timeoutId;
-      if (!role && user) {
-        // Fallback timeout to prevent infinite loading if role detection delays
-        timeoutId = setTimeout(() => {
-          console.warn('Dashboard role detection timeout triggered');
-          setTimeoutTriggered(true);
-        }, 5000);
-      }
-
       const fetchProfile = async () => {
           setIsLoadingProfile(true);
           try {
-            if (role === 'guru' && user) {
-                const { data, error } = await supabase.from('guru').select('roles').eq('id', user.id).single();
-                if (error) throw error;
-                setGuruProfile(data);
-            } else if (role === 'santri' && user) {
+            if (role === 'santri' && user) {
                 const { data, error } = await supabase.from('santri').select('kategori').eq('id', user.id).single();
                 if (error) throw error;
                 setSantriProfile(data);
+            } else {
+                setSantriProfile(null);
             }
           } catch (err) {
             console.error('Error fetching dashboard profile info:', err);
@@ -48,13 +33,12 @@ const DashboardPage = () => {
           }
       };
       
-      if (user && role) {
+      if (user && role === 'santri') {
         fetchProfile();
+      } else {
+        setSantriProfile(null);
+        setIsLoadingProfile(false);
       }
-
-      return () => {
-        if (timeoutId) clearTimeout(timeoutId);
-      };
   }, [role, user]);
 
   const renderDashboard = () => {
@@ -74,14 +58,12 @@ const DashboardPage = () => {
     if (role === 'admin') {
       return <AdminDashboard />;
     } else if (role === 'guru') {
-      if (guruProfile?.roles?.includes('Pentashih')) {
-          return <PentashihDashboard />;
-      }
       return <GuruDashboard />;
     } else if (role === 'santri') {
       return <SantriDashboard isAdult={santriProfile?.kategori === 'Dewasa'} />;
-    } else if (timeoutTriggered && !role) {
-      // Fallback if role somehow isn't resolved within timeout but user is logged in
+    } else if (role === 'pentashih') {
+      return <PentashihDashboard />;
+    } else if (user && !role) {
       return (
         <div className="flex justify-center items-center h-[60vh] flex-col max-w-md mx-auto text-center">
            <div className="bg-destructive/10 text-destructive p-6 rounded-xl border border-destructive/20 mb-4">

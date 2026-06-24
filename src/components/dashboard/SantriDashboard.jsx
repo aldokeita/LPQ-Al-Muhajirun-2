@@ -27,7 +27,7 @@ import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/Atte
  * 
  * 1. Login Trigger: Santri inputs `nama_panggilan` (as username) and `nomor_induk_qiroati` (as password) in LoginPage.jsx.
  * 2. Auth Context: LoginPage calls `signInWithUsername(username, password)` from SupabaseAuthContext.jsx.
- * 3. RPC Call: The context invokes the Supabase Postgres Function `signin_with_username()`.
+ * 3. Auth Call: The context invokes the `signin-with-nomor-induk` Edge Function.
  * 4. Database Logic: 
  *    - The function checks the `santri` table.
  *    - It first tries email + password (for Santri Dewasa).

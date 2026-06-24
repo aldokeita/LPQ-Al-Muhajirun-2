@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase, isSupabaseConfigured, supabaseConfigurationMessage } from '@/lib/customSupabaseClient';
+import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
 import { useToast } from '@/hooks/use-toast';
 
 const AuthContext = createContext(undefined);
@@ -10,43 +11,74 @@ export const AuthProvider = ({ children }) => {
 
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const clearAuthState = useCallback(() => {
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setRole(null);
+    setProfileLoading(false);
+  }, []);
+
+  const loadUserProfile = useCallback(async (userId) => {
+    setProfileLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, role, display_name, status')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Profil akun belum tersedia. Hubungi administrator.');
+      if (data.status !== 'active') throw new Error('Akun belum aktif. Hubungi administrator.');
+
+      setProfile(data);
+      setRole(data.role);
+      return { profile: data, error: null };
+    } catch (error) {
+      setProfile(null);
+      setRole(null);
+      console.error('[AuthContext] Failed to load user profile:', error.message);
+      return { profile: null, error };
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
 
   const handleSession = useCallback(async (currentSession) => {
     try {
       setSession(currentSession);
       const currentUser = currentSession?.user ?? null;
       setUser(currentUser);
-      
-      let userRole = null;
+
       if (currentUser) {
-        // Detects guru role from auth.users raw_user_meta_data safely
-        userRole = currentUser.user_metadata?.role || 
-                   currentUser.app_metadata?.role || 
-                   (currentUser.email?.includes('admin') ? 'admin' : null);
-        
-        console.log('[AuthContext] Auth state updated: User logged in', { 
-          id: currentUser.id, 
-          extractedRole: userRole,
-          rawMetadata: currentUser.user_metadata,
-          email: currentUser.email
-        });
+        console.log('[AuthContext] Auth session detected', { id: currentUser.id });
+        return await loadUserProfile(currentUser.id);
       } else {
         console.log('[AuthContext] Auth state updated: No user session');
+        setProfile(null);
+        setRole(null);
+        return { profile: null, error: null };
       }
-      
-      setRole(userRole);
     } catch (error) {
       console.error('[AuthContext] Error handling session:', error);
+      setProfile(null);
+      setRole(null);
+      return { profile: null, error };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadUserProfile]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
       console.warn('[AuthContext] Supabase is not configured. Auth session loading is skipped.');
+      clearAuthState();
       setLoading(false);
       return undefined;
     }
@@ -75,7 +107,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [handleSession]);
+  }, [clearAuthState, handleSession]);
 
   const signUp = useCallback(async (email, password, options) => {
     if (!isSupabaseConfigured) {
@@ -129,15 +161,22 @@ export const AuthProvider = ({ children }) => {
       });
     }
 
-    return { error, user: data?.user };
-  }, [toast]);
+    if (data?.session) {
+      const profileResult = await handleSession(data.session);
+      if (profileResult?.error) {
+        return { error: profileResult.error, user: null };
+      }
+    }
 
-  // Custom Sign In to handle email auth and santri username via RPC.
+    return { error, user: data?.user };
+  }, [handleSession, toast]);
+
+  // Handles email auth for staff and Nomor Induk Qiroati auth for santri.
   const signInWithUsername = useCallback(async (rawUsername, rawPassword) => {
     try {
       const username = rawUsername.trim();
       const password = rawPassword.trim();
-      console.log('[AuthContext] Login attempt:', { username });
+      console.log('[AuthContext] Login attempt started');
 
       if (!isSupabaseConfigured) {
         throw new Error(supabaseConfigurationMessage);
@@ -145,7 +184,7 @@ export const AuthProvider = ({ children }) => {
       
       const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
 
-      // Step 1: Standard Auth (Email) strictly for admin/guru registered via Supabase Auth
+      // Step 1: Standard Auth for admin, guru, and pentashih email accounts.
       if (isEmail) {
         console.log('[AuthContext] Input is email, attempting standard auth...');
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -153,58 +192,65 @@ export const AuthProvider = ({ children }) => {
           password: password,
         });
 
-        console.log('signInWithPassword response:', { data, error });
-
         if (error) {
           throw new Error('Email atau Password Salah');
         }
 
-        if (data?.user) {
+        if (data?.session && data?.user) {
+          const profileResult = await handleSession(data.session);
+          if (profileResult?.error) throw profileResult.error;
           return { user: data.user, error: null };
         }
       }
 
-      // Step 2: Try RPC signin_with_username for santri Nomor Induk Qiroati + password.
-      console.log('[AuthContext] Attempting RPC signin_with_username...');
-      const { data: rpcData, error: rpcError } = await supabase.rpc('signin_with_username', {
-        p_username: username,
-        p_password: password
+      if (!enableEdgeFunctions) {
+        throw new Error(edgeFunctionDisabledMessage);
+      }
+
+      // Step 2: Santri login with Nomor Induk Qiroati through an Edge Function.
+      console.log('[AuthContext] Attempting santri login via Edge Function...');
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('signin-with-nomor-induk', {
+        body: {
+          nomor_induk_qiroati: username,
+          password,
+        },
       });
 
-      console.log('RPC signin_with_username response:', { rpcData, rpcError });
-
-      if (rpcError) {
-        throw new Error(rpcError.message || 'RPC signin_with_username belum tersedia.');
+      if (functionError) {
+        throw new Error(functionError.message || 'Login santri belum tersedia.');
       }
 
-      if (rpcData && rpcData.access_token) {
-        const sessionObject = {
-          access_token: rpcData.access_token,
-          refresh_token: rpcData.refresh_token
-        };
-
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession(sessionObject);
-        
-        if (!sessionError && sessionData?.user) {
-          console.log('Session created via RPC:', sessionData.session);
-          return { user: sessionData.user, error: null };
-        }
+      if (!functionData?.ok || !functionData?.data?.session) {
+        throw new Error(functionData?.error?.message || 'Nomor Induk Qiroati atau password salah.');
       }
 
-      throw new Error('Nomor Induk Qiroati atau password salah, atau RPC signin_with_username belum tersedia.');
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: functionData.data.session.access_token,
+        refresh_token: functionData.data.session.refresh_token,
+      });
+
+      if (sessionError) {
+        throw new Error('Gagal membuat session login santri.');
+      }
+
+      if (sessionData?.session && sessionData?.user) {
+        const profileResult = await handleSession(sessionData.session);
+        if (profileResult?.error) throw profileResult.error;
+        return { user: sessionData.user, error: null };
+      }
+
+      throw new Error('Nomor Induk Qiroati atau password salah.');
 
     } catch (error) {
-      console.error('Login Error:', error);
+      console.error('Login Error:', error.message);
       return { user: null, error };
     }
-  }, []);
+  }, [handleSession]);
 
   const signOut = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      
-      // Manually trigger handle session to clear UI immediately if there was a mock session
-      await handleSession(null);
+      clearAuthState();
 
       if (error) {
         console.warn('[AuthContext] Supabase signout note:', error.message);
@@ -220,18 +266,21 @@ export const AuthProvider = ({ children }) => {
       return { error };
     }
     return { error: null };
-  }, [toast, handleSession]);
+  }, [clearAuthState, toast]);
 
   const value = useMemo(() => ({
     user,
     session,
+    profile,
     role,
     loading,
+    profileLoading,
     signUp,
     signIn,
     signInWithUsername,
     signOut,
-  }), [user, session, role, loading, signUp, signIn, signInWithUsername, signOut]);
+    refreshProfile: user ? () => loadUserProfile(user.id) : async () => ({ profile: null, error: null }),
+  }), [user, session, profile, role, loading, profileLoading, signUp, signIn, signInWithUsername, signOut, loadUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

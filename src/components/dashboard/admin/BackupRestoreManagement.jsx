@@ -88,18 +88,17 @@ const BackupRestoreManagement = () => {
         
         setIsVerifying(true);
         try {
-            console.log("Verifying admin password via signin_with_username RPC...");
-            // Verify password using the RPC function which checks credentials securely on server
-            const { data, error } = await supabase.rpc('signin_with_username', { 
-                p_username: user.email, 
-                p_password: passwordInput 
+            console.log("Verifying admin password via Supabase Auth...");
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: passwordInput
             });
 
             if (error) {
-                console.error("Password Verification RPC Error:", error);
+                console.error("Password verification error:", error.message);
                 throw new Error("Password salah atau verifikasi gagal.");
             }
-            if (!data) {
+            if (!data?.user) {
                 console.error("Password Verification Failed: Empty data returned");
                 throw new Error("Password salah atau akun tidak ditemukan.");
             }

@@ -123,7 +123,7 @@ export async function verifySantriDataSources() {
           brokenLinks: brokenClassLinks
         }
       ],
-      authLink: "Santri login bypasses auth.users. It relies on signin_with_username RPC function mapping directly to the santri table."
+      authLink: "Santri login uses the signin-with-nomor-induk Edge Function and returns an official Supabase Auth session."
     };
 
     // 6. Identify Issues

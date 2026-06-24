@@ -145,6 +145,9 @@ const DeferredFeaturePage = () => (
   </div>
 );
 
+const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
+const operationalDisplayRoles = ['admin', 'guru', 'pentashih'];
+
 function App() {
   const [loading, setLoading] = useState(true);
 
@@ -166,8 +169,8 @@ function App() {
             </AnimatePresence>
             <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
               <Routes>
-                <Route path="/absensi-digital" element={<ProtectedRoute><DigitalAttendancePage /></ProtectedRoute>} />
-                <Route path="/tv-display-mode" element={<ProtectedRoute><TvDisplayPage /></ProtectedRoute>} />
+                <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
+                <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><TvDisplayPage /></ProtectedRoute>} />
                 {enableDeferredFeatures ? (
                   <>
                     <Route path="/quiz-hafalan" element={<ProtectedRoute><QuizHafalanPage /></ProtectedRoute>} />
@@ -219,7 +222,7 @@ function App() {
                         <Route path="/pengumuman/:id" element={<AnnouncementDetailPage />} />
                         <Route path="/metode-qiroati" element={<QiroatiMethodPage />} />
                         <Route path="/fasilitas" element={<FacilitiesPage />} />
-                        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={allDashboardRoles}><DashboardPage /></ProtectedRoute>} />
                       </Routes>
                     </main>
                     <Footer />
