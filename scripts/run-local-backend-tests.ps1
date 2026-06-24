@@ -100,7 +100,8 @@ with expected_migrations(version) as (
     ('20260624001500'),
     ('20260624001600'),
     ('20260624001700'),
-    ('20260624001800')
+    ('20260624001800'),
+    ('20260624001900')
 ),
 sensitive_tables(table_name) as (
   values
@@ -129,7 +130,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 18 and not exists (
+       (count(sm.version) = 19 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -245,6 +246,17 @@ select 'consume auth rate limit rpc exists',
            and p.proname = 'consume_auth_rate_limit'
        )::text,
        'rpc=consume_auth_rate_limit'
+
+union all
+select 'move santri to class rpc exists',
+       exists (
+         select 1
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public'
+           and p.proname = 'move_santri_to_class'
+       )::text,
+       'rpc=move_santri_to_class'
 ;
 '@
 

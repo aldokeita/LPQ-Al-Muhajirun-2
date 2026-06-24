@@ -578,7 +578,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
               .from('class_memberships')
               .select('id', { count: 'exact', head: true })
               .eq('class_id', id)
-              .eq('is_active', true);
+              .eq('status', 'active');
             if (membershipError) {
               toast({ title: 'Gagal memeriksa kelas', description: membershipError.message, variant: 'destructive' });
               return;
@@ -598,18 +598,40 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
     });
   };
   
-  const logMutation = async (santriId, fromClassId, toClassId, jilid) => {
-    if (fromClassId === toClassId) return;
-    await supabase.from('class_mutations').insert({ santri_id: santriId, from_class_id: fromClassId, to_class_id: toClassId, mutated_by: user.id, from_jilid: jilid, to_jilid: jilid });
-  };
-
   const handleDropSantri = async (item, toClassId) => {
     if (item.fromClassId === toClassId) return;
-    toast({
-      title: 'Mutasi kelas ditunda',
-      description: 'Pemindahan santri perlu RPC atau Edge Function atomik agar current_class_id dan class_memberships tetap konsisten.',
-      variant: 'destructive'
+    if (userRole !== 'admin') {
+      toast({ title: 'Akses ditolak', description: 'Hanya admin yang boleh memindahkan kelas santri.', variant: 'destructive' });
+      return;
+    }
+    if (!toClassId) {
+      toast({
+        title: 'Kelas tujuan belum dipilih',
+        description: 'Mengeluarkan santri dari kelas perlu operasi backend terpisah dan masih ditunda.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const targetClass = classes.find(c => c.id === toClassId);
+    const { data, error } = await supabase.rpc('move_santri_to_class', {
+      p_santri_id: item.santriId,
+      p_to_class_id: toClassId,
+      p_reason: `Mutasi kelas melalui dashboard admin${targetClass ? ` ke ${targetClass.nama_kelas}` : ''}`,
     });
+
+    if (error) {
+      toast({ title: 'Gagal memindahkan santri', description: error.message, variant: 'destructive' });
+      fetchAllData();
+      return;
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    toast({
+      title: result?.changed ? 'Berhasil!' : 'Data disinkronkan',
+      description: result?.message || 'Mutasi kelas selesai.',
+    });
+    fetchAllData();
   };
 
   const initiateJilidChange = (santri, direction) => {

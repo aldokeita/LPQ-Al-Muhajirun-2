@@ -27,7 +27,8 @@ $expectedNames = @(
   "20260624001500_rls_helper_functions.sql",
   "20260624001600_rls_policies.sql",
   "20260624001700_storage_buckets_and_policies.sql",
-  "20260624001800_indexes_and_final_constraints.sql"
+  "20260624001800_indexes_and_final_constraints.sql",
+  "20260624001900_move_santri_to_class_rpc.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }
@@ -66,4 +67,3 @@ foreach ($file in $beforeMmq) {
 
 Write-Host "Migration order and MMQ dependency checks passed."
 exit 0
-
