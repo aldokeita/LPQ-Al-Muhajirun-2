@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from '@/components/ui/card';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import * as XLSX from 'xlsx';
+import { getOperationalRoleFromGuruForm, pickGuruProfileFields } from '@/lib/dataMasterAdapters';
 
 const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
 
@@ -37,7 +38,10 @@ const GuruManagement = () => {
   const fetchGuru = useCallback(async () => {
     try {
         console.log("Fetching guru data from database...");
-        const { data, error } = await supabase.from('guru').select('*').order('nama');
+        const { data, error } = await supabase
+          .from('guru')
+          .select('id, nama, email, no_hp, alamat, foto_url, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at')
+          .order('nama');
         if (error) {
             console.error("Database Error fetching guru:", error);
             throw new Error(error.message);
@@ -81,7 +85,6 @@ const GuruManagement = () => {
   const handleAdd = () => { resetForm(); setIsDialogOpen(true); };
   
   const handleEdit = (guru) => { 
-    console.log("Editing guru:", guru);
     setEditingGuru(guru); 
     setFormData({
         ...guru, 
@@ -101,25 +104,24 @@ const GuruManagement = () => {
       return;
     }
 
-    if (window.confirm(`Yakin ingin menghapus ${guruToDelete.nama}? Ini juga akan menghapus user login terkait. Aksi ini tidak dapat dibatalkan.`)) {
+    if (window.confirm(`Yakin ingin menonaktifkan ${guruToDelete.nama}? Akun login akan dinonaktifkan tanpa hard delete.`)) {
       try {
-          console.log(`Deleting guru ID: ${guruToDelete.id}`);
-          const { error: edgeError } = await supabase.functions.invoke('manage-user', {
-            body: { action: 'delete', userId: guruToDelete.id }
+          const operationalRole = (guruToDelete.roles || []).includes('Pentashih') ? 'pentashih' : 'guru';
+          const { data, error: edgeError } = await supabase.functions.invoke('manage-user', {
+            body: { action: 'deactivate', role: operationalRole, target_user_id: guruToDelete.id }
           });
-          if (edgeError && !edgeError.message.toLowerCase().includes('not found')) {
-            console.error("Error from manage-user edge function:", edgeError);
-            toast({ title: "Gagal Hapus User Login", description: edgeError.message, variant: "destructive" });
+          if (edgeError || !data?.ok) {
+            toast({ title: "Gagal Hapus User Login", description: edgeError?.message || data?.error?.message || 'Akun gagal dinonaktifkan.', variant: "destructive" });
             return;
           }
           
-          const { error: profileError } = await supabase.from('guru').delete().eq('id', guruToDelete.id);
+          const { error: profileError } = await supabase.from('guru').update({ status: 'inactive' }).eq('id', guruToDelete.id);
           if (profileError) {
               console.error("Database Delete Error:", profileError);
               throw new Error(profileError.message);
           }
           
-          toast({ title: "Berhasil!", description: "Data guru dan user login telah dihapus." }); 
+          toast({ title: "Berhasil!", description: "Akun guru/pentashih telah dinonaktifkan." });
           fetchGuru();
       } catch (err) {
           console.error("Full handleDelete Error:", err);
@@ -260,7 +262,16 @@ const GuruManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submitting guru form data:", formData);
+    const operationalRole = getOperationalRoleFromGuruForm(formData);
+
+    if (editingGuru && formData.password) {
+        toast({
+            title: "Reset password ditunda",
+            description: "Perubahan password akun existing perlu menggunakan reset-user-password agar Auth tetap konsisten.",
+            variant: "destructive"
+        });
+        return;
+    }
 
     if (formData.password) {
         const passwordError = validatePassword(formData.password);
@@ -275,15 +286,7 @@ const GuruManagement = () => {
 
     setIsSubmitting(true);
     let userId = editingGuru?.id;
-    let authUpdates = {};
-
-    if (editingGuru) {
-      if (formData.email !== editingGuru.email) authUpdates.email = formData.email;
-      if (formData.password) authUpdates.password = formData.password;
-      if (formData.nama !== editingGuru.nama) authUpdates.user_metadata = { name: formData.nama };
-    } 
-
-    const requiresAuthEdgeFunction = !editingGuru || Object.keys(authUpdates).length > 0;
+    const requiresAuthEdgeFunction = !editingGuru;
     if (requiresAuthEdgeFunction && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
         setIsSubmitting(false);
@@ -291,31 +294,27 @@ const GuruManagement = () => {
     }
     
     try {
-        let authActionResult;
-        if (editingGuru) {
-           if (Object.keys(authUpdates).length > 0) {
-               console.log("Invoking manage-user for update...");
-               authActionResult = await supabase.functions.invoke('manage-user', { body: { action: 'update', userId: editingGuru.id, userData: authUpdates } });
-           } else {
-               authActionResult = { data: { user: { id: editingGuru.id } } }; 
-           }
-        } else {
-          console.log("Invoking manage-user for create...");
-          authActionResult = await supabase.functions.invoke('manage-user', { body: { action: 'create', userData: { email: formData.email, password: formData.password, role: 'guru', name: formData.nama } } });
-          if (authActionResult.data?.user) { userId = authActionResult.data.user.id; }
-        }
-
-        if (authActionResult?.error) { 
-            console.error("Auth Management Error:", authActionResult.error);
-            throw new Error(authActionResult.error.message);
+        if (!editingGuru) {
+          const { data, error } = await supabase.functions.invoke('manage-user', {
+            body: {
+              action: 'create',
+              role: operationalRole,
+              profile: pickGuruProfileFields(formData, operationalRole),
+              initial_password: formData.password,
+            },
+          });
+          if (error) throw error;
+          if (!data?.ok || !data?.data?.user_id) {
+            throw new Error(data?.error?.message || 'Akun guru/pentashih gagal dibuat.');
+          }
+          userId = data.data.user_id;
         }
         
         if (!userId) { 
             throw new Error("ID Pengguna tidak valid setelah operasi otentikasi.");
         }
         
-        const dataToSubmit = { ...formData, id: userId };
-        console.log("Saving to database table 'guru'...", dataToSubmit);
+        const dataToSubmit = { ...pickGuruProfileFields(formData, operationalRole), id: userId };
         
         const { error: profileError } = await supabase.from('guru').upsert(dataToSubmit);
         

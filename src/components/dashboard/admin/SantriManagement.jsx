@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
+import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -371,7 +372,7 @@ const SantriManagement = () => {
             santri.no_nik = row[13];
             
             // 15. No Induk Qiroati
-            santri.nomor_induk_qiroati = row[14];
+            santri.nomor_induk_qiroati = normalizeNomorIndukQiroati(row[14]);
             
             // 16. RFID
             santri.rfid_tag = row[15];
@@ -427,7 +428,10 @@ const SantriManagement = () => {
     setFetchError(null);
     try {
       const [santriRes, classesRes, configRes] = await Promise.all([
-        supabase.from('santri').select('*'),
+        supabase
+          .from('santri')
+          .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at')
+          .order('nama_lengkap'),
         supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
         supabase.from('website_content').select('content').eq('key', 'anakSessionConfig').maybeSingle()
       ]);
@@ -437,7 +441,7 @@ const SantriManagement = () => {
           setFetchError(santriRes.error.message);
           toast({ title: "Gagal Memuat Data Santri", description: santriRes.error.message, variant: "destructive" });
       } else {
-          const filteredSantri = (santriRes.data || []).filter(s => {
+          const filteredSantri = (santriRes.data || []).map(mapSantriForLegacyUi).filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
               const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
               if (currentTab === 'tpq') return (cat === 'anak' || cat === 'tpq') && isActive;
@@ -493,15 +497,11 @@ const SantriManagement = () => {
   
   const confirmBulkUpload = async () => {
       if (!uploadReport?.validData) return;
-      const { error } = await supabase.from('santri').insert(uploadReport.validData);
-      if (error) {
-          toast({ title: "Gagal Menyimpan", description: error.message, variant: "destructive" });
-      } else {
-          toast({ title: "Berhasil", description: `${uploadReport.validCount} data santri berhasil diimport.` });
-          loadData(activeTab);
-          setIsReportOpen(false);
-          setUploadReport(null);
-      }
+      toast({
+          title: "Import massal ditunda",
+          description: "Pembuatan akun santri massal perlu operasi backend atomik agar Auth, profil, alias login, dan membership tetap konsisten.",
+          variant: "destructive"
+      });
   };
 
   const handleDownloadData = () => {
@@ -569,6 +569,7 @@ const SantriManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const finalFormData = { ...formData, kategori: activeTab === 'ptpt' ? 'PTPT' : 'Anak' };
+    finalFormData.nomor_induk_qiroati = normalizeNomorIndukQiroati(finalFormData.nomor_induk_qiroati);
     
     // Ensure we save the numeric equivalent for sesi to match backend constraints
     if (finalFormData.sesi_mengaji) {
@@ -586,20 +587,53 @@ const SantriManagement = () => {
         return;
     }
 
-    let result;
-    if (editingSantri) {
-      result = await supabase.from('santri').update(finalFormData).eq('id', editingSantri.id);
-      toast({ title: "Berhasil!", description: "Data santri berhasil diperbarui" });
-    } else {
-      result = await supabase.from('santri').insert(finalFormData);
-      toast({ title: "Berhasil!", description: "Santri baru berhasil ditambahkan" });
+    if (editingSantri && finalFormData.nomor_induk_qiroati !== editingSantri.nomor_induk_qiroati) {
+        toast({
+            title: "Nomor Induk belum dapat diubah",
+            description: "Perubahan Nomor Induk Qiroati perlu operasi backend agar alias login Supabase Auth tetap konsisten.",
+            variant: "destructive"
+        });
+        return;
     }
-    
-    if (result.error) toast({ title: "Gagal!", description: result.error.message, variant: "destructive" });
-    else {
+
+    if (!editingSantri && !enableEdgeFunctions) {
+      toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+      return;
+    }
+
+    try {
+      let targetId = editingSantri?.id;
+
+      if (!editingSantri) {
+        const { data, error } = await supabase.functions.invoke('manage-user', {
+          body: {
+            action: 'create',
+            role: 'santri',
+            profile: pickSantriProfileFields(finalFormData),
+            initial_password: finalFormData.password,
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.ok || !data?.data?.user_id) {
+          throw new Error(data?.error?.message || 'Akun santri gagal dibuat.');
+        }
+        targetId = data.data.user_id;
+      }
+
+      const { error } = await supabase
+        .from('santri')
+        .update(pickSantriProfileFields(finalFormData))
+        .eq('id', targetId);
+
+      if (error) throw error;
+
+      toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
       loadData(activeTab);
       setIsFormOpen(false);
       resetForm();
+    } catch (error) {
+      toast({ title: "Gagal!", description: error.message, variant: "destructive" });
     }
   };
 
@@ -652,12 +686,28 @@ const SantriManagement = () => {
       title: 'Hapus Santri',
       description: `Yakin ingin menghapus ${selectedSantri.size} data santri terpilih? Tindakan ini tidak dapat dibatalkan.`,
       onConfirm: async () => {
-        const { error } = await supabase.from('santri').delete().in('id', idsToDelete);
-        if (error) toast({ title: "Gagal!", description: error.message, variant: "destructive" });
-        else {
+        if (!enableEdgeFunctions) {
+          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+          return;
+        }
+
+        try {
+          for (const id of idsToDelete) {
+            const { data, error } = await supabase.functions.invoke('manage-user', {
+              body: { action: 'deactivate', role: 'santri', target_user_id: id },
+            });
+            if (error) throw error;
+            if (!data?.ok) throw new Error(data?.error?.message || 'Akun santri gagal dinonaktifkan.');
+          }
+
+          const { error } = await supabase.from('santri').update({ status: 'Nonaktif' }).in('id', idsToDelete);
+          if (error) throw error;
+
           loadData(activeTab);
           setSelectedSantri(new Set());
-          toast({ title: "Berhasil!", description: "Data santri terpilih berhasil dihapus" });
+          toast({ title: "Berhasil!", description: "Akun santri terpilih berhasil dinonaktifkan" });
+        } catch (error) {
+          toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
       }
     });
@@ -672,13 +722,37 @@ const SantriManagement = () => {
       description: `Yakin ingin ${confirmationText} ${selectedSantri.size} data santri terpilih?`,
       onConfirm: async () => {
         const idsToUpdate = Array.from(selectedSantri);
-        const { error } = await supabase.from('santri').update({ status }).in('id', idsToUpdate);
-        if (error) {
-          toast({ title: "Gagal!", description: error.message, variant: "destructive" });
-        } else {
+        if (status === 'Aktif') {
+          toast({
+            title: "Aktivasi massal ditunda",
+            description: "Mengaktifkan kembali akun perlu operasi backend resmi agar status Supabase Auth dan tabel santri tetap konsisten.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (!enableEdgeFunctions) {
+          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+          return;
+        }
+
+        try {
+          for (const id of idsToUpdate) {
+            const { data, error } = await supabase.functions.invoke('manage-user', {
+              body: { action: 'deactivate', role: 'santri', target_user_id: id },
+            });
+            if (error) throw error;
+            if (!data?.ok) throw new Error(data?.error?.message || 'Akun santri gagal dinonaktifkan.');
+          }
+
+          const { error } = await supabase.from('santri').update({ status }).in('id', idsToUpdate);
+          if (error) throw error;
+
           loadData(activeTab);
           setSelectedSantri(new Set());
           toast({ title: "Berhasil!", description: `Status santri terpilih berhasil diubah menjadi ${status}.` });
+        } catch (error) {
+          toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
       }
     });
@@ -692,17 +766,11 @@ const SantriManagement = () => {
           title: 'Migrasi ke Dewasa',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori DEWASA? Santri akan dikeluarkan dari kelas saat ini.`,
           onConfirm: async () => {
-              const { error } = await supabase.from('santri')
-                  .update({ kategori: 'Dewasa', id_kelas: null, order_in_class: null })
-                  .eq('id', editingSantri.id);
-              
-              if (error) {
-                  toast({ title: "Gagal", description: error.message, variant: "destructive" });
-              } else {
-                  toast({ title: "Berhasil", description: "Santri berhasil dipindahkan ke kategori Dewasa." });
-                  setIsFormOpen(false);
-                  loadData(activeTab);
-              }
+              toast({
+                  title: "Migrasi ditunda",
+                  description: "Migrasi kategori/kelas perlu operasi backend atomik agar current_class_id dan class_memberships tetap konsisten.",
+                  variant: "destructive"
+              });
           }
       });
   };
@@ -788,8 +856,8 @@ const SantriManagement = () => {
     }
     sortableItems.sort((a, b) => {
       if (sortConfig.key === 'guru_pengampu') {
-        const nameA = classGuruMap[a.id_kelas] || 'zzzz';
-        const nameB = classGuruMap[b.id_kelas] || 'zzzz';
+        const nameA = classGuruMap[a.current_class_id || a.id_kelas] || 'zzzz';
+        const nameB = classGuruMap[b.current_class_id || b.id_kelas] || 'zzzz';
         if (nameA < nameB) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (nameA > nameB) return sortConfig.direction === 'ascending' ? 1 : -1;
         return 0;
@@ -971,7 +1039,7 @@ const SantriManagement = () => {
                 </td>
                 <td className="p-3 text-sm text-muted-foreground">{new Date(santri.tanggal_pendaftaran).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: '2-digit'})}</td>
                 <td className="p-3"><Badge variant="outline" className={santri.jenis_kelamin === 'Laki-laki' ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-pink-50 text-pink-700 border-pink-200"}>{santri.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</Badge></td>
-                <td className="p-3 text-sm font-medium text-foreground">{classGuruMap[santri.id_kelas] || <span className="text-muted-foreground italic text-xs">Belum ada</span>}</td>
+                <td className="p-3 text-sm font-medium text-foreground">{classGuruMap[santri.current_class_id || santri.id_kelas] || <span className="text-muted-foreground italic text-xs">Belum ada</span>}</td>
                 <td className="p-3"><Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">{santri.jilid}</Badge></td>
                 <td className="p-3"><span className="text-xs font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">{getSessionName(santri.sesi_mengaji)}</span></td>
                 <td className="p-3"><div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 border"><FileCheck className={`w-4 h-4 ${santri.berkas_foto && santri.berkas_akta && santri.berkas_kk && santri.berkas_form ? 'text-green-500' : 'text-slate-300'}`} /></div></td>

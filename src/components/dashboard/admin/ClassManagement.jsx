@@ -22,6 +22,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import AdultClassManagement from './AdultClassManagement';
 import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
+import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 
 const ItemTypes = { 
   SANTRI: 'santri',
@@ -390,6 +391,8 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [sessionTimes, setSessionTimes] = useState({ 'Pagi': '08:00', 'Siang': '14:00', 'Sore': '16:00' });
   const [sessionFilters, setSessionFilters] = useState(Object.keys(sessionTimes));
+  const [pentashihAssignments, setPentashihAssignments] = useState([]);
+  const [assignmentForm, setAssignmentForm] = useState({ pentashih_id: '', class_id: '' });
 
   const fetchAllData = useCallback(async () => {
     const today = new Date().toLocaleDateString('en-CA'); 
@@ -399,29 +402,40 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           { data: guruData, error: guruError },
           { data: rawSantriData, error: santriError },
           { data: attendanceData, error: attendanceError },
+          { data: assignmentData, error: assignmentError },
           { data: configData }
         ] = await Promise.all([
-          supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').order('order', { ascending: true, nullsFirst: false }),
-          supabase.from('guru').select('id, nama, foto_url, no_hp'),
-          supabase.from('santri').select('*, class:id_kelas(nama_kelas, sesi)').order('order_in_class', { ascending: true, nullsFirst: false }),
+          supabase
+            .from('classes')
+            .select('id, nama_kelas, id_guru, sesi, kategori, sort_order, is_active, guru:id_guru(id, nama, foto_url, no_hp)')
+            .order('sort_order', { ascending: true, nullsFirst: false }),
+          supabase.from('guru').select('id, nama, foto_url, no_hp, roles, status'),
+          supabase
+            .from('santri')
+            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
+            .order('order_in_class', { ascending: true, nullsFirst: false }),
           supabase.from('attendance').select('*').eq('attendance_date', today),
+          supabase.from('pentashih_class_assignments').select('id, pentashih_id, class_id, scope, is_active, created_at'),
           supabase.from('website_content').select('content').eq('key', configKey).maybeSingle()
         ]);
 
-        if (classError || guruError || santriError || attendanceError) {
-          toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError).message, variant: 'destructive' });
+        if (classError || guruError || santriError || attendanceError || assignmentError) {
+          toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError || assignmentError).message, variant: 'destructive' });
           return;
         }
 
-        const filteredClasses = (classData || []).filter(c => {
+        const mappedClasses = (classData || []).map(mapClassForLegacyUi);
+        const filteredClasses = mappedClasses.filter(c => {
+            if (c.is_active === false) return false;
             if (kategori === 'Anak') return !c.kategori || c.kategori.toLowerCase() === 'anak';
             return c.kategori === kategori;
         });
         setClasses(filteredClasses);
 
         setGuruList(guruData || []);
+        setPentashihAssignments(assignmentData || []);
 
-        const filteredSantri = (rawSantriData || []).filter(s => {
+        const filteredSantri = (rawSantriData || []).map(mapSantriForLegacyUi).filter(s => {
             const isMatch = kategori === 'Anak' ? (!s.kategori || s.kategori.toLowerCase() === 'anak' || s.kategori.toLowerCase() === 'tpq') : s.kategori === kategori;
             const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
             return isMatch && isActive;
@@ -504,33 +518,23 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const saveReorderedClasses = async (orderedClasses) => {
       setClasses(orderedClasses); 
       
-      const updates = orderedClasses.map((cls, index) => ({
-          id: cls.id,
-          order: index + 1,
-          nama_kelas: cls.nama_kelas,
-          kategori: kategori
-      }));
-
-      const { error } = await supabase.from('classes').upsert(updates);
-      if (error) {
-          toast({ title: 'Gagal', description: error.message, variant: 'destructive' });
-          fetchAllData(); 
+      const updates = orderedClasses.map((cls, index) =>
+        supabase.from('classes').update({ sort_order: index + 1 }).eq('id', cls.id)
+      );
+      const results = await Promise.all(updates);
+      const firstError = results.find(result => result.error)?.error;
+      if (firstError) {
+          toast({ title: 'Gagal', description: firstError.message, variant: 'destructive' });
+          fetchAllData();
       } else {
           toast({ title: 'Berhasil', description: 'Urutan kelas diperbarui.' });
       }
   };
 
-  const moveSantri = useCallback(async (dragIndex, hoverIndex, classId) => {
-    const newSantriList = [...santriList];
-    const santriInClass = newSantriList.filter(s => s.id_kelas === classId);
-    const otherSantri = newSantriList.filter(s => s.id_kelas !== classId);
-    const [draggedItem] = santriInClass.splice(dragIndex, 1);
-    santriInClass.splice(hoverIndex, 0, draggedItem);
-    const updatedSantriInClass = santriInClass.map((s, i) => ({ ...s, order_in_class: i + 1 }));
-    setSantriList([...otherSantri, ...updatedSantriInClass]);
-    const updates = updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id));
-    await Promise.all(updates);
-  }, [santriList]);
+  const moveSantri = useCallback(() => {
+    // Reorder/mutasi santri membutuhkan operasi backend atomik agar current_class_id
+    // dan class_memberships tetap konsisten.
+  }, []);
 
   useEffect(() => {
     let filtered = mutationHistory;
@@ -567,13 +571,29 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const confirmDeleteClass = (id) => {
     setConfirmDialog({
         isOpen: true,
-        title: 'Hapus Kelas',
-        description: 'Apakah Anda yakin ingin menghapus kelas ini? Santri di dalamnya akan dipindahkan keluar kelas.',
+        title: 'Nonaktifkan Kelas',
+        description: 'Kelas akan dinonaktifkan. Kelas yang masih memiliki membership aktif tidak akan diubah agar data santri tetap konsisten.',
         onConfirm: async () => {
-            await supabase.from('santri').update({ id_kelas: null, order_in_class: null }).eq('id_kelas', id);
-            const { error } = await supabase.from('classes').delete().eq('id', id);
-            if (error) toast({ title: 'Gagal menghapus', description: error.message, variant: 'destructive' });
-            else { toast({ title: 'Berhasil!', description: 'Kelas telah dihapus.' }); fetchAllData(); }
+            const { count, error: membershipError } = await supabase
+              .from('class_memberships')
+              .select('id', { count: 'exact', head: true })
+              .eq('class_id', id)
+              .eq('is_active', true);
+            if (membershipError) {
+              toast({ title: 'Gagal memeriksa kelas', description: membershipError.message, variant: 'destructive' });
+              return;
+            }
+            if (count > 0) {
+              toast({
+                title: 'Kelas masih berisi santri',
+                description: 'Pindahkan santri melalui operasi backend atomik sebelum menonaktifkan kelas.',
+                variant: 'destructive'
+              });
+              return;
+            }
+            const { error } = await supabase.from('classes').update({ is_active: false }).eq('id', id);
+            if (error) toast({ title: 'Gagal menonaktifkan', description: error.message, variant: 'destructive' });
+            else { toast({ title: 'Berhasil!', description: 'Kelas telah dinonaktifkan.' }); fetchAllData(); }
         }
     });
   };
@@ -584,18 +604,12 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   };
 
   const handleDropSantri = async (item, toClassId) => {
-    const { santriId, fromClassId } = item;
-    if (fromClassId === toClassId) return;
-    const targetClass = classes.find(c => c.id === toClassId);
-    const newSession = targetClass ? targetClass.sesi : null;
-    const santri = santriList.find(s => s.id === santriId);
-    const currentJilid = santri ? santri.jilid : 'Unknown';
-    const updates = { id_kelas: toClassId, order_in_class: toClassId ? (santriList.filter(s => s.id_kelas === toClassId).length + 1) : null };
-    if (newSession) updates.sesi_mengaji = newSession;
-    setSantriList(prev => prev.map(s => s.id === santriId ? { ...s, ...updates } : s));
-    const { error } = await supabase.from('santri').update(updates).eq('id', santriId);
-    if (error) { toast({ title: 'Gagal memindahkan santri', description: error.message, variant: 'destructive' }); fetchAllData(); } 
-    else { logMutation(santriId, fromClassId, toClassId, currentJilid); toast({ title: 'Berhasil!', description: `Santri dipindahkan ke ${targetClass ? targetClass.nama_kelas : 'Luar Kelas'}.` }); if (fromClassId) { const remainingSantri = santriList.filter(s => s.id_kelas === fromClassId && s.id !== santriId); const reindexUpdates = remainingSantri.map((s, index) => ({ id: s.id, order_in_class: index + 1 })); if (reindexUpdates.length > 0) { await Promise.all(reindexUpdates.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id))); } } }
+    if (item.fromClassId === toClassId) return;
+    toast({
+      title: 'Mutasi kelas ditunda',
+      description: 'Pemindahan santri perlu RPC atau Edge Function atomik agar current_class_id dan class_memberships tetap konsisten.',
+      variant: 'destructive'
+    });
   };
 
   const initiateJilidChange = (santri, direction) => {
@@ -622,11 +636,59 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const classData = { ...formData, kategori };
-    if (!editingClass) { classData.order = classes.reduce((max, c) => Math.max(max, c.order || 0), 0) + 1; }
-    const { error } = editingClass ? await supabase.from('classes').update(classData).eq('id', editingClass.id) : await supabase.from('classes').insert(classData);
+    const classData = {
+      nama_kelas: formData.nama_kelas,
+      sesi: formData.sesi,
+      id_guru: formData.id_guru || null,
+      kategori,
+    };
+    if (!editingClass) {
+      classData.sort_order = classes.reduce((max, c) => Math.max(max, c.sort_order || c.order || 0), 0) + 1;
+      classData.is_active = true;
+    }
+    const { error } = editingClass
+      ? await supabase.from('classes').update(classData).eq('id', editingClass.id)
+      : await supabase.from('classes').insert(classData);
     if (error) toast({ title: 'Gagal menyimpan', description: error.message, variant: 'destructive' });
     else { toast({ title: 'Berhasil!', description: 'Data kelas berhasil disimpan.' }); setIsFormOpen(false); fetchAllData(); }
+  };
+
+  const handleCreatePentashihAssignment = async () => {
+    if (!assignmentForm.pentashih_id || !assignmentForm.class_id) {
+      toast({ title: 'Data belum lengkap', description: 'Pilih pentashih dan kelas terlebih dahulu.', variant: 'destructive' });
+      return;
+    }
+
+    const { error } = await supabase.from('pentashih_class_assignments').insert({
+      pentashih_id: assignmentForm.pentashih_id,
+      class_id: assignmentForm.class_id,
+      scope: 'class',
+      is_active: true,
+    });
+
+    if (error) {
+      toast({ title: 'Gagal menyimpan assignment', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setAssignmentForm({ pentashih_id: '', class_id: '' });
+    toast({ title: 'Berhasil', description: 'Assignment pentashih berhasil ditambahkan.' });
+    fetchAllData();
+  };
+
+  const handleDeactivatePentashihAssignment = async (assignmentId) => {
+    const { error } = await supabase
+      .from('pentashih_class_assignments')
+      .update({ is_active: false })
+      .eq('id', assignmentId);
+
+    if (error) {
+      toast({ title: 'Gagal menonaktifkan assignment', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Berhasil', description: 'Assignment pentashih telah dinonaktifkan.' });
+    fetchAllData();
   };
   
   const showHistory = async () => {
@@ -658,7 +720,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
         if (!grouped[sessionName]) grouped[sessionName] = [];
         grouped[sessionName].push(c); 
     });
-    Object.keys(grouped).forEach(key => grouped[key].sort((a,b) => a.order - b.order));
+    Object.keys(grouped).forEach(key => grouped[key].sort((a,b) => (a.order || 0) - (b.order || 0)));
     return grouped;
   }, [classes, sessionTimes]);
 
@@ -672,6 +734,22 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !s.id_kelas && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
+  const pentashihOptions = useMemo(
+    () => guruList.filter(guru => (guru.roles || []).includes('Pentashih') && guru.status !== 'inactive'),
+    [guruList]
+  );
+  const activePentashihAssignments = useMemo(
+    () => pentashihAssignments.filter(assignment => assignment.is_active !== false),
+    [pentashihAssignments]
+  );
+  const guruById = useMemo(
+    () => Object.fromEntries(guruList.map(guru => [guru.id, guru])),
+    [guruList]
+  );
+  const classById = useMemo(
+    () => Object.fromEntries(classes.map(classItem => [classItem.id, classItem])),
+    [classes]
+  );
 
   const handleExportToExcel = () => {
     try {
@@ -797,6 +875,53 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
                  </div>
             </CardContent>
         </Card>
+
+        {userRole === 'admin' && (
+          <Card className="bg-white dark:bg-slate-900 border border-border shadow-sm">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-end gap-3">
+                <div className="flex-1">
+                  <label className="text-xs font-medium uppercase text-muted-foreground">Pentashih</label>
+                  <Select value={assignmentForm.pentashih_id} onValueChange={val => setAssignmentForm(prev => ({ ...prev, pentashih_id: val }))}>
+                    <SelectTrigger><SelectValue placeholder="Pilih pentashih" /></SelectTrigger>
+                    <SelectContent>
+                      {pentashihOptions.map(guru => <SelectItem key={guru.id} value={guru.id}>{guru.nama}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-medium uppercase text-muted-foreground">Kelas</label>
+                  <Select value={assignmentForm.class_id} onValueChange={val => setAssignmentForm(prev => ({ ...prev, class_id: val }))}>
+                    <SelectTrigger><SelectValue placeholder="Pilih kelas" /></SelectTrigger>
+                    <SelectContent>
+                      {classes.map(classItem => <SelectItem key={classItem.id} value={classItem.id}>{classItem.nama_kelas}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="button" onClick={handleCreatePentashihAssignment} className="md:w-auto w-full">
+                  <UserPlus className="w-4 h-4 mr-2" /> Assign
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {activePentashihAssignments.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Belum ada assignment pentashih aktif.</p>
+                )}
+                {activePentashihAssignments.map(assignment => (
+                  <div key={assignment.id} className="flex flex-col md:flex-row md:items-center justify-between gap-2 rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-semibold">{guruById[assignment.pentashih_id]?.nama || 'Pentashih'}</p>
+                      <p className="text-xs text-muted-foreground">{classById[assignment.class_id]?.nama_kelas || 'Kelas di luar filter aktif'}</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDeactivatePentashihAssignment(assignment.id)}>
+                      Nonaktifkan
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <DroppableColumn title="Santri Belum Masuk Kelas" onDrop={(item) => handleDropSantri(item, null)} icon={<UserPlus className="w-5 h-5"/>}>
