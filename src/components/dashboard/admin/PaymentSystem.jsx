@@ -16,6 +16,15 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toPng } from 'html-to-image';
+import {
+  MONTH_NAMES,
+  PAYMENT_HISTORY_SELECT,
+  getPaymentErrorMessage,
+  monthNameToNumber,
+  monthNumberToName,
+  selectedMonthToNumber,
+  validatePaymentAmount,
+} from '@/lib/paymentAdapters';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -30,7 +39,7 @@ const paymentItems = [
   { name: 'Custom', amount: 0, monthly: false, icon: Edit, custom: 'item' },
 ];
 const bookVolumes = ['Jilid 1', 'Jilid 2', 'Jilid 3', 'Jilid 4', 'Jilid 5', 'Jilid 6'];
-const monthsList = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const monthsList = MONTH_NAMES;
 const sppOptions = [50000, 70000, 100000, 120000, 150000];
 
 const SantriSelectorModal = ({ santriList, onSelect, open, onOpenChange, selectedSantriIds }) => {
@@ -181,9 +190,13 @@ const PaymentSystem = () => {
 
   useEffect(() => {
     const fetchSantri = async () => {
-      const { data, error } = await supabase.from('santri').select('*');
+      const { data, error } = await supabase
+        .from('santri')
+        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag')
+        .eq('status', 'Aktif')
+        .order('nama_lengkap');
       if (error) toast({ title: "Error", description: "Gagal memuat data santri.", variant: "destructive" });
-      else setSantriList(data);
+      else setSantriList(data || []);
     };
     fetchSantri();
     if (rfidInputRef.current) {
@@ -205,7 +218,7 @@ const PaymentSystem = () => {
   useEffect(() => {
     const filtered = paymentHistory.filter(p => {
         const billingYear = p.tahun || new Date(p.tanggal_pembayaran).getFullYear();
-        const billingMonthIndex = p.bulan ? monthsList.indexOf(p.bulan) : new Date(p.tanggal_pembayaran).getMonth();
+        const billingMonthIndex = p.bulan ? Number(p.bulan) - 1 : new Date(p.tanggal_pembayaran).getMonth();
         return (historyFilter.year === 'all' || billingYear === historyFilter.year) && (historyFilter.month === 'all' || billingMonthIndex === historyFilter.month);
     });
     setFilteredHistory(filtered);
@@ -245,9 +258,13 @@ const PaymentSystem = () => {
   };
 
   const loadPaymentHistory = async (santriId) => {
-    const { data, error } = await supabase.from('payments').select('*').eq('santri_id', santriId).order('tanggal_pembayaran', { ascending: false });
+    const { data, error } = await supabase
+      .from('payments')
+      .select(PAYMENT_HISTORY_SELECT)
+      .eq('santri_id', santriId)
+      .order('tanggal_pembayaran', { ascending: false });
     if (error) toast({ title: "Error", description: "Gagal memuat riwayat pembayaran.", variant: "destructive" });
-    else setPaymentHistory(data);
+    else setPaymentHistory(data || []);
   };
 
   const initiateAddToCart = (item) => {
@@ -257,9 +274,20 @@ const PaymentSystem = () => {
   const checkDuplicates = async (config) => {
       if (selectedSantri.length === 0) return false;
       const santriIds = selectedSantri.map(s => s.id);
-      const { data, error } = await supabase.from('payments').select('*').in('santri_id', santriIds).eq('tahun', config.year).in('bulan', config.months);
-      if (error) { console.error(error); return false; }
-      return data.length > 0;
+      const monthNumbers = config.months.map(monthNameToNumber).filter(Boolean);
+      const { data, error } = await supabase
+        .from('payments')
+        .select('id, santri_id, bulan, tahun')
+        .in('santri_id', santriIds)
+        .eq('tahun', config.year)
+        .in('bulan', monthNumbers)
+        .eq('status', 'paid')
+        .is('deleted_at', null);
+      if (error) {
+        toast({ title: "Error", description: "Gagal memeriksa duplikasi pembayaran.", variant: "destructive" });
+        return false;
+      }
+      return (data || []).length > 0;
   };
 
   const addToCart = async (item, config = null) => {
@@ -295,17 +323,41 @@ const PaymentSystem = () => {
                 if (item.monthly) {
                     if(!item.months || item.months.length === 0) throw new Error("Data bulan tagihan SPP tidak valid.");
                     for (const month of item.months) {
-                         newPayments.push({ santri_id: santri.id, transaction_id: transactionId, bulan: month, tahun: item.year, jumlah: item.amount, catatan: `${item.name} (${month} ${item.year})`, metode_pembayaran: paymentMethod });
+                         const monthNumber = monthNameToNumber(month);
+                         if (!monthNumber) throw new Error("Bulan tagihan tidak valid.");
+                         if (!validatePaymentAmount(item.amount)) throw new Error("Nominal pembayaran tidak valid.");
+                         newPayments.push({
+                            santri_id: santri.id,
+                            transaction_id: crypto.randomUUID(),
+                            bulan: monthNumber,
+                            tahun: item.year,
+                            jumlah: Number(item.amount),
+                            tanggal_pembayaran: new Date().toLocaleDateString('en-CA'),
+                            status: 'paid',
+                            catatan: `${item.name} (${month} ${item.year})`,
+                            metode_pembayaran: paymentMethod
+                         });
                     }
                 } else {
                     if (item.hasSubtypes && !item.subtype) throw new Error("Pilih volume buku jilid.");
                     if (item.custom === 'item' && (!item.name || !item.amount)) throw new Error("Untuk item Custom, nama dan jumlah harus diisi.");
+                    if (!validatePaymentAmount(item.amount * item.quantity)) throw new Error("Nominal pembayaran tidak valid.");
                     const paymentType = item.custom === 'item' ? item.name : (item.hasSubtypes ? `${item.name} - ${item.subtype}` : item.name);
-                    newPayments.push({ santri_id: santri.id, transaction_id: transactionId, bulan: null, tahun: null, jumlah: item.amount * item.quantity, catatan: `${paymentType} (Qty: ${item.quantity})`, metode_pembayaran: paymentMethod });
+                    newPayments.push({
+                      santri_id: santri.id,
+                      transaction_id: crypto.randomUUID(),
+                      bulan: null,
+                      tahun: null,
+                      jumlah: Number(item.amount * item.quantity),
+                      tanggal_pembayaran: new Date().toLocaleDateString('en-CA'),
+                      status: 'paid',
+                      catatan: `${paymentType} (Qty: ${item.quantity})`,
+                      metode_pembayaran: paymentMethod
+                    });
                 }
             }
         }
-        const { data, error } = await supabase.from('payments').insert(newPayments).select();
+        const { data, error } = await supabase.from('payments').insert(newPayments).select('id');
         if (error) throw error;
         if (selectedSantri.length === 1) loadPaymentHistory(selectedSantri[0].id);
         
@@ -319,13 +371,13 @@ const PaymentSystem = () => {
         setIsReceiptOpen(true);
         setCart([]);
     } catch (error) {
-        toast({ title: "Pembayaran Gagal!", description: error.message, variant: "destructive" });
+        toast({ title: "Pembayaran Gagal!", description: getPaymentErrorMessage(error), variant: "destructive" });
     }
   };
 
   const handleDeleteHistory = async () => {
     const { error } = await supabase.from('payments').delete().in('id', selectedHistory);
-    if (error) { toast({ title: 'Gagal Menghapus', description: error.message, variant: 'destructive' }); } 
+    if (error) { toast({ title: 'Gagal Menghapus', description: getPaymentErrorMessage(error), variant: 'destructive' }); }
     else {
         toast({ title: 'Riwayat Dihapus', description: `${selectedHistory.length} data pembayaran telah berhasil dihapus.` });
         if (selectedSantri.length === 1) loadPaymentHistory(selectedSantri[0].id);
@@ -454,7 +506,7 @@ const PaymentSystem = () => {
                     <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-xl">Riwayat Bayar Santri</h3><div className="flex gap-2 items-center"><span className="text-xs font-medium mr-1">Filter Tagihan:</span><Select value={historyFilter.year.toString()} onValueChange={val => setHistoryFilter(f => ({...f, year: val === 'all' ? 'all' : Number(val)}))}><SelectTrigger className="w-[100px] h-8"><SelectValue placeholder="Tahun" /></SelectTrigger><SelectContent><SelectItem value="all">Semua</SelectItem>{availableYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select><Select value={historyFilter.month.toString()} onValueChange={val => setHistoryFilter(f => ({...f, month: val === 'all' ? 'all' : Number(val)}))}><SelectTrigger className="w-[120px] h-8"><SelectValue placeholder="Bulan" /></SelectTrigger><SelectContent><SelectItem value="all">Semua</SelectItem>{monthsList.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}</SelectContent></Select>{selectedHistory.length > 0 && <Button onClick={confirmDelete} variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-2"/> Hapus ({selectedHistory.length})</Button>}</div></div>
                     <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2">
                     {filteredHistory.length > 0 && (<div className="flex items-center px-2"><Checkbox id="selectAllHistory" checked={selectedHistory.length === filteredHistory.length && filteredHistory.length > 0} onCheckedChange={checked => checked ? setSelectedHistory(filteredHistory.map(p => p.id)) : setSelectedHistory([])} /><label htmlFor="selectAllHistory" className="ml-2 text-sm font-medium">Pilih Semua</label></div>)}
-                    {filteredHistory.map(p => (<div key={p.id} className="flex items-center justify-between p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"><div className="flex items-center gap-3 w-full overflow-hidden"><Checkbox id={`history-${p.id}`} checked={selectedHistory.includes(p.id)} onCheckedChange={() => handleSelectHistory(p.id)} className="flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-semibold truncate text-sm">{p.catatan}</p><div className="flex flex-wrap items-center gap-2 text-xs text-gray-500"><span>{new Date(p.tanggal_pembayaran).toLocaleString('id-ID')}</span>{p.bulan && <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-[10px]">Tagihan: {p.bulan} {p.tahun}</span>}</div></div><p className="font-bold whitespace-nowrap text-sm text-primary">Rp{p.jumlah.toLocaleString('id-ID')}</p></div></div>))}
+                    {filteredHistory.map(p => (<div key={p.id} className="flex items-center justify-between p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"><div className="flex items-center gap-3 w-full overflow-hidden"><Checkbox id={`history-${p.id}`} checked={selectedHistory.includes(p.id)} onCheckedChange={() => handleSelectHistory(p.id)} className="flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-semibold truncate text-sm">{p.catatan}</p><div className="flex flex-wrap items-center gap-2 text-xs text-gray-500"><span>{new Date(p.tanggal_pembayaran).toLocaleString('id-ID')}</span>{p.bulan && <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-[10px]">Tagihan: {monthNumberToName(p.bulan)} {p.tahun}</span>}</div></div><p className="font-bold whitespace-nowrap text-sm text-primary">Rp{Number(p.jumlah || 0).toLocaleString('id-ID')}</p></div></div>))}
                     {filteredHistory.length === 0 && <p className="text-center text-gray-500 py-4">Tidak ada riwayat untuk periode ini.</p>}</div>
                 </div>
                 )}

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Trash2, Search, AlertTriangle, Edit, FileText, CheckCircle2 } from 'lucide-react';
+import { Trash2, Search, AlertTriangle, Edit, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import EditPaymentModal from './EditPaymentModal';
 import PaymentProofModal from './PaymentProofModal';
 import { AnimatePresence, motion } from 'framer-motion';
+import { PAYMENT_DETAIL_SELECT, getPaymentErrorMessage, monthNumberToName } from '@/lib/paymentAdapters';
 
 const DeleteConfirmationDialog = ({ open, onOpenChange, onConfirm, count }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -38,8 +39,6 @@ const PaymentHistory = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPayments, setSelectedPayments] = useState(new Set());
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    const [debugInfo, setDebugInfo] = useState({ count: 0, status: 'pending' });
-    
     const [filter, setFilter] = useState({ year: 'all', month: 'all' });
     
     // Edit Modal State
@@ -56,37 +55,27 @@ const PaymentHistory = () => {
     const fetchPayments = async () => {
         setIsLoading(true);
         setError(null);
-        setDebugInfo({ count: 0, status: 'pending' });
         
         try {
-            console.log('🔍 PaymentHistory: Fetching payments...');
-            
-            // Build the query
             let query = supabase
                 .from('payments')
-                .select('*, santri(nama_lengkap, nomor_induk_qiroati)', { count: 'exact' })
+                .select(PAYMENT_DETAIL_SELECT, { count: 'exact' })
                 .order('created_at', { ascending: false });
 
             // Execute the query
-            const { data, error: queryError, count } = await query;
+            const { data, error: queryError } = await query;
 
             if (queryError) {
-                console.error('❌ PaymentHistory fetch FAILED:', queryError);
-                setDebugInfo({ count: 0, status: 'error' });
                 setError(queryError.message);
                 toast({ title: 'Query Error', description: queryError.message, variant: 'destructive' });
                 setPayments([]);
                 return;
             }
 
-            console.log('✅ PaymentHistory fetch SUCCESS');
-            setDebugInfo({ count: count || 0, status: 'success' });
             setPayments(data || []);
             
         } catch (err) {
-            console.error('❌ PaymentHistory Fetch Error:', err);
             setError(err.message);
-            setDebugInfo({ count: 0, status: 'error' });
             toast({ title: 'Error', description: err.message, variant: 'destructive' });
             setPayments([]);
         } finally {
@@ -120,7 +109,7 @@ const PaymentHistory = () => {
             
             const safeDate = p.tanggal_pembayaran ? new Date(p.tanggal_pembayaran) : new Date(p.created_at || Date.now());
             const billingYear = p.tahun || safeDate.getFullYear();
-            const billingMonthIndex = p.bulan ? months.indexOf(p.bulan) : safeDate.getMonth();
+            const billingMonthIndex = p.bulan ? Number(p.bulan) - 1 : safeDate.getMonth();
             
             const yearMatch = filter.year === 'all' || billingYear === filter.year;
             const monthMatch = filter.month === 'all' || billingMonthIndex === filter.month;
@@ -138,7 +127,7 @@ const PaymentHistory = () => {
         const idsToDelete = Array.from(selectedPayments);
         const { error } = await supabase.from('payments').delete().in('id', idsToDelete);
         if (error) {
-            toast({ title: 'Gagal Menghapus', description: error.message, variant: 'destructive' });
+            toast({ title: 'Gagal Menghapus', description: getPaymentErrorMessage(error), variant: 'destructive' });
         } else {
             toast({ title: 'Berhasil', description: `${selectedPayments.size} riwayat pembayaran telah dihapus.` });
             setSelectedPayments(new Set());
@@ -166,14 +155,6 @@ const PaymentHistory = () => {
 
     return (
         <div className="bg-card p-6 rounded-2xl shadow-xl space-y-4">
-            
-            {/* Status Debug Banner */}
-            {debugInfo.status === 'success' && debugInfo.count > 0 && (
-                <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm mb-4">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    ✅ CORRECT: Admin RLS is passing cleanly. System retrieved {debugInfo.count} total records.
-                </div>
-            )}
             
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4 shadow-xl">
@@ -277,7 +258,7 @@ const PaymentHistory = () => {
                                         </td>
                                         <td className="p-3 max-w-xs truncate" title={p.catatan}>{p.catatan || 'Lainnya'}</td>
                                         <td className="p-3">
-                                            {p.bulan ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{p.bulan}</span> : '-'}
+                                            {p.bulan ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{monthNumberToName(p.bulan)}</span> : '-'}
                                         </td>
                                         <td className="p-3 font-mono">{p.tahun || '-'}</td>
                                         <td className="p-3 font-semibold">Rp {(p.jumlah || 0).toLocaleString('id-ID')}</td>

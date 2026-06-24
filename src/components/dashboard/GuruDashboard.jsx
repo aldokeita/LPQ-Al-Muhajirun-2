@@ -16,7 +16,7 @@ import GuruAttendanceRecap from '@/components/dashboard/admin/GuruAttendanceReca
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, ArrowRightLeft, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2 } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, ArrowRightLeft, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, BadgeCheck, BadgeX } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
 import { validatePassword, cn } from '@/lib/utils';
@@ -151,6 +151,7 @@ const GuruDashboard = () => {
   const [jilidChangeData, setJilidChangeData] = useState(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [santriToTransfer, setSantriToTransfer] = useState(null);
+  const [paymentStatusBySantri, setPaymentStatusBySantri] = useState({});
   
   // Modals for Attendance
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -200,6 +201,21 @@ const GuruDashboard = () => {
                 if (attendanceRes) {
                     setDailyAttendance(attendanceRes);
                 }
+
+                const currentMonth = new Date().getMonth() + 1;
+                const currentYear = new Date().getFullYear();
+                const { data: paymentSummary } = await supabase
+                    .from('payment_status_summary')
+                    .select('santri_id, class_id, bulan, tahun, status')
+                    .in('class_id', classIds);
+
+                const statusMap = {};
+                (paymentSummary || []).forEach(row => {
+                    if (row.bulan === currentMonth && row.tahun === currentYear) {
+                        statusMap[row.santri_id] = row.status;
+                    }
+                });
+                setPaymentStatusBySantri(statusMap);
             }
             
             if (hafalanItemsRes.data) setHafalanItems(hafalanItemsRes.data);
@@ -352,6 +368,7 @@ const GuruDashboard = () => {
   
   const pendingSubmissionsCount = useMemo(() => murojaahSubmissions.filter(sub => sub.status === 'menunggu').length, [murojaahSubmissions]);
   const allMySantri = useMemo(() => myClasses.flatMap(c => c.santri), [myClasses]);
+  const getCurrentPaymentStatus = useCallback((santriId) => paymentStatusBySantri[santriId] || 'Belum Lunas', [paymentStatusBySantri]);
   const categories = [...new Set(hafalanItems.map(i => i.category))];
   const filteredManualItems = hafalanItems.filter(i => i.category === manualMurojaahForm.category).map(i => i.item_name);
 
@@ -481,6 +498,7 @@ const GuruDashboard = () => {
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70 w-12">No</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Nama Santri</th>
                                         <th className="py-3 px-4 text-center font-semibold text-foreground/70">Kehadiran</th>
+                                        <th className="py-3 px-4 text-left font-semibold text-foreground/70">Pembayaran</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Jilid</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Hafalan</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Aksi</th>
@@ -509,6 +527,17 @@ const GuruDashboard = () => {
                                                             className="hover:scale-110 transition-transform cursor-pointer shadow-sm"
                                                         />
                                                     </div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    {getCurrentPaymentStatus(santri.id) === 'Lunas' ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                                                            <BadgeCheck className="w-3.5 h-3.5" /> Lunas
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                                            <BadgeX className="w-3.5 h-3.5" /> Belum Lunas
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="py-3 px-4 flex items-center gap-2 group">
                                                     <span className={cn("px-2 py-1 rounded text-xs font-bold bg-primary/10 text-primary")}>{santri.jilid}</span>

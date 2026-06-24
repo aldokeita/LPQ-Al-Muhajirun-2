@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import { MONTH_NAMES, getPaymentErrorMessage, monthNameToNumber, validatePaymentAmount } from '@/lib/paymentAdapters';
 
-const monthsList = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const monthsList = MONTH_NAMES;
 
 const ConfirmationDialog = ({ open, onOpenChange, onConfirm, details }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,7 +67,7 @@ const EditPaymentModal = ({ isOpen, onClose, payment, onUpdate }) => {
     };
 
     const validateForm = () => {
-        if (!formData.jumlah || formData.jumlah <= 0) {
+        if (!validatePaymentAmount(formData.jumlah) || Number(formData.jumlah) <= 0) {
             toast({ title: "Validasi Gagal", description: "Jumlah pembayaran harus lebih dari 0.", variant: "destructive" });
             return false;
         }
@@ -93,11 +94,12 @@ const EditPaymentModal = ({ isOpen, onClose, payment, onUpdate }) => {
                 .from('payments')
                 .update({
                     jumlah: formData.jumlah,
-                    tanggal_pembayaran: formData.tanggal_pembayaran, // Send as YYYY-MM-DD string, postgres handles conversion
+                    tanggal_pembayaran: formData.tanggal_pembayaran,
                     metode_pembayaran: formData.metode_pembayaran,
-                    bulan: formData.bulan || null,
+                    bulan: monthNameToNumber(formData.bulan),
                     catatan: formData.catatan,
-                    tahun: formData.tahun
+                    tahun: Number(formData.tahun),
+                    status: 'paid',
                 })
                 .eq('id', payment.id);
 
@@ -107,7 +109,7 @@ const EditPaymentModal = ({ isOpen, onClose, payment, onUpdate }) => {
             onUpdate(); // Trigger refresh in parent
             onClose();
         } catch (error) {
-            toast({ title: "Gagal", description: error.message, variant: "destructive" });
+            toast({ title: "Gagal", description: getPaymentErrorMessage(error), variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -158,11 +160,11 @@ const EditPaymentModal = ({ isOpen, onClose, payment, onUpdate }) => {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Bulan Tagihan</Label>
-                                <Select value={formData.bulan} onValueChange={(val) => handleChange('bulan', val === 'none' ? null : val)}>
+                                <Select value={formData.bulan ? String(formData.bulan) : 'none'} onValueChange={(val) => handleChange('bulan', val === 'none' ? null : Number(val))}>
                                     <SelectTrigger><SelectValue placeholder="Pilih Bulan" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="none">Tidak Ada</SelectItem>
-                                        {monthsList.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                        {monthsList.map((m, index) => <SelectItem key={m} value={String(index + 1)}>{m}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>

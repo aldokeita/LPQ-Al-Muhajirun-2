@@ -3,6 +3,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Receipt } from 'lucide-react';
+import { PAYMENT_HISTORY_SELECT, monthNumberToName } from '@/lib/paymentAdapters';
 
 const SantriPaymentHistory = () => {
     const { user } = useAuth();
@@ -17,7 +18,7 @@ const SantriPaymentHistory = () => {
             try {
                 const { data, error: fetchError } = await supabase
                     .from('payments')
-                    .select('*')
+                    .select(PAYMENT_HISTORY_SELECT)
                     .eq('santri_id', user.id)
                     .order('tanggal_pembayaran', { ascending: false });
 
@@ -25,7 +26,6 @@ const SantriPaymentHistory = () => {
                 setPayments(data || []);
             } catch (err) {
                 setError(err.message);
-                console.error("Error fetching payments:", err);
             } finally {
                 setIsLoading(false);
             }
@@ -67,7 +67,7 @@ const SantriPaymentHistory = () => {
                                         </td>
                                         <td className="py-4 px-4">
                                             <div className="font-medium text-slate-800 dark:text-slate-200">
-                                                {p.bulan ? `SPP ${p.bulan} ${p.tahun}` : p.catatan || 'Pembayaran'}
+                                                {p.bulan ? `SPP ${monthNumberToName(p.bulan)} ${p.tahun}` : p.catatan || 'Pembayaran'}
                                             </div>
                                         </td>
                                         <td className="py-4 px-4 text-right font-bold text-slate-700 dark:text-slate-300">

@@ -11,8 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MONTH_NAMES, monthNumberToName, selectedMonthToNumber } from '@/lib/paymentAdapters';
 
-const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const months = MONTH_NAMES;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF19A3'];
 
 const paymentItemsList = [
@@ -77,7 +78,9 @@ const PaymentRecap = () => {
       try {
         const { data: paymentData, error: paymentError } = await supabase
           .from('payments')
-          .select('id, santri_id, jumlah, tanggal_pembayaran, catatan, bulan, tahun')
+          .select('id, santri_id, jumlah, tanggal_pembayaran, catatan, bulan, tahun, status')
+          .eq('status', 'paid')
+          .is('deleted_at', null)
           .order('tanggal_pembayaran', { ascending: false });
         
         const { data: santriData, error: santriError } = await supabase
@@ -116,7 +119,8 @@ const PaymentRecap = () => {
              const isSantri = p.santri_id === santri.id;
              const isSPP = p.catatan && p.catatan.toLowerCase().includes('spp');
              const isBillingYear = p.tahun === selectedYear;
-             const isBillingMonth = selectedMonth === 'all' || p.bulan === months[Number(selectedMonth)];
+             const selectedMonthNumber = selectedMonthToNumber(selectedMonth);
+             const isBillingMonth = selectedMonth === 'all' || p.bulan === selectedMonthNumber;
              return isSantri && isSPP && isBillingYear && isBillingMonth;
         });
         return {
@@ -124,7 +128,7 @@ const PaymentRecap = () => {
             status_spp: sppPayment ? 'Sudah Bayar' : 'Belum Bayar',
             jumlah: sppPayment ? sppPayment.jumlah : 0,
             tanggal_pembayaran: sppPayment ? new Date(sppPayment.tanggal_pembayaran) : null,
-            bulan_tagihan: sppPayment ? sppPayment.bulan : (selectedMonth !== 'all' ? months[Number(selectedMonth)] : '-'),
+            bulan_tagihan: sppPayment ? monthNumberToName(sppPayment.bulan) : (selectedMonth !== 'all' ? months[Number(selectedMonth)] : '-'),
             tahun_tagihan: sppPayment ? sppPayment.tahun : selectedYear
         };
     });
@@ -171,7 +175,7 @@ const PaymentRecap = () => {
             sesi_mengaji: santri?.sesi_mengaji || '-',
             foto_url: santri?.foto_url || null,
             billing_year: p.tahun, 
-            billing_month: p.bulan,
+            billing_month: monthNumberToName(p.bulan),
             transaction_year: new Date(p.tanggal_pembayaran).getFullYear(),
           };
         })

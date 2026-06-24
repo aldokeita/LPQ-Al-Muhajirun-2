@@ -7,6 +7,7 @@ import 'jspdf-autotable';
 import { Trash2, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import { PAYMENT_DETAIL_SELECT, getPaymentErrorMessage, monthNameToNumber, monthNumberToName } from '@/lib/paymentAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const currentYear = new Date().getFullYear();
@@ -20,24 +21,39 @@ const PaymentStatusTable = () => {
 
   const fetchStatus = async () => {
     setIsLoading(true);
-    const { data: santri, error: santriError } = await supabase.from('santri').select('id, nama_lengkap').eq('status', 'Aktif');
+    const selectedMonthNumber = monthNameToNumber(selectedMonth);
+    const { data: santri, error: santriError } = await supabase
+      .from('santri')
+      .select('id, nama_lengkap, current_class_id')
+      .eq('status', 'Aktif')
+      .order('nama_lengkap');
     if (santriError) {
       toast({ title: 'Error', description: 'Gagal mengambil data santri.', variant: 'destructive' });
       setIsLoading(false);
       return;
     }
 
-    const { data: payments, error: paymentsError } = await supabase.from('payments').select('santri_id').eq('bulan', selectedMonth).eq('tahun', selectedYear);
-    if (paymentsError) {
-      toast({ title: 'Error', description: 'Gagal mengambil data pembayaran.', variant: 'destructive' });
+    const [{ data: statusRows, error: statusError }, { data: classes, error: classError }] = await Promise.all([
+      supabase
+        .from('payment_status_summary')
+        .select('santri_id, class_id, bulan, tahun, status')
+        .eq('bulan', selectedMonthNumber)
+        .eq('tahun', selectedYear),
+      supabase.from('classes').select('id, nama_kelas')
+    ]);
+    if (statusError || classError) {
+      toast({ title: 'Error', description: 'Gagal mengambil status pembayaran.', variant: 'destructive' });
       setIsLoading(false);
       return;
     }
 
-    const paidSantriIds = new Set(payments.map(p => p.santri_id));
+    const classMap = new Map((classes || []).map(c => [c.id, c.nama_kelas]));
+    const statusMap = new Map((statusRows || []).map(row => [row.santri_id, row.status]));
     const combinedData = santri.map(s => ({
       ...s,
-      status: paidSantriIds.has(s.id) ? 'Lunas' : 'Belum Lunas',
+      class_name: classMap.get(s.current_class_id) || '-',
+      periode: `${selectedMonth} ${selectedYear}`,
+      status: statusMap.get(s.id) === 'Lunas' ? 'Lunas' : 'Belum Lunas',
     }));
 
     setStatusData(combinedData);
@@ -52,8 +68,8 @@ const PaymentStatusTable = () => {
     const doc = new jsPDF();
     doc.text(`Status Pembayaran SPP - ${selectedMonth} ${selectedYear}`, 14, 16);
     doc.autoTable({
-      head: [['Nama Santri', 'Status']],
-      body: statusData.map(s => [s.nama_lengkap, s.status]),
+      head: [['Nama Santri', 'Kelas', 'Periode', 'Status']],
+      body: statusData.map(s => [s.nama_lengkap, s.class_name, s.periode, s.status]),
       startY: 20,
     });
     doc.save(`status-pembayaran-${selectedMonth}-${selectedYear}.pdf`);
@@ -80,18 +96,22 @@ const PaymentStatusTable = () => {
           <thead>
             <tr className="border-b">
               <th className="p-3 text-left">Nama Santri</th>
+              <th className="p-3 text-left">Kelas</th>
+              <th className="p-3 text-left">Periode</th>
               <th className="p-3 text-left">Status</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan="2" className="text-center p-4">Memuat data...</td></tr>
+              <tr><td colSpan="4" className="text-center p-4">Memuat data...</td></tr>
             ) : statusData.length === 0 ? (
-              <tr><td colSpan="2" className="text-center p-4">Tidak ada data santri aktif.</td></tr>
+              <tr><td colSpan="4" className="text-center p-4">Tidak ada data santri aktif.</td></tr>
             ) : (
               statusData.map((s) => (
                 <tr key={s.id} className="border-b hover:bg-muted/50">
                   <td className="p-3">{s.nama_lengkap}</td>
+                  <td className="p-3">{s.class_name}</td>
+                  <td className="p-3">{s.periode}</td>
                   <td className={`p-3 font-bold ${s.status === 'Lunas' ? 'text-green-600' : 'text-red-600'}`}>{s.status}</td>
                 </tr>
               ))
@@ -116,14 +136,13 @@ const PaymentNotes = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('payments')
-      .select('*, santri:santri_id(nama_lengkap)')
+      .select(PAYMENT_DETAIL_SELECT)
       .order('tanggal_pembayaran', { ascending: false });
     
     if (error) {
       toast({ title: 'Error', description: 'Gagal mengambil riwayat pembayaran.', variant: 'destructive' });
-      console.error(error);
     } else {
-      setPayments(data);
+      setPayments(data || []);
     }
     setIsLoading(false);
   };
@@ -136,26 +155,9 @@ const PaymentNotes = () => {
       onConfirm: async () => {
         const { error } = await supabase.from('payments').delete().eq('id', paymentId);
         if (error) {
-          toast({ title: 'Gagal Menghapus', description: error.message, variant: 'destructive' });
+          toast({ title: 'Gagal Menghapus', description: getPaymentErrorMessage(error), variant: 'destructive' });
         } else {
           toast({ title: 'Berhasil', description: 'Riwayat pembayaran telah dihapus.' });
-          fetchPayments();
-        }
-      }
-    });
-  };
-
-  const handleResetPayments = async () => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Reset Semua Pembayaran',
-      description: 'PERINGATAN: Anda akan menghapus SEMUA riwayat pembayaran. Aksi ini tidak dapat dibatalkan. Lanjutkan?',
-      onConfirm: async () => {
-        const { error } = await supabase.from('payments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        if (error) {
-          toast({ title: 'Gagal Mereset', description: error.message, variant: 'destructive' });
-        } else {
-          toast({ title: 'Berhasil', description: 'Semua riwayat pembayaran telah direset.' });
           fetchPayments();
         }
       }
@@ -170,7 +172,7 @@ const PaymentNotes = () => {
       body: payments.map(p => [
         new Date(p.tanggal_pembayaran).toLocaleDateString('id-ID'),
         p.santri?.nama_lengkap || 'Santri Dihapus',
-        p.bulan ? `SPP ${p.bulan} ${p.tahun}` : p.catatan || 'Lainnya',
+        p.bulan ? `SPP ${monthNumberToName(p.bulan)} ${p.tahun}` : p.catatan || 'Lainnya',
         `Rp ${p.jumlah.toLocaleString('id-ID')}`,
         p.metode_pembayaran
       ]),
@@ -186,7 +188,6 @@ const PaymentNotes = () => {
           <h2 className="text-2xl font-bold text-accent-foreground">Riwayat Pembayaran SPP Santri</h2>
           <div className="flex gap-2">
             <Button onClick={generatePDF} disabled={isLoading}><Download className="w-4 h-4 mr-2" /> Unduh PDF</Button>
-            <Button variant="destructive" onClick={handleResetPayments}>Reset Riwayat</Button>
           </div>
         </div>
         <div className="overflow-x-auto max-h-[60vh]">
@@ -211,7 +212,7 @@ const PaymentNotes = () => {
                   <tr key={p.id} className="border-b hover:bg-muted/50">
                     <td className="p-3">{new Date(p.tanggal_pembayaran).toLocaleDateString('id-ID')}</td>
                     <td className="p-3">{p.santri?.nama_lengkap || 'Santri Dihapus'}</td>
-                    <td className="p-3">{p.bulan ? `SPP ${p.bulan} ${p.tahun}` : p.catatan || 'Lainnya'}</td>
+                    <td className="p-3">{p.bulan ? `SPP ${monthNumberToName(p.bulan)} ${p.tahun}` : p.catatan || 'Lainnya'}</td>
                     <td className="p-3">Rp {p.jumlah.toLocaleString('id-ID')}</td>
                     <td className="p-3">{p.metode_pembayaran}</td>
                     <td className="p-3">
