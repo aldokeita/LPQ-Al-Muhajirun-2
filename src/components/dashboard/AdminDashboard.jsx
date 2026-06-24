@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import GlobalSearch from './shared/GlobalSearch';
 import SantriDetailModal from './shared/SantriDetailModal';
 import { toast } from '@/components/ui/use-toast';
+import { fetchCashflowSummary } from '@/lib/financeAdapters';
 
 const MaskedValue = ({ value, show, prefix = "Rp " }) => (
     <AnimatePresence mode="wait">
@@ -84,51 +85,29 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      console.log('AdminDashboard: Fetching stats...');
       setIsLoading(true);
       setError(null);
       
       try {
         const today = new Date();
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
-        const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString();
+        const currentMonth = today.getMonth() + 1;
+        const currentYear = today.getFullYear();
         
-        console.log('Querying santri count...');
-        const santriQuery = supabase.from('santri').select('*', { count: 'exact', head: true }).eq('status', 'Aktif');
-        const { count: santriCount, error: santriErr } = await withTimeout(santriQuery, 10000);
+        const santriQuery = supabase.from('santri').select('*', { count: 'exact', head: true }).eq('status', 'active');
+        const [santriResult, financeSummary] = await Promise.all([
+          withTimeout(santriQuery, 10000),
+          fetchCashflowSummary({ year: currentYear, month: currentMonth })
+        ]);
+
+        const { count: santriCount, error: santriErr } = santriResult;
         if (santriErr) throw new Error(`Santri query failed: ${santriErr.message}`);
-        
-        console.log('Querying payments (income)...');
-        // Schema check: The payments table does not have 'is_income'. Summing all payments for the month.
-        const paymentsQuery = supabase
-          .from('payments')
-          .select('jumlah')
-          .gte('tanggal_pembayaran', firstDayOfMonth)
-          .lte('tanggal_pembayaran', lastDayOfMonth);
-        const { data: payments, error: paymentsErr } = await withTimeout(paymentsQuery, 10000);
-        if (paymentsErr) throw new Error(`Payments query failed: ${paymentsErr.message}`);
-          
-        console.log('Querying expenses...');
-        const expensesQuery = supabase
-          .from('expenses')
-          .select('jumlah')
-          .gte('tanggal_pengeluaran', firstDayOfMonth)
-          .lte('tanggal_pengeluaran', lastDayOfMonth);
-        const { data: expenses, error: expErr } = await withTimeout(expensesQuery, 10000);
-        if (expErr) throw new Error(`Expenses query failed: ${expErr.message}`);
-        
-        const totalPemasukanBulanIni = payments ? payments.reduce((sum, p) => sum + (Number(p.jumlah) || 0), 0) : 0;
-        const totalPengeluaranBulanIni = expenses ? expenses.reduce((sum, e) => sum + (Number(e.jumlah) || 0), 0) : 0;
-        
-        console.log('AdminDashboard stats loaded:', { santriCount, totalPemasukanBulanIni, totalPengeluaranBulanIni });
-        
+
         setStats({
           totalSantri: santriCount || 0,
-          totalPemasukanBulanIni,
-          totalPengeluaranBulanIni
+          totalPemasukanBulanIni: financeSummary.totalPemasukan,
+          totalPengeluaranBulanIni: financeSummary.totalPengeluaran
         });
       } catch (err) {
-        console.error('Error fetching AdminDashboard stats:', err);
         setError(err.message);
         toast({
           title: "Gagal memuat data",
