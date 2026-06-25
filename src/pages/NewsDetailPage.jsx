@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Calendar, Tag, ArrowLeft } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchNewsDetail } from '@/lib/publicContentAdapters';
 
 const NewsDetailPage = () => {
   const { id } = useParams();
@@ -12,13 +12,10 @@ const NewsDetailPage = () => {
 
   useEffect(() => {
     const fetchNews = async () => {
-      const { data, error } = await supabase.from('website_content').select('content').eq('key', 'news').single();
-      if (error) {
-        console.error("Error fetching news:", error);
-      } else {
-        const news = data.content || [];
-        const foundNews = news.find(item => item.id.toString() === id);
-        setNewsItem(foundNews);
+      try {
+        setNewsItem(await fetchNewsDetail(id));
+      } catch {
+        setNewsItem(null);
       }
     };
     fetchNews();
@@ -32,7 +29,7 @@ const NewsDetailPage = () => {
     <>
       <Helmet>
         <title>{newsItem.title} - LPQ Al-Muhajirun</title>
-        <meta name="description" content={newsItem.content.substring(0, 160)} />
+        <meta name="description" content={(newsItem.content || '').substring(0, 160)} />
       </Helmet>
       <div className="py-20 bg-gray-50 dark:bg-[#0a1929]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,7 +39,7 @@ const NewsDetailPage = () => {
               Kembali ke Semua Berita
             </Link>
             <div className="relative h-96 rounded-2xl overflow-hidden mb-8">
-              <img src={newsItem.image_url} alt={newsItem.title} className="w-full h-full object-cover" />
+              <img src={newsItem.image_url || '/logo.png'} alt={newsItem.title} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/40"></div>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-[#112D4E] dark:text-white mb-4">{newsItem.title}</h1>
@@ -53,7 +50,7 @@ const NewsDetailPage = () => {
               </div>
               <div className="flex items-center">
                 <Tag className="w-5 h-5 mr-2" />
-                <span>{newsItem.category}</span>
+                <span>Berita</span>
               </div>
             </div>
             <div className="prose dark:prose-invert max-w-none text-lg leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">

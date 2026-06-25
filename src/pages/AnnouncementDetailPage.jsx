@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Calendar, ArrowLeft } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchAnnouncementDetail } from '@/lib/publicContentAdapters';
 
 const AnnouncementDetailPage = () => {
   const { id } = useParams();
@@ -12,18 +12,10 @@ const AnnouncementDetailPage = () => {
 
   useEffect(() => {
     const fetchAnnouncement = async () => {
-      const { data, error } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'announcements')
-        .single();
-
-      if (error) {
-        console.error("Error fetching announcements:", error);
-      } else {
-        const announcements = data.content || [];
-        const foundAnnouncement = announcements.find(item => item.id.toString() === id);
-        setAnnouncement(foundAnnouncement);
+      try {
+        setAnnouncement(await fetchAnnouncementDetail(id));
+      } catch {
+        setAnnouncement(null);
       }
     };
     
@@ -38,7 +30,7 @@ const AnnouncementDetailPage = () => {
     <>
       <Helmet>
         <title>{announcement.title} - LPQ Al-Muhajirun</title>
-        <meta name="description" content={announcement.content.substring(0, 160)} />
+        <meta name="description" content={(announcement.content || '').substring(0, 160)} />
       </Helmet>
       <div className="py-20 bg-gray-50 dark:bg-[#0a1929]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { fetchPublishedNews, submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 
 const DailyQuote = () => {
   const quotes = [
@@ -108,7 +109,7 @@ const HomePage = () => {
       const { count: guruCount } = await supabase.from('guru').select('*', { count: 'exact', head: true });
       setStats({ santri: santriCount || 0, guru: guruCount || 0 });
 
-      const { data: contentData, error } = await supabase.from('website_content').select('key, content');
+      const { data: contentData, error } = await supabase.from('website_content').select('key, content').eq('is_public', true);
       if (error) return;
 
       const newContent = contentData.reduce((acc, item) => {
@@ -144,6 +145,11 @@ const HomePage = () => {
       };
       
       const mergedContent = { ...initialContent, ...newContent };
+      try {
+        mergedContent.news = await fetchPublishedNews({ limit: 3 });
+      } catch {
+        mergedContent.news = [];
+      }
       if (!Array.isArray(mergedContent.heroSlides) || mergedContent.heroSlides.length === 0) mergedContent.heroSlides = initialContent.heroSlides;
       if (!Array.isArray(mergedContent.news) || mergedContent.news.length === 0) mergedContent.news = initialContent.news;
       if (!Array.isArray(mergedContent.qiroatiVideos) || mergedContent.qiroatiVideos.length === 0) mergedContent.qiroatiVideos = initialContent.qiroatiVideos;
@@ -158,7 +164,7 @@ const HomePage = () => {
 
     const channel = supabase.channel('website_content_homepage_change')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, payload => {
-            if (payload.new && payload.new.key) {
+            if (payload.new && payload.new.key && payload.new.is_public !== false) {
                 setContent(prev => ({...prev, [payload.new.key]: payload.new.content}));
             }
         })
@@ -229,12 +235,12 @@ const HomePage = () => {
 
   const handleSubmitQuestion = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.from('feedbacks').insert(formData);
-    if (error) {
-      toast({ title: "Gagal Mengirim", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await submitPublicFeedback(formData);
       toast({ title: "Pesan Terkirim!", description: "Terima kasih atas masukan Anda." });
       setFormData({ nama: '', email: '', no_hp: '', pesan: '' });
+    } catch (error) {
+      toast({ title: "Gagal Mengirim", description: getPublicContentErrorMessage(error), variant: "destructive" });
     }
   };
 

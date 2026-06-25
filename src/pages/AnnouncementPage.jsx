@@ -4,23 +4,17 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Megaphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchPublishedAnnouncements } from '@/lib/publicContentAdapters';
 
 const AnnouncementPage = () => {
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
-      const { data, error } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'announcements')
-        .single();
-      
-      if (error && error.code !== 'PGRST116') { //PGRST116 is '0 rows'
-        console.error("Error fetching announcements:", error);
-      } else {
-        setAnnouncements(data?.content || []);
+      try {
+        setAnnouncements(await fetchPublishedAnnouncements());
+      } catch {
+        setAnnouncements([]);
       }
     };
     
@@ -57,7 +51,7 @@ const AnnouncementPage = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{new Date(item.date).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   <h2 className="text-2xl font-bold text-[#112D4E] dark:text-white mb-3">{item.title}</h2>
                   <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{item.content.substring(0, 150)}...</p>
-                  <Link to={`/pengumuman/${item.id}`} className="font-bold text-[#3F72AF] hover:underline mt-4 inline-block">Baca Selengkapnya →</Link>
+                  <Link to={`/pengumuman/${item.slug || item.id}`} className="font-bold text-[#3F72AF] hover:underline mt-4 inline-block">Baca Selengkapnya →</Link>
                 </div>
               </motion.div>
             ))}

@@ -14,6 +14,18 @@ import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
+import {
+  archiveAnnouncement,
+  archiveNews,
+  deleteFeedback,
+  fetchAdminAnnouncements,
+  fetchAdminFeedbacks,
+  fetchAdminNews,
+  getPublicContentErrorMessage,
+  saveAnnouncement,
+  saveNews,
+  slugify
+} from '@/lib/publicContentAdapters';
 
 const HafalanItemManager = ({ category }) => {
   const [items, setItems] = useState([]);
@@ -141,14 +153,22 @@ const ContentManagement = () => {
   useEffect(() => { fetchContent(); fetchSantriAndGuru(); fetchFeedbacks(); }, []);
 
   const fetchFeedbacks = async () => {
-    const { data, error } = await supabase.from('feedbacks').select('*').order('created_at', { ascending: false });
-    if(!error) setFeedbacks(data);
+    try {
+      setFeedbacks(await fetchAdminFeedbacks());
+    } catch (error) {
+      toast({ title: "Gagal Memuat Pesan", description: getPublicContentErrorMessage(error), variant: "destructive" });
+    }
   };
 
   const handleDeleteFeedback = async (id) => {
     if (!window.confirm('Yakin ingin menghapus pesan ini?')) return;
-    const { error } = await supabase.from('feedbacks').delete().eq('id', id);
-    if(!error) { toast({ title: "Pesan dihapus!"}); fetchFeedbacks(); }
+    try {
+      await deleteFeedback(id);
+      toast({ title: "Pesan dihapus!" });
+      fetchFeedbacks();
+    } catch (error) {
+      toast({ title: "Gagal Menghapus Pesan", description: getPublicContentErrorMessage(error), variant: "destructive" });
+    }
   }
 
   const fetchSantriAndGuru = async () => {
@@ -162,14 +182,23 @@ const ContentManagement = () => {
     const { data, error } = await supabase.from('website_content').select('key, content');
     if (error) return;
     const newContent = data.reduce((acc, item) => { acc[item.key] = item.content; return acc; }, {});
-    const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'news', 'announcements', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'testimonials', 'schedules', 'faqs'];
+    const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'testimonials', 'schedules', 'faqs'];
     arrayKeys.forEach(key => { if (!newContent[key] || !Array.isArray(newContent[key])) newContent[key] = []; });
     if(!newContent.quotas) newContent.quotas = { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 };
-    setContent(prev => ({ ...prev, ...newContent }));
+    try {
+      const [news, announcements] = await Promise.all([fetchAdminNews(), fetchAdminAnnouncements()]);
+      setContent(prev => ({ ...prev, ...newContent, news, announcements }));
+    } catch (contentError) {
+      toast({ title: "Gagal Memuat Berita/Pengumuman", description: getPublicContentErrorMessage(contentError), variant: "destructive" });
+      setContent(prev => ({ ...prev, ...newContent, news: [], announcements: [] }));
+    }
   };
 
   const handleSaveAll = async () => {
-    const dataToUpsert = Object.keys(content).map(key => ({ key, content: content[key] }));
+    const excludedKeys = new Set(['news', 'announcements']);
+    const dataToUpsert = Object.keys(content)
+      .filter(key => !excludedKeys.has(key))
+      .map(key => ({ key, content: content[key], is_public: true }));
     const { error } = await supabase.from('website_content').upsert(dataToUpsert, { onConflict: 'key' });
     if (error) toast({ title: "Gagal Menyimpan!", description: error.message, variant: "destructive" });
     else toast({ title: "Konten Disimpan!", description: `Semua perubahan telah berhasil disimpan.` });
@@ -179,7 +208,7 @@ const ContentManagement = () => {
     const file = e.target.files[0];
     if (!file) return;
     let folder = 'general';
-    if (['news', 'parentingArticles'].includes(type)) folder = 'article-images';
+    if (['news', 'announcements', 'parentingArticles'].includes(type)) folder = 'article-images';
     else if (type === 'facilities') folder = 'facilities-images';
     else if (['brochures', 'pustaka'].includes(type)) folder = type;
     else if (type === 'logoUrl') folder = 'logos';
@@ -227,7 +256,20 @@ const ContentManagement = () => {
     setIsModalOpen(true);
   };
 
-  const handleModalSubmit = () => {
+  const handleModalSubmit = async () => {
+    if (modalType === 'news' || modalType === 'announcements') {
+      try {
+        if (!formState.slug) setFormState(prev => ({ ...prev, slug: slugify(prev.title) }));
+        if (modalType === 'news') await saveNews({ ...formState, slug: formState.slug || slugify(formState.title) });
+        else await saveAnnouncement({ ...formState, slug: formState.slug || slugify(formState.title) });
+        toast({ title: "Konten Disimpan", description: modalType === 'news' ? "Berita telah diperbarui." : "Pengumuman telah diperbarui." });
+        setIsModalOpen(false);
+        fetchContent();
+      } catch (error) {
+        toast({ title: "Gagal Menyimpan Konten", description: getPublicContentErrorMessage(error), variant: "destructive" });
+      }
+      return;
+    }
     let updatedList;
     if (editingItem) updatedList = content[modalType].map(item => item.id === editingItem.id ? formState : item);
     else updatedList = [...(content[modalType] || []), { ...formState, id: Date.now() }];
@@ -235,8 +277,19 @@ const ContentManagement = () => {
     setIsModalOpen(false);
   };
 
-  const handleDeleteItem = (type, id) => {
+  const handleDeleteItem = async (type, id) => {
     if (window.confirm('Anda yakin ingin menghapus item ini?')) {
+      if (type === 'news' || type === 'announcements') {
+        try {
+          if (type === 'news') await archiveNews(id);
+          else await archiveAnnouncement(id);
+          toast({ title: "Konten Dinonaktifkan", description: "Konten tidak lagi tampil di halaman publik." });
+          fetchContent();
+        } catch (error) {
+          toast({ title: "Gagal Menonaktifkan Konten", description: getPublicContentErrorMessage(error), variant: "destructive" });
+        }
+        return;
+      }
       const updatedList = content[type].filter(item => item.id !== id);
       setContent(prev => ({ ...prev, [type]: updatedList }));
     }
@@ -262,8 +315,9 @@ const ContentManagement = () => {
     return (
       <>
         <div className="space-y-4">
-          {['news', 'parentingArticles'].includes(modalType) && (<><Input placeholder="Judul" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><Input placeholder="Penulis" value={formState.author || ''} onChange={e => setFormState(p => ({...p, author: e.target.value}))} /><Textarea placeholder="Ringkasan" value={formState.summary || ''} onChange={e => setFormState(p => ({...p, summary: e.target.value}))} /><Textarea placeholder="Konten Lengkap" rows={10} value={formState.content || ''} onChange={e => setFormState(p => ({...p, content: e.target.value}))} /><Input placeholder="URL Gambar" value={formState.image_url || ''} onChange={e => setFormState(p => ({...p, image_url: e.target.value}))} /></>)}
-          {modalType === 'announcements' && (<><Input placeholder="Judul" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><Textarea placeholder="Konten" value={formState.content || ''} onChange={e => setFormState(p => ({...p, content: e.target.value}))} /></>)}
+          {modalType === 'news' && (<><Input placeholder="Judul" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value, slug: p.slug || slugify(e.target.value)}))} /><Input placeholder="Slug" value={formState.slug || ''} onChange={e => setFormState(p => ({...p, slug: slugify(e.target.value)}))} /><Select value={formState.status || 'draft'} onValueChange={val => setFormState(p => ({...p, status: val}))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Published</SelectItem><SelectItem value="archived">Nonaktif</SelectItem></SelectContent></Select><Textarea placeholder="Ringkasan" value={formState.summary || ''} onChange={e => setFormState(p => ({...p, summary: e.target.value}))} /><Textarea placeholder="Konten Lengkap" rows={10} value={formState.content || ''} onChange={e => setFormState(p => ({...p, content: e.target.value}))} /><Input placeholder="URL Gambar" value={formState.image_url || ''} onChange={e => setFormState(p => ({...p, image_url: e.target.value}))} /><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'news')} /></>)}
+          {modalType === 'parentingArticles' && (<><Input placeholder="Judul" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><Input placeholder="Penulis" value={formState.author || ''} onChange={e => setFormState(p => ({...p, author: e.target.value}))} /><Textarea placeholder="Ringkasan" value={formState.summary || ''} onChange={e => setFormState(p => ({...p, summary: e.target.value}))} /><Textarea placeholder="Konten Lengkap" rows={10} value={formState.content || ''} onChange={e => setFormState(p => ({...p, content: e.target.value}))} /><Input placeholder="URL Gambar" value={formState.image_url || ''} onChange={e => setFormState(p => ({...p, image_url: e.target.value}))} /></>)}
+          {modalType === 'announcements' && (<><Input placeholder="Judul" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value, slug: p.slug || slugify(e.target.value)}))} /><Input placeholder="Slug" value={formState.slug || ''} onChange={e => setFormState(p => ({...p, slug: slugify(e.target.value)}))} /><Select value={formState.status || 'draft'} onValueChange={val => setFormState(p => ({...p, status: val}))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Published</SelectItem><SelectItem value="archived">Nonaktif</SelectItem></SelectContent></Select><Select value={formState.priority || 'normal'} onValueChange={val => setFormState(p => ({...p, priority: val}))}><SelectTrigger><SelectValue placeholder="Prioritas" /></SelectTrigger><SelectContent><SelectItem value="low">Rendah</SelectItem><SelectItem value="normal">Normal</SelectItem><SelectItem value="high">Tinggi</SelectItem></SelectContent></Select><Input type="date" value={formState.valid_until || ''} onChange={e => setFormState(p => ({...p, valid_until: e.target.value}))} /><Textarea placeholder="Ringkasan" value={formState.summary || ''} onChange={e => setFormState(p => ({...p, summary: e.target.value}))} /><Textarea placeholder="Konten" rows={8} value={formState.content || ''} onChange={e => setFormState(p => ({...p, content: e.target.value}))} /><Input placeholder="URL Gambar" value={formState.image_url || ''} onChange={e => setFormState(p => ({...p, image_url: e.target.value}))} /><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'announcements')} /></>)}
           {modalType === 'facilities' && (<><Input placeholder="Nama Fasilitas" value={formState.name || ''} onChange={e => setFormState(p => ({...p, name: e.target.value}))} /><Textarea placeholder="Deskripsi" value={formState.description || ''} onChange={e => setFormState(p => ({...p, description: e.target.value}))} /><Input placeholder="URL Gambar" value={formState.image_url || ''} onChange={e => setFormState(p => ({...p, image_url: e.target.value}))} /></>)}
           {['qiroatiVideos', 'hafalanVideos'].includes(modalType) && (<><Input placeholder="Judul Video" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><Input placeholder="URL Embed Video Youtube" value={formState.url || ''} onChange={e => setFormState(p => ({...p, url: e.target.value}))} />{modalType === 'hafalanVideos' && (<div className="space-y-2"><Textarea placeholder='Google Drive Embed Code' value={formState.google_drive_embed || ''} onChange={e => setFormState(p => ({...p, google_drive_embed: e.target.value}))} className="font-mono text-xs" rows={3}/><p className="text-[10px] text-muted-foreground">Isi salah satu: YouTube URL atau Google Drive Embed.</p></div>)}{modalType === 'hafalanVideos' && (<Select value={formState.jilid} onValueChange={val => setFormState(p => ({...p, jilid: val}))}><SelectTrigger><SelectValue placeholder="Pilih Jilid" /></SelectTrigger><SelectContent>{['Jilid 1', 'Jilid 2', 'Jilid 3', 'Jilid 4', 'Jilid 5', 'Jilid 6', 'Lainnya'].map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select>)}</>)}
           {modalType === 'waliDiscussions' && (<><Input placeholder="Judul Diskusi" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><div className="grid grid-cols-2 gap-4"><Input type="date" value={formState.date || ''} onChange={e => setFormState(p => ({...p, date: e.target.value}))} /><Input type="time" value={formState.time || ''} onChange={e => setFormState(p => ({...p, time: e.target.value}))} /></div><Select value={formState.platform} onValueChange={val => setFormState(p => ({...p, platform: val}))}><SelectTrigger><SelectValue placeholder="Platform" /></SelectTrigger><SelectContent><SelectItem value="Google Meet">Google Meet</SelectItem><SelectItem value="Zoom">Zoom</SelectItem></SelectContent></Select><Input placeholder="Link Meeting" value={formState.link || ''} onChange={e => setFormState(p => ({...p, link: e.target.value}))} /><Textarea placeholder="Deskripsi Topik" value={formState.description || ''} onChange={e => setFormState(p => ({...p, description: e.target.value}))} /></>)}
@@ -345,7 +399,7 @@ const ContentManagement = () => {
         <TabsContent value="pesan" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="font-bold text-xl flex items-center gap-2"><Mail />Pesan dari Pengunjung</h3>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-                {feedbacks.length > 0 ? feedbacks.map(fb => (<div key={fb.id} className="p-4 border rounded-lg bg-background relative"><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => handleDeleteFeedback(fb.id)}><Trash2 className="h-4 w-4" /></Button><p className="font-semibold text-lg">{fb.nama}</p><div className="text-sm text-muted-foreground mb-2"><span>{fb.email}</span> | <span>{fb.no_hp}</span> | <span>{new Date(fb.created_at).toLocaleString('id-ID')}</span></div><p className="whitespace-pre-wrap">{fb.pesan}</p></div>)) : (<p className="text-center text-muted-foreground py-4">Tidak ada pesan masuk.</p>)}
+                {feedbacks.length > 0 ? feedbacks.map(fb => (<div key={fb.id} className="p-4 border rounded-lg bg-background relative"><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => handleDeleteFeedback(fb.id)}><Trash2 className="h-4 w-4" /></Button><p className="font-semibold text-lg">{fb.nama || 'Anonim'}</p><div className="text-sm text-muted-foreground mb-2"><span>{fb.email || '-'}</span> | <span>{fb.phone || '-'}</span> | <span>{new Date(fb.created_at).toLocaleString('id-ID')}</span></div><p className="whitespace-pre-wrap">{fb.message}</p></div>)) : (<p className="text-center text-muted-foreground py-4">Tidak ada pesan masuk.</p>)}
             </div>
         </TabsContent>
         <TabsContent value="hafalan" className="grid md:grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-2">

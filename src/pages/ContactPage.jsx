@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 const ContactPage = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -13,26 +14,23 @@ const ContactPage = () => {
     phone: '',
     message: ''
   });
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
-    const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
-    const newFeedback = {
-      id: `feedback-${Date.now()}`,
-      ...formData,
-      date: new Date().toISOString()
-    };
-    feedbacks.push(newFeedback);
-    localStorage.setItem('feedbacks', JSON.stringify(feedbacks));
-    toast({
-      title: "Pesan Terkirim!",
-      description: "Terima kasih atas masukan Anda."
-    });
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      message: ''
-    });
+    try {
+      await submitPublicFeedback(formData);
+      toast({
+        title: "Pesan Terkirim!",
+        description: "Terima kasih atas masukan Anda."
+      });
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        message: ''
+      });
+    } catch (error) {
+      toast({ title: "Gagal Mengirim", description: getPublicContentErrorMessage(error), variant: "destructive" });
+    }
   };
   return <>
       <Helmet>

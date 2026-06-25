@@ -3,22 +3,23 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchPublishedNews, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 
 const NewsPage = () => {
   const [newsItems, setNewsItems] = useState([]);
 
   useEffect(() => {
     const fetchNews = async () => {
-      const { data, error } = await supabase.from('website_content').select('content').eq('key', 'news').single();
       const defaultNews = [
         { id: 1, title: 'Wisuda Akbar Santri LPQ Al-Muhajirun Angkatan ke-5', date: '2025-10-12', content: 'Alhamdulillah, sebanyak 50 santri telah berhasil menyelesaikan pendidikannya...', image_url: 'https://images.unsplash.com/photo-1617925995364-725da13756c7?w=800&q=80', category: 'Acara' },
         { id: 2, title: 'LPQ Al-Muhajirun Raih Juara Umum MTQ Tingkat Kabupaten', date: '2025-09-25', content: 'Santri-santri kami kembali menorehkan prestasi gemilang...', image_url: 'https://images.unsplash.com/photo-1584486188544-dc57f26ded33?w=800&q=80', category: 'Prestasi' },
       ];
-      if (error || !data?.content || data.content.length === 0) {
+      try {
+        const items = await fetchPublishedNews();
+        setNewsItems(items.length > 0 ? items : defaultNews);
+      } catch (error) {
+        getPublicContentErrorMessage(error);
         setNewsItems(defaultNews);
-      } else {
-        setNewsItems(data.content);
       }
     };
     fetchNews();
@@ -55,7 +56,7 @@ const NewsPage = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{new Date(item.date).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   <h2 className="text-xl font-bold text-[#112D4E] dark:text-white mb-3 flex-grow">{item.title}</h2>
                   <p className="text-gray-600 dark:text-gray-300 mb-4 whitespace-pre-wrap">{(item.content || '').substring(0, 100)}...</p>
-                  <Link to={`/berita/${item.id}`} className="font-bold text-[#3F72AF] hover:underline mt-auto">Baca Selengkapnya →</Link>
+                  <Link to={`/berita/${item.slug || item.id}`} className="font-bold text-[#3F72AF] hover:underline mt-auto">Baca Selengkapnya →</Link>
                 </div>
               </motion.div>
             ))}
