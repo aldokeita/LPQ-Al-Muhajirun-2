@@ -108,6 +108,35 @@ export const saveWebsiteContentItems = async (items) => {
   return data || [];
 };
 
+const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(new Error('Gagal membaca gambar logo.'));
+  reader.readAsDataURL(blob);
+});
+
+export const getEmbeddableImageUrl = async (url, fallback = '/logo.png') => {
+  const target = typeof url === 'string' && url.trim() ? url.trim() : fallback;
+  if (target.startsWith('data:') || target.startsWith('/')) return target;
+  try {
+    const response = await fetch(target, { mode: 'cors', cache: 'no-store' });
+    if (!response.ok) throw new Error(`Logo tidak dapat dimuat (${response.status}).`);
+    const blob = await response.blob();
+    return await blobToDataUrl(blob);
+  } catch {
+    return fallback;
+  }
+};
+
+export const fetchReceiptLogoDataUrl = async (fallback = '/logo.png') => {
+  try {
+    const contentMap = await fetchWebsiteContentMap({ keys: ['logoUrl'], publicOnly: true });
+    return await getEmbeddableImageUrl(contentMap.logoUrl, fallback);
+  } catch {
+    return fallback;
+  }
+};
+
 export const fetchPublishedNews = async ({ limit } = {}) => {
   let query = supabase
     .from('news')

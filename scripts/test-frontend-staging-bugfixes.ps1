@@ -62,13 +62,16 @@ Add-Check "logo upload saves url before showing success" {
   if ($text -notmatch "Logo Disimpan!") { throw "success toast is not tied to database save" }
 }
 
-Add-Check "avatar upload sends explicit authenticated Edge Function request" {
+Add-Check "avatar upload uses direct Storage first and authenticated Edge fallback" {
   $text = Read-Text "src/lib/storageAdapters.js"
+  if ($text -notmatch "uploadDirectlyToStorage") { throw "direct Storage upload helper missing" }
+  if ($text -notmatch "\.upload\(path, file") { throw "direct Storage upload does not write deterministic avatar path" }
+  if ($text -notmatch "upsert:\s*true") { throw "avatar upload is not replacing the old object" }
   if ($text -notmatch "supabase\.auth\.getSession\(\)") { throw "session is not loaded before signed upload" }
   if (-not $text.Contains('Authorization: `Bearer ${accessToken}`')) { throw "user access token is not sent to Edge Function" }
   if ($text -notmatch "apikey:\s*supabaseAnonKey") { throw "publishable key header missing" }
   if ($text -notmatch "/functions/v1/generate-signed-upload-url") { throw "function endpoint is not explicit" }
-  if ($text -notmatch "Edge Function generate-signed-upload-url gagal") { throw "safe function error is not surfaced" }
+  if ($text -notmatch "Edge Function upload juga gagal") { throw "direct and Edge Function errors are not both surfaced" }
 }
 
 Add-Check "santri avatar upload persists avatar path after storage upload" {
@@ -85,6 +88,8 @@ Add-Check "santri edit sends changed fields and verifies updated row" {
   if ($component -notmatch "pickChangedSantriProfileFields\(finalFormData, editingSantri\)") { throw "edit flow does not use changed-field payload" }
   if ($component -notmatch "\.select\('id'\)\s*\.maybeSingle\(\)") { throw "edit flow does not verify updated row" }
   if ($component -notmatch "Data santri tidak tersimpan karena tidak ada row yang diperbarui") { throw "no-row update is not treated as failure" }
+  if ($component -notmatch "Field yang tersimpan saat ini") { throw "no-change message does not explain active schema fields" }
+  if ($component -notmatch "Belum tersedia di schema staging") { throw "legacy unsupported fields are not marked inactive" }
 }
 
 Add-Check "attendance late boundary uses one 15-minute helper" {
@@ -99,6 +104,19 @@ console.log('ok');
 '@
   $output = & node --input-type=module -e $js
   if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "late boundary helper failed" }
+}
+
+Add-Check "attendance helper accepts numeric session values from santri data" {
+  $js = @'
+import { buildSessionStartTimestamp, determineAttendanceStatus } from './src/utils/AttendanceStatusLogic.js';
+const start = buildSessionStartTimestamp('2026-06-25', '3');
+if (start !== '2026-06-25T16:00:00+07:00') throw new Error(`numeric Sore session was not normalized: ${start}`);
+const late = determineAttendanceStatus('2026-06-25T16:16:00+07:00', start);
+if (late !== 'Terlambat') throw new Error('numeric session did not produce late status');
+console.log('ok');
+'@
+  $output = & node --input-type=module -e $js
+  if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "numeric session late helper failed" }
 }
 
 Add-Check "attendance recap and manual edit use shared late helper" {
@@ -118,6 +136,18 @@ Add-Check "payment proof reloads stored payment record before generating receipt
   if ($text -notmatch "receiptPayment\?\.id") { throw "proof generation is not guarded by stored record" }
   if ($text -notmatch "No\. Induk") { throw "receipt does not include santri identifier" }
   if ($text -notmatch "transactionRef") { throw "receipt does not include transaction reference" }
+}
+
+Add-Check "payment proof uses uploaded website logo as embeddable image" {
+  $helper = Read-Text "src/lib/publicContentAdapters.js"
+  $modal = Read-Text "src/components/dashboard/admin/PaymentProofModal.jsx"
+  $system = Read-Text "src/components/dashboard/admin/PaymentSystem.jsx"
+  if ($helper -notmatch "fetchReceiptLogoDataUrl") { throw "receipt logo helper missing" }
+  if ($helper -notmatch "fetchWebsiteContentMap\(\{ keys: \['logoUrl'\]") { throw "receipt helper does not read website_content logoUrl" }
+  if ($helper -notmatch "readAsDataURL") { throw "receipt logo is not embedded for html-to-image" }
+  if ($modal -notmatch "fetchReceiptLogoDataUrl") { throw "payment proof modal does not load uploaded logo" }
+  if ($system -notmatch "fetchReceiptLogoDataUrl") { throw "payment system receipt does not load uploaded logo" }
+  if ($modal -notmatch "imagePlaceholder: '/logo.png'" -or $system -notmatch "imagePlaceholder: '/logo.png'") { throw "receipt image generation lacks local image fallback" }
 }
 
 Add-Check "TV Display maps final santri schema and avatar fallback" {

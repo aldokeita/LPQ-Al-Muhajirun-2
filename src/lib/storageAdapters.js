@@ -127,6 +127,18 @@ const uploadViaSignedUrl = async ({ bucket, path, file, purpose }) => {
   return signedUpload.path || path;
 };
 
+const uploadDirectlyToStorage = async ({ bucket, path, file }) => {
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type,
+    });
+  if (error) throw error;
+  return path;
+};
+
 const normalizeLocalSignedUrl = (signedUrl) => {
   try {
     const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -153,12 +165,22 @@ export const createSignedAvatarUrl = async (path, expiresIn = 3600) => {
 export const uploadAvatar = async ({ ownerType, ownerId, file }) => {
   validateAvatarFile(file);
   const path = getAvatarPath({ ownerType, ownerId });
-  const storedPath = await uploadViaSignedUrl({
-    bucket: AVATAR_BUCKET,
-    path,
-    file,
-    purpose: `${ownerType}-avatar`,
-  });
+  let storedPath;
+  try {
+    storedPath = await uploadDirectlyToStorage({ bucket: AVATAR_BUCKET, path, file });
+  } catch (directError) {
+    if (!enableEdgeFunctions) throw directError;
+    try {
+      storedPath = await uploadViaSignedUrl({
+        bucket: AVATAR_BUCKET,
+        path,
+        file,
+        purpose: `${ownerType}-avatar`,
+      });
+    } catch (edgeError) {
+      throw new Error(`${getStorageErrorMessage(directError)} Edge Function upload juga gagal: ${getStorageErrorMessage(edgeError)}`);
+    }
+  }
   const signedUrl = await createSignedAvatarUrl(storedPath);
   return { path: storedPath, signedUrl };
 };

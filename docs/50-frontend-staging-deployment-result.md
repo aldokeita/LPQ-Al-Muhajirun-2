@@ -272,3 +272,53 @@ Setelah Vercel redeploy dari commit stabilization, uji:
 - buka TV Display dan pastikan profil santri, kelas, jilid, dan avatar tampil;
 - pastikan media player tetap tidak aktif saat deferred features false;
 - upload dan simpan logo website tetap berhasil.
+
+## Stabilization Pass Lanjutan Berdasarkan Retest Manual
+
+Tanggal: 2026-06-25
+
+Status:
+
+- tidak ada perubahan migration, RLS, Edge Function, backend staging, production, atau database lama;
+- perbaikan tetap terbatas pada frontend runtime, helper, test regresi, dan laporan ini;
+- bug media player deferred dan simpan logo website tidak diubah ulang.
+
+### Masalah Tambahan dan Perbaikan
+
+1. Upload avatar masih gagal dengan `NetworkError`.
+   - Akar penyebab: browser Vercel masih dapat tersandung CORS/network ketika avatar dipaksa lewat Edge Function `generate-signed-upload-url`.
+   - Perbaikan: `storageAdapters.uploadAvatar()` sekarang mencoba upload langsung ke bucket `avatars` terlebih dahulu memakai Supabase Storage client dan RLS Storage. Edge Function tetap tersedia sebagai fallback jika direct upload ditolak.
+   - Dampak: avatar memakai path deterministik yang sama, file lama diganti dengan `upsert`, dan `avatar_path` tetap disimpan pada record santri.
+
+2. Edit data santri tetap dianggap tidak ada perubahan.
+   - Akar penyebab: form masih menampilkan field warisan seperti nama ayah/ibu, KK/NIK, tanggal masuk, link Qiroati, berkas, dan password edit, padahal field tersebut belum tersedia sebagai kolom aktif pada schema staging.
+   - Perbaikan: field warisan tersebut dibuat nonaktif/berketerangan jelas, sedangkan pesan tidak ada perubahan sekarang menjelaskan field aktif yang benar-benar tersimpan.
+   - Field aktif yang tersimpan: nama, jenis kelamin, tempat/tanggal lahir, HP wali, alamat, nomor induk, RFID, status, sesi, jilid, poin, dan avatar.
+
+3. Status terlambat belum muncul untuk beberapa data rekap.
+   - Akar penyebab: data santri dapat menyimpan sesi sebagai angka/string angka dari mapping lama, sedangkan helper keterlambatan sebelumnya hanya mengenali nama sesi.
+   - Perbaikan: `AttendanceStatusLogic.js` menormalisasi sesi `0..4` ke nama sesi resmi sebelum menghitung jam mulai. Sesi sore bernilai `3` kini dihitung mulai `16:00`, batas `16:15` tetap tepat waktu, dan `16:16` menjadi `Terlambat`.
+
+4. Simpan gambar bukti pembayaran masih gagal.
+   - Akar penyebab: gambar logo remote dari Storage dapat membuat `html-to-image` gagal saat membuat canvas.
+   - Perbaikan: logo bukti pembayaran dimuat dari `website_content.logoUrl`, lalu dikonversi menjadi data URL sebelum dipakai di receipt. Jika konversi gagal, receipt memakai fallback `/logo.png` dan error yang tampil lebih spesifik.
+
+5. Logo bukti pembayaran belum mengikuti logo upload konten.
+   - Perbaikan: `PaymentSystem` dan `PaymentProofModal` sama-sama memakai helper `fetchReceiptLogoDataUrl()` yang membaca `website_content.logoUrl`, sehingga logo bukti pembayaran mengikuti logo yang di-upload dari Content Management.
+
+### Hasil Test Lanjutan
+
+- `scripts/test-frontend-staging-bugfixes.ps1`: lulus `15/15`.
+- `npm run build`: lulus.
+- `git diff --check`: lulus.
+- `scripts/validate-no-secrets.ps1`: lulus, tidak menemukan credential aktual.
+
+### Retest Manual Setelah Redeploy Berikutnya
+
+Uji ulang di Vercel staging:
+
+- admin upload avatar santri, refresh halaman, dan login ulang;
+- edit field aktif santri seperti alamat, HP wali, RFID, sesi, jilid, atau poin;
+- cek rekap absensi santri dengan sesi numerik dan scan lebih dari 15 menit;
+- buka dan simpan bukti pembayaran dari transaksi tersimpan;
+- pastikan logo bukti pembayaran sama dengan logo yang di-upload di Content Management.

@@ -3,9 +3,18 @@ export const LATE_GRACE_MINUTES = 15;
 
 export const DEFAULT_SESSION_TIMES = {
   Pagi: { start: '08:00', end: '11:00', defaultQuota: 60 },
+  'Pagi 2': { start: '08:00', end: '11:00', defaultQuota: 60 },
   Siang: { start: '13:00', end: '15:30', defaultQuota: 80 },
   Sore: { start: '16:00', end: '18:00', defaultQuota: 80 },
   Malam: { start: '18:30', end: '23:00', defaultQuota: 50 },
+};
+
+const SESSION_NAME_BY_VALUE = {
+  0: 'Pagi',
+  1: 'Pagi 2',
+  2: 'Siang',
+  3: 'Sore',
+  4: 'Malam',
 };
 
 const pad = (num) => String(num).padStart(2, '0');
@@ -33,11 +42,17 @@ export const buildJakartaTimestamp = (dateStr, timeStr) => {
   return `${dateStr}T${normalizedTime}+07:00`;
 };
 
+export const normalizeAttendanceSessionName = (sesiName) => {
+  if (sesiName === null || sesiName === undefined || sesiName === '') return null;
+  const raw = String(sesiName).trim();
+  return SESSION_NAME_BY_VALUE[raw] || raw;
+};
+
 export const getSessionStartTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
-  sessionTimes?.[sesiName]?.start || DEFAULT_SESSION_TIMES[sesiName]?.start || null;
+  sessionTimes?.[normalizeAttendanceSessionName(sesiName)]?.start || DEFAULT_SESSION_TIMES[normalizeAttendanceSessionName(sesiName)]?.start || null;
 
 export const getSessionEndTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
-  sessionTimes?.[sesiName]?.end || DEFAULT_SESSION_TIMES[sesiName]?.end || null;
+  sessionTimes?.[normalizeAttendanceSessionName(sesiName)]?.end || DEFAULT_SESSION_TIMES[normalizeAttendanceSessionName(sesiName)]?.end || null;
 
 export const buildSessionStartTimestamp = (dateStr, sesiName, sessionTimes = DEFAULT_SESSION_TIMES) => {
   const startTime = getSessionStartTime(sesiName, sessionTimes);

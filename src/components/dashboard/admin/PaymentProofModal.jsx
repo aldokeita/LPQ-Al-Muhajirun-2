@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/use-toast';
 import QRCode from 'qrcode';
 import { supabase } from '@/lib/customSupabaseClient';
 import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
+import { fetchReceiptLogoDataUrl } from '@/lib/publicContentAdapters';
 
 const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const receiptRef = useRef(null);
@@ -15,6 +16,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const [isLoadingPayment, setIsLoadingPayment] = useState(false);
     const [completePayment, setCompletePayment] = useState(null);
     const [qrCodeDataURL, setQrCodeDataURL] = useState('');
+    const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo.png');
 
     useEffect(() => {
         const fetchCompletePayment = async () => {
@@ -46,6 +48,19 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     }, [isOpen, payment?.id]);
 
     useEffect(() => {
+        let active = true;
+        const loadReceiptLogo = async () => {
+            if (!isOpen) return;
+            const logoUrl = await fetchReceiptLogoDataUrl('/logo.png');
+            if (active) setReceiptLogoUrl(logoUrl);
+        };
+        loadReceiptLogo();
+        return () => {
+            active = false;
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
         if (isOpen && completePayment) {
             const qrCodeLoginUrl = `https://lpqalmuhajirun.id/login`;
             QRCode.toDataURL(qrCodeLoginUrl, { width: 120, margin: 1 }, (err, url) => {
@@ -71,7 +86,12 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
         }
         setIsGenerating(true);
         try {
-            const dataUrl = await toPng(receiptRef.current, { cacheBust: true, backgroundColor: '#ffffff', pixelRatio: 2 });
+            const dataUrl = await toPng(receiptRef.current, {
+                cacheBust: true,
+                backgroundColor: '#ffffff',
+                pixelRatio: 2,
+                imagePlaceholder: '/logo.png',
+            });
             const link = document.createElement('a');
             const santriName = studentName.replace(/\s+/g, '_') || 'Santri';
             const dateStr = new Date(paymentDate).toLocaleDateString('id-ID').replace(/\//g, '-');
@@ -80,8 +100,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
             link.click();
             toast({ title: "Berhasil", description: "Bukti pembayaran berhasil diunduh." });
         } catch (err) {
-            console.error('Error generating image:', err);
-            toast({ title: "Gagal", description: "Gagal membuat gambar bukti pembayaran.", variant: "destructive" });
+            toast({ title: "Gagal", description: `Gagal membuat gambar bukti pembayaran: ${err?.message || 'gambar tidak dapat diproses.'}`, variant: "destructive" });
         } finally {
             setIsGenerating(false);
         }
@@ -137,7 +156,7 @@ Salam,
                     <div ref={receiptRef} className="p-6 bg-white text-slate-800 relative font-sans">
                         {/* Header */}
                         <div className="text-center pb-4 mb-4 border-b border-dashed border-slate-300 relative z-10">
-                            <img src="/logo.png" alt="Logo" className="w-16 h-16 mx-auto mb-2 object-contain"/>
+                            <img src={receiptLogoUrl} alt="Logo" className="w-16 h-16 mx-auto mb-2 object-contain"/>
                             <h3 className="font-bold text-xl text-primary tracking-tight font-poppins">LPQ AL-MUHAJIRUN</h3>
                             <p className="text-xs text-slate-500 mt-1">Jl. R. Suprapto No. 195 Kel. Kemalaraja Baturaja Timur</p>
                             <p className="text-xs text-slate-500">Telp: 0856-0902-5238</p>

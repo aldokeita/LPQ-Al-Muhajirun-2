@@ -25,6 +25,7 @@ import {
   selectedMonthToNumber,
   validatePaymentAmount,
 } from '@/lib/paymentAdapters';
+import { fetchReceiptLogoDataUrl } from '@/lib/publicContentAdapters';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -185,6 +186,7 @@ const PaymentSystem = () => {
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo.png');
   
   const location = useLocation();
 
@@ -231,6 +233,19 @@ const PaymentSystem = () => {
         });
     }
   }, [isReceiptOpen, receiptData]);
+
+  useEffect(() => {
+    let active = true;
+    const loadReceiptLogo = async () => {
+      if (!isReceiptOpen) return;
+      const logoUrl = await fetchReceiptLogoDataUrl('/logo.png');
+      if (active) setReceiptLogoUrl(logoUrl);
+    };
+    loadReceiptLogo();
+    return () => {
+      active = false;
+    };
+  }, [isReceiptOpen]);
 
   const handleRfidScan = (e) => {
     e.preventDefault();
@@ -395,7 +410,12 @@ const PaymentSystem = () => {
     try {
       toast({ title: "Memproses...", description: "Sedang membuat gambar bukti pembayaran." });
       
-      const dataUrl = await toPng(receiptRef.current, { cacheBust: true, backgroundColor: '#ffffff', pixelRatio: 2 });
+      const dataUrl = await toPng(receiptRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        imagePlaceholder: '/logo.png',
+      });
       
       const link = document.createElement('a');
       const santriName = receiptData.santri && receiptData.santri.length > 0 ? receiptData.santri[0].nama_lengkap.replace(/\s+/g, '_') : 'Santri';
@@ -406,8 +426,7 @@ const PaymentSystem = () => {
       
       toast({ title: "Berhasil!", description: "Bukti pembayaran berhasil disimpan." });
     } catch (err) {
-      console.error("Error generating image:", err);
-      toast({ title: "Gagal", description: "Gagal membuat gambar bukti pembayaran.", variant: "destructive" });
+      toast({ title: "Gagal", description: `Gagal membuat gambar bukti pembayaran: ${err?.message || 'gambar tidak dapat diproses.'}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -523,7 +542,7 @@ const PaymentSystem = () => {
             {receiptData && (<>
               <div ref={receiptRef} className="p-4 bg-white text-slate-800 rounded-xl shadow-lg border border-slate-100 relative overflow-hidden" id="receipt-content">
                   <div className="text-center pb-2 mb-2 border-b border-dashed border-slate-300 relative z-10">
-                       <img src="/logo.png" alt="Logo LPQ Al-Muhajirun" className="w-12 h-12 mx-auto mb-2 object-contain"/>
+                       <img src={receiptLogoUrl} alt="Logo LPQ Al-Muhajirun" className="w-12 h-12 mx-auto mb-2 object-contain"/>
                        <h3 className="font-bold text-lg text-primary tracking-tight font-poppins">LPQ AL-MUHAJIRUN</h3>
                        <p className="text-[10px] text-slate-500 mt-1">Jl. R. Suprapto No. 195 Kel. Kemalaraja Baturaja Timur</p>
                        <p className="text-[10px] text-slate-500">Telp: 0856-0902-5238</p>
