@@ -93,6 +93,21 @@
   padding-block: clamp(8rem, 13vw, 11rem) 5.5rem;
 }
 
+.home-hero__copy {
+  position: relative;
+  color: white;
+}
+
+.home-hero__copy::before {
+  content: '';
+  position: absolute;
+  inset: -2rem -1.5rem -1.4rem;
+  z-index: -1;
+  border-radius: 2.5rem;
+  background: radial-gradient(ellipse at 16% 28%, rgba(5, 8, 22, 0.74), transparent 66%);
+  pointer-events: none;
+}
+
 .home-hero__title {
   margin-top: 1.6rem;
   display: grid;
@@ -102,12 +117,14 @@
   font-weight: 950;
   line-height: 0.88;
   letter-spacing: -0.06em;
+  color: #ffffff;
+  text-shadow: 0 18px 54px rgba(0, 0, 0, 0.34);
 }
 
 .home-hero__lead {
   margin-top: 2rem;
   max-width: 46rem;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.9);
   font-size: clamp(1.07rem, 1.6vw, 1.32rem);
   line-height: 1.75;
 }
@@ -115,7 +132,7 @@
 .home-hero__support {
   margin-top: 1rem;
   max-width: 42rem;
-  color: rgba(187, 247, 208, 0.88);
+  color: rgba(207, 250, 254, 0.92);
   font-size: 0.82rem;
   font-weight: 900;
   letter-spacing: 0.19em;
@@ -134,7 +151,7 @@
 .home-primary-cta {
   height: 3.55rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   padding-inline: 1.45rem;
   color: #06101f;
   font-weight: 950;
@@ -149,7 +166,7 @@
   height: 3.55rem;
   border-radius: 999px;
   border-color: rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   color: white;
   font-weight: 850;
 }
@@ -168,7 +185,7 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(5, 8, 22, 0.34);
   backdrop-filter: blur(16px);
 }
 
@@ -176,7 +193,7 @@
   display: grid;
   gap: 0.18rem;
   padding: 1rem;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.75rem;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
