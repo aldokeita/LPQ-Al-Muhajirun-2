@@ -92,7 +92,7 @@ Add-Check "santri login supports nickname alias without custom JWT" {
   if ($fn -notmatch "auth.signInWithPassword") { throw "Edge Function does not verify through Supabase Auth" }
   if ($fn -match "createJwt|jwt.sign|custom JWT") { throw "custom JWT logic detected" }
   if ($auth -notmatch "username,") { throw "frontend does not send username alias to Edge Function" }
-  if ($login -notmatch "Username Santri") { throw "login placeholder does not explain santri username" }
+  if ($login -notmatch "Nama Panggilan Santri") { throw "login placeholder does not explain santri nickname username" }
 }
 
 Add-Check "santri avatar upload persists avatar path after storage upload" {

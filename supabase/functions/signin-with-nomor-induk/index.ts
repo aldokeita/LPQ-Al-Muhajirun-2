@@ -11,6 +11,14 @@ type LoginAlias = {
   is_active: boolean;
 };
 
+function normalizeIdentifier(value: string): string {
+  return value.trim();
+}
+
+function canBeNomorInduk(value: string): boolean {
+  return Boolean(value) && !/\s/.test(value);
+}
+
 Deno.serve(async (req) => {
   const options = handleOptions(req);
   if (options) return options;
@@ -20,16 +28,17 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const loginIdentifier = requireString(body.nomor_induk_qiroati ?? body.username, "Username");
-    const normalizedNomorInduk = normalizeNomorInduk(loginIdentifier);
-    const nicknameIdentifier = loginIdentifier.trim();
+    const loginIdentifier = normalizeIdentifier(requireString(body.nomor_induk_qiroati ?? body.username, "Username"));
+    const normalizedNomorInduk = canBeNomorInduk(loginIdentifier) ? normalizeNomorInduk(loginIdentifier) : null;
+    const nicknameIdentifier = loginIdentifier;
     const password = requireString(body.password, "Password");
     const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+    const rateLimitIdentifier = normalizedNomorInduk ?? nicknameIdentifier.toLowerCase();
 
     const rateLimit = await consumePersistentRateLimit(
       "signin-with-nomor-induk",
       ip,
-      normalizedNomorInduk,
+      rateLimitIdentifier,
     );
 
     if (rateLimit.error) {
@@ -40,24 +49,26 @@ Deno.serve(async (req) => {
     if (!rateLimit.allowed) {
       logSafe("warn", "login_rate_limited", {
         request_id: rid,
-        identifier: maskIdentifier(normalizedNomorInduk),
+        identifier: maskIdentifier(rateLimitIdentifier),
       });
       return fail(req, "RATE_LIMITED", "Terlalu banyak percobaan. Coba lagi nanti.", 429);
     }
 
     const admin = getServiceRoleClient();
 
-    const { data: directAlias, error: aliasError } = await admin
-      .from("auth_login_aliases")
-      .select("auth_user_id,internal_email,is_active")
-      .eq("alias_type", "nomor_induk_qiroati")
-      .eq("normalized_alias", normalizedNomorInduk)
-      .eq("is_active", true)
-      .maybeSingle<LoginAlias>();
+    const directAliasResult = normalizedNomorInduk
+      ? await admin
+          .from("auth_login_aliases")
+          .select("auth_user_id,internal_email,is_active")
+          .eq("alias_type", "nomor_induk_qiroati")
+          .eq("normalized_alias", normalizedNomorInduk)
+          .eq("is_active", true)
+          .maybeSingle<LoginAlias>()
+      : { data: null, error: null };
 
-    let alias = directAlias;
+    let alias = directAliasResult.data;
 
-    if (!alias && !aliasError && nicknameIdentifier) {
+    if (!alias && !directAliasResult.error && nicknameIdentifier) {
       const { data: santriMatches, error: santriLookupError } = await admin
         .from("santri")
         .select("id,status")
@@ -80,10 +91,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (aliasError || !alias?.internal_email) {
+    if (directAliasResult.error || !alias?.internal_email) {
       logSafe("warn", "login_alias_not_found", {
         request_id: rid,
-        identifier: maskIdentifier(normalizedNomorInduk),
+        identifier: maskIdentifier(rateLimitIdentifier),
       });
       return fail(req, "INVALID_LOGIN", "Username santri atau password salah.", 401);
     }
@@ -108,7 +119,7 @@ Deno.serve(async (req) => {
     if (error || !data.session || !data.user) {
       logSafe("warn", "login_auth_failed", {
         request_id: rid,
-        identifier: maskIdentifier(normalizedNomorInduk),
+        identifier: maskIdentifier(rateLimitIdentifier),
       });
       return fail(req, "INVALID_LOGIN", "Username santri atau password salah.", 401);
     }

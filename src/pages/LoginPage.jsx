@@ -138,7 +138,7 @@ const LoginPage = () => {
             <div className="space-y-4">
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input id="username" type="text" placeholder="Email Admin/Guru atau Username Santri" value={username} onChange={e => setUsername(e.target.value)} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-primary outline-none transition disabled:opacity-50" required />
+                <input id="username" type="text" placeholder="Email Admin/Guru atau Nama Panggilan Santri" value={username} onChange={e => setUsername(e.target.value)} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-primary outline-none transition disabled:opacity-50" required />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
