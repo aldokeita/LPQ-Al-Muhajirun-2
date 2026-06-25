@@ -38,6 +38,8 @@ const jilidOptions = [
 const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
 const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati`;
 
+const getSelectedClassId = (input) => input?.current_class_id || input?.id_kelas || null;
+
 const isMissingSantriExtendedColumn = (error) =>
   error?.code === '42703' ||
   /column santri\.(tanggal_pendaftaran|nama_ayah|nama_ibu|no_kk|no_nik|berkas_foto|berkas_akta|berkas_kk|berkas_form|link_qiroati) does not exist/i.test(error?.message || '');
@@ -648,8 +650,15 @@ const SantriManagement = () => {
       const profilePayload = editingSantri
         ? pickChangedSantriProfileFields(finalFormData, editingSantri)
         : pickSantriProfileFields(finalFormData);
+      const selectedClassId = getSelectedClassId(finalFormData);
+      const originalClassId = getSelectedClassId(editingSantri);
+      const classChanged = Boolean(selectedClassId) && selectedClassId !== originalClassId;
 
-      if (editingSantri && Object.keys(profilePayload).length === 0) {
+      if (Object.prototype.hasOwnProperty.call(profilePayload, 'current_class_id')) {
+        delete profilePayload.current_class_id;
+      }
+
+      if (editingSantri && Object.keys(profilePayload).length === 0 && !classChanged) {
         toast({
           title: "Tidak ada perubahan",
           description: "Tidak ada field santri yang berbeda dari data tersimpan. Ubah minimal satu field lalu simpan kembali.",
@@ -664,15 +673,26 @@ const SantriManagement = () => {
         return;
       }
 
-      const { data: savedSantri, error } = await supabase
-        .from('santri')
-        .update(profilePayload)
-        .eq('id', targetId)
-        .select('id')
-        .maybeSingle();
+      if (Object.keys(profilePayload).length > 0) {
+        const { data: savedSantri, error } = await supabase
+          .from('santri')
+          .update(profilePayload)
+          .eq('id', targetId)
+          .select('id')
+          .maybeSingle();
 
-      if (error) throw error;
-      if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
+        if (error) throw error;
+        if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
+      }
+
+      if (classChanged) {
+        const { error: classError } = await supabase.rpc('move_santri_to_class', {
+          p_santri_id: targetId,
+          p_to_class_id: selectedClassId,
+          p_reason: editingSantri ? 'Perubahan kelas dari Data Santri' : 'Penempatan kelas awal dari Data Santri',
+        });
+        if (classError) throw classError;
+      }
 
       toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
       loadData(activeTab);
@@ -1163,6 +1183,7 @@ const SantriManagement = () => {
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Kelas Aktif <span className="normal-case text-[10px] text-muted-foreground">(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>

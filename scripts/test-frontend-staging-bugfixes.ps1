@@ -134,6 +134,14 @@ Add-Check "santri edit sends changed fields and verifies updated row" {
   if ($component -match "Belum tersedia di schema staging") { throw "restored santri fields are still marked inactive" }
 }
 
+Add-Check "santri form assigns active class for digital attendance" {
+  $component = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  if ($component -notmatch "Kelas Aktif") { throw "active class field is missing from santri form" }
+  if ($component -notmatch "current_class_id:\s*val") { throw "class select does not write current_class_id" }
+  if ($component -notmatch "move_santri_to_class") { throw "class assignment does not use atomic class membership RPC" }
+  if ($component -notmatch "Penempatan kelas awal dari Data Santri") { throw "initial class assignment reason is missing" }
+}
+
 Add-Check "attendance recap can mark present records as absent" {
   $text = Read-Text "src/components/dashboard/shared/AttendanceDetailsModal.jsx"
   if ($text -notmatch "handleMarkAbsent") { throw "mark absent handler missing" }
