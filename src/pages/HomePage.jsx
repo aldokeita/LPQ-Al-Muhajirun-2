@@ -1,650 +1,663 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Star, Rocket, Users, Book, Phone, PlayCircle, Calendar, Clock, Trophy, Award, Zap, Shield, Quote } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Compass,
+  Image as ImageIcon,
+  Layers3,
+  Loader2,
+  Mail,
+  MapPin,
+  Megaphone,
+  MessageCircle,
+  Newspaper,
+  Quote,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from '@/components/ui/use-toast';
-import useWindowSize from '@/hooks/useWindowSize';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/lib/customSupabaseClient';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { fetchPublishedNews, submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
+import { toast } from '@/components/ui/use-toast';
+import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
+import {
+  fetchPublishedAnnouncements,
+  fetchPublishedNews,
+  getPublicContentErrorMessage,
+  submitPublicFeedback,
+} from '@/lib/publicContentAdapters';
 
-const DailyQuote = () => {
-  const quotes = [
-    { text: "Sebaik-baik kalian adalah orang yang belajar Al-Qur'an dan mengajarkannya.", source: "HR. Bukhari" },
-    { text: "Bacalah Al-Qur'an, karena ia akan datang pada hari kiamat sebagai pemberi syafaat bagi para pembacanya.", source: "HR. Muslim" },
-    { text: "Dan sesungguhnya telah Kami mudahkan Al-Qur'an untuk pelajaran, maka adakah orang yang mengambil pelajaran?", source: "QS. Al-Qamar: 17" },
-    { text: "Orang yang mahir membaca Al-Qur'an, kelak (di akhirat) akan bersama para malaikat yang mulia lagi taat.", source: "HR. Bukhari & Muslim" },
-  ];
+const BRAND_NAME = 'LPQ Al-Muhajirun Metode Qiroati Baturaja';
+const LOCAL_LOGO = '/logo.png';
 
-  const [dailyQuote, setDailyQuote] = useState({ text: '', source: '' });
+const defaultContent = {
+  logoUrl: LOCAL_LOGO,
+  heroSlides: [],
+  slideshowTimer: 7000,
+  heroOverlayOpacity: 0.55,
+  quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 },
+  facilities: [],
+  testimonials: [],
+  schedules: [
+    { title: 'Sesi Pagi', time: '08:00 - 09:15 WIB', type: 'TPQ' },
+    { title: 'Sesi Siang', time: '14:00 - 15:15 WIB', type: 'TPQ' },
+    { title: 'Sesi Sore', time: '16:00 - 17:15 WIB', type: 'TPQ' },
+  ],
+  faqs: [],
+  ctaBackgroundUrl: '',
+  ctaBackgroundOverlayOpacity: 0.62,
+};
+
+const safeArray = (value) => (Array.isArray(value) ? value : []);
+const imageOf = (item) => item?.image_url || item?.cover_image_url || item?.url || '';
+const compactNumber = (value) => new Intl.NumberFormat('id-ID').format(Number(value || 0));
+const friendlyPublicError = (error) => {
+  const message = getPublicContentErrorMessage(error);
+  if (/failed to fetch|networkerror|load failed/i.test(message)) {
+    return 'Konten publik belum dapat dimuat. Silakan coba beberapa saat lagi.';
+  }
+  return message;
+};
+
+const reveal = {
+  initial: { opacity: 1, y: 0 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-90px' },
+  transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+};
+
+const BrandGlyph = ({ className = '' }) => (
+  <div className={`lpq-brand-glyph ${className}`} aria-hidden="true">
+    <span>LPQ</span>
+    <small>Qiroati</small>
+  </div>
+);
+
+const SectionKicker = ({ children, dark = false }) => (
+  <div className={`lpq-kicker ${dark ? 'lpq-kicker-dark' : ''}`}>
+    <Sparkles className="h-4 w-4" />
+    {children}
+  </div>
+);
+
+const ImmersivePortal = ({ logoUrl }) => {
+  const portalRef = useRef(null);
 
   useEffect(() => {
-    const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-    setDailyQuote(quotes[dayOfYear % quotes.length]);
+    const element = portalRef.current;
+    if (!element) return undefined;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return undefined;
+
+    let rafId = 0;
+    const updateScroll = () => {
+      const progress = Math.min(1, Math.max(0, window.scrollY / 520));
+      element.style.setProperty('--gate-open', progress.toFixed(3));
+      element.style.setProperty('--gate-lift', `${progress * -34}px`);
+      rafId = 0;
+    };
+    const onScroll = () => {
+      if (!rafId) rafId = window.requestAnimationFrame(updateScroll);
+    };
+    const onPointerMove = (event) => {
+      const rect = element.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+      const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+      element.style.setProperty('--pointer-x', x.toFixed(3));
+      element.style.setProperty('--pointer-y', y.toFixed(3));
+    };
+
+    updateScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    element.addEventListener('pointermove', onPointerMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      element.removeEventListener('pointermove', onPointerMove);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (
-    <section className="py-24 bg-primary/5 dark:bg-primary/10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="max-w-4xl mx-auto text-center relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, type: "spring", bounce: 0.3 }}
-        >
-          <div className="bg-white/40 dark:bg-black/20 p-8 rounded-3xl backdrop-blur-sm shadow-sm border border-white/20">
-            <Quote className="w-16 h-16 mx-auto text-primary mb-6 opacity-30" />
-            <p className="text-2xl md:text-4xl font-serif italic text-foreground leading-relaxed">"{dailyQuote.text}"</p>
-            <p className="mt-6 text-lg font-semibold text-primary tracking-widest uppercase text-sm">- {dailyQuote.source} -</p>
+    <div ref={portalRef} className="lpq-portal" aria-label="Gerbang Cahaya Ilmu">
+      <div className="lpq-portal-aura" />
+      <div className="lpq-portal-core">
+        <div className="lpq-portal-page page-back" />
+        <div className="lpq-portal-page page-mid" />
+        <div className="lpq-portal-page page-front">
+          <div className="lpq-portal-window">
+            {logoUrl ? (
+              <img src={logoUrl} alt="" loading="eager" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+            ) : null}
+            <BrandGlyph />
           </div>
+        </div>
+        <div className="lpq-portal-ring ring-one" />
+        <div className="lpq-portal-ring ring-two" />
+        <div className="lpq-orbit-dot dot-a" />
+        <div className="lpq-orbit-dot dot-b" />
+        <div className="lpq-orbit-dot dot-c" />
+      </div>
+      <div className="lpq-portal-caption">
+        <span>Gerbang Cahaya Ilmu</span>
+        <p>Lapisan belajar, adab, dan pendampingan keluarga dalam satu perjalanan.</p>
+      </div>
+    </div>
+  );
+};
+
+const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
+  const slides = safeArray(content.heroSlides);
+  const activeSlide = slides[currentSlide] || slides[0] || {};
+  const heroText = activeSlide.text || 'Masuki ruang belajar Al-Quran yang lebih hidup, tertata, dan dekat dengan keluarga.';
+  const heroSubtext = activeSlide.author || 'LPQ Al-Muhajirun menghadirkan Metode Qiroati dalam pengalaman belajar yang hangat, disiplin, dan mudah dipantau.';
+  const hasStats = stats.santri > 0 || stats.guru > 0;
+
+  return (
+    <section className="lpq-immersive-hero">
+      <div className="lpq-hero-mesh" />
+      <div className="lpq-hero-grain" />
+      <div className="mx-auto grid min-h-[calc(100vh-80px)] max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8 lg:py-20">
+        <motion.div initial={{ opacity: 0, y: 34 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75 }} className="relative z-10">
+          <SectionKicker dark>Immersive Learning Portal</SectionKicker>
+          <h1 className="mt-7 max-w-5xl text-[clamp(3.25rem,9vw,7.8rem)] font-black leading-[0.88] tracking-[-0.055em] text-white">
+            <span className="lpq-line-mask">Belajar Al-Quran</span>
+            <span className="lpq-line-mask lpq-gradient-text">terasa hidup.</span>
+          </h1>
+          <p className="mt-8 max-w-2xl text-lg leading-8 text-white/75 md:text-xl">{heroText}</p>
+          <p className="mt-4 max-w-2xl text-sm font-semibold uppercase tracking-[0.22em] text-cyan-200/80">{heroSubtext}</p>
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+            <Button asChild size="lg" className="lpq-magnetic-cta h-14 rounded-full bg-white px-7 text-base font-black text-slate-950 hover:bg-cyan-50">
+              <Link to="/pendaftaran/informasi">Mulai pendaftaran <ArrowRight className="ml-2 h-5 w-5" /></Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="h-14 rounded-full border-white/20 bg-white/10 px-7 text-base font-bold text-white hover:bg-white/20">
+              <Link to="/profil">Lihat perjalanan LPQ</Link>
+            </Button>
+          </div>
+
+          <div className="lpq-trust-ribbon mt-12">
+            {hasStats && stats.santri > 0 && (
+              <div>
+                <strong>{compactNumber(stats.santri)}</strong>
+                <span>santri aktif</span>
+              </div>
+            )}
+            {hasStats && stats.guru > 0 && (
+              <div>
+                <strong>{compactNumber(stats.guru)}</strong>
+                <span>guru pengajar</span>
+              </div>
+            )}
+            <div>
+              <strong>Qiroati</strong>
+              <span>metode belajar</span>
+            </div>
+            <div>
+              <strong>RFID</strong>
+              <span>absensi digital</span>
+            </div>
+          </div>
+
+          {slides.length > 1 && (
+            <div className="mt-8 flex gap-2">
+              {slides.map((slide, index) => (
+                <button
+                  key={slide.id || index}
+                  type="button"
+                  aria-label={`Tampilkan cerita hero ${index + 1}`}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`h-2 rounded-full transition-all ${currentSlide === index ? 'w-10 bg-cyan-300' : 'w-2 bg-white/35 hover:bg-white/70'}`}
+                />
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.85, delay: 0.12 }} className="relative z-10 hidden min-h-[650px] lg:block">
+          <ImmersivePortal logoUrl={content.logoUrl || LOCAL_LOGO} />
+        </motion.div>
+      </div>
+      <div className="lpq-scroll-cue">
+        <span />
+        Scroll
+      </div>
+    </section>
+  );
+};
+
+const StorySection = ({ content }) => {
+  const heroImage = imageOf(safeArray(content.heroSlides)[0]);
+  const facilityImage = imageOf(safeArray(content.facilities)[0]);
+  const storyImage = facilityImage || heroImage;
+  const storySteps = [
+    {
+      title: 'Dari pintu kelas ke kebiasaan harian',
+      text: 'Santri tidak hanya datang untuk membaca. Mereka masuk ke ritme belajar yang mengulang, menguatkan, dan membentuk adab.',
+    },
+    {
+      title: 'Metode yang terasa personal',
+      text: 'Qiroati membantu guru memetakan bacaan secara bertahap, sehingga setiap santri punya perjalanan yang dapat dipahami wali.',
+    },
+    {
+      title: 'Teknologi sebagai pendamping, bukan pusat perhatian',
+      text: 'Absensi RFID, dashboard, pembayaran, dan konten publik mendukung operasional agar guru dapat fokus membimbing.',
+    },
+  ];
+
+  return (
+    <section className="bg-[#f6f1e7] px-4 py-24 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+        <motion.div {...reveal} className="lg:sticky lg:top-28 lg:self-start">
+          <SectionKicker>Story layer</SectionKicker>
+          <h2 className="mt-6 max-w-2xl text-[clamp(2.35rem,5vw,5.3rem)] font-black leading-[0.95] tracking-[-0.045em] text-slate-950">
+            Belajar yang terasa dekat, bukan sekadar jadwal.
+          </h2>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
+            Homepage ini tetap membawa konteks LPQ lama, tetapi disusun sebagai perjalanan: masuk, melihat bukti, memahami program, lalu mengambil tindakan.
+          </p>
+        </motion.div>
+        <div className="space-y-6">
+          <motion.div {...reveal} className="lpq-cinematic-frame">
+            {storyImage ? (
+              <img src={storyImage} alt="Kegiatan pembelajaran LPQ Al-Muhajirun" loading="lazy" />
+            ) : (
+              <div className="lpq-photo-fallback">
+                <Layers3 className="h-16 w-16" />
+                <span>Foto kegiatan akan tampil dari konten website</span>
+              </div>
+            )}
+          </motion.div>
+          {storySteps.map((step, index) => (
+            <motion.article key={step.title} {...reveal} className="lpq-story-card">
+              <span>{String(index + 1).padStart(2, '0')}</span>
+              <div>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </div>
+            </motion.article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ProgramConstellation = ({ schedules, quotas }) => {
+  const scheduleItems = safeArray(schedules).slice(0, 5);
+  const quotaItems = [
+    { label: 'Pagi', value: quotas?.pagi || 0 },
+    { label: 'Siang', value: quotas?.siang || 0 },
+    { label: 'Sore', value: quotas?.sore || 0 },
+  ];
+
+  return (
+    <section className="bg-[#101827] px-4 py-24 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
+          <motion.div {...reveal}>
+            <SectionKicker dark>Learning constellation</SectionKicker>
+            <h2 className="mt-6 text-[clamp(2.4rem,6vw,5.8rem)] font-black leading-[0.92] tracking-[-0.05em]">
+              Program tersusun seperti peta perjalanan.
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-white/70">
+              Jadwal dan kuota tetap dibaca dari konten admin. Penyajiannya dibuat seperti rasi belajar, bukan grid kartu biasa.
+            </p>
+          </motion.div>
+          <motion.div {...reveal} className="lpq-quota-panel">
+            <p>Kuota sesi</p>
+            <div>
+              {quotaItems.map((item) => (
+                <span key={item.label}>
+                  <strong>{compactNumber(item.value)}</strong>
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div {...reveal} className="lpq-constellation">
+          <div className="lpq-constellation-core">
+            <Compass className="h-10 w-10 text-cyan-200" />
+            <span>Qiroati Pathway</span>
+          </div>
+          {scheduleItems.length > 0 ? scheduleItems.map((schedule, index) => (
+            <Link
+              key={`${schedule.title}-${index}`}
+              to="/pendaftaran/informasi"
+              className={`lpq-orbit-card orbit-${index + 1}`}
+            >
+              <Clock className="h-5 w-5 text-cyan-200" />
+              <strong>{schedule.title || 'Sesi belajar'}</strong>
+              <span>{schedule.time || 'Waktu menyesuaikan'}</span>
+              <em>{schedule.type || 'Kelas'}</em>
+            </Link>
+          )) : (
+            <div className="lpq-empty-dark">
+              <CalendarClock className="h-8 w-8" />
+              Jadwal akan tampil setelah diisi admin.
+            </div>
+          )}
         </motion.div>
       </div>
     </section>
   );
 };
 
+const GallerySection = ({ facilities }) => {
+  const images = safeArray(facilities).filter((item) => imageOf(item)).slice(0, 6);
+  return (
+    <section className="overflow-hidden bg-[#f6f1e7] px-4 py-24 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <motion.div {...reveal} className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <SectionKicker>Activity gallery</SectionKicker>
+            <h2 className="mt-6 max-w-4xl text-[clamp(2.4rem,5vw,5.4rem)] font-black leading-[0.95] tracking-[-0.045em] text-slate-950">
+              Potongan suasana yang membuat wali merasa yakin.
+            </h2>
+          </div>
+          <Button asChild variant="outline" className="w-fit rounded-full border-slate-300 bg-white px-6">
+            <Link to="/profil/galeri">Lihat galeri <ArrowRight className="ml-2 h-4 w-4" /></Link>
+          </Button>
+        </motion.div>
+        {images.length > 0 ? (
+          <div className="lpq-gallery-track mt-12">
+            {images.map((item, index) => (
+              <Link key={item.id || index} to="/profil/galeri" className={`lpq-gallery-frame gallery-${index % 3}`}>
+                <img src={imageOf(item)} alt={item.name || 'Aktivitas LPQ Al-Muhajirun'} loading="lazy" />
+                <span>{item.name || 'Kegiatan LPQ'}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-12">
+            <EmptyState title="Galeri kegiatan belum tersedia" description="Foto fasilitas atau kegiatan akan tampil otomatis dari Content Management." />
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const EmptyState = ({ title, description }) => (
+  <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white/75 p-8 text-center text-slate-600">
+    <ImageIcon className="mx-auto mb-4 h-10 w-10 text-emerald-700" />
+    <p className="font-black text-slate-950">{title}</p>
+    <p className="mt-2 text-sm leading-6">{description}</p>
+  </div>
+);
+
+const EditorialNews = ({ news, announcements, loading, error }) => {
+  const newsItems = safeArray(news);
+  const featured = newsItems[0];
+  const supporting = newsItems.slice(1, 4);
+  const announcementItems = safeArray(announcements);
+
+  return (
+    <section className="bg-[#0b1020] px-4 py-24 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <motion.div {...reveal} className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <SectionKicker dark>Editorial board</SectionKicker>
+            <h2 className="mt-6 max-w-4xl text-[clamp(2.4rem,5vw,5.2rem)] font-black leading-[0.95] tracking-[-0.045em]">
+              Kabar lembaga tampil seperti majalah, tetap dari Supabase.
+            </h2>
+          </div>
+          <div className="flex gap-3">
+            <Button asChild variant="outline" className="rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20">
+              <Link to="/berita">Berita</Link>
+            </Button>
+            <Button asChild className="rounded-full bg-cyan-200 text-slate-950 hover:bg-cyan-100">
+              <Link to="/pengumuman">Pengumuman</Link>
+            </Button>
+          </div>
+        </motion.div>
+
+        {loading ? (
+          <div className="mt-12 flex items-center justify-center rounded-[2rem] border border-white/10 bg-white/10 p-12 text-cyan-100">
+            <Loader2 className="mr-3 h-6 w-6 animate-spin" /> Memuat berita dan pengumuman...
+          </div>
+        ) : error ? (
+          <div className="mt-12 rounded-[2rem] border border-red-300/30 bg-red-500/10 p-6 text-red-100">{error}</div>
+        ) : (
+          <div className="mt-12 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            {featured ? (
+              <Link to={`/berita/${featured.slug || featured.id}`} className="lpq-feature-story group">
+                {imageOf(featured) ? (
+                  <img src={imageOf(featured)} alt={featured.title} loading="lazy" />
+                ) : (
+                  <div className="lpq-story-image-fallback"><Newspaper className="h-14 w-14" /></div>
+                )}
+                <div className="lpq-feature-copy">
+                  <span>{featured.date || 'Berita'}</span>
+                  <h3>{featured.title}</h3>
+                  <p>{featured.summary || featured.excerpt || 'Baca kabar terbaru dari LPQ Al-Muhajirun.'}</p>
+                </div>
+              </Link>
+            ) : (
+              <div className="lpq-empty-dark"><Newspaper className="h-8 w-8" /> Belum ada berita published.</div>
+            )}
+
+            <div className="space-y-5">
+              <div className="lpq-announcement-panel">
+                <div className="mb-5 flex items-center gap-3">
+                  <Megaphone className="h-6 w-6 text-amber-200" />
+                  <h3>Pengumuman</h3>
+                </div>
+                {announcementItems.length > 0 ? announcementItems.slice(0, 3).map((item) => (
+                  <Link key={item.id} to={`/pengumuman/${item.slug || item.id}`} className="lpq-announcement-row">
+                    <span>{item.priority || 'normal'}</span>
+                    <strong>{item.title}</strong>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )) : <p className="text-white/60">Belum ada pengumuman published.</p>}
+              </div>
+              {supporting.map((item) => (
+                <Link key={item.id} to={`/berita/${item.slug || item.id}`} className="lpq-support-story">
+                  <span>{item.date || 'Berita'}</span>
+                  <strong>{item.title}</strong>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const TestimonialsFaq = ({ testimonials, faqs }) => (
+  <section className="bg-[#f6f1e7] px-4 py-24 sm:px-6 lg:px-8">
+    <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <motion.div {...reveal} className="lpq-human-panel">
+        <SectionKicker>Human-centered</SectionKicker>
+        <h2>Suara keluarga, pertanyaan nyata.</h2>
+        <div className="mt-8 space-y-4">
+          {safeArray(testimonials).length > 0 ? safeArray(testimonials).slice(0, 3).map((item, index) => (
+            <blockquote key={item.id || index}>
+              <Quote className="h-5 w-5 text-amber-600" />
+              <p>"{item.text}"</p>
+              <footer>{item.name} · {item.role}</footer>
+            </blockquote>
+          )) : (
+            <EmptyState title="Testimoni belum tersedia" description="Testimoni akan muncul dari data konten ketika admin mengisinya." />
+          )}
+        </div>
+      </motion.div>
+      <motion.div {...reveal} className="lpq-faq-panel">
+        {safeArray(faqs).length > 0 ? safeArray(faqs).slice(0, 5).map((faq, index) => (
+          <details key={faq.id || index}>
+            <summary>{faq.question}<ArrowRight className="h-4 w-4" /></summary>
+            <p>{faq.answer}</p>
+          </details>
+        )) : (
+          <EmptyState title="FAQ belum tersedia" description="Pertanyaan umum akan tampil setelah dikelola admin." />
+        )}
+      </motion.div>
+    </div>
+  </section>
+);
+
+const FinalCta = ({ content, formData, setFormData, onSubmit, sending }) => {
+  const background = content.ctaBackgroundUrl || imageOf(safeArray(content.heroSlides)[0]);
+  return (
+    <section className="lpq-final-cta">
+      {background && <img src={background} alt="" loading="lazy" />}
+      <div className="lpq-final-glow" />
+      <div className="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 py-24 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+        <motion.div {...reveal}>
+          <SectionKicker dark>Portal berikutnya</SectionKicker>
+          <h2>Mulai dari satu langkah kecil: datang, bertanya, lalu belajar.</h2>
+          <p>CTA akhir ini bukan kartu biasa; ia menutup perjalanan homepage dengan rasa tenang dan jelas: wali tahu harus ke mana, admin tetap menerima feedback melalui kontrak lama.</p>
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <Button asChild size="lg" className="rounded-full bg-white text-slate-950 hover:bg-cyan-50">
+              <Link to="/pendaftaran/informasi">Informasi pendaftaran</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20">
+              <Link to="/kontak">Kontak lengkap</Link>
+            </Button>
+          </div>
+        </motion.div>
+        <motion.form {...reveal} onSubmit={onSubmit} className="lpq-feedback-form">
+          <h3>Kirim pesan ke LPQ</h3>
+          <Input placeholder="Nama lengkap" value={formData.nama} onChange={(event) => setFormData({ ...formData, nama: event.target.value })} required />
+          <Input type="email" placeholder="Email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} required />
+          <Input type="tel" placeholder="Nomor WhatsApp" value={formData.no_hp} onChange={(event) => setFormData({ ...formData, no_hp: event.target.value })} required />
+          <Textarea placeholder="Pesan atau pertanyaan" rows={5} value={formData.pesan} onChange={(event) => setFormData({ ...formData, pesan: event.target.value })} required />
+          <Button type="submit" disabled={sending} className="h-12 rounded-full bg-cyan-200 font-black text-slate-950 hover:bg-cyan-100">
+            {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            Kirim pesan
+          </Button>
+        </motion.form>
+      </div>
+    </section>
+  );
+};
+
 const HomePage = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [selectedAdvantage, setSelectedAdvantage] = useState(null);
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [formData, setFormData] = useState({ nama: '', email: '', no_hp: '', pesan: '' });
-  const [openFaq, setOpenFaq] = useState(null);
+  const [content, setContent] = useState(defaultContent);
+  const [news, setNews] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [stats, setStats] = useState({ santri: 0, guru: 0 });
-  const [playingVideo, setPlayingVideo] = useState(null);
-  const [content, setContent] = useState({
-    heroSlides: [],
-    slideshowTimer: 5000,
-    heroOverlayOpacity: 0.6,
-    quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 },
-    news: [],
-    qiroatiVideos: [],
-    facilities: [],
-    ctaBackgroundUrl: 'https://images.unsplash.com/photo-1504221507732-5246c045949b?q=80&w=2070&auto=format&fit=crop',
-    ctaBackgroundOverlayOpacity: 0.5,
-    testimonials: [],
-    schedules: [],
-    faqs: []
-  });
-  const { width } = useWindowSize();
-  const isMobile = width < 768;
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [contentError, setContentError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [formData, setFormData] = useState({ nama: '', email: '', no_hp: '', pesan: '' });
 
-  const heroRef = useRef(null);
-  const { scrollYProgress: heroScroll } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
-  const heroY = useTransform(heroScroll, [0, 1], ["0%", "30%"]);
-  const heroOpacity = useTransform(heroScroll, [0, 0.5], [1, 0]);
-
-  const ctaRef = useRef(null);
-  const { scrollYProgress: ctaScroll } = useScroll({ target: ctaRef, offset: ["start end", "end start"] });
-  
-  // Staggered animation container variants
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.2,
-      }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 30 },
-    show: { 
-      opacity: 1, 
-      y: 0,
-      transition: { type: "spring", stiffness: 50, damping: 20 }
-    }
-  };
+  const heroSlides = useMemo(() => safeArray(content.heroSlides), [content.heroSlides]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { count: santriCount } = await supabase.from('santri').select('*', { count: 'exact', head: true }).eq('status', 'Aktif');
-      const { count: guruCount } = await supabase.from('guru').select('*', { count: 'exact', head: true });
-      setStats({ santri: santriCount || 0, guru: guruCount || 0 });
+    let mounted = true;
 
-      const { data: contentData, error } = await supabase.from('website_content').select('key, content').eq('is_public', true);
-      if (error) return;
-
-      const newContent = contentData.reduce((acc, item) => {
-        acc[item.key] = item.content;
-        return acc;
-      }, {});
-
-      const initialContent = {
-        heroSlides: [{ id: 1, url: 'https://images.unsplash.com/photo-1584467735871-8e85353a8413?q=80&w=2070&auto=format&fit=crop', text: "Bacalah dengan menyebut nama Tuhanmu yang menciptakan", author: "QS. Al-Alaq: 1", textSize: 'text-6xl', textWeight: 'font-bold', textStyle: 'normal-case'}],
-        slideshowTimer: 5000,
-        heroOverlayOpacity: 0.6,
-        quotas: { pagi: 5, siang: 3, sore: 8, dewasaPagi: 2, dewasaSiang: 4, dewasaMalam: 1 },
-        news: [],
-        qiroatiVideos: [{id: 1, url: "https://www.youtube.com/embed/dQw4w9WgXcQ", title: "Video Qiroati"}],
-        facilities: [{id: 1, image_url: "https://images.unsplash.com/photo-1687600154329-150952c73169?q=80&w=800"}, {id: 2, image_url: "https://images.unsplash.com/photo-1582251872140-7d4fbd39fae2?q=80&w=800"}, {id: 3, image_url: "https://images.unsplash.com/photo-1695615421085-1b3a866b8481?q=80&w=800"}],
-        ctaBackgroundUrl: 'https://images.unsplash.com/photo-1504221507732-5246c045949b?q=80&w=2070&auto=format&fit=crop',
-        ctaBackgroundOverlayOpacity: 0.5,
-        testimonials: [
-          { name: "Ibu Siti Aminah", role: "Wali Santri", text: "Alhamdulillah, anak saya sangat senang belajar di LPQ Al-Muhajirun. Dalam 6 bulan sudah bisa membaca Al-Qur'an dengan lancar." },
-          { name: "Bapak Ahmad Hidayat", role: "Alumni", text: "Saya belajar di LPQ Al-Muhajirun sejak kecil. Metode Qiroati benar-benar membantu saya memahami tajwid dengan baik." },
-          { name: "Ibu Fatimah", role: "Wali Santri", text: "Fasilitas di LPQ Al-Muhajirun sangat bagus dan bersih. Anak-anak nyaman belajar di sini." }
-        ],
-        schedules: [
-          { title: "Sesi Pagi", time: "08:00 - 09:15 WIB", type: "TPQ" },
-          { title: "Sesi Siang", time: "14:00 - 15:15 WIB", type: "TPQ" },
-          { title: "Sesi Sore", time: "16:00 - 17:15 WIB", type: "TPQ" }
-        ],
-        faqs: [
-          { question: "Berapa biaya pendaftaran?", answer: "Biaya pendaftaran meliputi: Sarpras Rp 115.000, Seragam Rp 175.000, Buku Prestasi Rp 10.000, ID Card Rp 25.000, Buku Jilid Rp 25.000, dan SPP awal Rp 100.000. Total sekitar Rp 450.000 dan bisa dicicil." },
-          { question: "Apakah ada kelas untuk orang dewasa?", answer: "Ya, kami menyediakan kelas khusus dewasa (usia ≥17 tahun) dengan jadwal fleksibel: Pagi, Siang, dan Malam." },
-          { question: "Apa saja syarat pendaftaran?", answer: "Syarat pendaftaran: Wali dan calon santri hadir saat mengisi formulir, fotokopi Akta & KK, pasfoto 3x4, dan materai Rp 10.000." },
-        ]
-      };
-      
-      const mergedContent = { ...initialContent, ...newContent };
+    const fetchHomepageData = async () => {
+      setLoading(true);
+      setContentError('');
       try {
-        mergedContent.news = await fetchPublishedNews({ limit: 3 });
-      } catch {
-        mergedContent.news = [];
-      }
-      if (!Array.isArray(mergedContent.heroSlides) || mergedContent.heroSlides.length === 0) mergedContent.heroSlides = initialContent.heroSlides;
-      if (!Array.isArray(mergedContent.news) || mergedContent.news.length === 0) mergedContent.news = initialContent.news;
-      if (!Array.isArray(mergedContent.qiroatiVideos) || mergedContent.qiroatiVideos.length === 0) mergedContent.qiroatiVideos = initialContent.qiroatiVideos;
-      if (!Array.isArray(mergedContent.facilities) || mergedContent.facilities.length < 3) mergedContent.facilities = initialContent.facilities;
-      if (!Array.isArray(mergedContent.testimonials) || mergedContent.testimonials.length === 0) mergedContent.testimonials = initialContent.testimonials;
-      if (!Array.isArray(mergedContent.schedules) || mergedContent.schedules.length === 0) mergedContent.schedules = initialContent.schedules;
-      if (!Array.isArray(mergedContent.faqs) || mergedContent.faqs.length === 0) mergedContent.faqs = initialContent.faqs;
-      
-      setContent(mergedContent);
-    };
-    fetchData();
+        if (!isSupabaseConfigured) {
+          setContent(defaultContent);
+          setLoading(false);
+          return;
+        }
 
-    const channel = supabase.channel('website_content_homepage_change')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, payload => {
-            if (payload.new && payload.new.key && payload.new.is_public !== false) {
-                setContent(prev => ({...prev, [payload.new.key]: payload.new.content}));
-            }
+        const [santriResult, guruResult, contentResult, newsResult, announcementResult] = await Promise.all([
+          supabase.from('santri').select('id', { count: 'exact', head: true }).eq('status', 'Aktif'),
+          supabase.from('guru').select('id', { count: 'exact', head: true }),
+          supabase.from('website_content').select('key, content').eq('is_public', true),
+          fetchPublishedNews({ limit: 4 }),
+          fetchPublishedAnnouncements({ limit: 4 }),
+        ]);
+
+        if (!mounted) return;
+        if (contentResult.error) throw contentResult.error;
+
+        const contentMap = (contentResult.data || []).reduce((acc, item) => {
+          acc[item.key] = item.content;
+          return acc;
+        }, {});
+
+        setStats({ santri: santriResult.count || 0, guru: guruResult.count || 0 });
+        setContent({ ...defaultContent, ...contentMap });
+        setNews(newsResult);
+        setAnnouncements(announcementResult);
+      } catch (error) {
+        if (!mounted) return;
+        setContentError(friendlyPublicError(error));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchHomepageData();
+
+    let channel;
+    if (isSupabaseConfigured) {
+      channel = supabase
+        .channel('website_content_homepage_immersive')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, (payload) => {
+          if (payload.new?.key && payload.new.is_public !== false) {
+            setContent((previous) => ({ ...previous, [payload.new.key]: payload.new.content }));
+          }
         })
         .subscribe();
-    
-    return () => {
-        supabase.removeChannel(channel);
-    };
+    }
 
+    return () => {
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
-  const getYoutubeVideoId = (url) => {
-    if (!url) return null;
-    let videoId = null;
-    try {
-      const urlObj = new URL(url);
-      if (urlObj.hostname === 'youtu.be') {
-        videoId = urlObj.pathname.slice(1);
-      } else if (urlObj.hostname.includes('youtube.com')) {
-        if (urlObj.pathname.includes('/embed/')) {
-          videoId = urlObj.pathname.split('/embed/')[1].split('?')[0];
-        } else {
-          videoId = urlObj.searchParams.get('v');
-        }
-      }
-    } catch (e) {
-      const embedMatch = url.match(/embed\/([^?&/\s]+)/);
-      if (embedMatch) videoId = embedMatch[1];
-    }
-    return videoId;
-  };
-
-  const getYoutubeThumbnail = (url) => {
-    const videoId = getYoutubeVideoId(url);
-    return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : "";
-  };
-
-  const getEmbedUrl = (url) => {
-    const videoId = getYoutubeVideoId(url);
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-  };
-  
-
-  const advantages = [
-    { title: "Metode Qiroati Terpercaya", short: "Pembelajaran terstruktur dan teruji.", detail: "Metode Qiroati adalah sistem pembelajaran Al-Qur'an yang telah terbukti efektif dalam mengajarkan bacaan Al-Qur'an dengan tartil. Metode ini menggunakan pendekatan yang sistematis, dimulai dari pengenalan huruf hijaiyah hingga mampu membaca Al-Qur'an dengan lancar dan benar sesuai kaidah tajwid." },
-    { title: "Guru Bersertifikat", short: "Pengajar profesional dan berpengalaman.", detail: "Semua guru di LPQ Al-Muhajirun telah mengantongi sertifikat resmi metode Qiroati dan memiliki pengalaman mengajar yang mumpuni. Mereka tidak hanya menguasai teknik mengajar, tetapi juga memiliki akhlak yang baik sebagai teladan bagi santri." },
-    { title: "Kelas Fleksibel", short: "Jadwal disesuaikan dengan kebutuhan.", detail: "Kami menyediakan berbagai pilihan waktu belajar: pagi, siang, dan sore untuk santri usia dini hingga remaja. Khusus untuk kelas dewasa, tersedia jadwal khusus di pagi, siang, dan malam hari. Fleksibilitas ini memudahkan santri untuk belajar tanpa mengganggu aktivitas sehari-hari." },
-    { title: "Fasilitas Lengkap", short: "Ruang belajar nyaman dan kondusif.", detail: "LPQ Al-Muhajirun dilengkapi dengan ruang kelas yang nyaman, ber-AC, perpustakaan mini, area bermain untuk santri cilik, serta musholla untuk praktik ibadah. Semua fasilitas dirancang untuk menciptakan lingkungan belajar yang kondusif dan menyenangkan." },
-    { title: "Pembinaan Akhlak", short: "Membentuk karakter islami.", detail: "Selain fokus pada kemampuan membaca Al-Qur'an, kami juga memberikan perhatian khusus pada pembinaan akhlak santri. Melalui pembiasaan adab islami, santri diajarkan untuk memiliki perilaku yang baik, sopan santun, dan berakhlakul karimah dalam kehidupan sehari-hari." },
-    { title: "Sinergi Keluarga", short: "Keterlibatan aktif orang tua.", detail: "Kami percaya pendidikan terbaik tercapai melalui kerjasama yang erat antara lembaga dan orang tua. Kami secara rutin mengadakan pertemuan wali santri, menyediakan buku prestasi sebagai media komunikasi, dan selalu terbuka untuk diskusi demi perkembangan santri." }
-  ];
-
   useEffect(() => {
-    const slideLength = content.heroSlides?.length || 0;
-    const timerDuration = content.slideshowTimer || 10000;
-    if (slideLength > 1) {
-      const timer = setInterval(() => setCurrentSlide((prev) => (prev + 1) % slideLength), timerDuration);
-      return () => clearInterval(timer);
-    }
-  }, [content.heroSlides, content.slideshowTimer]);
+    if (heroSlides.length <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setCurrentSlide((previous) => (previous + 1) % heroSlides.length);
+    }, content.slideshowTimer || 7000);
+    return () => window.clearInterval(timer);
+  }, [content.slideshowTimer, heroSlides.length]);
 
-  useEffect(() => {
-    if (content.testimonials.length > 0) {
-      const timer = setInterval(() => setCurrentTestimonial((prev) => (prev + 1) % content.testimonials.length), 10000);
-      return () => clearInterval(timer);
-    }
-  }, [content.testimonials]);
-
-  const handleSubmitQuestion = async (e) => {
-    e.preventDefault();
+  const handleSubmitQuestion = async (event) => {
+    event.preventDefault();
+    setSending(true);
     try {
       await submitPublicFeedback(formData);
-      toast({ title: "Pesan Terkirim!", description: "Terima kasih atas masukan Anda." });
+      toast({ title: 'Pesan terkirim', description: 'Terima kasih, pesan Anda sudah kami terima.' });
       setFormData({ nama: '', email: '', no_hp: '', pesan: '' });
     } catch (error) {
-      toast({ title: "Gagal Mengirim", description: getPublicContentErrorMessage(error), variant: "destructive" });
+      toast({ title: 'Gagal mengirim', description: getPublicContentErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setSending(false);
     }
   };
 
   return (
     <>
       <Helmet>
-        <title>LPQ Al-Muhajirun - Metode Qiroati</title>
-        <meta name="description" content="LPQ Al-Muhajirun adalah lembaga pendidikan Al-Qur'an terpercaya dengan metode Qiroati." />
-        <link rel="icon" type="image/png" href={content.logoUrl || "/logo.png"} sizes="any" />
+        <title>{BRAND_NAME}</title>
+        <meta name="description" content="Website resmi LPQ Al-Muhajirun Metode Qiroati Baturaja: pendaftaran, berita, pengumuman, feedback, dan portal pendidikan Al-Quran." />
+        <link rel="icon" type="image/png" href={content.logoUrl || LOCAL_LOGO} sizes="any" />
       </Helmet>
 
-      <div className="w-full overflow-hidden">
-        {/* Parallax Hero Section */}
-        <section ref={heroRef} className="h-screen w-full relative overflow-hidden bg-primary/20">
-          <motion.div style={{ y: heroY, opacity: heroOpacity }} className="absolute inset-0 z-0">
-            {content.heroSlides?.length > 0 && (
-              <AnimatePresence initial={false}>
-                <motion.div key={currentSlide} initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} className="absolute inset-0">
-                  <div style={{ backgroundColor: `rgba(0,0,0,${content.heroOverlayOpacity || 0.6})`}} className="absolute inset-0 z-10" />
-                  <img alt="Hero background" className="w-full h-full object-cover" src={content.heroSlides[currentSlide]?.url} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-          </motion.div>
-          
-          <div className="relative z-20 h-full flex items-center justify-center text-center px-4">
-            <div className="max-w-5xl">
-                <AnimatePresence mode="wait">
-                    <motion.div 
-                        key={currentSlide} 
-                        initial={{ y: 50, opacity: 0, filter: "blur(10px)" }} 
-                        animate={{ y: 0, opacity: 1, filter: "blur(0px)" }} 
-                        exit={{ y: -50, opacity: 0, filter: "blur(10px)" }} 
-                        transition={{ duration: 0.8, ease: [0.32, 0.72, 0, 1] }}
-                    >
-                        <h1 className={`mb-6 font-serif leading-tight tracking-tight drop-shadow-lg text-white ${isMobile ? 'text-4xl' : content.heroSlides[currentSlide]?.textSize || 'text-6xl'} ${content.heroSlides[currentSlide]?.textWeight || 'font-extrabold'} ${content.heroSlides[currentSlide]?.textStyle || 'normal-case'}`}>
-                            {content.heroSlides[currentSlide]?.text}
-                        </h1>
-                        <p className="text-xl md:text-3xl text-white/90 font-light tracking-wide drop-shadow-md">- {content.heroSlides[currentSlide]?.author} -</p>
-                    </motion.div>
-                </AnimatePresence>
-            </div>
-            
-            {/* Navigation Controls */}
-            <div className="absolute bottom-12 left-0 right-0 z-30 flex justify-center space-x-3">
-                 {content.heroSlides?.map((_, i) => (
-                     <button 
-                        key={`slide-${i}`} 
-                        onClick={() => setCurrentSlide(i)} 
-                        className={`h-1.5 rounded-full transition-all duration-300 ${currentSlide === i ? 'bg-accent w-8' : 'bg-white/40 w-2 hover:bg-white/60'}`} 
-                     />
-                 ))}
-            </div>
-            
-            <button onClick={() => setCurrentSlide((p) => (p - 1 + (content.heroSlides?.length || 1)) % (content.heroSlides?.length || 1))} className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-30 p-4 rounded-full text-white/50 hover:text-accent hover:bg-white/10 transition-all"><ChevronLeft className="w-8 h-8" /></button>
-            <button onClick={() => setCurrentSlide((p) => (p + 1) % (content.heroSlides?.length || 1))} className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-30 p-4 rounded-full text-white/50 hover:text-accent hover:bg-white/10 transition-all"><ChevronRight className="w-8 h-8" /></button>
-          </div>
-        </section>
-
-        <div className="bg-background relative z-10">
-          <DailyQuote />
-
-          <section className="py-24 px-4 sm:px-6 lg:px-8 relative">
-            {/* Decorative Floating Elements */}
-            <motion.div animate={{ y: [0, -20, 0], rotate: [0, 5, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-20 left-10 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-            <motion.div animate={{ y: [0, 30, 0], rotate: [0, -5, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} className="absolute bottom-20 right-10 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="max-w-7xl mx-auto relative z-10">
-              <motion.div 
-                initial={{ opacity: 0, y: 30 }} 
-                whileInView={{ opacity: 1, y: 0 }} 
-                viewport={{ once: true }} 
-                transition={{ duration: 0.8 }} 
-                className="text-center mb-20"
-              >
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 font-serif text-foreground">Tentang Qiroati & LPQ Al-Muhajirun</h2>
-                <div className="w-32 h-1.5 bg-gradient-to-r from-primary to-accent mx-auto mb-8 rounded-full"></div>
-                <p className="text-xl text-muted-foreground max-w-4xl mx-auto leading-relaxed">Metode Qiroati adalah sistem pembelajaran Al-Qur'an yang efektif untuk mengajarkan bacaan tartil sesuai kaidah tajwid. Di LPQ Al-Muhajirun, kami mendedikasikan diri untuk memastikan setiap santri dapat membaca Al-Qur'an dengan benar, lancar, dan penuh pemahaman.</p>
-              </motion.div>
-
-              <motion.div 
-                variants={container}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true, margin: "-100px" }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16"
-              >
-                {advantages.map((adv, i) => (
-                    <motion.div 
-                        key={`advantage-${i}`} 
-                        variants={item}
-                        whileHover={{ y: -10, transition: { duration: 0.3 } }}
-                        onClick={() => setSelectedAdvantage(adv)} 
-                        className="bg-card p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all cursor-pointer border border-border/50 relative overflow-hidden group"
-                    >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-150"></div>
-                        <div className="w-14 h-14 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center mb-6 text-2xl font-bold shadow-lg relative z-10">{i + 1}</div>
-                        <h3 className="text-2xl font-bold text-card-foreground mb-3 relative z-10">{adv.title}</h3>
-                        <p className="text-muted-foreground relative z-10">{adv.short}</p>
-                        <div className="mt-6 flex items-center text-primary font-semibold group-hover:translate-x-2 transition-transform">
-                            Selengkapnya <ChevronRight className="w-4 h-4 ml-1" />
-                        </div>
-                    </motion.div>
-                ))}
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-                className="mt-20 flex flex-wrap justify-center gap-6"
-              >
-                 <div className="bg-white dark:bg-slate-800 px-8 py-6 rounded-2xl shadow-lg flex items-center gap-5 border border-slate-100 dark:border-slate-700">
-                    <div className="bg-secondary/20 p-3 rounded-xl"><Users className="w-8 h-8 text-primary" /></div>
-                    <div><p className="text-3xl font-bold text-foreground">{stats.santri}</p><p className="text-muted-foreground">Santri Aktif</p></div>
-                 </div>
-                 <div className="bg-white dark:bg-slate-800 px-8 py-6 rounded-2xl shadow-lg flex items-center gap-5 border border-slate-100 dark:border-slate-700">
-                    <div className="bg-accent/20 p-3 rounded-xl"><Book className="w-8 h-8 text-accent" /></div>
-                    <div><p className="text-3xl font-bold text-foreground">{stats.guru}</p><p className="text-muted-foreground">Guru Pengajar</p></div>
-                 </div>
-              </motion.div>
-            </div>
-          </section>
-
-          <section className="py-24 bg-secondary/10 relative overflow-hidden px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto relative z-10">
-              <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-4xl font-bold text-center mb-16 font-serif text-foreground">Pusat Informasi</motion.h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-8">
-                  <motion.div variants={item}>
-                    <Link to="/pengumuman" className="block group">
-                        <div className="bg-card rounded-3xl shadow-lg overflow-hidden border border-border/50 transition-all duration-300 hover:shadow-2xl">
-                            <div className="relative h-64 overflow-hidden">
-                                <img alt="Pengumuman" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src="https://images.unsplash.com/photo-1472324001482-257916e4f814?q=80&w=800" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                                <div className="absolute bottom-4 left-6 text-white">
-                                    <span className="bg-accent px-3 py-1 rounded-full text-xs font-bold text-accent-foreground uppercase tracking-wider mb-2 inline-block">Terbaru</span>
-                                    <h3 className="text-2xl font-bold">Pengumuman Penting</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </Link>
-                  </motion.div>
-                  <motion.div variants={item}>
-                     <Link to="/berita" className="block group">
-                        <div className="bg-card rounded-3xl shadow-lg overflow-hidden border border-border/50 transition-all duration-300 hover:shadow-2xl">
-                            <div className="relative h-64 overflow-hidden">
-                                <img alt="Berita" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={content.news[0]?.image_url || "https://images.unsplash.com/photo-1618865181016-a80ad83a06d3?q=80&w=800"} />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                                <div className="absolute bottom-4 left-6 text-white">
-                                    <h3 className="text-2xl font-bold">Kabar Lembaga</h3>
-                                </div>
-                            </div>
-                        </div>
-                     </Link>
-                  </motion.div>
-                </motion.div>
-
-                <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-8">
-                  <motion.div variants={item} onClick={() => content.qiroatiVideos.length > 0 && setPlayingVideo(content.qiroatiVideos[0])} className="cursor-pointer group">
-                      <div className="bg-card rounded-3xl shadow-lg overflow-hidden border border-border/50 relative h-64">
-                         <img alt="Video Thumbnail" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 filter brightness-75 group-hover:brightness-100" src={getYoutubeThumbnail(content.qiroatiVideos[0]?.url)} />
-                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-white/40">
-                                <PlayCircle className="w-8 h-8 text-white fill-white" />
-                            </div>
-                         </div>
-                         <div className="absolute bottom-4 left-6 text-white">
-                            <h3 className="text-xl font-bold">Video Metode Qiroati</h3>
-                         </div>
-                      </div>
-                  </motion.div>
-
-                  <motion.div variants={item}>
-                     <Link to="/fasilitas" className="block group">
-                        <div className="bg-card rounded-3xl shadow-lg overflow-hidden border border-border/50 h-64 relative">
-                            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-1">
-                                <div className="row-span-2 overflow-hidden"><img className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={content.facilities[0]?.image_url} /></div>
-                                <div className="overflow-hidden"><img className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={content.facilities[1]?.image_url} /></div>
-                                <div className="overflow-hidden"><img className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={content.facilities[2]?.image_url} /></div>
-                            </div>
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <span className="text-white font-bold text-xl border border-white px-6 py-2 rounded-full">Lihat Fasilitas</span>
-                            </div>
-                        </div>
-                     </Link>
-                  </motion.div>
-                </motion.div>
-              </div>
-            </div>
-          </section>
-
-          <section className="py-24 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-              <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-4xl font-bold text-center mb-16 font-serif text-foreground">Jadwal & Kuota</motion.h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <motion.div 
-                    initial={{ opacity: 0, x: -30 }} 
-                    whileInView={{ opacity: 1, x: 0 }} 
-                    viewport={{ once: true }}
-                    className="bg-card p-10 rounded-3xl shadow-xl border border-border/50"
-                >
-                    <h3 className="text-2xl font-bold text-foreground mb-8 flex items-center gap-3"><Clock className="w-6 h-6 text-primary"/> Jadwal Pembelajaran</h3>
-                    <div className="space-y-4">
-                        {content.schedules.length > 0 ? content.schedules.map((schedule, idx) => (
-                            <div key={`schedule-${idx}`} className="flex items-center gap-4 p-4 rounded-xl bg-secondary/10 border border-border/50 hover:bg-secondary/30 transition-colors">
-                                <div className="bg-primary/10 p-3 rounded-lg"><Calendar className="w-6 h-6 text-primary" /></div>
-                                <div>
-                                    <p className="font-bold text-lg text-foreground">{schedule.title}</p>
-                                    <p className="text-muted-foreground">{schedule.time}</p>
-                                    <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">{schedule.type}</span>
-                                </div>
-                            </div>
-                        )) : <p>Jadwal belum tersedia.</p>}
-                    </div>
-                </motion.div>
-
-                <div className="space-y-8">
-                     <motion.div 
-                        initial={{ opacity: 0, x: 30 }} 
-                        whileInView={{ opacity: 1, x: 0 }} 
-                        viewport={{ once: true }}
-                        className="bg-card p-10 rounded-3xl shadow-xl border border-border/50"
-                     >
-                        <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3"><Award className="w-6 h-6 text-primary"/> Tingkatan Kelas</h3>
-                        <div className="flex flex-wrap gap-3">
-                            {["Pra TK (3-4 th)", "Jilid 1-6 (5-16 th)", "Al-Qur'an (Pasca Jilid)", "Gharib & Tajwid", "Finishing"].map((cls, i) => (
-                                <span key={i} className="bg-accent/20 text-accent-foreground px-4 py-2 rounded-full text-sm font-medium border border-accent/30">{cls}</span>
-                            ))}
-                        </div>
-                     </motion.div>
-
-                     <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        className="bg-gradient-to-br from-green-600 to-green-800 p-8 rounded-3xl shadow-2xl text-white relative overflow-hidden"
-                     >
-                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                        <h3 className="text-3xl font-bold mb-6 text-center relative z-10">🚨 Kuota Terbatas!</h3>
-                        <div className="grid grid-cols-3 gap-4 text-center relative z-10">
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-                                <p className="text-sm opacity-80 mb-1">Pagi</p>
-                                <p className="text-3xl font-black">{content.quotas?.pagi || 0}</p>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-                                <p className="text-sm opacity-80 mb-1">Siang</p>
-                                <p className="text-3xl font-black">{content.quotas?.siang || 0}</p>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-                                <p className="text-sm opacity-80 mb-1">Sore</p>
-                                <p className="text-3xl font-black">{content.quotas?.sore || 0}</p>
-                            </div>
-                        </div>
-                     </motion.div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section ref={ctaRef} className="h-[80vh] w-full flex items-center justify-center text-white overflow-hidden relative">
-            <div style={{ opacity: content.ctaBackgroundOverlayOpacity }} className="absolute inset-0 bg-black z-10 transition-opacity duration-300"></div>
-            <motion.div style={{ scale: 1.1 }} className="absolute inset-0">
-                <img src={content.ctaBackgroundUrl} alt="Background" className="w-full h-full object-cover" />
-            </motion.div>
-            
-            <div className="text-center z-20 px-4 max-w-4xl">
-              <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
-                <h2 className="text-5xl md:text-7xl font-bold mb-8 font-serif leading-tight text-white">Mulai Perjalanan<br/>Belajar Al-Qur'an</h2>
-                <p className="text-xl md:text-2xl mb-10 text-white/90 font-light max-w-2xl mx-auto">Bergabunglah bersama keluarga besar LPQ Al-Muhajirun dan wujudkan generasi Qur'ani.</p>
-                <div className="flex flex-col sm:flex-row gap-5 justify-center">
-                  <Link to="/pendaftaran/informasi">
-                      <Button size="lg" className="bg-white text-primary hover:bg-gray-100 text-lg px-10 py-7 rounded-full shadow-lg font-bold transition-transform hover:scale-105">Daftar Sekarang</Button>
-                  </Link>
-                  <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer">
-                      <Button size="lg" variant="outline" className="bg-transparent border-2 border-white text-white hover:bg-white/10 text-lg px-10 py-7 rounded-full shadow-lg font-bold transition-transform hover:scale-105">
-                          <Phone className="w-5 h-5 mr-2" /> Hubungi Admin
-                      </Button>
-                  </a>
-                </div>
-              </motion.div>
-            </div>
-          </section>
-
-          {content.testimonials?.length > 0 && (
-            <section className="py-24 bg-secondary/10 relative">
-              <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-16">
-                    <Quote className="w-12 h-12 mx-auto text-primary mb-4 opacity-50" />
-                    <h2 className="text-4xl font-bold mb-4 font-serif text-foreground">Kata Mereka</h2>
-                </div>
-                
-                <div className="relative h-64 md:h-56">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentTestimonial}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.5 }}
-                      className="absolute inset-0 flex items-center justify-center"
-                    >
-                      {content.testimonials[currentTestimonial] && (
-                        <div className="text-center max-w-3xl mx-auto">
-                          <p className="text-2xl md:text-3xl font-light italic text-foreground mb-8 leading-relaxed">"{content.testimonials[currentTestimonial].text}"</p>
-                          <div className="flex flex-col items-center justify-center">
-                             <Avatar className="w-16 h-16 mb-3 border-4 border-background shadow-lg">
-                                <AvatarImage src={content.testimonials[currentTestimonial].photo_url} />
-                                <AvatarFallback>{content.testimonials[currentTestimonial].name.charAt(0)}</AvatarFallback>
-                             </Avatar>
-                             <h4 className="font-bold text-lg">{content.testimonials[currentTestimonial].name}</h4>
-                             <p className="text-muted-foreground text-sm uppercase tracking-widest">{content.testimonials[currentTestimonial].role}</p>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-                
-                <div className="flex justify-center mt-12 gap-2">
-                    {content.testimonials.map((_, i) => (
-                        <button 
-                            key={`dot-${i}`} 
-                            onClick={() => setCurrentTestimonial(i)} 
-                            className={`h-2 rounded-full transition-all duration-300 ${currentTestimonial === i ? 'bg-primary w-8' : 'bg-primary/20 w-2 hover:bg-primary/40'}`} 
-                        />
-                    ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          <section className="py-24 px-4 sm:px-6 lg:px-8 bg-background">
-            <div className="max-w-7xl mx-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-                <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                  <h2 className="text-3xl font-bold mb-6 font-serif text-foreground">Kirim Pesan</h2>
-                  <p className="text-muted-foreground mb-8">Punya pertanyaan atau saran? Kami siap mendengar dari Anda.</p>
-                  <form onSubmit={handleSubmitQuestion} className="space-y-5">
-                    <Input type="text" placeholder="Nama Lengkap" value={formData.nama} onChange={(e) => setFormData({ ...formData, nama: e.target.value })} required className="bg-secondary/10 border-border/50 h-12 rounded-xl" />
-                    <Input type="email" placeholder="Alamat Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required className="bg-secondary/10 border-border/50 h-12 rounded-xl" />
-                    <Input type="tel" placeholder="Nomor WhatsApp" value={formData.no_hp} onChange={(e) => setFormData({ ...formData, no_hp: e.target.value })} required className="bg-secondary/10 border-border/50 h-12 rounded-xl" />
-                    <Textarea placeholder="Tulis pesan Anda di sini..." value={formData.pesan} onChange={(e) => setFormData({ ...formData, pesan: e.target.value })} rows={5} required className="bg-secondary/10 border-border/50 rounded-xl resize-none" />
-                    <Button type="submit" size="lg" className="w-full rounded-xl h-12 font-bold shadow-lg">Kirim Pesan</Button>
-                  </form>
-                </motion.div>
-                
-                <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                  <h2 className="text-3xl font-bold mb-8 font-serif text-foreground">Sering Ditanyakan (FAQ)</h2>
-                  <div className="space-y-4">
-                    {content.faqs.length > 0 ? content.faqs.map((faq, i) => (
-                        <div key={`faq-${i}`} className="border border-border/50 rounded-2xl overflow-hidden bg-card transition-all duration-300 hover:shadow-md">
-                            <button 
-                                onClick={() => setOpenFaq(openFaq === i ? null : i)} 
-                                className="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-secondary/10 transition-colors"
-                            >
-                                <span className="font-semibold text-foreground pr-4">{faq.question}</span>
-                                <ChevronRight className={`w-5 h-5 text-primary transition-transform duration-300 ${openFaq === i ? 'rotate-90' : ''}`} />
-                            </button>
-                            <AnimatePresence>
-                                {openFaq === i && (
-                                    <motion.div 
-                                        initial={{ height: 0, opacity: 0 }} 
-                                        animate={{ height: "auto", opacity: 1 }} 
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="overflow-hidden"
-                                    >
-                                        <div className="px-6 pb-6 pt-2 text-muted-foreground leading-relaxed border-t border-dashed border-border/50">
-                                            {faq.answer}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
-                    )) : <p>Belum ada FAQ.</p>}
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <Dialog open={!!selectedAdvantage} onOpenChange={() => setSelectedAdvantage(null)}>
-        <DialogContent className="max-w-lg rounded-3xl p-8">
-          <DialogHeader>
-            <DialogTitle className="text-3xl font-bold font-serif mb-2">{selectedAdvantage?.title}</DialogTitle>
-          </DialogHeader>
-          <div className="w-16 h-1 bg-primary mb-4 rounded-full"></div>
-          <p className="text-lg text-muted-foreground leading-relaxed">{selectedAdvantage?.detail}</p>
-        </DialogContent>
-      </Dialog>
-      
-      {playingVideo && (
-        <Dialog open={!!playingVideo} onOpenChange={() => setPlayingVideo(null)}>
-          <DialogContent className="max-w-5xl p-0 bg-black overflow-hidden border-none rounded-2xl">
-            <div className="aspect-video w-full">
-              <iframe className="w-full h-full" src={getEmbedUrl(playingVideo.url)} title={playingVideo.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <main className="bg-[#f6f1e7] text-slate-950">
+        <HeroSection content={content} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} stats={stats} />
+        <StorySection content={content} />
+        <ProgramConstellation schedules={content.schedules} quotas={content.quotas} />
+        <GallerySection facilities={content.facilities} />
+        <EditorialNews news={news} announcements={announcements} loading={loading} error={contentError} />
+        <TestimonialsFaq testimonials={content.testimonials} faqs={content.faqs} />
+        <FinalCta content={content} formData={formData} setFormData={setFormData} onSubmit={handleSubmitQuestion} sending={sending} />
+      </main>
     </>
   );
 };
