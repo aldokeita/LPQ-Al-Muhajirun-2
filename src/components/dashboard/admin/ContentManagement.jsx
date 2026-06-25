@@ -22,8 +22,11 @@ import {
   fetchAdminFeedbacks,
   fetchAdminNews,
   getPublicContentErrorMessage,
+  assertNonEmptyWebsiteContentString,
   saveAnnouncement,
   saveNews,
+  saveWebsiteContentItem,
+  saveWebsiteContentItems,
   slugify
 } from '@/lib/publicContentAdapters';
 
@@ -199,9 +202,12 @@ const ContentManagement = () => {
     const dataToUpsert = Object.keys(content)
       .filter(key => !excludedKeys.has(key))
       .map(key => ({ key, content: content[key], is_public: true }));
-    const { error } = await supabase.from('website_content').upsert(dataToUpsert, { onConflict: 'key' });
-    if (error) toast({ title: "Gagal Menyimpan!", description: error.message, variant: "destructive" });
-    else toast({ title: "Konten Disimpan!", description: `Semua perubahan telah berhasil disimpan.` });
+    try {
+      await saveWebsiteContentItems(dataToUpsert);
+      toast({ title: "Konten Disimpan!", description: `Semua perubahan telah berhasil disimpan.` });
+    } catch (error) {
+      toast({ title: "Gagal Menyimpan!", description: getPublicContentErrorMessage(error), variant: "destructive" });
+    }
   };
 
   const handleFileUpload = async (e, type) => {
@@ -222,12 +228,26 @@ const ContentManagement = () => {
     try {
       const result = await uploadWebsiteAsset({ folder, key: assetKey, file });
       publicUrl = result.publicUrl;
+      if (!publicUrl || !String(publicUrl).trim()) {
+        throw new Error('Upload berhasil, tetapi URL aset tidak tersedia.');
+      }
     } catch (error) {
       toast({ title: "Upload Gagal!", description: getStorageErrorMessage(error), variant: "destructive" });
       return;
     }
 
-    if (['logoUrl', 'ctaBackgroundUrl'].includes(type)) { setContent(prev => ({ ...prev, [type]: publicUrl })); }
+    if (type === 'logoUrl') {
+      try {
+        const logoUrl = assertNonEmptyWebsiteContentString('logoUrl', publicUrl);
+        const saved = await saveWebsiteContentItem({ key: 'logoUrl', content: logoUrl, isPublic: true });
+        setContent(prev => ({ ...prev, logoUrl: saved.content || logoUrl }));
+        toast({ title: "Logo Disimpan!", description: "Logo berhasil diunggah dan disimpan ke database." });
+      } catch (error) {
+        toast({ title: "Logo Gagal Disimpan", description: getPublicContentErrorMessage(error), variant: "destructive" });
+      }
+      return;
+    }
+    if (type === 'ctaBackgroundUrl') { setContent(prev => ({ ...prev, [type]: publicUrl })); }
     else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); }
     else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); }
     else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); }

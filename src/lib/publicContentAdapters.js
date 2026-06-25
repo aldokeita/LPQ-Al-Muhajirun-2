@@ -61,6 +61,53 @@ export const fetchWebsiteContentMap = async ({ keys, publicOnly = true } = {}) =
   }, {});
 };
 
+export const normalizeWebsiteContentValue = (value) => {
+  if (value === undefined || value === null) return {};
+  if (typeof value === 'string') return value.trim();
+  return value;
+};
+
+export const assertNonEmptyWebsiteContentString = (key, value) => {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized) throw new Error(`${key} tidak boleh kosong.`);
+  return normalized;
+};
+
+export const saveWebsiteContentItem = async ({ key, content, isPublic = true }) => {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) throw new Error('Key konten wajib diisi.');
+  const normalizedContent = normalizeWebsiteContentValue(content);
+  const payload = {
+    key: normalizedKey,
+    content: normalizedContent,
+    is_public: isPublic,
+  };
+  const { data, error } = await supabase
+    .from('website_content')
+    .upsert(payload, { onConflict: 'key' })
+    .select('key, content, is_public')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const saveWebsiteContentItems = async (items) => {
+  const payload = (items || [])
+    .map((item) => ({
+      key: String(item.key || '').trim(),
+      content: normalizeWebsiteContentValue(item.content),
+      is_public: item.is_public ?? item.isPublic ?? true,
+    }))
+    .filter((item) => item.key);
+  if (payload.length === 0) return [];
+  const { data, error } = await supabase
+    .from('website_content')
+    .upsert(payload, { onConflict: 'key' })
+    .select('key, content, is_public');
+  if (error) throw error;
+  return data || [];
+};
+
 export const fetchPublishedNews = async ({ limit } = {}) => {
   let query = supabase
     .from('news')

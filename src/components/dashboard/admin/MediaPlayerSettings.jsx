@@ -11,6 +11,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import { enableDeferredFeatures } from '@/lib/featureFlags';
 
 const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('playlist');
@@ -30,12 +31,13 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     });
 
     useEffect(() => {
-        if (isOpen) {
+        if (enableDeferredFeatures && isOpen) {
             fetchPlaylist();
         }
     }, [isOpen]);
 
     const fetchPlaylist = async () => {
+        if (!enableDeferredFeatures) return;
         const { data, error } = await supabase.from('music_files').select('*').order('created_at', { ascending: false });
         if (!error) setPlaylist(data || []);
     };
@@ -51,6 +53,10 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     };
 
     const handleUpload = async () => {
+        if (!enableDeferredFeatures) {
+            toast({ title: "Fitur belum aktif", description: "Media player masih dinonaktifkan pada staging.", variant: "destructive" });
+            return;
+        }
         if (!selectedFile || !title) {
             toast({ title: "Error", description: "Pilih file dan isi judul lagu.", variant: "destructive" });
             return;
@@ -102,6 +108,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     };
 
     const handleConfirmDelete = async () => {
+        if (!enableDeferredFeatures) return;
         const { trackId } = deleteConfirmation;
         if (!trackId) return;
 

@@ -1,5 +1,6 @@
 
 import { supabase } from '@/lib/customSupabaseClient';
+import { enableDeferredFeatures } from '@/lib/featureFlags';
 
 export const verifyDatabaseSchema = async () => {
   const report = {
@@ -8,11 +9,13 @@ export const verifyDatabaseSchema = async () => {
     errors: []
   };
 
-  const requiredTables = [
+  const coreTables = [
     'payments', 'classes', 'academic_calendar', 'mmq_schedule', 
     'attendance', 'santri', 'guru', 'hafalan_progress', 
-    'murojaah_submissions', 'media_player_settings'
+    'murojaah_submissions'
   ];
+  const deferredTables = ['media_player_settings', 'music_files'];
+  const requiredTables = enableDeferredFeatures ? [...coreTables, ...deferredTables] : coreTables;
 
   for (const table of requiredTables) {
     try {

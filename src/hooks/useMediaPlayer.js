@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { toast } from '@/components/ui/use-toast';
+import { enableDeferredFeatures } from '@/lib/featureFlags';
 
 export const useMediaPlayer = () => {
     const [playlist, setPlaylist] = useState([]);
@@ -15,9 +15,11 @@ export const useMediaPlayer = () => {
     const [volume, setVolume] = useState(1);
     const [settingsId, setSettingsId] = useState(null);
     const audioRef = useRef(new Audio());
+    const noop = useCallback(() => {}, []);
 
     // Fetch Playlist
     const fetchPlaylist = useCallback(async () => {
+        if (!enableDeferredFeatures) return;
         const { data, error } = await supabase.from('music_files').select('*').order('created_at', { ascending: false });
         if (error) {
             console.error('Error fetching playlist:', error);
@@ -30,6 +32,7 @@ export const useMediaPlayer = () => {
     }, [currentTrackIndex]);
 
     useEffect(() => {
+        if (!enableDeferredFeatures) return undefined;
         fetchPlaylist();
         
         // Fetch saved settings from Supabase
@@ -91,6 +94,7 @@ export const useMediaPlayer = () => {
 
     // Sync progress to DB periodically (throttled)
     useEffect(() => {
+        if (!enableDeferredFeatures) return undefined;
         const syncInterval = setInterval(async () => {
             if (settingsId && isPlaying) {
                 await supabase
@@ -109,6 +113,7 @@ export const useMediaPlayer = () => {
 
     // Handle Playback Change
     useEffect(() => {
+        if (!enableDeferredFeatures) return;
         const audio = audioRef.current;
         if (currentTrackIndex >= 0 && playlist[currentTrackIndex]) {
             const track = playlist[currentTrackIndex];
@@ -124,6 +129,7 @@ export const useMediaPlayer = () => {
 
     // Handle Play/Pause State
     useEffect(() => {
+        if (!enableDeferredFeatures) return;
         const audio = audioRef.current;
         if (currentTrackIndex >= 0 && playlist.length > 0) {
             if (isPlaying) {
@@ -136,8 +142,32 @@ export const useMediaPlayer = () => {
 
     // Handle Volume (for Crossfade or general use)
     useEffect(() => {
+        if (!enableDeferredFeatures) return;
         audioRef.current.volume = volume;
     }, [volume]);
+
+    if (!enableDeferredFeatures) {
+        return {
+            currentTrack: null,
+            isPlaying: false,
+            isShuffle: false,
+            isLoop: false,
+            isCrossfade: false,
+            progress: 0,
+            duration: 0,
+            playlist: [],
+            play: noop,
+            pause: noop,
+            togglePlay: noop,
+            next: noop,
+            previous: noop,
+            seek: noop,
+            toggleShuffle: noop,
+            toggleLoop: noop,
+            toggleCrossfade: noop,
+            refreshPlaylist: noop
+        };
+    }
 
     const play = () => setIsPlaying(true);
     const pause = () => setIsPlaying(false);
