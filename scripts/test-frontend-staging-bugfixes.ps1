@@ -89,6 +89,8 @@ Add-Check "santri login supports nickname alias without custom JWT" {
   $auth = Read-Text "src/contexts/SupabaseAuthContext.jsx"
   $login = Read-Text "src/pages/LoginPage.jsx"
   if ($fn -notmatch 'ilike\("nama_panggilan"') { throw "Edge Function does not resolve nama_panggilan alias" }
+  if ($fn -match '\.limit\(2\)') { throw "Edge Function still rejects duplicate nicknames by limiting to two" }
+  if ($fn -notmatch "candidateAliases") { throw "Edge Function does not support multiple nickname candidates" }
   if ($fn -notmatch "auth.signInWithPassword") { throw "Edge Function does not verify through Supabase Auth" }
   if ($fn -match "createJwt|jwt.sign|custom JWT") { throw "custom JWT logic detected" }
   if ($auth -notmatch "username,") { throw "frontend does not send username alias to Edge Function" }

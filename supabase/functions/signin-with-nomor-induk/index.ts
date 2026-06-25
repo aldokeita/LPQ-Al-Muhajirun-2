@@ -11,6 +11,11 @@ type LoginAlias = {
   is_active: boolean;
 };
 
+type UserProfile = {
+  role: string;
+  status: string;
+};
+
 function normalizeIdentifier(value: string): string {
   return value.trim();
 }
@@ -66,32 +71,37 @@ Deno.serve(async (req) => {
           .maybeSingle<LoginAlias>()
       : { data: null, error: null };
 
-    let alias = directAliasResult.data;
+    let candidateAliases: LoginAlias[] = directAliasResult.data ? [directAliasResult.data] : [];
 
-    if (!alias && !directAliasResult.error && nicknameIdentifier) {
+    if (candidateAliases.length === 0 && !directAliasResult.error && nicknameIdentifier) {
       const { data: santriMatches, error: santriLookupError } = await admin
         .from("santri")
         .select("id,status")
         .ilike("nama_panggilan", nicknameIdentifier)
-        .limit(2);
+        .limit(25);
 
-      if (!santriLookupError && santriMatches?.length === 1) {
-        const santri = santriMatches[0];
-        const activeStatus = String(santri.status ?? "").toLowerCase();
-        if (activeStatus === "aktif" || activeStatus === "active") {
-          const { data: aliasByUser } = await admin
+      if (!santriLookupError && santriMatches?.length) {
+        const activeSantriIds = santriMatches
+          .filter((santri) => {
+            const activeStatus = String(santri.status ?? "").toLowerCase();
+            return activeStatus === "aktif" || activeStatus === "active";
+          })
+          .map((santri) => santri.id);
+
+        if (activeSantriIds.length > 0) {
+          const { data: aliasesByUser } = await admin
             .from("auth_login_aliases")
             .select("auth_user_id,internal_email,is_active")
-            .eq("auth_user_id", santri.id)
             .eq("alias_type", "nomor_induk_qiroati")
             .eq("is_active", true)
-            .maybeSingle<LoginAlias>();
-          alias = aliasByUser ?? null;
+            .in("auth_user_id", activeSantriIds)
+            .returns<LoginAlias[]>();
+          candidateAliases = aliasesByUser ?? [];
         }
       }
     }
 
-    if (directAliasResult.error || !alias?.internal_email) {
+    if (directAliasResult.error || candidateAliases.length === 0) {
       logSafe("warn", "login_alias_not_found", {
         request_id: rid,
         identifier: maskIdentifier(rateLimitIdentifier),
@@ -99,24 +109,34 @@ Deno.serve(async (req) => {
       return fail(req, "INVALID_LOGIN", "Username santri atau password salah.", 401);
     }
 
-    const { data: profile } = await admin
+    const { data: profiles } = await admin
       .from("user_profiles")
-      .select("role,status")
-      .eq("id", alias.auth_user_id)
-      .maybeSingle();
-
-    if (!profile || profile.role !== "santri" || profile.status !== "active") {
-      logSafe("warn", "login_profile_inactive", { request_id: rid, user_id: alias.auth_user_id });
-      return fail(req, "INVALID_LOGIN", "Username santri atau password salah.", 401);
-    }
+      .select("id,role,status")
+      .in("id", candidateAliases.map((candidate) => candidate.auth_user_id))
+      .returns<Array<UserProfile & { id: string }>>();
+    const profileByUserId = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
 
     const anon = getAnonClient();
-    const { data, error } = await anon.auth.signInWithPassword({
-      email: alias.internal_email,
-      password,
-    });
+    let matchedSession: Awaited<ReturnType<typeof anon.auth.signInWithPassword>>["data"]["session"] = null;
+    let matchedUser: Awaited<ReturnType<typeof anon.auth.signInWithPassword>>["data"]["user"] = null;
 
-    if (error || !data.session || !data.user) {
+    for (const candidate of candidateAliases) {
+      const profile = profileByUserId.get(candidate.auth_user_id);
+      if (!profile || profile.role !== "santri" || profile.status !== "active") continue;
+
+      const { data, error } = await anon.auth.signInWithPassword({
+        email: candidate.internal_email,
+        password,
+      });
+
+      if (!error && data.session && data.user) {
+        matchedSession = data.session;
+        matchedUser = data.user;
+        break;
+      }
+    }
+
+    if (!matchedSession || !matchedUser) {
       logSafe("warn", "login_auth_failed", {
         request_id: rid,
         identifier: maskIdentifier(rateLimitIdentifier),
@@ -124,17 +144,17 @@ Deno.serve(async (req) => {
       return fail(req, "INVALID_LOGIN", "Username santri atau password salah.", 401);
     }
 
-    logSafe("info", "login_success", { request_id: rid, user_id: data.user.id });
+    logSafe("info", "login_success", { request_id: rid, user_id: matchedUser.id });
     return ok(req, {
       session: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at,
-        expires_in: data.session.expires_in,
-        token_type: data.session.token_type,
+        access_token: matchedSession.access_token,
+        refresh_token: matchedSession.refresh_token,
+        expires_at: matchedSession.expires_at,
+        expires_in: matchedSession.expires_in,
+        token_type: matchedSession.token_type,
       },
       user: {
-        id: data.user.id,
+        id: matchedUser.id,
         role: "santri",
       },
     });
