@@ -8,10 +8,10 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Clock, Calendar, CheckCircle } from 'lucide-react';
+import { Clock, Calendar, CheckCircle, XCircle } from 'lucide-react';
 
 const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { toast } = useToast();
   const [timeInput, setTimeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,6 +101,42 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
       toast({
         title: "Gagal",
         description: "Gagal memperbarui waktu kehadiran",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleMarkAbsent = async () => {
+    if (!isAuthorized || !details?.id) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          check_in_time: null,
+          check_in_timestamp: null,
+          status: 'Tidak Hadir',
+          source: 'correction',
+          correction_reason: 'Ditandai tidak hadir dari rekap absensi.',
+          corrected_by: user?.id ?? null,
+        })
+        .eq('id', details.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Berhasil",
+        description: "Status absensi diubah menjadi Tidak Hadir",
+      });
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Gagal",
+        description: error.message || "Gagal mengubah status absensi",
         variant: "destructive"
       });
     } finally {
@@ -208,6 +244,18 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
                                 {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
                               </Button>
                            </div>
+                           {details.id && (
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                className="w-full"
+                                onClick={handleMarkAbsent}
+                                disabled={isSubmitting}
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Tandai Tidak Hadir
+                              </Button>
+                           )}
                         </div>
                      )}
                      

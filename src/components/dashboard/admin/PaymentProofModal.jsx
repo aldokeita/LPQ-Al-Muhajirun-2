@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/use-toast';
 import QRCode from 'qrcode';
 import { supabase } from '@/lib/customSupabaseClient';
 import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
-import { fetchReceiptLogoDataUrl } from '@/lib/publicContentAdapters';
+import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
 
 const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const receiptRef = useRef(null);
@@ -86,6 +86,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
         }
         setIsGenerating(true);
         try {
+            await waitForImagesToLoad(receiptRef.current);
             const dataUrl = await toPng(receiptRef.current, {
                 cacheBust: true,
                 backgroundColor: '#ffffff',

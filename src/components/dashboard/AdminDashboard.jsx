@@ -93,7 +93,7 @@ const AdminDashboard = () => {
         const currentMonth = today.getMonth() + 1;
         const currentYear = today.getFullYear();
         
-        const santriQuery = supabase.from('santri').select('*', { count: 'exact', head: true }).eq('status', 'active');
+        const santriQuery = supabase.from('santri').select('*', { count: 'exact', head: true }).in('status', ['Aktif', 'active']);
         const [santriResult, financeSummary] = await Promise.all([
           withTimeout(santriQuery, 10000),
           fetchCashflowSummary({ year: currentYear, month: currentMonth })

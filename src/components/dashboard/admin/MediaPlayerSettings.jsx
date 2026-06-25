@@ -11,7 +11,6 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
 
 const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('playlist');
@@ -31,15 +30,22 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     });
 
     useEffect(() => {
-        if (enableDeferredFeatures && isOpen) {
+        if (isOpen) {
             fetchPlaylist();
         }
     }, [isOpen]);
 
     const fetchPlaylist = async () => {
-        if (!enableDeferredFeatures) return;
-        const { data, error } = await supabase.from('music_files').select('*').order('created_at', { ascending: false });
-        if (!error) setPlaylist(data || []);
+        const { data, error } = await supabase
+            .from('music_files')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        if (error) {
+            setPlaylist([]);
+            return;
+        }
+        setPlaylist(data || []);
     };
 
     const handleFileChange = (e) => {
@@ -53,10 +59,6 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     };
 
     const handleUpload = async () => {
-        if (!enableDeferredFeatures) {
-            toast({ title: "Fitur belum aktif", description: "Media player masih dinonaktifkan pada staging.", variant: "destructive" });
-            return;
-        }
         if (!selectedFile || !title) {
             toast({ title: "Error", description: "Pilih file dan isi judul lagu.", variant: "destructive" });
             return;
@@ -65,8 +67,8 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
         setUploading(true);
         try {
             const fileExt = selectedFile.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
+            const filePath = `playlist/${fileName}`;
 
             // 1. Upload to Storage
             const { error: uploadError } = await supabase.storage.from('music-files').upload(filePath, selectedFile);
@@ -80,6 +82,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                 title,
                 artist: artist || 'Unknown Artist',
                 filename: selectedFile.name,
+                storage_path: filePath,
                 file_url: publicUrl
             });
 
@@ -92,7 +95,6 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
             fetchPlaylist();
             if(onUpdate) onUpdate();
         } catch (error) {
-            console.error(error);
             toast({ title: "Gagal", description: error.message || "Gagal mengupload lagu.", variant: "destructive" });
         } finally {
             setUploading(false);
@@ -108,17 +110,11 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     };
 
     const handleConfirmDelete = async () => {
-        if (!enableDeferredFeatures) return;
         const { trackId } = deleteConfirmation;
         if (!trackId) return;
 
         try {
-            // Since filename in storage might be different from display filename, we ideally store path.
-            // But we used a timestamp based name in upload.
-            // For simplicity in this constrained environment, we just delete the DB record.
-            // A proper implementation would delete from storage too using the path derived from URL or stored path.
-            
-            const { error } = await supabase.from('music_files').delete().eq('id', trackId);
+            const { error } = await supabase.from('music_files').update({ is_active: false }).eq('id', trackId);
             if (error) throw error;
             
             toast({ title: "Terhapus", description: "Lagu dihapus dari playlist." });

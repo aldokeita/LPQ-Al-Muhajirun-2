@@ -21,6 +21,7 @@ import {
   isActiveSantri,
   normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 
 // --- Animated Background Particles ---
 const Particle = ({ delay, isDark }) => (
@@ -406,10 +407,17 @@ const DigitalAttendancePage = () => {
         } else {
           let { data: santriData } = await supabase
             .from('santri')
-            .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
+            .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
             .eq('rfid_tag', tag)
             .maybeSingle();
           if (santriData) {
+              const foto_url = await resolveAvatarUrl({
+                  ownerType: 'santri',
+                  ownerId: santriData.id,
+                  avatarPath: santriData.avatar_path,
+                  fallbackUrl: santriData.foto_url,
+              });
+              santriData = { ...santriData, foto_url };
               if (!isActiveSantri(santriData.status)) {
                   setLastScan({ type: 'warning', message: 'Santri nonaktif tidak dapat dicatat absensinya.', name: santriData.nama_lengkap, photo: santriData.foto_url });
                   return;
@@ -485,7 +493,14 @@ const DigitalAttendancePage = () => {
              return;
           }
           if (userRole === 'santri') {
-             setLastScan({ ...successData, type: 'warning', message: 'Santri sudah tercatat hadir pada sesi ini.', time: existingAttendance.check_in_time, status: existingAttendance.status });
+             const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
+             setLastScan({
+                ...successData,
+                message: 'Santri sudah tercatat hadir pada sesi ini. Waktu hadir pertama tetap dipakai.',
+                time: existingAttendance.check_in_time,
+                status: existingAttendance.status,
+                levelInfo
+             });
              return;
           }
           setLastScan({ type: 'confirmation', role: userRole, kategori, message: 'Konfirmasi Kehadiran', name: user.nama || user.nama_lengkap, photo: user.foto_url, rfid: tag, attendanceId: existingAttendance.id, attendanceDate: todayStr, sesi: sesiUser, pendingQuote: randomQuote, points: user.points, jilid: user.jilid, gender: user.jenis_kelamin, jabatan: user.jabatan, no_hp: user.no_hp });
@@ -537,7 +552,7 @@ const DigitalAttendancePage = () => {
               streak++;
               guruStats = { hours: hoursTaught, streak, session: sesiUser };
           }
-          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, points: newPoints, levelInfo, adultStats, guruStats });
+          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, adultStats, guruStats });
         }
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };
@@ -787,7 +802,7 @@ const DigitalAttendancePage = () => {
                     </form>
                     <p className="text-center text-slate-400 dark:text-[#4CAF50]/50 text-xs mt-3 font-mono transition-colors duration-300">SILAHKAN TAP KARTU UNTUK SCAN ABSEN</p>
                 </div>
-                {enableDeferredFeatures && <MediaPlayerWidget />}
+                <MediaPlayerWidget />
             </div>
             <div className="relative z-10 p-6 text-center"><p className="text-slate-400 dark:text-slate-600 text-sm font-mono transition-colors duration-300">LPQ AL-MUHAJIRUN • DIGITAL ATTENDANCE SYSTEM v4.0 (Premium)</p></div>
         </div>

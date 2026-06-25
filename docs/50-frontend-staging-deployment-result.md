@@ -322,3 +322,115 @@ Uji ulang di Vercel staging:
 - cek rekap absensi santri dengan sesi numerik dan scan lebih dari 15 menit;
 - buka dan simpan bukti pembayaran dari transaksi tersimpan;
 - pastikan logo bukti pembayaran sama dengan logo yang di-upload di Content Management.
+
+## Stabilization Pass Ketiga Berdasarkan Retest Manual
+
+Tanggal: 2026-06-25
+
+Status:
+
+- perubahan frontend, migration additive, dan Edge Function source sudah disiapkan;
+- production dan database lama tidak disentuh;
+- secret, password, token, dan `.env` tidak ditambahkan ke Git;
+- migration baru diperlukan sebelum retest penuh di staging karena beberapa field santri dan tabel media player memang belum ada di schema staging.
+
+### Masalah dan Perbaikan
+
+1. Field edit santri dan checklist berkas belum bisa diisi.
+   - Akar penyebab: kolom seperti `nama_ayah`, `nama_ibu`, `tanggal_pendaftaran`, `no_kk`, `no_nik`, `berkas_foto`, `berkas_akta`, `berkas_kk`, `berkas_form`, dan `link_qiroati` belum ada di schema staging.
+   - Perbaikan: migration additive `20260624002100_santri_legacy_fields_and_media_player.sql` menambahkan kolom tersebut tanpa menghapus data lama. UI edit santri kini memilih, mengubah, dan menyimpan field tersebut.
+
+2. Login santri dengan Nama Panggilan gagal.
+   - Akar penyebab: Edge Function `signin-with-nomor-induk` hanya mencari `auth_login_aliases.normalized_alias` dari Nomor Induk Qiroati.
+   - Perbaikan: Edge Function tetap memakai Supabase Auth resmi, tetapi jika Nomor Induk tidak cocok, ia mencari `santri.nama_panggilan` yang aktif dan unik, lalu memakai mapping Auth internal santri tersebut. Tidak ada JWT custom dan tidak ada password plaintext.
+
+3. Website terasa refresh saat kembali dari tab lain.
+   - Akar penyebab: loading overlay selalu muncul pada mount dan footer toggle desktop memanggil `window.location.reload()`.
+   - Perbaikan: loading awal hanya tampil sekali per session tab melalui `sessionStorage`, dan toggle desktop tidak lagi memaksa reload halaman.
+
+4. Admin perlu mengubah status hadir/terlambat menjadi Tidak Hadir.
+   - Perbaikan: modal detail absensi menambahkan aksi `Tandai Tidak Hadir` untuk admin/guru yang berwenang. Aksi ini mengosongkan timestamp kehadiran, menyimpan status `Tidak Hadir`, dan mencatat koreksi tanpa melemahkan RLS.
+
+5. Santri scan RFID lebih dari sekali.
+   - Akar penyebab: scan ulang santri ditampilkan sebagai warning, bukan kartu profil sukses.
+   - Perbaikan: scan ulang santri tetap menampilkan profile card dan pesan bahwa santri sudah tercatat; waktu hadir pertama tidak diubah.
+
+6. Avatar santri tidak muncul pada kartu absensi digital.
+   - Akar penyebab: query absensi digital hanya mengambil `foto_url`, belum mengambil `avatar_path`.
+   - Perbaikan: absensi digital membaca `avatar_path` dan memakai `resolveAvatarUrl()` seperti Data Master, sehingga avatar dari Storage muncul pada profile card setelah scan.
+
+7. Media player perlu aktif kembali di absensi digital.
+   - Akar penyebab: media player masih diperlakukan sebagai fitur deferred dan query-nya dimatikan ketika `VITE_ENABLE_DEFERRED_FEATURES=false`.
+   - Perbaikan: media player dipulihkan khusus untuk absensi digital dengan tabel `music_files`, `media_player_settings`, dan bucket `music-files`. Fitur deferred lain seperti forum, game, quiz, random, dan top score tetap gated.
+
+8. Card Santri Aktif di dashboard admin tidak menghitung data aktif.
+   - Akar penyebab: query statistik hanya mencari `status = active`, sedangkan data santri staging memakai `Aktif`.
+   - Perbaikan: query statistik kini menghitung status `Aktif` dan `active`.
+
+9. Gambar bukti pembayaran masih gagal tersimpan atau logo tidak muncul.
+   - Perbaikan: generator bukti pembayaran menunggu seluruh gambar di receipt selesai load sebelum membuat PNG. Logo tetap berasal dari `website_content.logoUrl` dan fallback lokal tetap tersedia.
+
+### File Berubah
+
+- `supabase/migrations/20260624002100_santri_legacy_fields_and_media_player.sql`
+- `supabase/functions/_shared/cors.ts`
+- `supabase/functions/manage-user/index.ts`
+- `supabase/functions/signin-with-nomor-induk/index.ts`
+- `src/lib/dataMasterAdapters.js`
+- `src/lib/publicContentAdapters.js`
+- `src/hooks/useMediaPlayer.js`
+- `src/utils/verifyDatabaseSchema.js`
+- `src/App.jsx`
+- `src/components/Footer.jsx`
+- `src/components/dashboard/AdminDashboard.jsx`
+- `src/components/dashboard/admin/DigitalAttendance.jsx`
+- `src/components/dashboard/admin/MediaPlayerSettings.jsx`
+- `src/components/dashboard/admin/PaymentProofModal.jsx`
+- `src/components/dashboard/admin/PaymentSystem.jsx`
+- `src/components/dashboard/admin/SantriManagement.jsx`
+- `src/components/dashboard/shared/AttendanceDetailsModal.jsx`
+- `src/contexts/SupabaseAuthContext.jsx`
+- `src/pages/DigitalAttendancePage.jsx`
+- `src/pages/LoginPage.jsx`
+- `scripts/test-frontend-staging-bugfixes.ps1`
+- `scripts/validate-migration-order.ps1`
+- `docs/50-frontend-staging-deployment-result.md`
+
+### Hasil Test
+
+- `scripts/test-frontend-staging-bugfixes.ps1`: lulus `21/21`.
+- `scripts/validate-migration-order.ps1`: lulus.
+- `npm run build`: lulus.
+- `git diff --check`: lulus.
+- `scripts/validate-no-secrets.ps1`: lulus, tidak menemukan credential aktual.
+
+### Langkah Manual Wajib Sebelum Retest Staging
+
+Karena perubahan ini menambah migration dan Edge Function source, jalankan dari PowerShell user yang memiliki akses Supabase staging:
+
+```powershell
+supabase db push
+supabase functions deploy signin-with-nomor-induk
+supabase functions deploy manage-user
+supabase functions deploy generate-signed-upload-url
+supabase functions deploy reset-user-password
+```
+
+Catatan:
+
+- jangan gunakan `--include-seed`;
+- jangan jalankan `db reset --linked`;
+- jangan deploy ke production;
+- jangan memasukkan service-role key ke frontend atau Vercel.
+
+### Retest Manual Setelah Backend Staging dan Vercel Redeploy
+
+- edit dan simpan seluruh field santri, termasuk nama ayah/ibu, tanggal masuk, KK/NIK, link Qiroati, dan checklist berkas;
+- login santri memakai Nama Panggilan sebagai username dan password bootstrap;
+- pindah tab browser lalu kembali, pastikan halaman tidak kehilangan progress karena reload aplikasi;
+- ubah absensi `Hadir` atau `Terlambat` menjadi `Tidak Hadir` dari rekap;
+- scan RFID santri dua kali, pastikan card tetap muncul dan waktu pertama tidak berubah;
+- pastikan avatar santri tampil pada card absensi digital;
+- upload/putar media player di absensi digital;
+- cek card `Santri Aktif` di dashboard admin;
+- simpan gambar bukti pembayaran dan pastikan logo mengikuti logo website yang di-upload di Content Management.

@@ -15,6 +15,7 @@ import {
     isActiveSantri,
     normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { buildSessionStartTimestamp, DEFAULT_SESSION_TIMES, determineAttendanceStatus, getJakartaTimeString } from '@/utils/AttendanceStatusLogic';
 
 const sessionTimes = DEFAULT_SESSION_TIMES;
@@ -202,10 +203,17 @@ const DigitalAttendance = () => {
             } else {
                 let { data: santriData } = await supabase
                     .from('santri')
-                    .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
+                    .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
                     .eq('rfid_tag', tag)
                     .maybeSingle();
                 if (santriData) {
+                    const foto_url = await resolveAvatarUrl({
+                        ownerType: 'santri',
+                        ownerId: santriData.id,
+                        avatarPath: santriData.avatar_path,
+                        fallbackUrl: santriData.foto_url,
+                    });
+                    santriData = { ...santriData, foto_url };
                     if (!isActiveSantri(santriData.status)) {
                         setLastScan({ type: 'warning', message: 'Santri nonaktif tidak dapat dicatat absensinya.', name: santriData.nama_lengkap, photo: santriData.foto_url });
                         return;
@@ -224,6 +232,26 @@ const DigitalAttendance = () => {
 
             const checkInStatus = canCheckIn(sesiUser, userRole);
             if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url }); return; }
+
+            const { data: existingAttendance } = await supabase
+                .from('attendance')
+                .select('id, check_in_time, check_in_timestamp, status')
+                .eq('user_id', user.id)
+                .eq('attendance_date', today)
+                .eq('sesi', sesiUser)
+                .maybeSingle();
+
+            if (existingAttendance) {
+                setLastScan({
+                    type: 'success',
+                    message: `${userRole === 'santri' ? 'Santri' : 'Pengguna'} sudah tercatat hadir pada sesi ini. Waktu hadir pertama tetap dipakai.`,
+                    name: user.nama || user.nama_lengkap,
+                    photo: user.foto_url,
+                    time: existingAttendance.check_in_time,
+                    status: existingAttendance.status,
+                });
+                return;
+            }
 
             const timestamp = new Date();
             const newAttendance = userRole === 'santri'

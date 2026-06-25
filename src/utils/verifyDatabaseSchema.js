@@ -1,6 +1,5 @@
 
 import { supabase } from '@/lib/customSupabaseClient';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
 
 export const verifyDatabaseSchema = async () => {
   const report = {
@@ -12,12 +11,10 @@ export const verifyDatabaseSchema = async () => {
   const coreTables = [
     'payments', 'classes', 'academic_calendar', 'mmq_schedule', 
     'attendance', 'santri', 'guru', 'hafalan_progress', 
-    'murojaah_submissions'
+    'murojaah_submissions', 'media_player_settings', 'music_files'
   ];
-  const deferredTables = ['media_player_settings', 'music_files'];
-  const requiredTables = enableDeferredFeatures ? [...coreTables, ...deferredTables] : coreTables;
 
-  for (const table of requiredTables) {
+  for (const table of coreTables) {
     try {
       // Attempt a basic select to verify table existence and read access
       const { data, error } = await supabase.from(table).select('*').limit(1);

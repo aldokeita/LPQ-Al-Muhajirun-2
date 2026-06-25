@@ -212,6 +212,7 @@ export const AuthProvider = ({ children }) => {
       const { data: functionData, error: functionError } = await supabase.functions.invoke('signin-with-nomor-induk', {
         body: {
           nomor_induk_qiroati: username,
+          username,
           password,
         },
       });
@@ -221,7 +222,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!functionData?.ok || !functionData?.data?.session) {
-        throw new Error(functionData?.error?.message || 'Nomor Induk Qiroati atau password salah.');
+        throw new Error(functionData?.error?.message || 'Username santri atau password salah.');
       }
 
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({

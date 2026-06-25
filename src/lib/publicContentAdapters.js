@@ -137,6 +137,18 @@ export const fetchReceiptLogoDataUrl = async (fallback = '/logo.png') => {
   }
 };
 
+export const waitForImagesToLoad = async (rootElement) => {
+  if (!rootElement) return;
+  const images = Array.from(rootElement.querySelectorAll('img'));
+  await Promise.all(images.map((image) => {
+    if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      image.onload = () => resolve();
+      image.onerror = () => resolve();
+    });
+  }));
+};
+
 export const fetchPublishedNews = async ({ limit } = {}) => {
   let query = supabase
     .from('news')

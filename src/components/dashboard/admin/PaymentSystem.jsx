@@ -25,7 +25,7 @@ import {
   selectedMonthToNumber,
   validatePaymentAmount,
 } from '@/lib/paymentAdapters';
-import { fetchReceiptLogoDataUrl } from '@/lib/publicContentAdapters';
+import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -409,6 +409,7 @@ const PaymentSystem = () => {
     setIsSaving(true);
     try {
       toast({ title: "Memproses...", description: "Sedang membuat gambar bukti pembayaran." });
+      await waitForImagesToLoad(receiptRef.current);
       
       const dataUrl = await toPng(receiptRef.current, {
         cacheBust: true,

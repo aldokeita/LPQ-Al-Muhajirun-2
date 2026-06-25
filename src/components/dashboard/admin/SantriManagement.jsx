@@ -431,7 +431,7 @@ const SantriManagement = () => {
       const [santriRes, classesRes, configRes] = await Promise.all([
         supabase
           .from('santri')
-          .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at')
+          .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, status, points, order_in_class, created_at, updated_at')
           .order('nama_lengkap'),
         supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
         supabase.from('website_content').select('content').eq('key', 'anakSessionConfig').maybeSingle()
@@ -638,8 +638,8 @@ const SantriManagement = () => {
 
       if (editingSantri && Object.keys(profilePayload).length === 0) {
         toast({
-          title: "Tidak ada field aktif yang berubah",
-          description: "Field yang tersimpan saat ini: nama, jenis kelamin, tempat/tanggal lahir, HP wali, alamat, nomor induk, RFID, status, sesi, jilid, poin, dan avatar. Field warisan seperti ayah/ibu, KK/NIK, tanggal masuk, link Qiroati, berkas, dan password edit tidak dikirim karena belum ada di schema staging.",
+          title: "Tidak ada perubahan",
+          description: "Tidak ada field santri yang berbeda dari data tersimpan. Ubah minimal satu field lalu simpan kembali.",
           variant: "destructive"
         });
         return;
@@ -1118,20 +1118,19 @@ const SantriManagement = () => {
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} required /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Masuk</label><Input type="date" value={formData.tanggal_pendaftaran || ''} disabled title="Tanggal masuk masih memakai created_at pada schema staging." /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Masuk</label><Input type="date" value={formData.tanggal_pendaftaran || ''} onChange={(e) => setFormData({ ...formData, tanggal_pendaftaran: e.target.value })} /></div>
                     </div>
                 </div>
 
                 {/* 3. Family & Contact Section */}
                 <div>
                     <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><Users className="w-5 h-5"/> Keluarga & Kontak</h3>
-                    <p className="text-xs text-muted-foreground mb-3">Schema staging saat ini menyimpan HP wali dan alamat. Nama ayah/ibu serta nomor KK/NIK belum menjadi field aktif sehingga tidak dikirim saat simpan.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} disabled placeholder="Belum tersedia di schema staging" /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} disabled placeholder="Belum tersedia di schema staging" /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} onChange={(e) => setFormData({ ...formData, nama_ayah: e.target.value })} /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} onChange={(e) => setFormData({ ...formData, nama_ibu: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} required /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. KK</label><Input type="text" value={formData.no_kk || ''} disabled placeholder="Belum tersedia di schema staging" /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. NIK</label><Input type="text" value={formData.no_nik || ''} disabled placeholder="Belum tersedia di schema staging" /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. KK</label><Input type="text" value={formData.no_kk || ''} onChange={(e) => setFormData({ ...formData, no_kk: e.target.value })} /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. NIK</label><Input type="text" value={formData.no_nik || ''} onChange={(e) => setFormData({ ...formData, no_nik: e.target.value })} /></div>
                         <div className="col-span-full space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" required /></div>
                     </div>
                 </div>
@@ -1145,7 +1144,7 @@ const SantriManagement = () => {
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} disabled placeholder="Belum tersedia di schema staging" /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
                             <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
@@ -1164,12 +1163,11 @@ const SantriManagement = () => {
                 {/* 5. Document Section */}
                 <div>
                      <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><FileText className="w-5 h-5"/> Kelengkapan Berkas</h3>
-                     <p className="text-xs text-muted-foreground mb-3">Status berkas masih ditampilkan untuk kompatibilitas data lama, tetapi belum tersimpan pada schema staging.</p>
                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_foto" checked={formData.berkas_foto} disabled /><label htmlFor="berkas_foto" className="text-sm text-muted-foreground">Foto</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_akta" checked={formData.berkas_akta} disabled /><label htmlFor="berkas_akta" className="text-sm text-muted-foreground">Akta Kelahiran</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_kk" checked={formData.berkas_kk} disabled /><label htmlFor="berkas_kk" className="text-sm text-muted-foreground">Kartu Keluarga</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_form" checked={formData.berkas_form} disabled /><label htmlFor="berkas_form" className="text-sm text-muted-foreground">Formulir</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_foto" checked={Boolean(formData.berkas_foto)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_foto: Boolean(checked) })} /><label htmlFor="berkas_foto" className="text-sm text-muted-foreground">Foto</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_akta" checked={Boolean(formData.berkas_akta)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_akta: Boolean(checked) })} /><label htmlFor="berkas_akta" className="text-sm text-muted-foreground">Akta Kelahiran</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_kk" checked={Boolean(formData.berkas_kk)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_kk: Boolean(checked) })} /><label htmlFor="berkas_kk" className="text-sm text-muted-foreground">Kartu Keluarga</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_form" checked={Boolean(formData.berkas_form)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_form: Boolean(checked) })} /><label htmlFor="berkas_form" className="text-sm text-muted-foreground">Formulir</label></div>
                     </div>
                 </div>
 

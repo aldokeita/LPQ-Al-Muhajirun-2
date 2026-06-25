@@ -29,7 +29,8 @@ $expectedNames = @(
   "20260624001700_storage_buckets_and_policies.sql",
   "20260624001800_indexes_and_final_constraints.sql",
   "20260624001900_move_santri_to_class_rpc.sql",
-  "20260624002000_payments_period_uniqueness.sql"
+  "20260624002000_payments_period_uniqueness.sql",
+  "20260624002100_santri_legacy_fields_and_media_player.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }

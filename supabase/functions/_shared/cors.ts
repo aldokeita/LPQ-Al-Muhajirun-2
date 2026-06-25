@@ -1,12 +1,13 @@
 export function getCorsHeaders(req: Request): HeadersInit {
   const origin = req.headers.get("origin") ?? "";
   const env = Deno.env.get("FUNCTION_ENV") ?? "development";
-  const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:5173")
+  const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://lpq-al-muhajirun-staging.vercel.app,https://lpqalmuhajirun.id")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const isVercelPreview = /^https:\/\/[a-z0-9-]+(?:-[a-z0-9-]+)*\.vercel\.app$/i.test(origin);
 
-  const allowOrigin = allowed.includes(origin)
+  const allowOrigin = allowed.includes(origin) || isVercelPreview
     ? origin
     : env === "production"
       ? allowed[0] ?? "https://lpqalmuhajirun.id"
@@ -24,4 +25,3 @@ export function handleOptions(req: Request): Response | null {
   if (req.method !== "OPTIONS") return null;
   return new Response("ok", { headers: getCorsHeaders(req) });
 }
-

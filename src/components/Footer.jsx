@@ -24,7 +24,6 @@ const Footer = () => {
     localStorage.setItem('desktopView', newDesktopView);
     setIsDesktopView(newDesktopView);
     updateViewport(newDesktopView);
-    window.location.reload();
   };
   return <footer className="bg-primary text-primary-foreground">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

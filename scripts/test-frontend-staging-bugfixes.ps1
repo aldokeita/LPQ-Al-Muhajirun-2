@@ -24,28 +24,30 @@ function Read-Text {
   return Get-Content -Raw -LiteralPath $Path
 }
 
-Add-Check "deferred schema checker skips music tables by default" {
+Add-Check "schema checker includes restored media player tables" {
   $text = Read-Text "src/utils/verifyDatabaseSchema.js"
-  if ($text -notmatch "enableDeferredFeatures") { throw "feature flag is not imported" }
-  if ($text -notmatch "deferredTables\s*=\s*\['media_player_settings', 'music_files'\]") { throw "deferred music tables are not isolated" }
-  if ($text -notmatch "enableDeferredFeatures \? \[\.\.\.coreTables, \.\.\.deferredTables\] : coreTables") { throw "deferred tables are not conditionally checked" }
+  if ($text -match "enableDeferredFeatures") { throw "media player tables are still treated as deferred in schema checker" }
+  if ($text -notmatch "media_player_settings" -or $text -notmatch "music_files") { throw "restored media player tables are not checked" }
 }
 
-Add-Check "media player hook is inert when deferred disabled" {
+Add-Check "media player hook queries restored playlist tables" {
   $text = Read-Text "src/hooks/useMediaPlayer.js"
-  if ($text -notmatch "if \(!enableDeferredFeatures\) return") { throw "hook does not guard effects/callbacks" }
-  if ($text -notmatch "currentTrack:\s*null") { throw "hook does not return inert state" }
+  if ($text -match "enableDeferredFeatures") { throw "hook is still gated by deferred features" }
+  if ($text -notmatch "from\('music_files'\)") { throw "hook does not read playlist table" }
+  if ($text -notmatch "from\('media_player_settings'\)") { throw "hook does not persist player settings" }
 }
 
-Add-Check "media player settings skips playlist query when deferred disabled" {
+Add-Check "media player settings is active and uses restored storage/table" {
   $text = Read-Text "src/components/dashboard/admin/MediaPlayerSettings.jsx"
-  if ($text -notmatch "enableDeferredFeatures && isOpen") { throw "dialog effect can still fetch while deferred is off" }
-  if ($text -notmatch "if \(!enableDeferredFeatures\) return;") { throw "playlist actions are not guarded" }
+  if ($text -match "enableDeferredFeatures") { throw "settings dialog is still gated by deferred features" }
+  if ($text -notmatch "storage\.from\('music-files'\)") { throw "settings dialog does not upload to music-files bucket" }
+  if ($text -notmatch "from\('music_files'\)") { throw "settings dialog does not persist playlist rows" }
 }
 
-Add-Check "digital attendance does not mount media player unless deferred is true" {
+Add-Check "digital attendance mounts media player while other deferred shortcuts stay gated" {
   $text = Read-Text "src/pages/DigitalAttendancePage.jsx"
-  if ($text -notmatch "\{enableDeferredFeatures && <MediaPlayerWidget />\}") { throw "media player widget mount is not gated" }
+  if ($text -notmatch "<MediaPlayerWidget />") { throw "media player widget is not mounted" }
+  if ($text -notmatch "enableDeferredFeatures &&") { throw "other deferred attendance shortcuts are not still gated" }
 }
 
 Add-Check "website content helper always sends non-null content field" {
@@ -74,11 +76,39 @@ Add-Check "avatar upload uses direct Storage first and authenticated Edge fallba
   if ($text -notmatch "Edge Function upload juga gagal") { throw "direct and Edge Function errors are not both surfaced" }
 }
 
+Add-Check "edge functions allow Vercel staging origins" {
+  $text = Read-Text "supabase/functions/_shared/cors.ts"
+  if ($text -notmatch "vercel\\.app") { throw "Vercel origins are not allowed by Edge Function CORS" }
+  if ($text -notmatch "ALLOWED_ORIGINS") { throw "custom allowed origins env is missing" }
+}
+
+Add-Check "santri login supports nickname alias without custom JWT" {
+  $fn = Read-Text "supabase/functions/signin-with-nomor-induk/index.ts"
+  $auth = Read-Text "src/contexts/SupabaseAuthContext.jsx"
+  $login = Read-Text "src/pages/LoginPage.jsx"
+  if ($fn -notmatch 'ilike\("nama_panggilan"') { throw "Edge Function does not resolve nama_panggilan alias" }
+  if ($fn -notmatch "auth.signInWithPassword") { throw "Edge Function does not verify through Supabase Auth" }
+  if ($fn -match "createJwt|jwt.sign|custom JWT") { throw "custom JWT logic detected" }
+  if ($auth -notmatch "username,") { throw "frontend does not send username alias to Edge Function" }
+  if ($login -notmatch "Username Santri") { throw "login placeholder does not explain santri username" }
+}
+
 Add-Check "santri avatar upload persists avatar path after storage upload" {
   $text = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
   if ($text -notmatch "\.update\(\{\s*avatar_path:\s*path\s*\}\)") { throw "avatar path is not persisted narrowly" }
   if ($text -notmatch "Avatar terunggah, tetapi referensi profil santri tidak tersimpan") { throw "missing persistence failure message" }
   if ($text -notmatch "resolveAvatarUrl") { throw "santri list does not resolve avatar path after refresh" }
+}
+
+Add-Check "restored santri fields are selected and editable" {
+  $component = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  $migration = Read-Text "supabase/migrations/20260624002100_santri_legacy_fields_and_media_player.sql"
+  foreach ($field in @("tanggal_pendaftaran", "nama_ayah", "nama_ibu", "no_kk", "no_nik", "berkas_foto", "berkas_akta", "berkas_kk", "berkas_form", "link_qiroati")) {
+    if ($component -notmatch $field) { throw "component missing $field" }
+    if ($migration -notmatch $field) { throw "migration missing $field" }
+  }
+  if ($component -match "tanggal_pendaftaran \|\| ''} disabled") { throw "tanggal masuk is still disabled" }
+  if ($component -match "berkas_foto.*disabled") { throw "berkas checklist is still disabled" }
 }
 
 Add-Check "santri edit sends changed fields and verifies updated row" {
@@ -88,8 +118,30 @@ Add-Check "santri edit sends changed fields and verifies updated row" {
   if ($component -notmatch "pickChangedSantriProfileFields\(finalFormData, editingSantri\)") { throw "edit flow does not use changed-field payload" }
   if ($component -notmatch "\.select\('id'\)\s*\.maybeSingle\(\)") { throw "edit flow does not verify updated row" }
   if ($component -notmatch "Data santri tidak tersimpan karena tidak ada row yang diperbarui") { throw "no-row update is not treated as failure" }
-  if ($component -notmatch "Field yang tersimpan saat ini") { throw "no-change message does not explain active schema fields" }
-  if ($component -notmatch "Belum tersedia di schema staging") { throw "legacy unsupported fields are not marked inactive" }
+  if ($adapter -notmatch "berkas_foto" -or $adapter -notmatch "nama_ayah" -or $adapter -notmatch "link_qiroati") { throw "restored santri fields are not included in changed-field payload" }
+  if ($component -match "Belum tersedia di schema staging") { throw "restored santri fields are still marked inactive" }
+}
+
+Add-Check "attendance recap can mark present records as absent" {
+  $text = Read-Text "src/components/dashboard/shared/AttendanceDetailsModal.jsx"
+  if ($text -notmatch "handleMarkAbsent") { throw "mark absent handler missing" }
+  if ($text -notmatch "status:\s*'Tidak Hadir'") { throw "mark absent does not save Tidak Hadir status" }
+  if ($text -notmatch "check_in_timestamp:\s*null") { throw "mark absent does not clear timestamp" }
+  if ($text -notmatch "Tandai Tidak Hadir") { throw "mark absent action is not visible" }
+}
+
+Add-Check "digital attendance duplicate scan keeps first timestamp and avatar card" {
+  $page = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  $admin = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"
+  if ($page -notmatch "Waktu hadir pertama tetap dipakai") { throw "public digital attendance does not preserve first timestamp on duplicate" }
+  if ($admin -notmatch "Waktu hadir pertama tetap dipakai") { throw "admin digital attendance does not preserve first timestamp on duplicate" }
+  if ($page -notmatch "avatar_path" -or $admin -notmatch "avatar_path") { throw "digital attendance does not select avatar_path" }
+  if ($page -notmatch "resolveAvatarUrl" -or $admin -notmatch "resolveAvatarUrl") { throw "digital attendance does not resolve avatar URLs" }
+}
+
+Add-Check "admin dashboard counts active santri status variants" {
+  $text = Read-Text "src/components/dashboard/AdminDashboard.jsx"
+  if ($text -notmatch "\.in\('status', \['Aktif', 'active'\]\)") { throw "active santri stat does not include Aktif and active variants" }
 }
 
 Add-Check "attendance late boundary uses one 15-minute helper" {
@@ -148,6 +200,8 @@ Add-Check "payment proof uses uploaded website logo as embeddable image" {
   if ($modal -notmatch "fetchReceiptLogoDataUrl") { throw "payment proof modal does not load uploaded logo" }
   if ($system -notmatch "fetchReceiptLogoDataUrl") { throw "payment system receipt does not load uploaded logo" }
   if ($modal -notmatch "imagePlaceholder: '/logo.png'" -or $system -notmatch "imagePlaceholder: '/logo.png'") { throw "receipt image generation lacks local image fallback" }
+  if ($helper -notmatch "waitForImagesToLoad") { throw "receipt image helper does not wait for embedded logo/images" }
+  if ($modal -notmatch "waitForImagesToLoad\(receiptRef\.current\)" -or $system -notmatch "waitForImagesToLoad\(receiptRef\.current\)") { throw "receipt export does not wait for images before rendering" }
 }
 
 Add-Check "TV Display maps final santri schema and avatar fallback" {

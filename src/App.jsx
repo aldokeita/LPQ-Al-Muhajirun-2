@@ -149,13 +149,29 @@ const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
 const operationalDisplayRoles = ['admin', 'guru', 'pentashih'];
 
 function App() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    try {
+      return sessionStorage.getItem('lpq_initial_load_done') !== 'true';
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
-    console.log('App Component Mounted');
+    if (!loading) return undefined;
     const timer = setTimeout(() => setLoading(false), 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      try {
+        sessionStorage.setItem('lpq_initial_load_done', 'true');
+      } catch {
+        // sessionStorage can be unavailable in restricted browser modes.
+      }
+    }
+  }, [loading]);
 
   return (
     <ThemeProvider>
