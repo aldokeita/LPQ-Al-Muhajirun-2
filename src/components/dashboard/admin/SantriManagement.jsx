@@ -658,34 +658,21 @@ const SantriManagement = () => {
         return;
       }
 
-      const needsAuthEdgeFunction = !editingSantri || Object.prototype.hasOwnProperty.call(profilePayload, 'nomor_induk_qiroati');
+      const needsAuthEdgeFunction = !editingSantri;
       if (needsAuthEdgeFunction && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
         return;
       }
 
-      if (editingSantri && Object.prototype.hasOwnProperty.call(profilePayload, 'nomor_induk_qiroati')) {
-        const { data, error } = await supabase.functions.invoke('manage-user', {
-          body: {
-            action: 'update',
-            role: 'santri',
-            target_user_id: targetId,
-            profile: profilePayload,
-          },
-        });
-        if (error) throw error;
-        if (!data?.ok) throw new Error(data?.error?.message || 'Data santri gagal diperbarui.');
-      } else {
-        const { data: savedSantri, error } = await supabase
-          .from('santri')
-          .update(profilePayload)
-          .eq('id', targetId)
-          .select('id')
-          .maybeSingle();
+      const { data: savedSantri, error } = await supabase
+        .from('santri')
+        .update(profilePayload)
+        .eq('id', targetId)
+        .select('id')
+        .maybeSingle();
 
-        if (error) throw error;
-        if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
-      }
+      if (error) throw error;
+      if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
 
       toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
       loadData(activeTab);
