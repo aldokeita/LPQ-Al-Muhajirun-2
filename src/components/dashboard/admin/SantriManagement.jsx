@@ -601,10 +601,23 @@ const SantriManagement = () => {
         finalFormData.sesi_mengaji = getSessionNumber(finalFormData.sesi_mengaji);
     }
 
-    if (!finalFormData.nama_panggilan) {
-        toast({ title: "Gagal", description: "Nama panggilan (username) tidak boleh kosong.", variant: "destructive"});
+    const requiredFields = [
+      ['nama_lengkap', 'Nama lengkap'],
+      ['tanggal_lahir', 'Tanggal lahir'],
+      ['jenis_kelamin', 'Jenis kelamin'],
+      ['jilid', 'Jilid'],
+      ['sesi_mengaji', 'Sesi'],
+    ];
+    const missingField = requiredFields.find(([field]) => !String(finalFormData[field] ?? '').trim());
+    if (missingField) {
+        toast({ title: "Gagal", description: `${missingField[1]} wajib diisi.`, variant: "destructive"});
         return;
     }
+
+    if (!finalFormData.nama_panggilan) {
+        finalFormData.nama_panggilan = finalFormData.nama_lengkap.trim().split(/\s+/)[0] || null;
+    }
+
     if (!finalFormData.password) finalFormData.password = finalFormData.nomor_induk_qiroati;
 
     if (finalFormData.password && finalFormData.password.length < 4) {
@@ -612,16 +625,7 @@ const SantriManagement = () => {
         return;
     }
 
-    if (editingSantri && finalFormData.nomor_induk_qiroati !== editingSantri.nomor_induk_qiroati) {
-        toast({
-            title: "Nomor Induk belum dapat diubah",
-            description: "Perubahan Nomor Induk Qiroati perlu operasi backend agar alias login Supabase Auth tetap konsisten.",
-            variant: "destructive"
-        });
-        return;
-    }
-
-    if (!editingSantri && !enableEdgeFunctions) {
+    if (!enableEdgeFunctions) {
       toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
       return;
     }
@@ -659,15 +663,28 @@ const SantriManagement = () => {
         return;
       }
 
-      const { data: savedSantri, error } = await supabase
-        .from('santri')
-        .update(profilePayload)
-        .eq('id', targetId)
-        .select('id')
-        .maybeSingle();
+      if (editingSantri) {
+        const { data, error } = await supabase.functions.invoke('manage-user', {
+          body: {
+            action: 'update',
+            role: 'santri',
+            target_user_id: targetId,
+            profile: profilePayload,
+          },
+        });
+        if (error) throw error;
+        if (!data?.ok) throw new Error(data?.error?.message || 'Data santri gagal diperbarui.');
+      } else {
+        const { data: savedSantri, error } = await supabase
+          .from('santri')
+          .update(profilePayload)
+          .eq('id', targetId)
+          .select('id')
+          .maybeSingle();
 
-      if (error) throw error;
-      if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
+        if (error) throw error;
+        if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
+      }
 
       toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
       loadData(activeTab);
@@ -1128,7 +1145,7 @@ const SantriManagement = () => {
                     <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><User className="w-5 h-5"/> Informasi Pribadi</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Panggilan</label><Input type="text" value={formData.nama_panggilan || ''} onChange={handleNicknameChange} required /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Panggilan</label><Input type="text" value={formData.nama_panggilan || ''} onChange={handleNicknameChange} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} required /></div>
@@ -1142,10 +1159,10 @@ const SantriManagement = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} onChange={(e) => setFormData({ ...formData, nama_ayah: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} onChange={(e) => setFormData({ ...formData, nama_ibu: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} required /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. KK</label><Input type="text" value={formData.no_kk || ''} onChange={(e) => setFormData({ ...formData, no_kk: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. NIK</label><Input type="text" value={formData.no_nik || ''} onChange={(e) => setFormData({ ...formData, no_nik: e.target.value })} /></div>
-                        <div className="col-span-full space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" required /></div>
+                        <div className="col-span-full space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" /></div>
                     </div>
                 </div>
 
@@ -1153,7 +1170,7 @@ const SantriManagement = () => {
                 <div>
                     <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><GraduationCap className="w-5 h-5"/> Akademik & Sistem</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={handleQiroatiIdChange} required /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={handleQiroatiIdChange} required={!editingSantri} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
                         <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>

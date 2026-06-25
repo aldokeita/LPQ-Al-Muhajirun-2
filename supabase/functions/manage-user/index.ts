@@ -10,6 +10,14 @@ function internalEmailFor(userId: string): string {
   return `santri+${userId}@auth.lpqalmuhajirun.local`;
 }
 
+function hasOwn(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function copyIfPresent(source: Record<string, unknown>, target: Record<string, unknown>, key: string): void {
+  if (hasOwn(source, key)) target[key] = source[key] ?? null;
+}
+
 Deno.serve(async (req) => {
   const options = handleOptions(req);
   if (options) return options;
@@ -166,6 +174,107 @@ Deno.serve(async (req) => {
       await admin.from("user_profiles").update({ status: "inactive", updated_by: user.id }).eq("id", targetUserId);
       await admin.auth.admin.updateUserById(targetUserId, { ban_duration: "876000h" });
       return ok(req, { user_id: targetUserId, deactivated: true });
+    }
+
+    if (role === "santri") {
+      const santriUpdates: Record<string, unknown> = { updated_by: user.id };
+      const santriFields = [
+        "nama_lengkap",
+        "nama_panggilan",
+        "kategori",
+        "jenis_kelamin",
+        "tanggal_lahir",
+        "tempat_lahir",
+        "tanggal_pendaftaran",
+        "nama_ayah",
+        "nama_ibu",
+        "alamat",
+        "no_hp_ortu",
+        "no_kk",
+        "no_nik",
+        "rfid_tag",
+        "current_class_id",
+        "sesi_mengaji",
+        "jilid",
+        "foto_url",
+        "avatar_path",
+        "berkas_foto",
+        "berkas_akta",
+        "berkas_kk",
+        "berkas_form",
+        "link_qiroati",
+        "status",
+        "points",
+        "order_in_class",
+      ];
+
+      for (const field of santriFields) copyIfPresent(profile, santriUpdates, field);
+
+      if (hasOwn(profile, "nomor_induk_qiroati")) {
+        const nomorInduk = normalizeNomorInduk(profile.nomor_induk_qiroati);
+        const { data: duplicateAlias } = await admin
+          .from("auth_login_aliases")
+          .select("auth_user_id")
+          .eq("alias_type", "nomor_induk_qiroati")
+          .eq("normalized_alias", nomorInduk)
+          .neq("auth_user_id", targetUserId)
+          .maybeSingle();
+
+        if (duplicateAlias) {
+          return fail(req, "DUPLICATE_NOMOR_INDUK", "Nomor Induk Qiroati sudah digunakan.", 409);
+        }
+
+        santriUpdates.nomor_induk_qiroati = nomorInduk;
+
+        const { data: existingAlias } = await admin
+          .from("auth_login_aliases")
+          .select("id, internal_email")
+          .eq("auth_user_id", targetUserId)
+          .eq("alias_type", "nomor_induk_qiroati")
+          .eq("is_active", true)
+          .maybeSingle();
+
+        const internalEmail = existingAlias?.internal_email ?? internalEmailFor(targetUserId);
+        const aliasPayload = {
+          auth_user_id: targetUserId,
+          alias_type: "nomor_induk_qiroati",
+          alias_value: nomorInduk,
+          normalized_alias: nomorInduk,
+          internal_email: internalEmail,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        };
+
+        const aliasResult = existingAlias
+          ? await admin.from("auth_login_aliases").update(aliasPayload).eq("id", existingAlias.id)
+          : await admin.from("auth_login_aliases").insert(aliasPayload);
+
+        if (aliasResult.error) {
+          return fail(req, "ALIAS_UPDATE_FAILED", "Alias login santri gagal diperbarui.", 400);
+        }
+      }
+
+      const { data: updatedSantri, error: santriUpdateError } = await admin
+        .from("santri")
+        .update(santriUpdates)
+        .eq("id", targetUserId)
+        .select("id")
+        .maybeSingle();
+
+      if (santriUpdateError || !updatedSantri) {
+        return fail(req, "SANTRI_UPDATE_FAILED", "Data santri gagal diperbarui.", 400);
+      }
+
+      const profileUpdate: Record<string, unknown> = { updated_by: user.id };
+      if (hasOwn(profile, "nama_lengkap")) profileUpdate.display_name = profile.nama_lengkap;
+      if (hasOwn(profile, "no_hp_ortu")) profileUpdate.phone = profile.no_hp_ortu;
+      if (hasOwn(profile, "status")) {
+        profileUpdate.status = String(profile.status).toLowerCase() === "nonaktif" ? "inactive" : "active";
+      }
+
+      await admin.from("user_profiles").update(profileUpdate).eq("id", targetUserId);
+
+      return ok(req, { user_id: targetUserId, updated: true });
     }
 
     await admin.from("user_profiles").update({
