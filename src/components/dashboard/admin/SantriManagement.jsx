@@ -625,11 +625,6 @@ const SantriManagement = () => {
         return;
     }
 
-    if (!enableEdgeFunctions) {
-      toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
-      return;
-    }
-
     try {
       let targetId = editingSantri?.id;
 
@@ -663,7 +658,13 @@ const SantriManagement = () => {
         return;
       }
 
-      if (editingSantri) {
+      const needsAuthEdgeFunction = !editingSantri || Object.prototype.hasOwnProperty.call(profilePayload, 'nomor_induk_qiroati');
+      if (needsAuthEdgeFunction && !enableEdgeFunctions) {
+        toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+        return;
+      }
+
+      if (editingSantri && Object.prototype.hasOwnProperty.call(profilePayload, 'nomor_induk_qiroati')) {
         const { data, error } = await supabase.functions.invoke('manage-user', {
           body: {
             action: 'update',
