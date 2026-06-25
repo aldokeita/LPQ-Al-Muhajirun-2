@@ -56,8 +56,37 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
         >
           <SectionKicker dark>A Living Journey of Learning</SectionKicker>
           <h1 id="home-hero-title" className="home-hero__title">
-            <SplitText text="Belajar Al-Qur’an" />
-            <span><GradientText>terasa lebih hidup.</GradientText></span>
+            <SplitText
+              text="Belajar Al-Qur’an"
+              tag="span"
+              className="home-hero__split-line"
+              delay={70}
+              duration={0.9}
+              ease="power3.out"
+              splitType="words"
+              from={{ opacity: 0, y: 46, filter: 'blur(10px)' }}
+              to={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              textAlign="left"
+            />
+            <GradientText
+              colors={['#8af5cb', '#66d9ff', '#c6b8ff', '#f5c76a']}
+              animationSpeed={6.5}
+              direction="horizontal"
+              className="home-hero__gradient-line"
+            >
+              <SplitText
+                text="terasa lebih hidup."
+                tag="span"
+                className="home-hero__split-line"
+                delay={58}
+                duration={0.92}
+                ease="power3.out"
+                splitType="words"
+                from={{ opacity: 0, y: 42, filter: 'blur(10px)' }}
+                to={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                textAlign="left"
+              />
+            </GradientText>
           </h1>
           <p className="home-hero__lead">{heroText}</p>
           <p className="home-hero__support">{heroSubtext}</p>
