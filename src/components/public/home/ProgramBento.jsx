@@ -18,7 +18,19 @@ const ProgramBento = ({ schedules, quotas }) => {
           </p>
         </motion.div>
         <motion.div {...sectionReveal(1)}>
-          <MagicBento items={programs} />
+          <MagicBento
+            items={programs}
+            textAutoHide={false}
+            enableStars
+            enableSpotlight
+            enableBorderGlow
+            enableTilt
+            enableMagnetism
+            clickEffect
+            spotlightRadius={430}
+            particleCount={12}
+            glowColor="0, 235, 157"
+          />
         </motion.div>
       </div>
     </section>
