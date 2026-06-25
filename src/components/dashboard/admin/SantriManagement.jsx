@@ -35,6 +35,13 @@ const jilidOptions = [
     'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
 ];
 
+const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
+const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati`;
+
+const isMissingSantriExtendedColumn = (error) =>
+  error?.code === '42703' ||
+  /column santri\.(tanggal_pendaftaran|nama_ayah|nama_ibu|no_kk|no_nik|berkas_foto|berkas_akta|berkas_kk|berkas_form|link_qiroati) does not exist/i.test(error?.message || '');
+
 const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
   const [file, setFile] = useState(null);
   const [textData, setTextData] = useState('');
@@ -428,21 +435,28 @@ const SantriManagement = () => {
     setIsLoadingData(true);
     setFetchError(null);
     try {
-      const [santriRes, classesRes, configRes] = await Promise.all([
+      const fetchSantri = async (selectColumns = SANTRI_EXTENDED_SELECT) =>
         supabase
           .from('santri')
-          .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, status, points, order_in_class, created_at, updated_at')
-          .order('nama_lengkap'),
+          .select(selectColumns)
+          .order('nama_lengkap');
+
+      const [santriRes, classesRes, configRes] = await Promise.all([
+        fetchSantri(),
         supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
         supabase.from('website_content').select('content').eq('key', 'anakSessionConfig').maybeSingle()
       ]);
 
-      if (santriRes.error) {
-          console.error("Query execution error for santri:", santriRes.error);
-          setFetchError(santriRes.error.message);
-          toast({ title: "Gagal Memuat Data Santri", description: santriRes.error.message, variant: "destructive" });
+      const resolvedSantriRes = isMissingSantriExtendedColumn(santriRes.error)
+        ? await fetchSantri(SANTRI_BASE_SELECT)
+        : santriRes;
+
+      if (resolvedSantriRes.error) {
+          console.error("Query execution error for santri:", resolvedSantriRes.error);
+          setFetchError(resolvedSantriRes.error.message);
+          toast({ title: "Gagal Memuat Data Santri", description: resolvedSantriRes.error.message, variant: "destructive" });
       } else {
-          const mappedSantri = await Promise.all((santriRes.data || []).map(async (item) => {
+          const mappedSantri = await Promise.all((resolvedSantriRes.data || []).map(async (item) => {
               const foto_url = await resolveAvatarUrl({
                   ownerType: 'santri',
                   ownerId: item.id,

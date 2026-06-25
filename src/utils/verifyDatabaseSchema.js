@@ -11,10 +11,12 @@ export const verifyDatabaseSchema = async () => {
   const coreTables = [
     'payments', 'classes', 'academic_calendar', 'mmq_schedule', 
     'attendance', 'santri', 'guru', 'hafalan_progress', 
-    'murojaah_submissions', 'media_player_settings', 'music_files'
+    'murojaah_submissions'
   ];
+  const optionalTables = ['media_player_settings', 'music_files'];
 
-  for (const table of coreTables) {
+  for (const table of [...coreTables, ...optionalTables]) {
+    const isOptional = optionalTables.includes(table);
     try {
       // Attempt a basic select to verify table existence and read access
       const { data, error } = await supabase.from(table).select('*').limit(1);
@@ -22,19 +24,28 @@ export const verifyDatabaseSchema = async () => {
       if (error) {
         // If it's an RLS error, the table exists but access is denied
         if (error.code === '42P01') {
-          report.status = 'error';
-          report.errors.push(`Table missing: ${table}`);
-          report.tables[table] = 'missing';
+          if (isOptional) {
+            report.tables[table] = 'optional_missing';
+          } else {
+            report.status = 'error';
+            report.errors.push(`Table missing: ${table}`);
+            report.tables[table] = 'missing';
+          }
         } else {
-          report.tables[table] = 'rls_restricted_or_error';
-          report.errors.push(`RLS or Access Error on ${table}: ${error.message}`);
+          report.tables[table] = isOptional ? 'optional_unavailable' : 'rls_restricted_or_error';
+          if (!isOptional) {
+            report.errors.push(`RLS or Access Error on ${table}: ${error.message}`);
+          }
         }
       } else {
         report.tables[table] = 'ok';
       }
     } catch (err) {
-      report.status = 'error';
-      report.errors.push(`Critical error checking ${table}: ${err.message}`);
+      report.tables[table] = isOptional ? 'optional_unavailable' : 'critical_error';
+      if (!isOptional) {
+        report.status = 'error';
+        report.errors.push(`Critical error checking ${table}: ${err.message}`);
+      }
     }
   }
 

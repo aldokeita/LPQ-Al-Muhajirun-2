@@ -24,10 +24,12 @@ function Read-Text {
   return Get-Content -Raw -LiteralPath $Path
 }
 
-Add-Check "schema checker includes restored media player tables" {
+Add-Check "schema checker treats restored media player tables as optional until deployed" {
   $text = Read-Text "src/utils/verifyDatabaseSchema.js"
   if ($text -match "enableDeferredFeatures") { throw "media player tables are still treated as deferred in schema checker" }
   if ($text -notmatch "media_player_settings" -or $text -notmatch "music_files") { throw "restored media player tables are not checked" }
+  if ($text -notmatch "optionalTables") { throw "optional table handling missing" }
+  if ($text -notmatch "optional_missing") { throw "missing media tables still look fatal" }
 }
 
 Add-Check "media player hook queries restored playlist tables" {
@@ -109,6 +111,14 @@ Add-Check "restored santri fields are selected and editable" {
   }
   if ($component -match "tanggal_pendaftaran \|\| ''} disabled") { throw "tanggal masuk is still disabled" }
   if ($component -match "berkas_foto.*disabled") { throw "berkas checklist is still disabled" }
+}
+
+Add-Check "santri list falls back to base columns while staging migration is pending" {
+  $component = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  if ($component -notmatch "SANTRI_BASE_SELECT") { throw "base santri select missing" }
+  if ($component -notmatch "SANTRI_EXTENDED_SELECT") { throw "extended santri select missing" }
+  if ($component -notmatch "isMissingSantriExtendedColumn") { throw "missing extended column detector missing" }
+  if ($component -notmatch "fetchSantri\(SANTRI_BASE_SELECT\)") { throw "fallback query does not retry base santri columns" }
 }
 
 Add-Check "santri edit sends changed fields and verifies updated row" {
