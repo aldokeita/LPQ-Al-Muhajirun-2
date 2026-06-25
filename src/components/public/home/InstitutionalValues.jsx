@@ -6,10 +6,30 @@ import SectionKicker from './SectionKicker';
 import { imageOf, safeArray, sectionReveal } from './homeUtils';
 
 const values = [
-  { icon: BookOpen, title: 'Bacaan yang tartil', text: 'Santri dibimbing bertahap agar bacaan benar, jelas, dan konsisten.' },
-  { icon: ShieldCheck, title: 'Adab yang dijaga', text: 'Kebiasaan baik dibentuk lewat rutinitas kelas yang hangat dan disiplin.' },
-  { icon: HeartHandshake, title: 'Guru mendampingi', text: 'Proses belajar terasa dekat karena guru mengenal perjalanan santri.' },
-  { icon: CheckCircle2, title: 'Perkembangan terpantau', text: 'Informasi kelas, absensi, dan kegiatan tersusun agar wali lebih tenang.' },
+  {
+    icon: BookOpen,
+    color: 'emerald',
+    title: 'Bacaan yang tartil',
+    text: 'Santri dibimbing bertahap agar bacaan benar, jelas, dan konsisten.',
+  },
+  {
+    icon: ShieldCheck,
+    color: 'amber',
+    title: 'Adab yang dijaga',
+    text: 'Kebiasaan baik dibentuk lewat rutinitas kelas yang hangat dan disiplin.',
+  },
+  {
+    icon: HeartHandshake,
+    color: 'cyan',
+    title: 'Guru mendampingi',
+    text: 'Proses belajar terasa dekat karena guru mengenal perjalanan santri.',
+  },
+  {
+    icon: CheckCircle2,
+    color: 'emerald',
+    title: 'Perkembangan terpantau',
+    text: 'Informasi kelas, absensi, dan kegiatan tersusun agar wali lebih tenang.',
+  },
 ];
 
 const InstitutionalValues = ({ content }) => {
@@ -34,7 +54,15 @@ const InstitutionalValues = ({ content }) => {
             const Icon = item.icon;
             return (
               <motion.div key={item.title} {...sectionReveal(index + 1, index % 2 ? 'x' : 'y')}>
-                <BorderGlow color={index === 1 ? 'amber' : index === 2 ? 'cyan' : 'emerald'} className="home-value-card">
+                <BorderGlow
+                  color={item.color}
+                  className="home-value-card"
+                  edgeSensitivity={46}
+                  glowRadius={22}
+                  glowIntensity={0.32}
+                  fillOpacity={0.12}
+                  coneSpread={16}
+                >
                   <Icon className="h-6 w-6" />
                   <h3>{item.title}</h3>
                   <p>{item.text}</p>
