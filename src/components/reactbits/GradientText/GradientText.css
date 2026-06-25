@@ -1,0 +1,17 @@
+.rb-gradient-text {
+  background: linear-gradient(95deg, #8af5cb 0%, #66d9ff 38%, #c6b8ff 72%, #f5c76a 100%);
+  background-size: 180% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rb-gradient-pan 9s ease-in-out infinite alternate;
+}
+
+@keyframes rb-gradient-pan {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-gradient-text { animation: none; }
+}

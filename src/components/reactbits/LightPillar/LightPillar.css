@@ -1,0 +1,22 @@
+.rb-light-pillar {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.rb-light-pillar__canvas {
+  position: absolute;
+  inset: 0;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.rb-light-pillar__fallback {
+  position: absolute;
+  inset: -15%;
+  background:
+    radial-gradient(ellipse at 58% 42%, rgba(0, 235, 157, 0.34), transparent 28%),
+    linear-gradient(118deg, rgba(157, 193, 199, 0.12), rgba(0, 235, 157, 0.2), rgba(198, 184, 255, 0.14));
+  filter: blur(10px);
+}

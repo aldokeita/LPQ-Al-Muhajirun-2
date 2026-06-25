@@ -1,0 +1,98 @@
+.rb-magic-bento {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.rb-magic-bento__card {
+  --spot-x: 50%;
+  --spot-y: 50%;
+  position: relative;
+  display: flex;
+  min-height: 17rem;
+  flex-direction: column;
+  justify-content: space-between;
+  grid-column: span 2;
+  overflow: hidden;
+  border-radius: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at var(--spot-x) var(--spot-y), rgba(125, 240, 195, 0.18), transparent 28%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
+  padding: 1.45rem;
+  color: white;
+  text-decoration: none;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+  transition: transform 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+
+.rb-magic-bento__card:hover,
+.rb-magic-bento__card:focus-visible {
+  border-color: rgba(125, 240, 195, 0.42);
+  transform: translateY(-4px);
+  outline: none;
+}
+
+.rb-magic-bento__card.is-featured {
+  grid-column: span 3;
+  min-height: 22rem;
+  background:
+    radial-gradient(circle at var(--spot-x) var(--spot-y), rgba(97, 220, 255, 0.22), transparent 32%),
+    linear-gradient(145deg, rgba(0, 235, 157, 0.21), rgba(255, 255, 255, 0.07));
+}
+
+.rb-magic-bento__eyebrow {
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.36rem 0.72rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(207, 250, 254, 0.9);
+}
+
+.rb-magic-bento__card strong {
+  margin-top: auto;
+  display: block;
+  max-width: 17rem;
+  font-size: clamp(1.45rem, 2vw, 2.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.rb-magic-bento__card p {
+  margin-top: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.75;
+}
+
+.rb-magic-bento__cta {
+  margin-top: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #9ff7d4;
+}
+
+@media (max-width: 960px) {
+  .rb-magic-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rb-magic-bento__card,
+  .rb-magic-bento__card.is-featured { grid-column: span 1; min-height: 15rem; }
+}
+
+@media (max-width: 640px) {
+  .rb-magic-bento { grid-template-columns: 1fr; }
+  .rb-magic-bento__card,
+  .rb-magic-bento__card.is-featured { min-height: 13.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-magic-bento__card { transition: none; }
+  .rb-magic-bento__card:hover,
+  .rb-magic-bento__card:focus-visible { transform: none; }
+}

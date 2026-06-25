@@ -1,0 +1,18 @@
+.rb-split-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0 0.23em;
+}
+
+.rb-split-word {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-split-word {
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+}
