@@ -11,11 +11,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import MediaPlayerWidget from '@/components/MediaPlayerWidget';
-import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference, getJakartaTimeString } from '@/utils/AttendanceStatusLogic';
 import { enableDeferredFeatures } from '@/lib/featureFlags';
 import {
   buildSantriAttendancePayload,
   getAttendanceErrorMessage,
+  getLocalDateString,
   getSantriSession,
   isActiveSantri,
   normalizeRfidTag,
@@ -234,18 +235,21 @@ const DigitalAttendancePage = () => {
         if (tag === lastScan.rfid) {
           setIsLoading(true);
           try {
-            const nowTime = new Date().toTimeString().split(' ')[0];
-            const timestamp = new Date().toISOString();
+            const now = new Date();
+            const nowTime = getJakartaTimeString(now);
+            const timestamp = now.toISOString();
 
             if (lastScan.isMMQ) {
                  const { error: updErr } = await supabase.from('mmq_attendance').update({ check_in_timestamp: timestamp }).eq('id', lastScan.attendanceId);
                  if (updErr) throw updErr;
                  setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, message: 'Absensi MMQ diperbarui!', quote: lastScan.pendingQuote }));
             } else {
-                const { error } = await supabase.from('attendance').update({ check_in_time: nowTime, check_in_timestamp: timestamp }).eq('id', lastScan.attendanceId);
+                const sessionStartTime = buildSessionStartTimestamp(lastScan.attendanceDate, lastScan.sesi, sessionTimes);
+                const status = determineAttendanceStatus(timestamp, sessionStartTime);
+                const { error } = await supabase.from('attendance').update({ check_in_time: nowTime, check_in_timestamp: timestamp, status }).eq('id', lastScan.attendanceId);
                 if (error) throw error;
                 const levelInfo = (lastScan.role === 'santri' && lastScan.kategori !== 'Dewasa') ? getLevelInfo(lastScan.points, lastScan.gender) : null;
-                setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, levelInfo, message: 'Absensi berhasil diperbarui!', quote: lastScan.pendingQuote }));
+                setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, status, levelInfo, message: 'Absensi berhasil diperbarui!', quote: lastScan.pendingQuote }));
             }
           } catch (err) { setLastScan({ type: 'error', message: err.message, name: 'Error' }); }
           finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return; }
@@ -258,7 +262,7 @@ const DigitalAttendancePage = () => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         const todayDate = new Date();
-        const todayStr = todayDate.toLocaleDateString('en-CA');
+        const todayStr = getLocalDateString(todayDate);
 
         let user = null, userRole = '', sesiUser = '', kategori = '';
         let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
@@ -276,7 +280,7 @@ const DigitalAttendancePage = () => {
             if (mmqSchedule) {
                 try {
                     const timestamp = new Date().toISOString();
-                    const sessionStart = new Date(`${todayStr}T${mmqSchedule.start_time}`).toISOString();
+                    const sessionStart = `${todayStr}T${mmqSchedule.start_time}+07:00`;
 
                     // Determine raw status from logic
                     let rawStatus = determineAttendanceStatus(timestamp, sessionStart);
@@ -471,25 +475,25 @@ const DigitalAttendancePage = () => {
 
         if (existingAttendance) {
           if (isPentashih) {
-             const nowTime = new Date().toTimeString().split(' ')[0];
-             const timestamp = new Date().toISOString();
-             await supabase.from('attendance').update({ check_in_time: nowTime, check_in_timestamp: timestamp }).eq('id', existingAttendance.id);
-             setLastScan({ ...successData, message: 'Absensi diperbarui!', time: nowTime });
+             const now = new Date();
+             const nowTime = getJakartaTimeString(now);
+             const timestamp = now.toISOString();
+             const sessionStartTime = buildSessionStartTimestamp(todayStr, sesiUser, sessionTimes);
+             const status = determineAttendanceStatus(timestamp, sessionStartTime);
+             await supabase.from('attendance').update({ check_in_time: nowTime, check_in_timestamp: timestamp, status }).eq('id', existingAttendance.id);
+             setLastScan({ ...successData, message: 'Absensi diperbarui!', time: nowTime, status });
              return;
           }
           if (userRole === 'santri') {
-             setLastScan({ ...successData, type: 'warning', message: 'Santri sudah tercatat hadir pada sesi ini.', time: existingAttendance.check_in_time });
+             setLastScan({ ...successData, type: 'warning', message: 'Santri sudah tercatat hadir pada sesi ini.', time: existingAttendance.check_in_time, status: existingAttendance.status });
              return;
           }
-          setLastScan({ type: 'confirmation', role: userRole, kategori, message: 'Konfirmasi Kehadiran', name: user.nama || user.nama_lengkap, photo: user.foto_url, rfid: tag, attendanceId: existingAttendance.id, pendingQuote: randomQuote, points: user.points, jilid: user.jilid, gender: user.jenis_kelamin, jabatan: user.jabatan, no_hp: user.no_hp });
+          setLastScan({ type: 'confirmation', role: userRole, kategori, message: 'Konfirmasi Kehadiran', name: user.nama || user.nama_lengkap, photo: user.foto_url, rfid: tag, attendanceId: existingAttendance.id, attendanceDate: todayStr, sesi: sesiUser, pendingQuote: randomQuote, points: user.points, jilid: user.jilid, gender: user.jenis_kelamin, jabatan: user.jabatan, no_hp: user.no_hp });
           return;
         }
 
         const timestamp = new Date().toISOString();
-        let sessionStartTime = null;
-        if (sessionTimes[sesiUser]) {
-            sessionStartTime = new Date(`${todayStr}T${sessionTimes[sesiUser].start}:00`).toISOString();
-        }
+        const sessionStartTime = buildSessionStartTimestamp(todayStr, sesiUser, sessionTimes);
         const attendanceStatusText = determineAttendanceStatus(timestamp, sessionStartTime);
 
         const newAttendance = userRole === 'santri'
@@ -498,7 +502,7 @@ const DigitalAttendancePage = () => {
               user_id: user.id,
               role: userRole,
               attendance_date: todayStr,
-              check_in_time: new Date().toTimeString().split(' ')[0],
+              check_in_time: getJakartaTimeString(new Date(timestamp)),
               check_in_timestamp: timestamp,
               class_id: null,
               sesi: sesiUser || (isPentashih ? 'Flex' : 'Pagi'),

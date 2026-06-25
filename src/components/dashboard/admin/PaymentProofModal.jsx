@@ -6,29 +6,75 @@ import { Loader2, Download, Printer, MessageSquare } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { toast } from '@/components/ui/use-toast';
 import QRCode from 'qrcode';
+import { supabase } from '@/lib/customSupabaseClient';
+import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
 
 const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const receiptRef = useRef(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+    const [completePayment, setCompletePayment] = useState(null);
     const [qrCodeDataURL, setQrCodeDataURL] = useState('');
 
     useEffect(() => {
-        if (isOpen && payment) {
+        const fetchCompletePayment = async () => {
+            if (!isOpen || !payment?.id) {
+                setCompletePayment(null);
+                return;
+            }
+
+            setIsLoadingPayment(true);
+            try {
+                const { data, error } = await supabase
+                    .from('payments')
+                    .select(PAYMENT_DETAIL_SELECT)
+                    .eq('id', payment.id)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!data) throw new Error('Record pembayaran tidak ditemukan.');
+                setCompletePayment(data);
+            } catch (error) {
+                setCompletePayment(null);
+                toast({ title: 'Gagal Memuat Bukti', description: error.message, variant: 'destructive' });
+            } finally {
+                setIsLoadingPayment(false);
+            }
+        };
+
+        fetchCompletePayment();
+    }, [isOpen, payment?.id]);
+
+    useEffect(() => {
+        if (isOpen && completePayment) {
             const qrCodeLoginUrl = `https://lpqalmuhajirun.id/login`;
             QRCode.toDataURL(qrCodeLoginUrl, { width: 120, margin: 1 }, (err, url) => {
                 if (!err) setQrCodeDataURL(url);
             });
         }
-    }, [isOpen, payment]);
+    }, [isOpen, completePayment]);
+
+    const receiptPayment = completePayment || payment;
+    const amount = Number(receiptPayment?.jumlah || 0);
+    const paymentDate = receiptPayment?.tanggal_pembayaran || receiptPayment?.created_at || new Date().toISOString();
+    const paymentMethod = receiptPayment?.metode_pembayaran || '-';
+    const transactionRef = receiptPayment?.transaction_id || receiptPayment?.id || '-';
+    const studentName = receiptPayment?.santri?.nama_lengkap || 'Santri';
+    const studentId = receiptPayment?.santri?.nomor_induk_qiroati || '-';
+    const period = formatPaymentPeriod(receiptPayment?.bulan, receiptPayment?.tahun);
+    const notes = receiptPayment?.catatan || 'Pembayaran Administrasi';
 
     const handleDownload = async () => {
-        if (!receiptRef.current || !payment) return;
+        if (!receiptRef.current || !receiptPayment?.id) {
+            toast({ title: 'Gagal', description: 'Data pembayaran belum lengkap.', variant: 'destructive' });
+            return;
+        }
         setIsGenerating(true);
         try {
             const dataUrl = await toPng(receiptRef.current, { cacheBust: true, backgroundColor: '#ffffff', pixelRatio: 2 });
             const link = document.createElement('a');
-            const santriName = payment.santri?.nama_lengkap.replace(/\s+/g, '_') || 'Santri';
-            const dateStr = new Date(payment.tanggal_pembayaran).toLocaleDateString('id-ID').replace(/\//g, '-');
+            const santriName = studentName.replace(/\s+/g, '_') || 'Santri';
+            const dateStr = new Date(paymentDate).toLocaleDateString('id-ID').replace(/\//g, '-');
             link.download = `Bukti-Pembayaran-${santriName}-${dateStr}.png`;
             link.href = dataUrl;
             link.click();
@@ -42,12 +88,12 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     };
 
     const handleSendWhatsApp = () => {
-        if (!payment || !payment.santri?.no_hp_ortu) {
+        if (!receiptPayment || !receiptPayment.santri?.no_hp_ortu) {
             toast({ title: "Gagal", description: "Nomor HP Wali Santri tidak ditemukan.", variant: "destructive" });
             return;
         }
 
-        let phoneNumber = payment.santri.no_hp_ortu.replace(/\D/g, '');
+        let phoneNumber = receiptPayment.santri.no_hp_ortu.replace(/\D/g, '');
         if (phoneNumber.startsWith('0')) phoneNumber = '62' + phoneNumber.substring(1);
         else if (!phoneNumber.startsWith('62')) phoneNumber = '62' + phoneNumber;
         
@@ -56,22 +102,19 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
             return;
         }
 
-        const santriName = payment.santri.nama_lengkap;
-        const amount = payment.jumlah.toLocaleString('id-ID');
-        const date = new Date(payment.tanggal_pembayaran).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-        const items = payment.catatan || 'Pembayaran Administrasi';
-        const method = payment.metode_pembayaran;
+        const formattedAmount = amount.toLocaleString('id-ID');
+        const date = new Date(paymentDate).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
         const message = `Assalamualaikum Wr. Wb.
-Ayah/Bunda dari *${santriName}*
+Ayah/Bunda dari *${studentName}*
 
 Terima kasih telah melakukan pembayaran di LPQ Al-Muhajirun.
 Berikut rincian pembayaran yang telah kami terima:
 
-📋 *Rincian:* ${items}
-💰 *Nominal:* Rp ${amount}
+📋 *Rincian:* ${notes}
+💰 *Nominal:* Rp ${formattedAmount}
 📅 *Tanggal:* ${date}
-💳 *Metode:* ${method}
+💳 *Metode:* ${paymentMethod}
 ✅ *Status:* LUNAS
 
 Terima kasih atas kepercayaannya. Semoga menjadi amal jariyah dan berkah untuk keluarga.
@@ -110,31 +153,32 @@ Salam,
                         {/* Meta Info */}
                         <div className="flex justify-between text-xs mb-4 text-slate-600 bg-slate-50 p-3 rounded-lg relative z-10">
                             <div className="space-y-1">
-                                <p>Tgl: <span className="font-semibold text-slate-900">{new Date(payment.tanggal_pembayaran).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
-                                <p>Jam: <span className="font-semibold text-slate-900">{new Date(payment.tanggal_pembayaran).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span></p>
+                                <p>Tgl: <span className="font-semibold text-slate-900">{new Date(paymentDate).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+                                <p>Jam: <span className="font-semibold text-slate-900">{new Date(paymentDate).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span></p>
                             </div>
                             <div className="space-y-1 text-right">
-                                <p>Metode: <span className="font-semibold text-slate-900 uppercase">{payment.metode_pembayaran}</span></p>
-                                <p>Ref: <span className="font-mono">{payment.transaction_id ? payment.transaction_id.substring(0,8) : payment.id.substring(0,8)}</span></p>
+                                <p>Metode: <span className="font-semibold text-slate-900 uppercase">{paymentMethod}</span></p>
+                                <p>Ref: <span className="font-mono">{String(transactionRef).substring(0, 18)}</span></p>
                             </div>
                         </div>
 
                         {/* Student Info */}
                         <div className="mb-4 relative z-10">
                             <p className="text-[10px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">Diterima Dari:</p>
-                            <p className="text-sm font-bold text-slate-900">{payment.santri?.nama_lengkap}</p>
+                            <p className="text-sm font-bold text-slate-900">{studentName}</p>
+                            <p className="text-xs text-slate-500 font-mono">No. Induk: {studentId}</p>
                         </div>
                         
                         {/* Items */}
                         <div className="space-y-3 mb-6 relative z-10">
                             <div className="border-t border-slate-200 pt-3"></div>
                             <div className="flex justify-between text-sm py-1">
-                                <span className="text-slate-700 flex-1 font-medium">{payment.catatan || 'Pembayaran Lainnya'}</span>
-                                <span className="font-bold text-slate-900">Rp {payment.jumlah.toLocaleString('id-ID')}</span>
+                                <span className="text-slate-700 flex-1 font-medium">{notes}</span>
+                                <span className="font-bold text-slate-900">Rp {amount.toLocaleString('id-ID')}</span>
                             </div>
-                            {payment.bulan && payment.tahun && (
+                            {period !== '-' && (
                                 <div className="text-xs text-slate-500 pl-2">
-                                    Tagihan: {payment.bulan} {payment.tahun}
+                                    Tagihan: {period}
                                 </div>
                             )}
                             <div className="border-t border-slate-200 pt-3"></div>
@@ -143,7 +187,7 @@ Salam,
                         {/* Total */}
                         <div className="flex justify-between items-center bg-green-50 p-3 rounded-lg border border-green-100 mb-6 relative z-10">
                             <span className="text-sm font-bold text-green-800">TOTAL BAYAR</span>
-                            <span className="text-xl font-black text-green-900">Rp {payment.jumlah.toLocaleString('id-ID')}</span>
+                            <span className="text-xl font-black text-green-900">Rp {amount.toLocaleString('id-ID')}</span>
                         </div>
 
                         {/* Footer */}
@@ -157,12 +201,12 @@ Salam,
 
                     <div className="p-4 bg-slate-50 flex justify-center gap-2 border-t flex-wrap">
                         <Button variant="outline" size="sm" onClick={onClose}>Tutup</Button>
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={handleSendWhatsApp}>
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={handleSendWhatsApp} disabled={isLoadingPayment}>
                             <MessageSquare className="mr-2 h-4 w-4"/> Kirim WA
                         </Button>
-                        <Button size="sm" onClick={handleDownload} disabled={isGenerating}>
+                        <Button size="sm" onClick={handleDownload} disabled={isGenerating || isLoadingPayment || !completePayment}>
                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4"/>}
-                            Simpan Bukti
+                            {isLoadingPayment ? 'Memuat...' : 'Simpan Bukti'}
                         </Button>
                     </div>
                 </div>

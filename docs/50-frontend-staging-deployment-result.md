@@ -189,3 +189,86 @@ Rekomendasi langkah berikutnya:
 4. Import ke Vercel sebagai project staging.
 5. Pasang environment variable staging.
 6. Jalankan smoke test online.
+
+## Stabilization Pass Frontend Staging
+
+Tanggal: 2026-06-25
+
+Status:
+
+- bug `media_player_settings` tetap terjaga: fitur media player masih gated oleh `VITE_ENABLE_DEFERRED_FEATURES=false`;
+- bug simpan logo website tidak diubah ulang dan tetap divalidasi oleh test regresi;
+- tidak ada perubahan migration, RLS, Edge Function, backend staging, production, atau database lama;
+- perubahan hanya pada frontend runtime, helper, test regresi, dan laporan ini.
+
+### Masalah dan Perbaikan
+
+1. Upload avatar santri gagal.
+   - Akar penyebab: pemanggilan signed upload memakai `supabase.functions.invoke()` sehingga detail header/session kurang eksplisit pada runtime Vercel.
+   - Perbaikan: `storageAdapters` sekarang mengambil session aktif, mengirim `Authorization: Bearer <user session>` dan `apikey` publishable ke `generate-signed-upload-url`, lalu menampilkan error aman dari Edge Function atau Storage.
+   - Persistensi: setelah upload berhasil, admin update hanya field `avatar_path` pada record santri dan list memuat ulang avatar dari path Storage.
+
+2. Edit data santri tidak tersimpan atau kembali kosong.
+   - Akar penyebab: form mengirim payload penuh sehingga nilai kosong dapat menimpa field lama dan hasil update tidak memverifikasi row yang berubah.
+   - Perbaikan: edit santri memakai `pickChangedSantriProfileFields()`, hanya field berubah yang dikirim, dan update wajib mengembalikan `id`. Jika tidak ada row berubah, UI tidak menampilkan sukses palsu.
+
+3. Logika keterlambatan absensi belum sesuai aturan 15 menit.
+   - Akar penyebab: status `Terlambat` dihitung segera setelah waktu mulai sesi.
+   - Perbaikan: `AttendanceStatusLogic.js` menjadi sumber kebenaran dengan timezone `Asia/Jakarta` dan grace period 15 menit. Tepat pada menit ke-15 masih `Hadir`/Tepat Waktu; menit ke-16 menjadi `Terlambat`.
+
+4. Bukti pembayaran gagal dibuat dari data tersimpan.
+   - Akar penyebab: modal bukti pembayaran bergantung pada object pembayaran dari state tabel.
+   - Perbaikan: saat modal dibuka, record pembayaran lengkap dimuat ulang dari tabel `payments` menggunakan `PAYMENT_DETAIL_SELECT`. Bukti memuat identitas LPQ, nama santri, Nomor Induk, periode, nominal, tanggal, metode, dan transaction ID dengan fallback aman.
+
+5. Rekap absensi belum konsisten dengan status terlambat.
+   - Akar penyebab: beberapa komponen membentuk timestamp sesi sendiri.
+   - Perbaikan: rekap admin, rekap santri, dan modal edit waktu memakai helper keterlambatan yang sama. Edit waktu manual menyimpan ulang `status` yang dihitung dari timestamp baru.
+
+6. Data profil santri tidak tampil pada TV Display.
+   - Akar penyebab: TV Display masih memakai mapping legacy `id_kelas` dan order kelas `order`, sedangkan schema final memakai `current_class_id` dan `sort_order`.
+   - Perbaikan: TV Display membaca kolom final, memetakan `current_class_id` ke kebutuhan UI lama, resolve avatar dari `avatar_path`, dan fallback aman saat data kosong.
+
+### File yang Diubah
+
+- `src/lib/storageAdapters.js`
+- `src/lib/dataMasterAdapters.js`
+- `src/lib/attendanceAdapters.js`
+- `src/utils/AttendanceStatusLogic.js`
+- `src/components/dashboard/admin/SantriManagement.jsx`
+- `src/components/dashboard/admin/DigitalAttendance.jsx`
+- `src/pages/DigitalAttendancePage.jsx`
+- `src/components/dashboard/admin/AttendanceRecap.jsx`
+- `src/components/dashboard/santri/SantriAbsensiRecap.jsx`
+- `src/components/dashboard/shared/AttendanceDetailsModal.jsx`
+- `src/components/dashboard/shared/AttendanceStatusIcon.jsx`
+- `src/components/dashboard/admin/PaymentProofModal.jsx`
+- `src/pages/TvDisplayPage.jsx`
+- `scripts/test-frontend-staging-bugfixes.ps1`
+- `docs/50-frontend-staging-deployment-result.md`
+
+### Hasil Test
+
+- `scripts/test-frontend-staging-bugfixes.ps1`: lulus `13/13`.
+- `npm run build`: lulus.
+- `git diff --check`: lulus.
+- `scripts/validate-no-secrets.ps1`: lulus, tidak menemukan credential aktual.
+- Runtime scan secret frontend JS/JSX/TS/TSX: tidak menemukan secret, service-role key, database password, atau publishable key hard-code.
+
+Catatan:
+
+- Scan luas terhadap repo masih menemukan istilah `access_token` dan `service-role` sebagai nama field, nama role, atau instruksi dokumentasi/script. Tidak ditemukan nilai secret yang dikomit.
+- Build menghasilkan bundle besar seperti sebelumnya; belum dilakukan optimasi chunk pada stabilization pass ini.
+
+### Retest Manual Staging
+
+Setelah Vercel redeploy dari commit stabilization, uji:
+
+- login admin, guru, pentashih, dan santri;
+- admin upload avatar santri, refresh, dan login ulang;
+- edit data santri lalu refresh;
+- scan RFID sebelum/tepat 15 menit/sesudah 15 menit bila data waktu memungkinkan;
+- edit waktu absensi dari rekap dan pastikan status berubah;
+- buka bukti pembayaran dari transaksi tersimpan setelah refresh;
+- buka TV Display dan pastikan profil santri, kelas, jilid, dan avatar tampil;
+- pastikan media player tetap tidak aktif saat deferred features false;
+- upload dan simpan logo website tetap berhasil.

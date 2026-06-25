@@ -6,20 +6,9 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Percent, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
-import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 
-const sessionTimes = {
-  'Pagi': { start: '08:00' },
-  'Siang': { start: '13:00' },
-  'Sore': { start: '16:00' },
-  'Malam': { start: '18:30' },
-};
-
-const getSessionStartTimestamp = (dateStr, sesiName) => {
-    if (!sesiName || !sessionTimes[sesiName]) return null;
-    const { start } = sessionTimes[sesiName];
-    return new Date(`${dateStr}T${start}:00`).toISOString();
-};
+const getSessionStartTimestamp = (dateStr, sesiName) => buildSessionStartTimestamp(dateStr, sesiName, DEFAULT_SESSION_TIMES);
 
 const normalizeStatus = (rawStatus) => {
     if (!rawStatus) return 'Tidak Hadir';

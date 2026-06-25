@@ -5,16 +5,20 @@ import { cn } from '@/lib/utils';
 const AttendanceStatusIcon = ({ status, onClick, className }) => {
   let Icon = Check;
   let colorClass = 'bg-emerald-500';
+  let label = status;
 
   if (status === 'Terlambat') {
     Icon = Clock;
     colorClass = 'bg-amber-500';
+    label = 'Terlambat';
   } else if (status === 'Tidak Hadir' || status === 'A' || status === 'Alpha') {
     Icon = X;
     colorClass = 'bg-red-500';
+    label = 'Tidak Hadir';
   } else if (status === 'Hadir' || status === 'H') {
     Icon = Check;
     colorClass = 'bg-emerald-500';
+    label = 'Tepat Waktu';
   } else {
     // Default or undefined
     return <div className={cn("w-6 h-6 rounded-full bg-slate-200", className)} />;
@@ -28,7 +32,7 @@ const AttendanceStatusIcon = ({ status, onClick, className }) => {
         colorClass,
         className
       )}
-      title={status}
+      title={label}
     >
       <Icon className="w-3.5 h-3.5" strokeWidth={3} />
     </div>

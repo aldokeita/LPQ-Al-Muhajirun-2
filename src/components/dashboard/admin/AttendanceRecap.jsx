@@ -13,17 +13,12 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import AttendanceStatusIcon from '../shared/AttendanceStatusIcon';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
-import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-const sessionTimes = {
-  'Pagi': { start: '08:00' },
-  'Siang': { start: '13:00' },
-  'Sore': { start: '16:00' },
-  'Malam': { start: '18:30' },
-};
+const sessionTimes = DEFAULT_SESSION_TIMES;
 
 const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
     const [year, setYear] = useState(new Date().getFullYear());
@@ -185,11 +180,7 @@ const AttendanceRecap = () => {
         fetchAllData();
     }, [fetchAllData]);
 
-    const getSessionStartTimestamp = (dateStr, sesiName) => {
-        if (!sesiName || !sessionTimes[sesiName]) return null;
-        const { start } = sessionTimes[sesiName];
-        return new Date(`${dateStr}T${start}:00`).toISOString();
-    };
+    const getSessionStartTimestamp = (dateStr, sesiName) => buildSessionStartTimestamp(dateStr, sesiName, sessionTimes);
 
     const handleIconClick = (record, day, user) => {
         const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

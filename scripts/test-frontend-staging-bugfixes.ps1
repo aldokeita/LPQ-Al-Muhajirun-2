@@ -62,8 +62,75 @@ Add-Check "logo upload saves url before showing success" {
   if ($text -notmatch "Logo Disimpan!") { throw "success toast is not tied to database save" }
 }
 
-$passed = ($checks | Where-Object Status -eq "PASS").Count
-$failed = ($checks | Where-Object Status -eq "FAIL").Count
+Add-Check "avatar upload sends explicit authenticated Edge Function request" {
+  $text = Read-Text "src/lib/storageAdapters.js"
+  if ($text -notmatch "supabase\.auth\.getSession\(\)") { throw "session is not loaded before signed upload" }
+  if (-not $text.Contains('Authorization: `Bearer ${accessToken}`')) { throw "user access token is not sent to Edge Function" }
+  if ($text -notmatch "apikey:\s*supabaseAnonKey") { throw "publishable key header missing" }
+  if ($text -notmatch "/functions/v1/generate-signed-upload-url") { throw "function endpoint is not explicit" }
+  if ($text -notmatch "Edge Function generate-signed-upload-url gagal") { throw "safe function error is not surfaced" }
+}
+
+Add-Check "santri avatar upload persists avatar path after storage upload" {
+  $text = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  if ($text -notmatch "\.update\(\{\s*avatar_path:\s*path\s*\}\)") { throw "avatar path is not persisted narrowly" }
+  if ($text -notmatch "Avatar terunggah, tetapi referensi profil santri tidak tersimpan") { throw "missing persistence failure message" }
+  if ($text -notmatch "resolveAvatarUrl") { throw "santri list does not resolve avatar path after refresh" }
+}
+
+Add-Check "santri edit sends changed fields and verifies updated row" {
+  $adapter = Read-Text "src/lib/dataMasterAdapters.js"
+  $component = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  if ($adapter -notmatch "pickChangedSantriProfileFields") { throw "changed-field picker missing" }
+  if ($component -notmatch "pickChangedSantriProfileFields\(finalFormData, editingSantri\)") { throw "edit flow does not use changed-field payload" }
+  if ($component -notmatch "\.select\('id'\)\s*\.maybeSingle\(\)") { throw "edit flow does not verify updated row" }
+  if ($component -notmatch "Data santri tidak tersimpan karena tidak ada row yang diperbarui") { throw "no-row update is not treated as failure" }
+}
+
+Add-Check "attendance late boundary uses one 15-minute helper" {
+  $js = @'
+import { buildJakartaTimestamp, determineAttendanceStatus } from './src/utils/AttendanceStatusLogic.js';
+const start = buildJakartaTimestamp('2026-06-25', '16:00:00');
+const onBoundary = buildJakartaTimestamp('2026-06-25', '16:15:00');
+const afterBoundary = buildJakartaTimestamp('2026-06-25', '16:16:00');
+if (determineAttendanceStatus(onBoundary, start) !== 'Hadir') throw new Error('15-minute boundary should be on time');
+if (determineAttendanceStatus(afterBoundary, start) !== 'Terlambat') throw new Error('after 15 minutes should be late');
+console.log('ok');
+'@
+  $output = & node --input-type=module -e $js
+  if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "late boundary helper failed" }
+}
+
+Add-Check "attendance recap and manual edit use shared late helper" {
+  $recap = Read-Text "src/components/dashboard/admin/AttendanceRecap.jsx"
+  $modal = Read-Text "src/components/dashboard/shared/AttendanceDetailsModal.jsx"
+  $santriRecap = Read-Text "src/components/dashboard/santri/SantriAbsensiRecap.jsx"
+  if ($recap -notmatch "buildSessionStartTimestamp") { throw "admin recap does not use shared session timestamp helper" }
+  if ($modal -notmatch "buildJakartaTimestamp") { throw "manual edit does not use Jakarta timestamp helper" }
+  if ($modal -notmatch "status:\s*newStatus") { throw "manual edit does not save recomputed status" }
+  if ($santriRecap -notmatch "buildSessionStartTimestamp") { throw "santri recap does not use shared helper" }
+}
+
+Add-Check "payment proof reloads stored payment record before generating receipt" {
+  $text = Read-Text "src/components/dashboard/admin/PaymentProofModal.jsx"
+  if ($text -notmatch "from\('payments'\)") { throw "proof modal does not read stored payment" }
+  if ($text -notmatch "select\(PAYMENT_DETAIL_SELECT\)") { throw "proof modal does not request complete payment detail" }
+  if ($text -notmatch "receiptPayment\?\.id") { throw "proof generation is not guarded by stored record" }
+  if ($text -notmatch "No\. Induk") { throw "receipt does not include santri identifier" }
+  if ($text -notmatch "transactionRef") { throw "receipt does not include transaction reference" }
+}
+
+Add-Check "TV Display maps final santri schema and avatar fallback" {
+  $text = Read-Text "src/pages/TvDisplayPage.jsx"
+  if ($text -notmatch "current_class_id") { throw "TV display does not query current_class_id" }
+  if ($text -notmatch "id_kelas:\s*item\.current_class_id") { throw "TV display does not bridge current_class_id for old UI" }
+  if ($text -notmatch "resolveAvatarUrl") { throw "TV display does not resolve avatar paths" }
+  if ($text -match "class:id_kelas") { throw "TV display still uses legacy id_kelas relation" }
+  if ($text -notmatch "order\('sort_order'") { throw "TV display does not order classes by final sort_order column" }
+}
+
+$passed = @($checks | Where-Object { $_.Status -eq "PASS" }).Count
+$failed = @($checks | Where-Object { $_.Status -eq "FAIL" }).Count
 
 foreach ($check in $checks) {
   if ($check.Status -eq "PASS") {

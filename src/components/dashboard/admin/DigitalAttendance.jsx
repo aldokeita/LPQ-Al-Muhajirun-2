@@ -15,12 +15,9 @@ import {
     isActiveSantri,
     normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
+import { buildSessionStartTimestamp, DEFAULT_SESSION_TIMES, determineAttendanceStatus, getJakartaTimeString } from '@/utils/AttendanceStatusLogic';
 
-const sessionTimes = {
-  'Pagi': { start: '08:00', end: '09:15' },
-  'Siang': { start: '14:00', end: '15:15' },
-  'Sore': { start: '16:00', end: '17:15' },
-};
+const sessionTimes = DEFAULT_SESSION_TIMES;
 
 const DigitalClock = () => {
     const [time, setTime] = useState(new Date());
@@ -138,14 +135,18 @@ const DigitalAttendance = () => {
              if (tag === lastScan.rfid) {
                  setIsLoading(true);
                  try {
-                    const nowTime = new Date().toTimeString().split(' ')[0];
-                    const timestamp = new Date().toISOString();
+                    const now = new Date();
+                    const nowTime = getJakartaTimeString(now);
+                    const timestamp = now.toISOString();
+                    const sessionStartTime = buildSessionStartTimestamp(lastScan.attendanceDate, lastScan.sesi);
+                    const status = determineAttendanceStatus(timestamp, sessionStartTime);
 
                     const { error } = await supabase
                         .from('attendance')
                         .update({
                             check_in_time: nowTime,
-                            check_in_timestamp: timestamp // Updated timestamp field
+                            check_in_timestamp: timestamp,
+                            status,
                         })
                         .eq('id', lastScan.attendanceId);
 
@@ -231,7 +232,7 @@ const DigitalAttendance = () => {
                     user_id: user.id,
                     role: userRole,
                     attendance_date: today,
-                    check_in_time: timestamp.toTimeString().split(' ')[0],
+                    check_in_time: getJakartaTimeString(timestamp),
                     check_in_timestamp: timestamp.toISOString(),
                     class_id: null,
                     sesi: sesiUser,
@@ -241,7 +242,7 @@ const DigitalAttendance = () => {
             const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
 
             if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url });
-            } else { setLastScan({ type: 'success', message: `Absensi sesi ${sesiUser} berhasil!`, name: user.nama || user.nama_lengkap, photo: user.foto_url, time: newAttendance.check_in_time }); }
+            } else { setLastScan({ type: 'success', message: `Absensi sesi ${sesiUser} berhasil!`, name: user.nama || user.nama_lengkap, photo: user.foto_url, time: newAttendance.check_in_time, status: newAttendance.status }); }
         } finally {
             setIsLoading(false);
             setRfidTag('');

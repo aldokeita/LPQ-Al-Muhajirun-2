@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { buildJakartaTimestamp, formatTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import AttendanceStatusIcon from './AttendanceStatusIcon';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -56,7 +56,7 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
     setIsSubmitting(true);
     try {
       const attendanceDate = details.attendance_date || new Date().toLocaleDateString('en-CA');
-      const checkInTimestamp = new Date(`${attendanceDate}T${timeInput}`).toISOString();
+      const checkInTimestamp = new Date(buildJakartaTimestamp(attendanceDate, timeInput)).toISOString();
       const newStatus = determineAttendanceStatus(checkInTimestamp, details.sessionStartTime);
 
       if (details.id && details.status !== 'Tidak Hadir') {
@@ -110,6 +110,8 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
 
   if (!details) return null;
 
+  const statusLabel = details.status === 'Hadir' ? 'Tepat Waktu' : details.status;
+
   // Calculate late minutes dynamically for the view
   const computedLateMinutes = details.checkInTimestamp && details.sessionStartTime
     ? calculateTimeDifference(details.checkInTimestamp, details.sessionStartTime)
@@ -141,7 +143,7 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
                     <div className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Status</p>
-                        <p className="font-semibold text-lg text-slate-800 dark:text-slate-200">{details.status}</p>
+                        <p className="font-semibold text-lg text-slate-800 dark:text-slate-200">{statusLabel}</p>
                       </div>
                       <AttendanceStatusIcon status={details.status} className="w-12 h-12 pointer-events-none" />
                     </div>

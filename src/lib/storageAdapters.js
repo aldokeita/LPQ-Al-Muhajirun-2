@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/customSupabaseClient';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
 
 const AVATAR_BUCKET = 'avatars';
@@ -42,30 +42,88 @@ export const getAvatarPath = ({ ownerType, ownerId }) => {
   return `${folder}/${ownerId}/profile.webp`;
 };
 
+const parseSafeResponseBody = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text.slice(0, 500) };
+  }
+};
+
+const formatRemoteError = (body, fallback) => {
+  const error = body?.error || body;
+  const parts = [
+    error?.message,
+    error?.details,
+    error?.hint,
+  ].filter(Boolean);
+  return parts.join(' ') || fallback;
+};
+
+const invokeSignedUploadFunction = async (body) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase belum dikonfigurasi untuk upload Storage.');
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new Error('Gagal membaca sesi login untuk upload avatar.');
+
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) {
+    throw new Error('Sesi login tidak tersedia. Silakan login ulang sebelum upload avatar.');
+  }
+
+  const endpoint = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/generate-signed-upload-url`;
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new Error(`Gagal menghubungi Edge Function upload: ${error?.message || 'network error'}`);
+  }
+
+  const responseBody = await parseSafeResponseBody(response);
+  if (!response.ok) {
+    throw new Error(`Edge Function generate-signed-upload-url gagal (${response.status}): ${formatRemoteError(responseBody, 'request ditolak')}`);
+  }
+
+  return responseBody?.data || responseBody;
+};
+
 const uploadViaSignedUrl = async ({ bucket, path, file, purpose }) => {
   if (!enableEdgeFunctions) throw new Error(edgeFunctionDisabledMessage);
 
-  const { data, error } = await supabase.functions.invoke('generate-signed-upload-url', {
-    body: {
-      bucket,
-      path,
-      content_type: file.type,
-      size: file.size,
-      purpose,
-    },
+  const signedUpload = await invokeSignedUploadFunction({
+    bucket,
+    path,
+    content_type: file.type,
+    size: file.size,
+    purpose,
   });
 
-  if (error) throw error;
-  const signedUpload = data?.data || data;
-  if (!signedUpload?.signed_url) throw new Error('Signed URL upload tidak tersedia.');
+  const signedUrl = signedUpload?.signed_url || signedUpload?.signedUrl;
+  if (!signedUrl) throw new Error('Signed URL upload tidak tersedia dari Edge Function.');
 
-  const response = await fetch(normalizeLocalSignedUrl(signedUpload.signed_url), {
+  const response = await fetch(normalizeLocalSignedUrl(signedUrl), {
     method: 'PUT',
     headers: { 'Content-Type': file.type },
     body: file,
   });
 
-  if (!response.ok) throw new Error('Upload file ke Storage gagal.');
+  if (!response.ok) {
+    const responseBody = await parseSafeResponseBody(response);
+    throw new Error(`Upload file ke Storage gagal (${response.status}): ${formatRemoteError(responseBody, 'request ditolak')}`);
+  }
   return signedUpload.path || path;
 };
 

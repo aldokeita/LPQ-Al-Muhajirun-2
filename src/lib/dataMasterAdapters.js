@@ -39,6 +39,29 @@ export const pickSantriProfileFields = (input) => {
   };
 };
 
+const normalizeComparableValue = (value) => {
+  if (value === undefined || value === '') return null;
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isNaN(value)) return null;
+  return value;
+};
+
+export const pickChangedSantriProfileFields = (input, original = {}) => {
+  const next = pickSantriProfileFields(input);
+  const previous = pickSantriProfileFields({
+    ...original,
+    current_class_id: original.current_class_id ?? original.id_kelas ?? null,
+    id_kelas: original.current_class_id ?? original.id_kelas ?? null,
+  });
+
+  return Object.entries(next).reduce((payload, [key, value]) => {
+    if (normalizeComparableValue(value) !== normalizeComparableValue(previous[key])) {
+      payload[key] = value;
+    }
+    return payload;
+  }, {});
+};
+
 export const pickGuruProfileFields = (input, role = 'guru') => ({
   nama: input.nama?.trim(),
   email: input.email?.trim() || null,

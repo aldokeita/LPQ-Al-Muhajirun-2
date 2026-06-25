@@ -20,8 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
-import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
-import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
+import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
+import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -442,7 +442,16 @@ const SantriManagement = () => {
           setFetchError(santriRes.error.message);
           toast({ title: "Gagal Memuat Data Santri", description: santriRes.error.message, variant: "destructive" });
       } else {
-          const filteredSantri = (santriRes.data || []).map(mapSantriForLegacyUi).filter(s => {
+          const mappedSantri = await Promise.all((santriRes.data || []).map(async (item) => {
+              const foto_url = await resolveAvatarUrl({
+                  ownerType: 'santri',
+                  ownerId: item.id,
+                  avatarPath: item.avatar_path,
+                  fallbackUrl: item.foto_url,
+              });
+              return mapSantriForLegacyUi({ ...item, foto_url });
+          }));
+          const filteredSantri = mappedSantri.filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
               const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
               if (currentTab === 'tpq') return (cat === 'anak' || cat === 'tpq') && isActive;
@@ -461,7 +470,7 @@ const SantriManagement = () => {
       
       const mappedSessions = getAllSessions().map(s => s.name);
       setSessionOptions(mappedSessions);
-      setFormData(prev => ({...prev, sesi_mengaji: mappedSessions[0] || ''}));
+      setFormData(prev => editingSantri ? prev : ({...prev, sesi_mengaji: mappedSessions[0] || ''}));
       
     } catch (err) {
       console.error('Unexpected error during loadData:', err);
@@ -532,8 +541,21 @@ const SantriManagement = () => {
 
     try {
         const { path, signedUrl } = await uploadAvatar({ ownerType: 'santri', ownerId: editingSantri.id, file });
-        setFormData(prev => ({ ...prev, avatar_path: path, foto_url: signedUrl || prev.foto_url }));
-        toast({ title: "Upload Berhasil" });
+        const { data, error } = await supabase
+            .from('santri')
+            .update({ avatar_path: path })
+            .eq('id', editingSantri.id)
+            .select('id, avatar_path, foto_url')
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) throw new Error('Avatar terunggah, tetapi referensi profil santri tidak tersimpan.');
+
+        const finalUrl = signedUrl || formData.foto_url || '';
+        setFormData(prev => ({ ...prev, avatar_path: path, foto_url: finalUrl }));
+        setEditingSantri(prev => prev ? ({ ...prev, avatar_path: path, foto_url: finalUrl }) : prev);
+        setSantriList(prev => prev.map(item => item.id === editingSantri.id ? ({ ...item, avatar_path: path, foto_url: finalUrl }) : item));
+        toast({ title: "Upload Berhasil", description: "Avatar tersimpan dan akan tetap muncul setelah refresh." });
     } catch (error) {
         toast({ title: "Upload Gagal", description: getStorageErrorMessage(error), variant: "destructive" });
     } finally {
@@ -610,12 +632,24 @@ const SantriManagement = () => {
         targetId = data.data.user_id;
       }
 
-      const { error } = await supabase
+      const profilePayload = editingSantri
+        ? pickChangedSantriProfileFields(finalFormData, editingSantri)
+        : pickSantriProfileFields(finalFormData);
+
+      if (editingSantri && Object.keys(profilePayload).length === 0) {
+        toast({ title: "Tidak ada perubahan", description: "Tidak ada field santri yang perlu disimpan." });
+        return;
+      }
+
+      const { data: savedSantri, error } = await supabase
         .from('santri')
-        .update(pickSantriProfileFields(finalFormData))
-        .eq('id', targetId);
+        .update(profilePayload)
+        .eq('id', targetId)
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
 
       toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
       loadData(activeTab);

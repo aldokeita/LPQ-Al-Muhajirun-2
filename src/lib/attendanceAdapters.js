@@ -1,28 +1,42 @@
+import {
+    buildSessionStartTimestamp,
+    determineAttendanceStatus,
+    getJakartaDateString,
+    getJakartaTimeString,
+} from '@/utils/AttendanceStatusLogic';
+
 const ACTIVE_STATUS = new Set(['aktif', 'active']);
 
 export const normalizeRfidTag = (value) => String(value || '').trim();
 
 export const isActiveSantri = (status) => ACTIVE_STATUS.has(String(status || '').trim().toLowerCase());
 
-export const getLocalDateString = (date = new Date()) => date.toLocaleDateString('en-CA');
+export const getLocalDateString = (date = new Date()) => getJakartaDateString(date);
 
-export const getLocalTimeString = (date = new Date()) => date.toTimeString().split(' ')[0];
+export const getLocalTimeString = (date = new Date()) => getJakartaTimeString(date);
 
 export const getSantriSession = (santri, fallback = 'Pagi') => (
     santri?.sesi_mengaji || santri?.class?.sesi || fallback
 );
 
-export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), status = 'Hadir' }) => ({
-    user_id: santri.id,
-    role: 'santri',
-    attendance_date: getLocalDateString(timestamp),
-    check_in_time: getLocalTimeString(timestamp),
-    check_in_timestamp: timestamp.toISOString(),
-    class_id: santri.current_class_id,
-    sesi: getSantriSession(santri),
-    status,
-    source: 'rfid',
-});
+export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), status = null }) => {
+    const attendanceDate = getLocalDateString(timestamp);
+    const sesi = getSantriSession(santri);
+    const sessionStart = buildSessionStartTimestamp(attendanceDate, sesi);
+    const checkInTimestamp = timestamp.toISOString();
+
+    return {
+        user_id: santri.id,
+        role: 'santri',
+        attendance_date: attendanceDate,
+        check_in_time: getLocalTimeString(timestamp),
+        check_in_timestamp: checkInTimestamp,
+        class_id: santri.current_class_id,
+        sesi,
+        status: status || determineAttendanceStatus(checkInTimestamp, sessionStart),
+        source: 'rfid',
+    };
+};
 
 export const getAttendanceErrorMessage = (error) => {
     const message = String(error?.message || '');

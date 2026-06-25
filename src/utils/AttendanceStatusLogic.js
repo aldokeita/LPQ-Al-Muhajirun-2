@@ -1,43 +1,98 @@
-export const determineAttendanceStatus = (checkInTimestamp, sessionStartTime) => {
+export const JAKARTA_TIME_ZONE = 'Asia/Jakarta';
+export const LATE_GRACE_MINUTES = 15;
+
+export const DEFAULT_SESSION_TIMES = {
+  Pagi: { start: '08:00', end: '11:00', defaultQuota: 60 },
+  Siang: { start: '13:00', end: '15:30', defaultQuota: 80 },
+  Sore: { start: '16:00', end: '18:00', defaultQuota: 80 },
+  Malam: { start: '18:30', end: '23:00', defaultQuota: 50 },
+};
+
+const pad = (num) => String(num).padStart(2, '0');
+
+export const getJakartaDateString = (date = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: JAKARTA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+
+export const getJakartaTimeString = (date = new Date()) =>
+  new Intl.DateTimeFormat('en-GB', {
+    timeZone: JAKARTA_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date);
+
+export const buildJakartaTimestamp = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return null;
+  const normalizedTime = String(timeStr).length === 5 ? `${timeStr}:00` : String(timeStr);
+  return `${dateStr}T${normalizedTime}+07:00`;
+};
+
+export const getSessionStartTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
+  sessionTimes?.[sesiName]?.start || DEFAULT_SESSION_TIMES[sesiName]?.start || null;
+
+export const getSessionEndTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
+  sessionTimes?.[sesiName]?.end || DEFAULT_SESSION_TIMES[sesiName]?.end || null;
+
+export const buildSessionStartTimestamp = (dateStr, sesiName, sessionTimes = DEFAULT_SESSION_TIMES) => {
+  const startTime = getSessionStartTime(sesiName, sessionTimes);
+  return startTime ? buildJakartaTimestamp(dateStr, startTime) : null;
+};
+
+export const determineAttendanceStatus = (checkInTimestamp, sessionStartTime, graceMinutes = LATE_GRACE_MINUTES) => {
   if (!checkInTimestamp) return 'Tidak Hadir';
-  if (!sessionStartTime) return 'Hadir'; // Fallback if session start time is unknown
-  
+  if (!sessionStartTime) return 'Hadir';
+
   const checkIn = new Date(checkInTimestamp);
   const start = new Date(sessionStartTime);
-  
-  // Strict timestamp comparison logic
-  if (checkIn > start) {
-    return 'Terlambat';
-  }
-  
-  return 'Hadir';
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(start.getTime())) return 'Hadir';
+
+  const diffMinutes = Math.floor((checkIn.getTime() - start.getTime()) / (1000 * 60));
+  return diffMinutes > graceMinutes ? 'Terlambat' : 'Hadir';
 };
 
 export const determineAttendanceStatusFromTimestamp = determineAttendanceStatus; // Alias for backward compatibility if requested
 
 export const calculateTimeDifference = (checkInTimestamp, sessionStartTime) => {
   if (!checkInTimestamp || !sessionStartTime) return 0;
-  
+
   const checkIn = new Date(checkInTimestamp);
   const start = new Date(sessionStartTime);
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(start.getTime())) return 0;
   const diffMinutes = Math.floor((checkIn - start) / (1000 * 60));
-  
+
   return diffMinutes > 0 ? diffMinutes : 0;
 };
 
 export const formatTimestamp = (timestamp) => {
   if (!timestamp) return '-';
   const date = new Date(timestamp);
-  
-  const pad = (num) => String(num).padStart(2, '0');
-  
-  const day = pad(date.getDate());
-  const month = pad(date.getMonth() + 1);
-  const year = date.getFullYear();
-  
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-  
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: JAKARTA_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  const day = parts.day || pad(date.getDate());
+  const month = parts.month || pad(date.getMonth() + 1);
+  const year = parts.year || date.getFullYear();
+  const hours = parts.hour || pad(date.getHours());
+  const minutes = parts.minute || pad(date.getMinutes());
+  const seconds = parts.second || pad(date.getSeconds());
+
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 };

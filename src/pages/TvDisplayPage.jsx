@@ -14,11 +14,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useTheme } from '@/contexts/ThemeContext';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
+import { buildSantriAttendancePayload, getLocalDateString, getLocalTimeString } from '@/lib/attendanceAdapters';
 
 const sessionTimes = {
-  'Pagi': { start: '08:00', end: '09:15', defaultQuota: 60 },
-  'Siang': { start: '14:00', end: '15:15', defaultQuota: 80 },
-  'Sore': { start: '16:00', end: '17:15', defaultQuota: 80 },
+  'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
+  'Siang': { start: '13:00', end: '15:30', defaultQuota: 80 },
+  'Sore': { start: '16:00', end: '18:00', defaultQuota: 80 },
+  'Malam': { start: '18:30', end: '23:00', defaultQuota: 50 },
 };
 
 const waliQuotes = [
@@ -210,7 +213,7 @@ const TvDisplayPage = () => {
     };
 
     const processScan = async (tag) => {
-        const today = new Date().toLocaleDateString('en-CA'); 
+        const today = getLocalDateString();
         let user = null, userRole = '', sesiUser = '';
 
         // Check Guru
@@ -224,8 +227,22 @@ const TvDisplayPage = () => {
             else sesiUser = 'Malam';
         } else {
             // Check Santri
-            let { data: santriData } = await supabase.from('santri').select('*, class:id_kelas(*)').eq('rfid_tag', tag).maybeSingle();
-            if (santriData) { user = santriData; userRole = 'santri'; sesiUser = santriData.sesi_mengaji || santriData.class?.sesi || 'Pagi'; }
+            let { data: santriData } = await supabase
+                .from('santri')
+                .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, class:current_class_id(id, nama_kelas, sesi)')
+                .eq('rfid_tag', tag)
+                .maybeSingle();
+            if (santriData) {
+                const foto_url = await resolveAvatarUrl({
+                    ownerType: 'santri',
+                    ownerId: santriData.id,
+                    avatarPath: santriData.avatar_path,
+                    fallbackUrl: santriData.foto_url,
+                });
+                user = { ...santriData, id_kelas: santriData.current_class_id, foto_url };
+                userRole = 'santri';
+                sesiUser = santriData.sesi_mengaji || santriData.class?.sesi || 'Pagi';
+            }
         }
 
         if (!user) return; 
@@ -234,16 +251,22 @@ const TvDisplayPage = () => {
         const { data: existing } = await supabase.from('attendance').select('id').eq('user_id', user.id).eq('attendance_date', today).maybeSingle();
         
         if (!existing) {
-            await supabase.from('attendance').insert({ 
-                user_id: user.id, 
-                role: userRole, 
-                attendance_date: today, 
-                check_in_time: new Date().toTimeString().split(' ')[0], 
-                class_id: userRole === 'santri' ? user.id_kelas : null, 
-                sesi: sesiUser, 
-                status: 'Hadir' 
-            });
-            setDailyAttendance(prev => [...prev, { user_id: user.id, check_in_time: new Date().toTimeString().split(' ')[0], class_id: userRole === 'santri' ? user.id_kelas : null }]);
+            const now = new Date();
+            const payload = userRole === 'santri'
+                ? buildSantriAttendancePayload({ santri: user, timestamp: now })
+                : {
+                    user_id: user.id,
+                    role: userRole,
+                    attendance_date: today,
+                    check_in_time: getLocalTimeString(now),
+                    check_in_timestamp: now.toISOString(),
+                    class_id: null,
+                    sesi: sesiUser,
+                    status: 'Hadir',
+                    source: 'rfid',
+                };
+            await supabase.from('attendance').insert(payload);
+            setDailyAttendance(prev => [...prev, { user_id: user.id, check_in_time: payload.check_in_time, class_id: payload.class_id, status: payload.status }]);
         }
 
         setPopupScan({ name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, jilid: user.jilid });
@@ -262,31 +285,67 @@ const TvDisplayPage = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const today = new Date().toLocaleDateString('en-CA'); 
-            
-            const { data: cfg } = await supabase.from('website_content').select('content').eq('key', 'tv_config').maybeSingle();
-            if(cfg?.content) setConfig(prev => ({...prev, ...cfg.content}));
+            const today = getLocalDateString();
+            try {
+                const { data: cfg } = await supabase.from('website_content').select('content').eq('key', 'tv_config').maybeSingle();
+                if(cfg?.content) setConfig(prev => ({...prev, ...cfg.content}));
 
-            const { data: lvlCfg } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
-            if(lvlCfg?.content) setLevelConfig(lvlCfg.content);
-            
-            const { data: classes } = await supabase.from('classes').select('*, guru:id_guru(nama)').order('order', { ascending: true });
-            const { data: santri } = await supabase.from('santri').select('*').eq('status', 'Aktif').order('nama_lengkap', { ascending: true });
-            const { data: attendance } = await supabase.from('attendance').select('*').eq('attendance_date', today);
-            
-            if (classes && santri) {
-                setSantriList(santri);
-                setDailyAttendance(attendance || []);
-                
-                const sessionPriority = { 'Pagi': 1, 'Siang': 2, 'Sore': 3, 'Malam': 4 };
-                const sortedClasses = classes.sort((a, b) => (sessionPriority[a.sesi] || 99) - (sessionPriority[b.sesi] || 99));
+                const { data: lvlCfg } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
+                if(lvlCfg?.content) setLevelConfig(lvlCfg.content);
 
-                const enrichedClasses = sortedClasses.map(c => ({
-                    ...c,
-                    santri: santri.filter(s => s.id_kelas === c.id),
-                    santriCount: santri.filter(s => s.id_kelas === c.id).length
+                const [classesRes, santriRes, attendanceRes] = await Promise.all([
+                    supabase
+                        .from('classes')
+                        .select('id, nama_kelas, sesi, kategori, sort_order, is_active, guru:id_guru(nama)')
+                        .eq('is_active', true)
+                        .order('sort_order', { ascending: true, nullsFirst: false }),
+                    supabase
+                        .from('santri')
+                        .select('id, nama_lengkap, nama_panggilan, nomor_induk_qiroati, kategori, status, foto_url, avatar_path, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin')
+                        .eq('status', 'Aktif')
+                        .order('nama_lengkap', { ascending: true }),
+                    supabase.from('attendance').select('*').eq('attendance_date', today),
+                ]);
+
+                if (classesRes.error) throw classesRes.error;
+                if (santriRes.error) throw santriRes.error;
+                if (attendanceRes.error) throw attendanceRes.error;
+
+                const santriWithAvatars = await Promise.all((santriRes.data || []).map(async (item) => {
+                    const foto_url = await resolveAvatarUrl({
+                        ownerType: 'santri',
+                        ownerId: item.id,
+                        avatarPath: item.avatar_path,
+                        fallbackUrl: item.foto_url,
+                    });
+                    return {
+                        ...item,
+                        id_kelas: item.current_class_id,
+                        foto_url,
+                    };
                 }));
-                setClassData(enrichedClasses);
+
+                const classes = classesRes.data || [];
+                const santri = santriWithAvatars;
+
+                if (classes && santri) {
+                    setSantriList(santri);
+                    setDailyAttendance(attendanceRes.data || []);
+
+                    const sessionPriority = { 'Pagi': 1, 'Siang': 2, 'Sore': 3, 'Malam': 4 };
+                    const sortedClasses = classes.sort((a, b) => (sessionPriority[a.sesi] || 99) - (sessionPriority[b.sesi] || 99));
+
+                    const enrichedClasses = sortedClasses.map(c => ({
+                        ...c,
+                        santri: santri.filter(s => (s.current_class_id || s.id_kelas) === c.id),
+                        santriCount: santri.filter(s => (s.current_class_id || s.id_kelas) === c.id).length
+                    }));
+                    setClassData(enrichedClasses);
+                }
+            } catch {
+                setSantriList([]);
+                setDailyAttendance([]);
+                setClassData([]);
             }
         };
         fetchData();
