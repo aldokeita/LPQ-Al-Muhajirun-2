@@ -1,206 +1,365 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import * as THREE from 'three';
 import './LightPillar.css';
 
-const qualityMap = {
-  low: 0.72,
-  medium: 0.9,
-  high: 1.05,
-};
-
 const LightPillar = ({
-  topColor = '#9dc1c7',
-  bottomColor = '#00eb9d',
-  intensity = 1,
-  rotationSpeed = 0.4,
+  topColor = '#5227FF',
+  bottomColor = '#FF9FFC',
+  intensity = 1.0,
+  rotationSpeed = 0.3,
+  interactive = false,
+  className = '',
   glowAmount = 0.005,
-  pillarWidth = 3,
-  pillarHeight = 0.3,
-  noiseIntensity = 0.3,
-  pillarRotation = 53,
-  interactive = true,
-  mixBlendMode = 'color-dodge',
-  quality = 'high',
+  pillarWidth = 3.0,
+  pillarHeight = 0.4,
+  noiseIntensity = 0.5,
+  mixBlendMode = 'screen',
+  pillarRotation = 0,
+  quality = 'high'
 }) => {
-  const mountRef = useRef(null);
-  const pointerRef = useRef({ x: 0, y: 0 });
-  const [fallback, setFallback] = useState(false);
+  const containerRef = useRef(null);
+  const rafRef = useRef(null);
+  const rendererRef = useRef(null);
+  const materialRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const geometryRef = useRef(null);
+  const mouseRef = useRef(new THREE.Vector2(0, 0));
+  const timeRef = useRef(0);
+  const rotationSpeedRef = useRef(rotationSpeed);
+  const [webGLSupported, setWebGLSupported] = useState(true);
 
   useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return undefined;
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) setWebGLSupported(false);
+  }, []);
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion) {
-      setFallback(true);
+  useEffect(() => {
+    if (!containerRef.current || !webGLSupported) return undefined;
+
+    const container = containerRef.current;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    let isPageVisible = !document.hidden;
+
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    cameraRef.current = camera;
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isLowEndDevice = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+
+    let effectiveQuality = quality;
+    if (isLowEndDevice && quality === 'high') effectiveQuality = 'medium';
+    if (isMobile && quality !== 'low') effectiveQuality = 'low';
+
+    const qualitySettings = {
+      low: { iterations: 24, waveIterations: 1, pixelRatio: 0.5, precision: 'mediump', stepMultiplier: 1.5 },
+      medium: { iterations: 40, waveIterations: 2, pixelRatio: 0.65, precision: 'mediump', stepMultiplier: 1.2 },
+      high: {
+        iterations: 80,
+        waveIterations: 4,
+        pixelRatio: Math.min(window.devicePixelRatio, 2),
+        precision: 'highp',
+        stepMultiplier: 1.0
+      }
+    };
+
+    const settings = qualitySettings[effectiveQuality] || qualitySettings.medium;
+
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        alpha: true,
+        powerPreference: effectiveQuality === 'high' ? 'high-performance' : 'low-power',
+        precision: settings.precision,
+        stencil: false,
+        depth: false
+      });
+    } catch {
+      setWebGLSupported(false);
       return undefined;
     }
 
-    let renderer;
-    let scene;
-    let camera;
-    let mesh;
-    let material;
-    let geometry;
-    let frameId = 0;
-    let resizeObserver;
-    let visible = true;
-    let disposed = false;
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(settings.pixelRatio);
+    renderer.domElement.className = 'light-pillar-canvas';
+    container.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
 
-    const init = async () => {
-      try {
-        const THREE = await import('three');
-        if (disposed || !mount.isConnected) return;
+    const parseColor = hex => {
+      const color = new THREE.Color(hex);
+      return new THREE.Vector3(color.r, color.g, color.b);
+    };
 
-        scene = new THREE.Scene();
-        camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-        camera.position.z = 1;
-
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: quality !== 'low', powerPreference: 'high-performance' });
-        renderer.setClearColor(0x000000, 0);
-        renderer.domElement.className = 'rb-light-pillar__canvas';
-        renderer.domElement.style.mixBlendMode = mixBlendMode;
-        mount.appendChild(renderer.domElement);
-
-        geometry = new THREE.PlaneGeometry(2, 2, 1, 1);
-        material = new THREE.ShaderMaterial({
-          transparent: true,
-          depthTest: false,
-          depthWrite: false,
-          uniforms: {
-            uTime: { value: 0 },
-            uTop: { value: new THREE.Color(topColor) },
-            uBottom: { value: new THREE.Color(bottomColor) },
-            uIntensity: { value: intensity },
-            uGlow: { value: glowAmount },
-            uWidth: { value: pillarWidth },
-            uHeight: { value: pillarHeight },
-            uNoise: { value: noiseIntensity },
-            uRotation: { value: (pillarRotation * Math.PI) / 180 },
-            uPointer: { value: new THREE.Vector2(0, 0) },
-          },
-          vertexShader: `
-            varying vec2 vUv;
-            void main() {
-              vUv = uv;
-              gl_Position = vec4(position.xy, 0.0, 1.0);
-            }
-          `,
-          fragmentShader: `
-            precision highp float;
-            varying vec2 vUv;
-            uniform float uTime;
-            uniform vec3 uTop;
-            uniform vec3 uBottom;
-            uniform float uIntensity;
-            uniform float uGlow;
-            uniform float uWidth;
-            uniform float uHeight;
-            uniform float uNoise;
-            uniform float uRotation;
-            uniform vec2 uPointer;
-
-            float hash(vec2 p) {
-              return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-            }
-
-            float noise(vec2 p) {
-              vec2 i = floor(p);
-              vec2 f = fract(p);
-              float a = hash(i);
-              float b = hash(i + vec2(1.0, 0.0));
-              float c = hash(i + vec2(0.0, 1.0));
-              float d = hash(i + vec2(1.0, 1.0));
-              vec2 u = f * f * (3.0 - 2.0 * f);
-              return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-            }
-
-            void main() {
-              vec2 p = vUv - 0.5;
-              float s = sin(uRotation);
-              float c = cos(uRotation);
-              p = mat2(c, -s, s, c) * p;
-              p += uPointer * 0.045;
-
-              float pillar = exp(-pow(abs(p.x) * uWidth, 1.74)) * smoothstep(0.62, -0.22, abs(p.y) * uHeight);
-              float core = exp(-pow(abs(p.x) * uWidth * 3.4, 1.25)) * smoothstep(0.52, -0.25, abs(p.y));
-              float shimmer = noise(vec2(p.x * 12.0 + uTime * 0.45, p.y * 9.0 - uTime * 0.22));
-              float rays = pow(max(0.0, 1.0 - abs(p.x * 2.2 + sin(p.y * 6.0 + uTime) * 0.08)), 3.2);
-              float alpha = clamp((pillar + core * 0.8 + rays * 0.24 + shimmer * uNoise * 0.12) * uIntensity, 0.0, 1.0);
-              vec3 color = mix(uBottom, uTop, smoothstep(-0.4, 0.58, vUv.y));
-              color += vec3(uGlow * 80.0, uGlow * 140.0, uGlow * 120.0);
-              gl_FragColor = vec4(color, alpha * 0.82);
-            }
-          `,
-        });
-        mesh = new THREE.Mesh(geometry, material);
-        scene.add(mesh);
-
-        const resize = () => {
-          if (!renderer || !mount) return;
-          const rect = mount.getBoundingClientRect();
-          const ratio = qualityMap[quality] || qualityMap.medium;
-          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * ratio);
-          renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
-        };
-
-        resizeObserver = new ResizeObserver(resize);
-        resizeObserver.observe(mount);
-        resize();
-
-        const render = (time = 0) => {
-          if (disposed) return;
-          if (visible && !document.hidden) {
-            material.uniforms.uTime.value = time * 0.001 * rotationSpeed;
-            material.uniforms.uPointer.value.set(pointerRef.current.x, pointerRef.current.y);
-            renderer.render(scene, camera);
-          }
-          frameId = window.requestAnimationFrame(render);
-        };
-        render();
-      } catch {
-        setFallback(true);
+    const vertexShader = `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position, 1.0);
       }
+    `;
+
+    const fragmentShader = `
+      precision ${settings.precision} float;
+
+      uniform float uTime;
+      uniform vec2 uResolution;
+      uniform vec2 uMouse;
+      uniform vec3 uTopColor;
+      uniform vec3 uBottomColor;
+      uniform float uIntensity;
+      uniform bool uInteractive;
+      uniform float uGlowAmount;
+      uniform float uPillarWidth;
+      uniform float uPillarHeight;
+      uniform float uNoiseIntensity;
+      uniform float uRotCos;
+      uniform float uRotSin;
+      uniform float uPillarRotCos;
+      uniform float uPillarRotSin;
+      uniform float uWaveSin;
+      uniform float uWaveCos;
+      varying vec2 vUv;
+
+      const float STEP_MULT = ${settings.stepMultiplier.toFixed(1)};
+      const int MAX_ITER = ${settings.iterations};
+      const int WAVE_ITER = ${settings.waveIterations};
+
+      void main() {
+        vec2 uv = (vUv * 2.0 - 1.0) * vec2(uResolution.x / uResolution.y, 1.0);
+        uv = vec2(uPillarRotCos * uv.x - uPillarRotSin * uv.y, uPillarRotSin * uv.x + uPillarRotCos * uv.y);
+
+        vec3 ro = vec3(0.0, 0.0, -10.0);
+        vec3 rd = normalize(vec3(uv, 1.0));
+
+        float rotC = uRotCos;
+        float rotS = uRotSin;
+        if(uInteractive && (uMouse.x != 0.0 || uMouse.y != 0.0)) {
+          float a = uMouse.x * 6.283185;
+          rotC = cos(a);
+          rotS = sin(a);
+        }
+
+        vec3 col = vec3(0.0);
+        float t = 0.1;
+
+        for(int i = 0; i < MAX_ITER; i++) {
+          vec3 p = ro + rd * t;
+          p.xz = vec2(rotC * p.x - rotS * p.z, rotS * p.x + rotC * p.z);
+
+          vec3 q = p;
+          q.y = p.y * uPillarHeight + uTime;
+
+          float freq = 1.0;
+          float amp = 1.0;
+          for(int j = 0; j < WAVE_ITER; j++) {
+            q.xz = vec2(uWaveCos * q.x - uWaveSin * q.z, uWaveSin * q.x + uWaveCos * q.z);
+            q += cos(q.zxy * freq - uTime * float(j) * 2.0) * amp;
+            freq *= 2.0;
+            amp *= 0.5;
+          }
+
+          float d = length(cos(q.xz)) - 0.2;
+          float bound = length(p.xz) - uPillarWidth;
+          float k = 4.0;
+          float h = max(k - abs(d - bound), 0.0);
+          d = max(d, bound) + h * h * 0.0625 / k;
+          d = abs(d) * 0.15 + 0.01;
+
+          float grad = clamp((15.0 - p.y) / 30.0, 0.0, 1.0);
+          col += mix(uBottomColor, uTopColor, grad) / d;
+
+          t += d * STEP_MULT;
+          if(t > 50.0) break;
+        }
+
+        float widthNorm = uPillarWidth / 3.0;
+        col = tanh(col * uGlowAmount / widthNorm);
+        col -= fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) / 15.0 * uNoiseIntensity;
+
+        gl_FragColor = vec4(col * uIntensity, 1.0);
+      }
+    `;
+
+    const pillarRotRad = (pillarRotation * Math.PI) / 180;
+    const waveSin = Math.sin(0.4);
+    const waveCos = Math.cos(0.4);
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms: {
+        uTime: { value: 0 },
+        uResolution: { value: new THREE.Vector2(width, height) },
+        uMouse: { value: mouseRef.current },
+        uTopColor: { value: parseColor(topColor) },
+        uBottomColor: { value: parseColor(bottomColor) },
+        uIntensity: { value: intensity },
+        uInteractive: { value: interactive },
+        uGlowAmount: { value: glowAmount },
+        uPillarWidth: { value: pillarWidth },
+        uPillarHeight: { value: pillarHeight },
+        uNoiseIntensity: { value: noiseIntensity },
+        uRotCos: { value: 1.0 },
+        uRotSin: { value: 0.0 },
+        uPillarRotCos: { value: Math.cos(pillarRotRad) },
+        uPillarRotSin: { value: Math.sin(pillarRotRad) },
+        uWaveSin: { value: waveSin },
+        uWaveCos: { value: waveCos }
+      },
+      transparent: true,
+      depthWrite: false,
+      depthTest: false
+    });
+    materialRef.current = material;
+
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    geometryRef.current = geometry;
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    let mouseMoveTimeout = null;
+    const handleMouseMove = event => {
+      if (!interactive) return;
+      if (mouseMoveTimeout) return;
+      mouseMoveTimeout = window.setTimeout(() => {
+        mouseMoveTimeout = null;
+      }, 16);
+      const rect = container.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      mouseRef.current.set(x, y);
     };
 
-    const onPointerMove = (event) => {
-      if (!interactive || !mount) return;
-      const rect = mount.getBoundingClientRect();
-      pointerRef.current = {
-        x: ((event.clientX - rect.left) / rect.width - 0.5) * 2,
-        y: ((event.clientY - rect.top) / rect.height - 0.5) * -2,
-      };
+    if (interactive) {
+      container.addEventListener('mousemove', handleMouseMove, { passive: true });
+    }
+
+    const handleVisibility = () => {
+      isPageVisible = !document.hidden;
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    let lastTime = performance.now();
+    const targetFPS = effectiveQuality === 'low' ? 30 : 60;
+    const frameTime = 1000 / targetFPS;
+
+    const animate = currentTime => {
+      if (!materialRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+
+      const deltaTime = currentTime - lastTime;
+
+      if (isPageVisible && deltaTime >= frameTime) {
+        timeRef.current += 0.016 * rotationSpeedRef.current;
+        const t = timeRef.current;
+        materialRef.current.uniforms.uTime.value = t;
+        materialRef.current.uniforms.uRotCos.value = Math.cos(t * 0.3);
+        materialRef.current.uniforms.uRotSin.value = Math.sin(t * 0.3);
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+        lastTime = currentTime - (deltaTime % frameTime);
+      }
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+
+    let resizeTimeout = null;
+    const handleResize = () => {
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+
+      resizeTimeout = window.setTimeout(() => {
+        if (!rendererRef.current || !materialRef.current || !containerRef.current) return;
+        const newWidth = containerRef.current.clientWidth;
+        const newHeight = containerRef.current.clientHeight;
+        rendererRef.current.setSize(newWidth, newHeight);
+        materialRef.current.uniforms.uResolution.value.set(newWidth, newHeight);
+      }, 150);
     };
 
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-    }, { threshold: 0.05 });
-    observer.observe(mount);
-
-    if (interactive) mount.addEventListener('pointermove', onPointerMove, { passive: true });
-    init();
+    window.addEventListener('resize', handleResize, { passive: true });
 
     return () => {
-      disposed = true;
-      observer.disconnect();
-      if (interactive) mount.removeEventListener('pointermove', onPointerMove);
-      if (resizeObserver) resizeObserver.disconnect();
-      if (frameId) window.cancelAnimationFrame(frameId);
-      if (scene && mesh) scene.remove(mesh);
-      if (geometry) geometry.dispose();
-      if (material) material.dispose();
-      if (renderer) {
-        renderer.dispose();
-        renderer.forceContextLoss?.();
-        renderer.domElement?.remove();
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      if (mouseMoveTimeout) clearTimeout(mouseMoveTimeout);
+      if (interactive) container.removeEventListener('mousemove', handleMouseMove);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        rendererRef.current.forceContextLoss();
+        if (container.contains(rendererRef.current.domElement)) {
+          container.removeChild(rendererRef.current.domElement);
+        }
       }
-    };
-  }, [bottomColor, glowAmount, intensity, interactive, mixBlendMode, noiseIntensity, pillarHeight, pillarRotation, pillarWidth, quality, rotationSpeed, topColor]);
+      if (materialRef.current) materialRef.current.dispose();
+      if (geometryRef.current) geometryRef.current.dispose();
 
-  return (
-    <div className="rb-light-pillar" ref={mountRef} aria-hidden="true">
-      {fallback && <div className="rb-light-pillar__fallback" />}
-    </div>
-  );
+      rendererRef.current = null;
+      materialRef.current = null;
+      sceneRef.current = null;
+      cameraRef.current = null;
+      geometryRef.current = null;
+      rafRef.current = null;
+    };
+  }, [webGLSupported, quality]);
+
+  useEffect(() => {
+    rotationSpeedRef.current = rotationSpeed;
+  }, [rotationSpeed]);
+
+  useEffect(() => {
+    if (!materialRef.current) return;
+    const color = new THREE.Color(topColor);
+    materialRef.current.uniforms.uTopColor.value.set(color.r, color.g, color.b);
+  }, [topColor]);
+
+  useEffect(() => {
+    if (!materialRef.current) return;
+    const color = new THREE.Color(bottomColor);
+    materialRef.current.uniforms.uBottomColor.value.set(color.r, color.g, color.b);
+  }, [bottomColor]);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uIntensity.value = intensity;
+  }, [intensity]);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uInteractive.value = interactive;
+  }, [interactive]);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uGlowAmount.value = glowAmount;
+  }, [glowAmount]);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uPillarWidth.value = pillarWidth;
+  }, [pillarWidth]);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uPillarHeight.value = pillarHeight;
+  }, [pillarHeight]);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uNoiseIntensity.value = noiseIntensity;
+  }, [noiseIntensity]);
+
+  useEffect(() => {
+    if (!materialRef.current) return;
+    const pillarRotRad = (pillarRotation * Math.PI) / 180;
+    materialRef.current.uniforms.uPillarRotCos.value = Math.cos(pillarRotRad);
+    materialRef.current.uniforms.uPillarRotSin.value = Math.sin(pillarRotRad);
+  }, [pillarRotation]);
+
+  if (!webGLSupported) {
+    return <div className={`light-pillar-fallback ${className}`} style={{ mixBlendMode }} aria-hidden="true" />;
+  }
+
+  return <div ref={containerRef} className={`light-pillar-container ${className}`} style={{ mixBlendMode }} aria-hidden="true" />;
 };
 
 export default LightPillar;
