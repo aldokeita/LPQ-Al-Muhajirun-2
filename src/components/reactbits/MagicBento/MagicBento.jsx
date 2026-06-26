@@ -358,8 +358,8 @@ const MagicBento = ({
       <div className="card-grid bento-section" ref={gridRef}>
         {items.map((card, index) => {
           const baseClassName = `magic-bento-card ${card.featured ? 'is-featured' : ''} ${textAutoHide ? 'magic-bento-card--text-autohide' : ''} ${enableBorderGlow ? 'magic-bento-card--border-glow' : ''}`;
+          const cardKey = card.id || card.title || index;
           const cardProps = {
-            key: card.id || card.title || index,
             to: card.route || '/profil',
             className: baseClassName,
             style: {
@@ -386,6 +386,7 @@ const MagicBento = ({
           if (enableStars) {
             return (
               <ParticleCard
+                key={cardKey}
                 {...cardProps}
                 disableAnimations={shouldDisableAnimations}
                 particleCount={particleCount}
@@ -400,7 +401,7 @@ const MagicBento = ({
           }
 
           return (
-            <Link {...cardProps}>
+            <Link key={cardKey} {...cardProps}>
               {content}
             </Link>
           );

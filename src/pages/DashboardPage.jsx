@@ -98,7 +98,7 @@ const DashboardPage = () => {
         <meta name="description" content="Dashboard sistem manajemen LPQ Al-Muhajirun" />
       </Helmet>
 
-      <div className="min-h-screen py-8">
+      <div className="dark lpq-dashboard-surface min-h-screen py-8 text-foreground">
         {renderDashboard()}
       </div>
     </>

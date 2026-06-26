@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from '@/App';
 import '@/index.css';
+import '@/styles/headless-polish.css';
 import { initializeSupabaseData } from '@/utils/initializeData';
 
 // The initializeSupabaseData function currently contains placeholder data or setup that is not directly related to user data.
