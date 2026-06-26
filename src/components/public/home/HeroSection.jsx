@@ -12,6 +12,7 @@ import SectionKicker from './SectionKicker';
 import { imageOf, LOCAL_LOGO, safeArray } from './homeUtils';
 
 const LightPillar = React.lazy(() => import('@/components/reactbits/LightPillar/LightPillar'));
+const ModelViewer = React.lazy(() => import('@/components/reactbits/ModelViewer/ModelViewer'));
 
 const getQuality = () => {
   if (typeof window === 'undefined') return 'medium';
@@ -91,6 +92,21 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
         />
       </Suspense>
       <div className="home-hero__grain" aria-hidden="true" />
+      <div className="home-hero__quran-model" aria-hidden="true">
+        <Suspense fallback={null}>
+          <ModelViewer
+            url="/models/quran_3d_free.glb"
+            width="100%"
+            height="100%"
+            environmentPreset="studio"
+            defaultZoom={2.35}
+            modelScale={1.95}
+            modelPosition={[0, -0.02, 0]}
+            modelRotation={[58, -28, -4]}
+            autoRotateSpeed={0.28}
+          />
+        </Suspense>
+      </div>
       <div className="home-hero__inner">
         <motion.div
           className="home-hero__copy"

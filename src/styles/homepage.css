@@ -80,6 +80,18 @@
   pointer-events: none;
 }
 
+.home-hero__quran-model {
+  position: absolute;
+  z-index: 2;
+  top: clamp(5.6rem, 8vw, 7.2rem);
+  right: clamp(1rem, 4vw, 4.8rem);
+  height: clamp(8.5rem, 16vw, 16rem);
+  width: clamp(8.5rem, 16vw, 16rem);
+  opacity: 0.94;
+  filter: drop-shadow(0 22px 42px rgba(0, 0, 0, 0.34));
+  pointer-events: none;
+}
+
 .home-hero__inner {
   position: relative;
   z-index: 2;
@@ -947,6 +959,14 @@
   .home-values__cards {
     padding-top: 0;
   }
+
+  .home-hero__quran-model {
+    top: 6rem;
+    right: 0.8rem;
+    height: 8rem;
+    width: 8rem;
+    opacity: 0.78;
+  }
 }
 
 @media (max-width: 720px) {
@@ -958,6 +978,10 @@
   .home-hero__title {
     font-size: clamp(3rem, 16vw, 4.9rem);
     letter-spacing: -0.055em;
+  }
+
+  .home-hero__quran-model {
+    display: none;
   }
 
   .home-hero__stats {

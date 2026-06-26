@@ -1,0 +1,34 @@
+.rb-model-viewer {
+  position: relative;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.rb-model-viewer canvas {
+  display: block;
+  background: transparent;
+}
+
+.rb-model-viewer--fade {
+  animation: rb-model-viewer-fade 900ms ease both;
+}
+
+@keyframes rb-model-viewer-fade {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -0.35rem, 0) scale(0.94);
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-model-viewer--fade {
+    animation: none;
+  }
+}
