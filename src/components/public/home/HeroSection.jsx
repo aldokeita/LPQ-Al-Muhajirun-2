@@ -4,11 +4,12 @@ import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import CardSwap, { Card } from '@/components/reactbits/CardSwap/CardSwap';
+import CountUp from '@/components/reactbits/CountUp/CountUp';
 import GradientText from '@/components/reactbits/GradientText/GradientText';
 import SplitText from '@/components/reactbits/SplitText/SplitText';
 import StarBorder from '@/components/reactbits/StarBorder/StarBorder';
 import SectionKicker from './SectionKicker';
-import { compactNumber, imageOf, LOCAL_LOGO, safeArray } from './homeUtils';
+import { imageOf, LOCAL_LOGO, safeArray } from './homeUtils';
 
 const LightPillar = React.lazy(() => import('@/components/reactbits/LightPillar/LightPillar'));
 
@@ -26,6 +27,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
   const heroSubtext = activeSlide.author || 'Metode Qiroati, pembinaan adab, dan informasi lembaga yang mudah diikuti wali santri.';
   const logoUrl = content.logoUrl || LOCAL_LOGO;
   const quality = useMemo(getQuality, []);
+  const sessionCount = Math.max(safeArray(content.schedules).length, 0);
   const heroCards = useMemo(() => {
     const heroItems = slides.map((slide, index) => ({
       id: slide.id || `hero-${index}`,
@@ -143,10 +145,18 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
             </Button>
           </div>
           <div className="home-hero__stats" aria-label="Ringkasan lembaga">
-            {stats.santri > 0 && <span><strong>{compactNumber(stats.santri)}</strong> santri aktif</span>}
-            {stats.guru > 0 && <span><strong>{compactNumber(stats.guru)}</strong> guru</span>}
-            <span><strong>Qiroati</strong> metode belajar</span>
-            <span><strong>RFID</strong> absensi digital</span>
+            <span className="home-hero-stat">
+              <strong><CountUp from={0} to={Number(stats.santri || 0)} separator="." duration={2.6} /></strong>
+              santri aktif
+            </span>
+            <span className="home-hero-stat">
+              <strong><CountUp from={0} to={Number(stats.guru || 0)} separator="." duration={2.4} delay={0.1} /></strong>
+              guru aktif
+            </span>
+            <span className="home-hero-stat">
+              <strong><CountUp from={0} to={sessionCount || 0} separator="." duration={2.2} delay={0.2} /></strong>
+              sesi belajar
+            </span>
           </div>
         </motion.div>
         <motion.div
@@ -171,6 +181,14 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
             >
               {heroCards.map((card, index) => (
                 <Card key={card.id} className={`home-hero-swap-card ${card.isLogo ? 'home-hero-swap-card--logo' : ''}`}>
+                  <div className="home-hero-swap-card__titlebar">
+                    <span className="home-hero-swap-card__traffic" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                    <span className="home-hero-swap-card__window-title">{card.source}</span>
+                  </div>
                   <img
                     src={card.image}
                     alt={card.isLogo ? 'Logo LPQ Al-Muhajirun' : `Dokumentasi ${card.title}`}
@@ -185,7 +203,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
                   />
                   <div className="home-hero-swap-card__veil" />
                   <div className="home-hero-swap-card__content">
-                    <span>{card.source}</span>
+                    <span>{index === 0 ? 'Sorotan utama' : card.source}</span>
                     <h3>{card.title}</h3>
                     <p>{card.description}</p>
                   </div>

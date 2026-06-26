@@ -181,7 +181,7 @@
   margin-top: 2.6rem;
   display: grid;
   max-width: 46rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 1.4rem;
@@ -189,18 +189,22 @@
   backdrop-filter: blur(16px);
 }
 
-.home-hero__stats span {
+.home-hero-stat {
   display: grid;
   gap: 0.18rem;
-  padding: 1rem;
+  padding: 1.05rem 1rem;
   color: rgba(255, 255, 255, 0.78);
   font-size: 0.75rem;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.home-hero__stats strong {
+.home-hero-stat:last-child {
+  border-right: 0;
+}
+
+.home-hero-stat strong {
   color: white;
-  font-size: clamp(1.05rem, 2vw, 1.6rem);
+  font-size: clamp(1.35rem, 2.7vw, 2.05rem);
   line-height: 1;
 }
 
@@ -288,6 +292,53 @@
   width: 100%;
   object-fit: cover;
   filter: saturate(1.04) contrast(1.03);
+}
+
+.home-hero-swap-card__titlebar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  min-height: 2.85rem;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(8, 13, 27, 0.78), rgba(8, 13, 27, 0.36));
+  padding: 0 1rem;
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.home-hero-swap-card__traffic {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.home-hero-swap-card__traffic i {
+  display: block;
+  height: 0.68rem;
+  width: 0.68rem;
+  border-radius: 50%;
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.18);
+}
+
+.home-hero-swap-card__traffic i:nth-child(1) { background: #ff6b62; }
+.home-hero-swap-card__traffic i:nth-child(2) { background: #f7c94b; }
+.home-hero-swap-card__traffic i:nth-child(3) { background: #35d17f; }
+
+.home-hero-swap-card__window-title {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .home-hero-swap-card--logo img {
@@ -910,7 +961,16 @@
   }
 
   .home-hero__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero-stat {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .home-hero-stat:last-child {
+    border-bottom: 0;
   }
 
   .home-hero__visual {
