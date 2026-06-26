@@ -209,6 +209,27 @@
   min-height: 40rem;
 }
 
+.home-hero__swap-stage {
+  position: absolute;
+  inset: 5% 0 0;
+  border-radius: 3rem;
+  background:
+    radial-gradient(circle at 55% 20%, rgba(0, 235, 157, 0.2), transparent 38%),
+    radial-gradient(circle at 20% 75%, rgba(102, 217, 255, 0.16), transparent 35%);
+  pointer-events: auto;
+}
+
+.home-hero__swap-stage::before {
+  content: '';
+  position: absolute;
+  inset: 6% 5% 12% 3%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 34px 100px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
 .home-hero__orbital {
   position: absolute;
   inset: 6% 0 0;
@@ -262,6 +283,82 @@
   border-radius: 2rem;
   object-fit: cover;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.26);
+}
+
+.home-hero-swap-card {
+  cursor: pointer;
+}
+
+.home-hero-swap-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+}
+
+.home-hero-swap-card img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  filter: saturate(1.04) contrast(1.03);
+}
+
+.home-hero-swap-card--logo img {
+  padding: 6rem;
+  object-fit: contain;
+  background:
+    radial-gradient(circle at 48% 35%, rgba(0, 235, 157, 0.25), transparent 38%),
+    linear-gradient(145deg, rgba(6, 27, 23, 0.96), rgba(5, 8, 22, 0.98));
+}
+
+.home-hero-swap-card__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(5, 8, 22, 0.05) 20%, rgba(5, 8, 22, 0.76) 100%),
+    radial-gradient(circle at 18% 15%, rgba(0, 235, 157, 0.16), transparent 28%);
+}
+
+.home-hero-swap-card__content {
+  position: absolute;
+  left: clamp(1.2rem, 3vw, 2rem);
+  right: clamp(1.2rem, 3vw, 2rem);
+  bottom: clamp(1.2rem, 3vw, 2rem);
+  color: white;
+}
+
+.home-hero-swap-card__content span {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(5, 8, 22, 0.36);
+  padding: 0.38rem 0.7rem;
+  color: rgba(207, 250, 254, 0.9);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+}
+
+.home-hero-swap-card__content h3 {
+  margin-top: 0.8rem;
+  max-width: 24rem;
+  font-size: clamp(1.45rem, 2.8vw, 2.45rem);
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.home-hero-swap-card__content p {
+  margin-top: 0.7rem;
+  max-width: 25rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
 
 .home-hero__dots {
@@ -803,10 +900,11 @@
   }
 
   .home-hero__visual {
-    min-height: 22rem;
+    min-height: 30rem;
   }
 
-  .home-hero__orbital {
+  .home-hero__orbital,
+  .home-hero__swap-stage {
     inset: 0;
   }
 
@@ -831,6 +929,16 @@
   }
 
   .home-hero__visual {
+    min-height: 23rem;
+    margin-top: 1rem;
+  }
+
+  .home-hero__swap-stage {
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .home-hero-swap-card__content p {
     display: none;
   }
 
