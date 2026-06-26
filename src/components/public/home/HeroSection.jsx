@@ -99,11 +99,11 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
             width="100%"
             height="100%"
             environmentPreset="studio"
-            defaultZoom={2.35}
-            modelScale={1.95}
-            modelPosition={[0, -0.02, 0]}
-            modelRotation={[58, -28, -4]}
-            autoRotateSpeed={0.28}
+            defaultZoom={2.9}
+            modelScale={1.55}
+            modelPosition={[0, -0.03, 0]}
+            modelRotation={[55, -25, -3]}
+            autoRotateSpeed={0.2}
           />
         </Suspense>
       </div>

@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import './ModelViewer.css';
 
 const degToRad = (degree) => (degree * Math.PI) / 180;
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const useReducedMotion = () => {
   const [reduced, setReduced] = useState(false);
@@ -40,13 +41,16 @@ const ModelScene = ({
   scale = 1.65,
   rotation = [-16, -26, 0],
   position = [0, -0.1, 0],
-  autoRotate = true,
+  parallax,
   autoRotateSpeed = 0.34,
   enabled = true,
+  hovered = false,
   onModelLoaded,
 }) => {
   const groupRef = useRef(null);
   const normalizedRef = useRef(false);
+  const baseRotationRef = useRef(rotation.map(degToRad));
+  const basePositionRef = useRef(position);
   const { scene } = useGLTF(url);
   const model = useMemo(() => scene.clone(true), [scene]);
 
@@ -73,6 +77,8 @@ const ModelScene = ({
     });
 
     const [rotationX, rotationY, rotationZ] = rotation.map(degToRad);
+    baseRotationRef.current = [rotationX, rotationY, rotationZ];
+    basePositionRef.current = position;
     group.rotation.set(rotationX, rotationY, rotationZ);
     group.position.set(...position);
     normalizedRef.current = true;
@@ -80,8 +86,32 @@ const ModelScene = ({
   }, [model, onModelLoaded, position, rotation, scale]);
 
   useFrame((_, delta) => {
-    if (!enabled || !autoRotate || !groupRef.current) return;
-    groupRef.current.rotation.y += autoRotateSpeed * delta;
+    if (!groupRef.current) return;
+    const group = groupRef.current;
+    const [baseX, baseY, baseZ] = baseRotationRef.current;
+    const [posX, posY, posZ] = basePositionRef.current;
+    const motionScale = enabled ? 1 : 0;
+    const targetX = baseX + (parallax.y * 0.16 * motionScale);
+    const targetY = baseY + (parallax.x * 0.22 * motionScale);
+    const targetZ = baseZ + (parallax.x * -0.035 * motionScale);
+    const targetPosX = posX + (parallax.x * 0.035 * motionScale);
+    const targetPosY = posY + (parallax.y * -0.025 * motionScale);
+    const targetScale = hovered && enabled ? 1.045 : 1;
+    const easing = Math.min(1, delta * 7);
+
+    group.rotation.x += (targetX - group.rotation.x) * easing;
+    group.rotation.y += (targetY - group.rotation.y) * easing;
+    group.rotation.z += (targetZ - group.rotation.z) * easing;
+    group.position.x += (targetPosX - group.position.x) * easing;
+    group.position.y += (targetPosY - group.position.y) * easing;
+    group.position.z += (posZ - group.position.z) * easing;
+    group.scale.x += (targetScale - group.scale.x) * easing;
+    group.scale.y += (targetScale - group.scale.y) * easing;
+    group.scale.z += (targetScale - group.scale.z) * easing;
+
+    if (enabled && hovered) {
+      group.rotation.y += autoRotateSpeed * delta * 0.08;
+    }
   });
 
   return (
@@ -101,13 +131,15 @@ const ModelViewer = ({
   modelScale = 1.65,
   modelPosition = [0, -0.08, 0],
   modelRotation = [-16, -26, 0],
-  autoRotate = true,
   autoRotateSpeed = 0.34,
   fadeIn = true,
   onModelLoaded,
 }) => {
   const reducedMotion = useReducedMotion();
   const pageVisible = usePageVisible();
+  const viewerRef = useRef(null);
+  const [hovered, setHovered] = useState(false);
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const shouldAnimate = pageVisible && !reducedMotion;
 
   useEffect(() => {
@@ -118,9 +150,22 @@ const ModelViewer = ({
 
   return (
     <div
+      ref={viewerRef}
       className={`rb-model-viewer ${fadeIn ? 'rb-model-viewer--fade' : ''} ${className}`.trim()}
       style={{ width, height }}
       aria-hidden="true"
+      onPointerEnter={() => setHovered(true)}
+      onPointerMove={(event) => {
+        if (!shouldAnimate || !viewerRef.current) return;
+        const rect = viewerRef.current.getBoundingClientRect();
+        const x = clamp(((event.clientX - rect.left) / rect.width - 0.5) * 2, -1, 1);
+        const y = clamp(((event.clientY - rect.top) / rect.height - 0.5) * 2, -1, 1);
+        setParallax({ x, y });
+      }}
+      onPointerLeave={() => {
+        setHovered(false);
+        setParallax({ x: 0, y: 0 });
+      }}
     >
       <Canvas
         dpr={[1, 1.75]}
@@ -140,9 +185,10 @@ const ModelViewer = ({
             scale={modelScale}
             rotation={modelRotation}
             position={modelPosition}
-            autoRotate={autoRotate}
+            parallax={parallax}
             autoRotateSpeed={autoRotateSpeed}
             enabled={shouldAnimate}
+            hovered={hovered}
             onModelLoaded={onModelLoaded}
           />
         </Suspense>

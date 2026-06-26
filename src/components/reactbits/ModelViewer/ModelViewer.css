@@ -1,12 +1,15 @@
 .rb-model-viewer {
   position: relative;
   overflow: visible;
-  pointer-events: none;
+  cursor: default;
+  pointer-events: auto;
+  transform-style: preserve-3d;
 }
 
 .rb-model-viewer canvas {
   display: block;
   background: transparent;
+  overflow: visible;
 }
 
 .rb-model-viewer--fade {
