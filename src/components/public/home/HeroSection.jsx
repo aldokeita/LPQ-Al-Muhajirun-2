@@ -157,10 +157,10 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
         >
           <div className="home-hero__swap-stage" aria-label="Dokumentasi kegiatan LPQ">
             <CardSwap
-              width="min(78vw, 34rem)"
-              height="min(70vw, 28rem)"
-              cardDistance={48}
-              verticalDistance={52}
+              width="min(82vw, 38rem)"
+              height="min(74vw, 31rem)"
+              cardDistance={56}
+              verticalDistance={60}
               delay={content.slideshowTimer || 7000}
               skewAmount={3.5}
               easing="elastic"

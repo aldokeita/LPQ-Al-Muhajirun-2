@@ -4,7 +4,7 @@
   bottom: 0;
   overflow: visible;
   perspective: 950px;
-  transform: translate(6%, 8%);
+  transform: translate(16%, 6%);
   transform-origin: bottom right;
 }
 

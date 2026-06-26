@@ -206,28 +206,13 @@
 
 .home-hero__visual {
   position: relative;
-  min-height: 40rem;
+  min-height: 43rem;
 }
 
 .home-hero__swap-stage {
   position: absolute;
-  inset: 5% 0 0;
-  border-radius: 3rem;
-  background:
-    radial-gradient(circle at 55% 20%, rgba(0, 235, 157, 0.2), transparent 38%),
-    radial-gradient(circle at 20% 75%, rgba(102, 217, 255, 0.16), transparent 35%);
+  inset: 2% -8% 0 0;
   pointer-events: auto;
-}
-
-.home-hero__swap-stage::before {
-  content: '';
-  position: absolute;
-  inset: 6% 5% 12% 3%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 3rem;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 34px 100px rgba(0, 0, 0, 0.2);
-  pointer-events: none;
 }
 
 .home-hero__orbital {
