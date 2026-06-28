@@ -461,9 +461,15 @@
 
 @media (min-width: 768px) {
   .reg-canvas__grid {
-    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-columns: 1fr 1fr;
     gap: clamp(1.25rem, 2.5vw, 1.75rem);
   }
+}
+
+.reg-canvas__side {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.5rem);
 }
 
 /* ==========================================================================
@@ -539,13 +545,10 @@
   text-decoration: line-through;
 }
 
-.reg-fee__idx {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--reg-emerald);
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-  min-width: 1.25rem;
+.reg-fee__emoji {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
 }
 
 .reg-fee__name {
@@ -734,8 +737,10 @@
   gap: 0.5rem;
 }
 
-.reg-notes__emoji {
-  font-size: 1rem;
+.reg-notes__check {
+  width: 1rem;
+  height: 1rem;
+  color: var(--reg-emerald);
   flex-shrink: 0;
   margin-top: 0.1rem;
 }
@@ -1076,15 +1081,6 @@
    Mobile refinements
    ========================================================================== */
 @media (max-width: 640px) {
-  .reg-intro__stats {
-    flex-direction: column;
-  }
-
-  .reg-stat {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .reg-nav__rail {
     flex-direction: row;
   }

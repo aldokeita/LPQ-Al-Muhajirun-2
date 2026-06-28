@@ -23,7 +23,7 @@ const DEFAULT_ENROLLMENT_DATA = {
     {
       id: 'tpq',
       name: 'Santri TPQ (Anak)',
-      description: 'Program pembelajaran Al-Qur\'an untuk anak usia dini dengan kurikulum terstruktur dan lingkungan belajar yang menyenangkan.',
+      description: 'Program pembelajaran Al-Qur\'an untuk mulai dari usia 3 - 16 tahun dengan kurikulum terstruktur dan lingkungan belajar yang menyenangkan.',
       icon: '📚',
       fees: [
         { id: 'f1', name: 'Sarpras', amount: 'Rp 115.000', order: 1 },
@@ -53,7 +53,7 @@ const DEFAULT_ENROLLMENT_DATA = {
     {
       id: 'dewasa',
       name: 'Santri Dewasa',
-      description: 'Program pembelajaran Al-Qur\'an untuk usia dewasa dengan jadwal fleksibel dan pendekatan personal.',
+      description: 'Program pembelajaran Al-Qur\'an untuk usia dewasa di atas 17 tahun dengan jadwal fleksibel dan pendekatan personal.',
       icon: '🎓',
       fees: [
         { id: 'f7', name: 'Sarpras', amount: 'Rp 115.000', order: 1 },
@@ -168,20 +168,6 @@ const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
         <motion.p variants={fadeUp} className="reg-intro__lead">
           Temukan program yang tepat untuk Anda atau buah hati. Lihat biaya, syarat, dan catatan penting untuk setiap kategori pendaftaran.
         </motion.p>
-
-        <motion.div variants={fadeUp} className="reg-intro__stats">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              className={`reg-stat${activeId === cat.id ? ' reg-stat--active' : ''}`}
-              onClick={() => onSelect(cat.id)}
-              type="button"
-            >
-              <span className="reg-stat__icon" aria-hidden="true">{cat.icon}</span>
-              <span className="reg-stat__label">{cat.name}</span>
-            </button>
-          ))}
-        </motion.div>
       </motion.div>
 
       {/* Right-side category preview cards */}
@@ -250,6 +236,8 @@ const CategoryNav = ({ categories, activeId, onSelect }) => (
 );
 
 /* ---------- Fee Module ---------- */
+const FEE_EMOJI = ['📄', '👕', '📖', '🪪', '📚', '💰', '🏫', '🎒', '📝', '✅', '🎓', '🎁'];
+
 const FeeModule = ({ fees, totalFee }) => (
   <div className="reg-fee">
     <div className="reg-fee__header">
@@ -268,7 +256,7 @@ const FeeModule = ({ fees, totalFee }) => (
           key={fee.id}
           className={`reg-fee__row${fee.disabled ? ' reg-fee__row--muted' : ''}`}
         >
-          <span className="reg-fee__idx" aria-hidden="true">{String(idx + 1).padStart(2, '0')}</span>
+          <span className="reg-fee__emoji" aria-hidden="true">{FEE_EMOJI[idx % FEE_EMOJI.length]}</span>
           <span className="reg-fee__name">{fee.name}</span>
           <span className="reg-fee__dots" aria-hidden="true" />
           <span className="reg-fee__amount">{fee.amount}</span>
@@ -319,7 +307,7 @@ const NotesPanel = ({ notes }) => (
     <div className="reg-notes__list">
       {notes.map((note) => (
         <div key={note.id} className="reg-notes__item">
-          <span className="reg-notes__emoji" aria-hidden="true">{note.icon}</span>
+          <CheckCircle2 className="reg-notes__check" aria-hidden="true" />
           <span className="reg-notes__text">{note.text}</span>
         </div>
       ))}
