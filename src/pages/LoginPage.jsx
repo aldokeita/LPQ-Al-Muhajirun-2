@@ -7,6 +7,7 @@ import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import TextType from '@/components/reactbits/TextType/TextType';
+import { useTheme } from '@/contexts/ThemeContext';
 import '@/styles/public-login.css';
 
 /* Lazy load DarkVeil to avoid blocking initial render */
@@ -85,6 +86,8 @@ const LoginPage = () => {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const { signInWithUsername, user, loading } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const navigate = useNavigate();
   const { toast } = useToast();
   const prefersReducedMotion = useReducedMotion();
@@ -195,7 +198,7 @@ const LoginPage = () => {
         </Helmet>
         <div className="login-bg">
           <Suspense fallback={null}>
-            <DarkVeil hueShift={58} speed={0.5} scanlineIntensity={0} resolutionScale={0.5} />
+            <DarkVeil hueShift={58} speed={0.5} scanlineIntensity={0} invert={isDark ? 0 : 0.92} resolutionScale={0.5} />
           </Suspense>
         </div>
         <div className="login-content">
@@ -227,6 +230,7 @@ const LoginPage = () => {
               speed={0.6}
               scanlineFrequency={0}
               warpAmount={0.15}
+              invert={isDark ? 0 : 0.92}
             />
           </Suspense>
         </div>

@@ -489,7 +489,11 @@
 }
 
 :root:not(.dark) .login-bg {
-  display: none;
+  opacity: 0.6;
+}
+
+:root:not(.dark) .login-bg::after {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(247, 249, 248, 0.5) 100%);
 }
 
 :root:not(.dark) .login-brand-name {
