@@ -3,15 +3,8 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
-  Target,
-  CheckCircle2,
   ArrowRight,
   PlayCircle,
-  GraduationCap,
-  Eye,
-  Hand,
-  UserCheck,
-  Heart,
 } from 'lucide-react';
 import SplitText from '@/components/reactbits/SplitText/SplitText';
 import GradientText from '@/components/reactbits/GradientText/GradientText';
@@ -39,46 +32,34 @@ const staggerItem = {
 /* ---------- Principles Data ---------- */
 const principles = [
   {
-    icon: Target,
     title: 'Ketepatan Makhraj',
     text: 'Setiap huruf dibaca dari titik keluarnya yang benar. Guru memastikan santri memahami dan menerapkan makhraj sejak awal, bukan sekadar meniru suara.',
     accent: 'indigo',
-    iconVariant: 'indigo',
   },
   {
-    icon: Eye,
     title: 'Ketepatan Sifat',
     text: 'Selain makhraj, setiap huruf memiliki sifat tertentu — ada yang lembut, ada yang berat. Kombinasi makhraj dan sifat inilah yang menghasilkan bacaan yang benar.',
     accent: 'amber',
-    iconVariant: 'amber',
   },
   {
-    icon: Hand,
     title: 'Tartil, Tidak Tergesa',
     text: 'Metode Qiroati menekankan kelancaran tanpa terburu-buru. Santri diajak membaca dengan tempo yang terjaga, memperhatikan setiap bacaan panjang dan pendek.',
     accent: 'emerald',
-    iconVariant: 'emerald',
   },
   {
-    icon: BookOpen,
     title: 'Tajwid Sejak Dasar',
     text: 'Hukum tajwid bukan materi lanjutan yang ditambahkan nanti. Sejak jilid awal, santri sudah dibimbing menerapkan kaidah tajwid secara bertahap.',
     accent: 'sky',
-    iconVariant: 'sky',
   },
   {
-    icon: CheckCircle2,
     title: 'Ketuntasan',
     text: 'Santri tidak akan dibolehkan melangkah ke materi berikutnya selama bacaan pada materi sebelumnya belum benar. Ini menjaga fondasi yang kokoh.',
     accent: 'rose',
-    iconVariant: 'rose',
   },
   {
-    icon: UserCheck,
     title: 'Mandiri Setelah Contoh',
     text: 'Guru memberikan contoh dan pengarahan yang cukup, lalu santri membaca secara mandiri. Pendekatan ini melatih kemampuan membaca Al-Qur\'an secara otonom.',
     accent: 'indigo',
-    iconVariant: 'indigo',
   },
 ];
 
@@ -258,9 +239,7 @@ const QiroatiMethodPage = () => {
               variants={staggerContainer}
             >
               <motion.div className="qm-origin__card" variants={staggerItem}>
-                <div className="qm-origin__card-icon qm-origin__card-icon--indigo">
-                  <BookOpen className="w-5 h-5" />
-                </div>
+                <span className="qm-origin__card-number" aria-hidden="true">01</span>
                 <h3 className="qm-origin__card-title">Metode Praktis Belajar Membaca Al-Qur'an</h3>
                 <p className="qm-origin__card-text">
                   Qiroati hadir dari kebutuhan nyata: banyak orang kesulitan belajar membaca Al-Qur'an karena metode yang tersedia kurang terstruktur atau terlalu bergantung pada kemampuan guru semata.
@@ -278,9 +257,7 @@ const QiroatiMethodPage = () => {
               </motion.div>
 
               <motion.div className="qm-origin__card" variants={staggerItem}>
-                <div className="qm-origin__card-icon qm-origin__card-icon--amber">
-                  <Target className="w-5 h-5" />
-                </div>
+                <span className="qm-origin__card-number" aria-hidden="true">02</span>
                 <h3 className="qm-origin__card-title">Visi dan Misi</h3>
                 <p className="qm-origin__card-text">
                   <strong>Visi:</strong> Menjaga kemurnian bacaan Al-Qur'an sebagaimana diajarkan oleh Rasulullah SAW kepada para sahabatnya.
@@ -329,8 +306,7 @@ const QiroatiMethodPage = () => {
               viewport={{ once: true, margin: '-60px' }}
               variants={fadeUp}
             >
-              <p className="qm-section__kicker">
-                <Target className="w-3.5 h-3.5" />
+            <p className="qm-section__kicker">
                 Prinsip
               </p>
               <h2 id="qm-principles-title" className="qm-section__title">
@@ -355,12 +331,12 @@ const QiroatiMethodPage = () => {
               viewport={{ once: true, margin: '-40px' }}
               variants={staggerContainer}
             >
-              {principles.map((item) => (
+              {principles.map((item, idx) => (
                 <motion.div key={item.title} className="qm-principle-card" variants={staggerItem}>
                   <div className={`qm-principle-card__accent qm-principle-card__accent--${item.accent}`} aria-hidden="true" />
-                  <div className={`qm-principle-card__icon qm-principle-card__icon--${item.iconVariant}`}>
-                    <item.icon className="w-5 h-5" />
-                  </div>
+                  <span className={`qm-principle-card__number qm-principle-card__number--${item.accent}`} aria-hidden="true">
+                    {String(idx + 1).padStart(2, '0')}
+                  </span>
                   <h3 className="qm-principle-card__title">{item.title}</h3>
                   <p className="qm-principle-card__text">{item.text}</p>
                 </motion.div>
@@ -380,7 +356,6 @@ const QiroatiMethodPage = () => {
               variants={fadeUp}
             >
               <p className="qm-section__kicker">
-                <GraduationCap className="w-3.5 h-3.5" />
                 Tahapan Belajar
               </p>
               <h2 id="qm-journey-title" className="qm-section__title">
@@ -426,7 +401,6 @@ const QiroatiMethodPage = () => {
               variants={fadeUp}
             >
               <p className="qm-section__kicker">
-                <Heart className="w-3.5 h-3.5" />
                 Di LPQ Al-Muhajirun
               </p>
               <h2 id="qm-application-title" className="qm-section__title">
@@ -453,9 +427,7 @@ const QiroatiMethodPage = () => {
               <div className="qm-application">
                 <div className="qm-application__grid">
                   <div className="qm-application__item">
-                    <div className="qm-application__item-icon">
-                      <BookOpen className="w-4 h-4" />
-                    </div>
+                    <div className="qm-application__item-num">01</div>
                     <div>
                       <h3 className="qm-application__item-title">Bimbingan Makhraj & Sifat</h3>
                       <p className="qm-application__item-text">
@@ -465,9 +437,7 @@ const QiroatiMethodPage = () => {
                   </div>
 
                   <div className="qm-application__item">
-                    <div className="qm-application__item-icon">
-                      <Target className="w-4 h-4" />
-                    </div>
+                    <div className="qm-application__item-num">02</div>
                     <div>
                       <h3 className="qm-application__item-title">Standar Kelulusan yang Disiplin</h3>
                       <p className="qm-application__item-text">
@@ -477,9 +447,7 @@ const QiroatiMethodPage = () => {
                   </div>
 
                   <div className="qm-application__item">
-                    <div className="qm-application__item-icon">
-                      <UserCheck className="w-4 h-4" />
-                    </div>
+                    <div className="qm-application__item-num">03</div>
                     <div>
                       <h3 className="qm-application__item-title">Pengajar yang Telah Dibina</h3>
                       <p className="qm-application__item-text">
@@ -489,9 +457,7 @@ const QiroatiMethodPage = () => {
                   </div>
 
                   <div className="qm-application__item">
-                    <div className="qm-application__item-icon">
-                      <Hand className="w-4 h-4" />
-                    </div>
+                    <div className="qm-application__item-num">04</div>
                     <div>
                       <h3 className="qm-application__item-title">Pendampingan Wali Santri</h3>
                       <p className="qm-application__item-text">
@@ -514,10 +480,9 @@ const QiroatiMethodPage = () => {
                 viewport={{ once: true, margin: '-60px' }}
                 variants={fadeUp}
               >
-                <p className="qm-section__kicker">
-                  <PlayCircle className="w-3.5 h-3.5" />
-                  Video
-                </p>
+              <p className="qm-section__kicker">
+                Video
+              </p>
                 <h2 id="qm-videos-title" className="qm-section__title">
                 <span className="qm-title-split">
                   {'Video Pembelajaran'.split(' ').map((word, i) => (
