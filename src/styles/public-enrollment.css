@@ -134,16 +134,7 @@
 .reg-intro__inner {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(2rem, 4vw, 3rem);
-  align-items: center;
-}
-
-@media (min-width: 900px) {
-  .reg-intro__inner {
-    grid-template-columns: 1.1fr 0.9fr;
-  }
+  max-width: 40rem;
 }
 
 /* Text side */
@@ -205,10 +196,8 @@
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.6);
   max-width: 34rem;
-  margin: 0 0 1.75rem;
+  margin: 0;
 }
-
-/* Category quick-stat buttons in hero */
 .reg-intro__stats {
   display: flex;
   flex-wrap: wrap;
@@ -245,75 +234,6 @@
 
 .reg-stat__icon {
   font-size: 1.1rem;
-}
-
-/* Right-side preview cards */
-.reg-intro__preview {
-  display: none;
-}
-
-@media (min-width: 900px) {
-  .reg-intro__preview {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-}
-
-.reg-preview-card {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  align-items: center;
-  gap: 0.875rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--reg-r-lg);
-  background: rgba(255, 255, 255, 0.03);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: left;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.reg-preview-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.reg-preview-card--active {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.06);
-  color: #fff;
-  box-shadow: 0 4px 24px rgba(16, 185, 129, 0.1);
-}
-
-.reg-preview-card__num {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  opacity: 0.35;
-  font-variant-numeric: tabular-nums;
-}
-
-.reg-preview-card__icon {
-  font-size: 1.5rem;
-}
-
-.reg-preview-card__name {
-  font-size: 0.9375rem;
-  font-weight: 700;
-}
-
-.reg-preview-card__fee {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--reg-emerald-bright);
-  font-variant-numeric: tabular-nums;
-}
-
-.reg-preview-card--active .reg-preview-card__fee {
-  color: var(--reg-emerald-bright);
 }
 
 /* ==========================================================================
@@ -400,7 +320,7 @@
 
 /* ==========================================================================
    Content Canvas (main area)
-   Asymmetric 2-column grid: fees (main) + requirements/notes (sidebar).
+   Balanced 2-column grid: fees + requirements/notes.
    On mobile: single column stack.
    ========================================================================== */
 .reg-canvas {

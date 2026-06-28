@@ -169,34 +169,6 @@ const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
           Temukan program yang tepat untuk Anda atau buah hati. Lihat biaya, syarat, dan catatan penting untuk setiap kategori pendaftaran.
         </motion.p>
       </motion.div>
-
-      {/* Right-side category preview cards */}
-      <motion.div
-        className="reg-intro__preview"
-        variants={stagger}
-        initial="hidden"
-        animate="visible"
-      >
-        {categories.map((cat, i) => (
-          <motion.button
-            key={cat.id}
-            variants={fadeUp}
-            className={`reg-preview-card${activeId === cat.id ? ' reg-preview-card--active' : ''}`}
-            onClick={() => onSelect(cat.id)}
-            type="button"
-            aria-pressed={activeId === cat.id}
-          >
-            <span className="reg-preview-card__num" aria-hidden="true">
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <span className="reg-preview-card__icon" aria-hidden="true">{cat.icon}</span>
-            <span className="reg-preview-card__name">{cat.name}</span>
-            {cat.totalFee && (
-              <span className="reg-preview-card__fee">{cat.totalFee}</span>
-            )}
-          </motion.button>
-        ))}
-      </motion.div>
     </div>
   </section>
 );
