@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  GraduationCap,
-  Users,
   Banknote,
   ClipboardCheck,
-  ChevronRight,
   Loader2,
   RefreshCw,
   ClipboardList,
+  BookOpen,
+  ArrowRight,
+  CheckCircle2,
+  Info,
+  Sparkles,
 } from 'lucide-react';
 import { fetchWebsiteContentMap, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 import '@/styles/public-enrollment.css';
@@ -79,43 +81,38 @@ const DEFAULT_ENROLLMENT_DATA = {
 };
 
 /* ---------- Animation Variants ---------- */
-const heroVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 };
 
-const sectionVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] },
-  }),
+const stagger = {
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+
+const panelIn = {
+  hidden: { opacity: 0, y: 12, scale: 0.98 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+  exit: { opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.25 } },
 };
 
 /* ---------- Sub-components ---------- */
 const LoadingSkeleton = () => (
-  <div aria-hidden="true">
-    <div className="ep-skeleton ep-skeleton-hero" />
-    <div className="ep-skeleton-tabs">
-      <div className="ep-skeleton ep-skeleton-tab" />
-      <div className="ep-skeleton ep-skeleton-tab" />
+  <div aria-hidden="true" className="reg-skeleton">
+    <div className="reg-skeleton__hero" />
+    <div className="reg-skeleton__nav">
+      <div className="reg-skeleton__card" />
+      <div className="reg-skeleton__card" />
     </div>
-    <div className="ep-skeleton ep-skeleton-card" />
-    <div className="ep-skeleton ep-skeleton-card" />
-    <div className="ep-skeleton ep-skeleton-card" />
-  </div>
-);
-
-const LoadingIndicator = () => (
-  <div className="ep-loading" aria-live="polite">
-    <Loader2 className="h-5 w-5" />
-    <p>Memuat informasi pendaftaran…</p>
+    <div className="reg-skeleton__body">
+      <div className="reg-skeleton__block" />
+      <div className="reg-skeleton__block reg-skeleton__block--sm" />
+    </div>
   </div>
 );
 
 const EmptyState = () => (
-  <div className="ep-empty">
+  <div className="reg-empty">
     <ClipboardList />
     <h3>Belum ada informasi pendaftaran</h3>
     <p>Informasi pendaftaran akan tampil di sini setelah tersedia.</p>
@@ -123,113 +120,286 @@ const EmptyState = () => (
 );
 
 const ErrorState = ({ message, onRetry }) => (
-  <div className="ep-error">
+  <div className="reg-empty">
     <ClipboardList />
     <h3>Gagal memuat informasi pendaftaran</h3>
     <p>{message}</p>
     {onRetry && (
-      <button className="ep-retry-btn" onClick={onRetry} type="button">
-        <RefreshCw className="inline h-4 w-4 mr-1" />
+      <button className="reg-retry" onClick={onRetry} type="button">
+        <RefreshCw className="h-4 w-4" />
         Coba lagi
       </button>
     )}
   </div>
 );
 
-const FeeBreakdown = ({ fees, totalFee }) => (
-  <div className="ep-fees-card">
-    <h3 className="ep-fees-card__title">
-      <Banknote className="h-4 w-4" />
-      Rincian Biaya
-    </h3>
-    {fees.map((fee) => (
-      <div key={fee.id} className="ep-fee-row">
-        <span className={`ep-fee-row__name${fee.disabled ? ' ep-fee-row__name--disabled' : ''}`}>
-          {fee.name}
-        </span>
-        <span className={`ep-fee-row__amount${fee.disabled ? ' ep-fee-row__amount--disabled' : ''}`}>
-          {fee.amount}
-        </span>
+/* ---------- Enrollment Intro (Hero replacement) ---------- */
+const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
+  <section className="reg-intro" aria-labelledby="reg-intro-title">
+    {/* Decorative background */}
+    <div className="reg-intro__bg" aria-hidden="true">
+      <div className="reg-intro__orb reg-intro__orb--1" />
+      <div className="reg-intro__orb reg-intro__orb--2" />
+      <div className="reg-intro__pattern" />
+    </div>
+
+    <div className="reg-container reg-intro__inner">
+      <motion.div
+        className="reg-intro__text"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={fadeUp} className="reg-intro__breadcrumb">
+          <Link to="/">Beranda</Link>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">Informasi Pendaftaran</span>
+        </motion.div>
+
+        <motion.div variants={fadeUp} className="reg-intro__badge">
+          <Sparkles className="h-3.5 w-3.5" />
+          Pendaftaran Terbuka
+        </motion.div>
+
+        <motion.h1 variants={fadeUp} id="reg-intro-title">
+          Mulai Langkah Belajar <em>Al-Qur'an</em>
+        </motion.h1>
+
+        <motion.p variants={fadeUp} className="reg-intro__lead">
+          Temukan program yang tepat untuk Anda atau buah hati. Lihat biaya, syarat, dan catatan penting untuk setiap kategori pendaftaran.
+        </motion.p>
+
+        <motion.div variants={fadeUp} className="reg-intro__stats">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              className={`reg-stat${activeId === cat.id ? ' reg-stat--active' : ''}`}
+              onClick={() => onSelect(cat.id)}
+              type="button"
+            >
+              <span className="reg-stat__icon" aria-hidden="true">{cat.icon}</span>
+              <span className="reg-stat__label">{cat.name}</span>
+            </button>
+          ))}
+        </motion.div>
+      </motion.div>
+
+      {/* Right-side category preview cards */}
+      <motion.div
+        className="reg-intro__preview"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
+        {categories.map((cat, i) => (
+          <motion.button
+            key={cat.id}
+            variants={fadeUp}
+            className={`reg-preview-card${activeId === cat.id ? ' reg-preview-card--active' : ''}`}
+            onClick={() => onSelect(cat.id)}
+            type="button"
+            aria-pressed={activeId === cat.id}
+          >
+            <span className="reg-preview-card__num" aria-hidden="true">
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <span className="reg-preview-card__icon" aria-hidden="true">{cat.icon}</span>
+            <span className="reg-preview-card__name">{cat.name}</span>
+            {cat.totalFee && (
+              <span className="reg-preview-card__fee">{cat.totalFee}</span>
+            )}
+          </motion.button>
+        ))}
+      </motion.div>
+    </div>
+  </section>
+);
+
+/* ---------- Category Navigator (Segmented pill) ---------- */
+const CategoryNav = ({ categories, activeId, onSelect }) => (
+  <nav className="reg-nav" aria-label="Pilih kategori pendaftaran">
+    <div className="reg-container">
+      <div className="reg-nav__rail" role="tablist" aria-label="Kategori pendaftaran">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            role="tab"
+            id={`reg-tab-${cat.id}`}
+            aria-selected={activeId === cat.id}
+            aria-controls={`reg-panel-${cat.id}`}
+            className={`reg-nav__btn${activeId === cat.id ? ' reg-nav__btn--active' : ''}`}
+            onClick={() => onSelect(cat.id)}
+            tabIndex={activeId === cat.id ? 0 : -1}
+          >
+            {activeId === cat.id && (
+              <motion.span
+                className="reg-nav__indicator"
+                layoutId="reg-nav-indicator"
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
+              />
+            )}
+            <span className="reg-nav__btn-content">
+              <span className="reg-nav__btn-icon" aria-hidden="true">{cat.icon}</span>
+              <span className="reg-nav__btn-text">{cat.name}</span>
+            </span>
+          </button>
+        ))}
       </div>
-    ))}
+    </div>
+  </nav>
+);
+
+/* ---------- Fee Module ---------- */
+const FeeModule = ({ fees, totalFee }) => (
+  <div className="reg-fee">
+    <div className="reg-fee__header">
+      <div className="reg-fee__icon-wrap">
+        <Banknote className="h-5 w-5" />
+      </div>
+      <div>
+        <h3 className="reg-fee__title">Rincian Biaya</h3>
+        <p className="reg-fee__subtitle">Komponen biaya pendaftaran</p>
+      </div>
+    </div>
+
+    <div className="reg-fee__list">
+      {fees.map((fee, idx) => (
+        <div
+          key={fee.id}
+          className={`reg-fee__row${fee.disabled ? ' reg-fee__row--muted' : ''}`}
+        >
+          <span className="reg-fee__idx" aria-hidden="true">{String(idx + 1).padStart(2, '0')}</span>
+          <span className="reg-fee__name">{fee.name}</span>
+          <span className="reg-fee__dots" aria-hidden="true" />
+          <span className="reg-fee__amount">{fee.amount}</span>
+        </div>
+      ))}
+    </div>
+
     {totalFee && (
-      <div className="ep-fee-total">
-        <span className="ep-fee-total__label">Total</span>
-        <span className="ep-fee-total__amount">{totalFee}</span>
+      <div className="reg-fee__total">
+        <span className="reg-fee__total-label">Total Pendaftaran</span>
+        <span className="reg-fee__total-amount">{totalFee}</span>
       </div>
     )}
   </div>
 );
 
-const NotesPanel = ({ notes, title = 'Catatan Penting' }) => (
-  <div className="ep-notes-card">
-    <h3 className="ep-notes-card__title">{title}</h3>
-    {notes.map((note) => (
-      <div key={note.id} className="ep-note-item">
-        <span className="ep-note-item__icon" aria-hidden="true">{note.icon}</span>
-        <span className="ep-note-item__text">{note.text}</span>
+/* ---------- Requirements Checklist ---------- */
+const RequirementsPanel = ({ requirements }) => (
+  <div className="reg-req">
+    <div className="reg-req__header">
+      <div className="reg-req__icon-wrap">
+        <ClipboardCheck className="h-5 w-5" />
       </div>
-    ))}
-  </div>
-);
+      <div>
+        <h3 className="reg-req__title">Syarat Pendaftaran</h3>
+        <p className="reg-req__subtitle">Dokumen yang perlu disiapkan</p>
+      </div>
+    </div>
 
-const RequirementsList = ({ requirements }) => (
-  <div className="ep-req-card">
-    <h3 className="ep-req-card__title">
-      <ClipboardCheck className="h-4 w-4" />
-      Syarat Pendaftaran
-    </h3>
-    <ul className="ep-req-list" role="list">
+    <ol className="reg-req__list" role="list">
       {requirements.map((req) => (
-        <li key={req.id} className="ep-req-item">
-          <span className="ep-req-item__check" aria-hidden="true">
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="2.5 6 5 8.5 9.5 3.5" />
-            </svg>
-          </span>
-          <span className="ep-req-item__text">{req.text}</span>
+        <li key={req.id} className="reg-req__item">
+          <CheckCircle2 className="reg-req__check" aria-hidden="true" />
+          <span className="reg-req__text">{req.text}</span>
         </li>
       ))}
-    </ul>
+    </ol>
   </div>
 );
 
-const CategoryContent = ({ category }) => (
-  <motion.section
-    className="ep-section"
-    variants={sectionVariants}
+/* ---------- Notes Context Panel ---------- */
+const NotesPanel = ({ notes }) => (
+  <div className="reg-notes">
+    <div className="reg-notes__header">
+      <Info className="h-4 w-4" />
+      <h3 className="reg-notes__title">Catatan Penting</h3>
+    </div>
+    <div className="reg-notes__list">
+      {notes.map((note) => (
+        <div key={note.id} className="reg-notes__item">
+          <span className="reg-notes__emoji" aria-hidden="true">{note.icon}</span>
+          <span className="reg-notes__text">{note.text}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+/* ---------- Category Content Canvas ---------- */
+const CategoryCanvas = ({ category }) => (
+  <motion.div
+    className="reg-canvas"
+    variants={panelIn}
     initial="hidden"
     animate="visible"
-    custom={0}
-    aria-labelledby={`cat-${category.id}`}
+    exit="exit"
+    key={category.id}
+    role="tabpanel"
+    id={`reg-panel-${category.id}`}
+    aria-labelledby={`reg-tab-${category.id}`}
   >
-    {/* Category Header */}
-    <div className="ep-category-header">
-      <div className="ep-category-header__icon" aria-hidden="true">
-        {category.icon}
-      </div>
-      <div className="ep-category-header__text">
-        <h2 id={`cat-${category.id}`}>{category.name}</h2>
+    {/* Category identity banner */}
+    <div className="reg-canvas__banner">
+      <span className="reg-canvas__banner-icon" aria-hidden="true">{category.icon}</span>
+      <div className="reg-canvas__banner-text">
+        <h2>{category.name}</h2>
         {category.description && <p>{category.description}</p>}
       </div>
     </div>
 
-    {/* Fees + Notes Grid */}
-    <div className="ep-duo-grid" style={{ marginBottom: 'clamp(1.25rem, 2.5vw, 1.75rem)' }}>
-      <FeeBreakdown fees={category.fees} totalFee={category.totalFee} />
-      {category.notes && category.notes.length > 0 && (
-        <NotesPanel
-          notes={category.notes}
-          title={`Catatan ${category.name.includes('Dewasa') ? '(Dewasa)' : ''}`}
-        />
-      )}
+    {/* Content grid */}
+    <div className="reg-canvas__grid">
+      <div className="reg-canvas__main">
+        <FeeModule fees={category.fees} totalFee={category.totalFee} />
+      </div>
+      <div className="reg-canvas__side">
+        <RequirementsPanel requirements={category.requirements || []} />
+        {category.notes && category.notes.length > 0 && (
+          <NotesPanel notes={category.notes} />
+        )}
+      </div>
     </div>
+  </motion.div>
+);
 
-    {/* Requirements */}
-    {category.requirements && category.requirements.length > 0 && (
-      <RequirementsList requirements={category.requirements} />
-    )}
-  </motion.section>
+/* ---------- CTA Section ---------- */
+const ClosingCTA = () => (
+  <section className="reg-cta" aria-labelledby="reg-cta-title">
+    <div className="reg-cta__bg" aria-hidden="true">
+      <div className="reg-cta__orb" />
+    </div>
+    <div className="reg-container reg-cta__inner">
+      <motion.div
+        className="reg-cta__content"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <BookOpen className="reg-cta__icon" aria-hidden="true" />
+        <h2 id="reg-cta-title">Siap Untuk Bergabung?</h2>
+        <p>
+          Hubungi kami untuk informasi lebih lanjut atau langsung lakukan pendaftaran di lokasi LPQ Al-Muhajirun.
+        </p>
+        <div className="reg-cta__actions">
+          <a
+            href="https://wa.me/6281234567890"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="reg-cta__btn reg-cta__btn--primary"
+          >
+            Hubungi via WhatsApp
+            <ArrowRight className="h-4 w-4" />
+          </a>
+          <Link to="/" className="reg-cta__btn reg-cta__btn--secondary">
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </motion.div>
+    </div>
+  </section>
 );
 
 /* ---------- Main Page ---------- */
@@ -249,21 +419,16 @@ const RegistrationInfoPage = () => {
       });
       const raw = contentMap.enrollmentInfo;
       if (raw && typeof raw === 'object' && Array.isArray(raw.categories) && raw.categories.length > 0) {
-        // Sort by order
         const sorted = {
           ...raw,
           categories: [...raw.categories].sort((a, b) => (a.order || 0) - (b.order || 0)),
         };
         setData(sorted);
       } else {
-        // Use default hardcoded data when no admin data exists
         setData(DEFAULT_ENROLLMENT_DATA);
       }
     } catch (err) {
-      // On error, fall back to default data rather than showing error
-      // This ensures the page always works even if Supabase is down
       setData(DEFAULT_ENROLLMENT_DATA);
-      // But still log the error for debugging
       console.warn('Enrollment data fetch failed, using defaults:', getPublicContentErrorMessage(err));
     } finally {
       setLoading(false);
@@ -278,7 +443,7 @@ const RegistrationInfoPage = () => {
   const currentCategory = categories.find((c) => c.id === activeCategory) || categories[0];
 
   return (
-    <div className="enrollment-page">
+    <div className="reg-page">
       <Helmet>
         <title>Informasi Pendaftaran — LPQ Al-Muhajirun</title>
         <meta
@@ -292,90 +457,51 @@ const RegistrationInfoPage = () => {
         <meta property="og:url" content="https://lpq-al-muhajirun.vercel.app/pendaftaran/informasi" />
       </Helmet>
 
-      {/* ---- Hero ---- */}
-      <section className="ep-hero" aria-labelledby="ep-hero-title">
-        <div className="ep-container ep-hero__inner">
-          <motion.div variants={heroVariants} initial="hidden" animate="visible">
-            {/* Breadcrumb */}
-            <nav className="ep-breadcrumb" aria-label="Breadcrumb">
-              <Link to="/">Beranda</Link>
-              <span className="ep-breadcrumb__sep" aria-hidden="true">/</span>
-              <span className="ep-breadcrumb__current" aria-current="page">Informasi Pendaftaran</span>
-            </nav>
-
-            <span className="ep-hero__eyebrow">
-              <ClipboardList className="h-3.5 w-3.5" />
-              Pendaftaran Terbuka
-            </span>
-            <h1 id="ep-hero-title" className="ep-hero__title">
-              Informasi <em>Pendaftaran</em>
-            </h1>
-            <p className="ep-hero__lead">
-              Panduan lengkap untuk mendaftarkan diri atau buah hati Anda di LPQ Al-Muhajirun.
-              Temukan biaya, syarat, dan prosedur pendaftaran untuk setiap program.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ---- Category Navigation + Content ---- */}
-      <section className="ep-container" style={{ paddingTop: 0, paddingBottom: 'clamp(3rem, 6vw, 5rem)' }} aria-label="Informasi pendaftaran per program">
-        {loading ? (
-          <>
-            <LoadingSkeleton />
-            <LoadingIndicator />
-          </>
-        ) : error ? (
+      {loading ? (
+        <>
+          <LoadingSkeleton />
+          <div className="reg-container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
+            <div className="reg-loading" aria-live="polite">
+              <Loader2 className="h-5 w-5" />
+              <p>Memuat informasi pendaftaran…</p>
+            </div>
+          </div>
+        </>
+      ) : error ? (
+        <div className="reg-container" style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
           <ErrorState message={error} onRetry={fetchData} />
-        ) : categories.length === 0 ? (
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="reg-container" style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
           <EmptyState />
-        ) : (
-          <>
-            {/* Segmented Control */}
-            <div className="ep-category-nav">
-              <div
-                className="ep-segmented"
-                role="tablist"
-                aria-label="Kategori pendaftaran"
-              >
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    role="tab"
-                    id={`tab-${cat.id}`}
-                    aria-selected={activeCategory === cat.id}
-                    aria-controls={`panel-${cat.id}`}
-                    className="ep-segmented__btn"
-                    onClick={() => setActiveCategory(cat.id)}
-                  >
-                    {activeCategory === cat.id && (
-                      <motion.span
-                        className="ep-segmented__pill"
-                        layoutId="ep-tab-pill"
-                        transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }}
-                      />
-                    )}
-                    <span className="relative z-10 flex items-center gap-2">
-                      <span aria-hidden="true">{cat.icon}</span>
-                      {cat.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+        </div>
+      ) : (
+        <>
+          {/* Enrollment Intro Section */}
+          <EnrollmentIntro
+            categories={categories}
+            activeId={activeCategory}
+            onSelect={setActiveCategory}
+          />
 
-            {/* Content Panel */}
-            <div
-              className="ep-content"
-              role="tabpanel"
-              id={`panel-${activeCategory}`}
-              aria-labelledby={`tab-${activeCategory}`}
-            >
-              {currentCategory && <CategoryContent category={currentCategory} key={currentCategory.id} />}
-            </div>
-          </>
-        )}
-      </section>
+          {/* Sticky Category Navigator */}
+          <CategoryNav
+            categories={categories}
+            activeId={activeCategory}
+            onSelect={setActiveCategory}
+          />
+
+          {/* Content Canvas */}
+          <div className="reg-container" style={{ paddingTop: 'clamp(1.5rem, 3vw, 2.5rem)', paddingBottom: 'clamp(2rem, 4vw, 3.5rem)' }}>
+            <AnimatePresence mode="wait">
+              {currentCategory && <CategoryCanvas category={currentCategory} />}
+            </AnimatePresence>
+          </div>
+
+          {/* Closing CTA */}
+          <ClosingCTA />
+        </>
+      )}
     </div>
   );
 };

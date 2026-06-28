@@ -629,10 +629,9 @@ const ContentManagement = () => {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h3 className="font-bold text-xl flex items-center gap-2"><ClipboardList className="w-5 h-5" /> Informasi Pendaftaran</h3>
-              <p className="text-sm text-muted-foreground mt-1">Kelola kategori pendaftaran, biaya, catatan, dan syarat yang tampil di halaman publik.</p>
+              <p className="text-sm text-muted-foreground mt-1">Kelola biaya, catatan, dan syarat pendaftaran yang tampil di halaman publik.</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={addEnrollmentCategory}><Plus className="w-4 h-4 mr-1" />Tambah Kategori</Button>
               <Button size="sm" onClick={handleSaveEnrollment} disabled={isEnrollmentSaving}>
                 {isEnrollmentSaving ? 'Menyimpan…' : 'Simpan Pendaftaran'}
               </Button>
@@ -648,27 +647,19 @@ const ContentManagement = () => {
             enrollmentData.categories.map((cat, ci) => (
               <div key={cat.id || ci} className="p-4 border rounded-lg space-y-4 bg-background">
                 {/* Category Header */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    <span className="text-xl" aria-hidden="true">{cat.icon}</span>
-                    <Input
-                      value={cat.name}
-                      onChange={e => updateEnrollmentCategory(ci, 'name', e.target.value)}
-                      className="flex-1 font-bold"
-                      placeholder="Nama kategori"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveCategory(ci, -1)} disabled={ci === 0} title="Geser ke atas"><ArrowUp className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveCategory(ci, 1)} disabled={ci === enrollmentData.categories.length - 1} title="Geser ke bawah"><ArrowDown className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEnrollmentCategory(ci)} title="Hapus kategori"><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl" aria-hidden="true">{cat.icon}</span>
+                  <Input
+                    value={cat.name}
+                    onChange={e => updateEnrollmentCategory(ci, 'name', e.target.value)}
+                    className="flex-1 font-bold"
+                    placeholder="Nama kategori"
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-medium text-muted-foreground">Icon (emoji)</label><Input value={cat.icon || ''} onChange={e => updateEnrollmentCategory(ci, 'icon', e.target.value)} placeholder="📋" /></div>
-                  <div><label className="text-xs font-medium text-muted-foreground">Total Biaya (teks)</label><Input value={cat.totalFee || ''} onChange={e => updateEnrollmentCategory(ci, 'totalFee', e.target.value)} placeholder="Rp 450.000" /></div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Total Biaya (teks)</label>
+                  <Input value={cat.totalFee || ''} onChange={e => updateEnrollmentCategory(ci, 'totalFee', e.target.value)} placeholder="Rp 450.000" />
                 </div>
-                <div><label className="text-xs font-medium text-muted-foreground">Deskripsi</label><Textarea value={cat.description || ''} onChange={e => updateEnrollmentCategory(ci, 'description', e.target.value)} rows={2} placeholder="Deskripsi singkat kategori ini…" /></div>
 
                 {/* Fees */}
                 <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
