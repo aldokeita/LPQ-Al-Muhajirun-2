@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
@@ -154,6 +154,8 @@ const ContentManagement = () => {
   const [santriList, setSantriList] = useState([]);
   const [guruList, setGuruList] = useState([]);
   const [activeTab, setActiveTab] = useState("homepage");
+  const [enrollmentData, setEnrollmentData] = useState({ categories: [] });
+  const [isEnrollmentSaving, setIsEnrollmentSaving] = useState(false);
 
   useEffect(() => { fetchContent(); fetchSantriAndGuru(); fetchFeedbacks(); }, []);
 
@@ -192,6 +194,12 @@ const ContentManagement = () => {
     if(!newContent.quotas) newContent.quotas = { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 };
     if(!newContent.model3dSettings || typeof newContent.model3dSettings !== 'object' || Array.isArray(newContent.model3dSettings)) {
       newContent.model3dSettings = { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 };
+    }
+    // Parse enrollmentInfo
+    if (newContent.enrollmentInfo && typeof newContent.enrollmentInfo === 'object' && Array.isArray(newContent.enrollmentInfo.categories)) {
+      setEnrollmentData(newContent.enrollmentInfo);
+    } else {
+      setEnrollmentData({ categories: [] });
     }
     try {
       const [news, announcements] = await Promise.all([fetchAdminNews(), fetchAdminAnnouncements()]);
@@ -327,10 +335,135 @@ const ContentManagement = () => {
   const handleLeaderboardChange = (index, personId, achievement) => { const person = santriList.find(p => p.id === personId); if (person) { const newLeaderboard = [...content.leaderboard]; newLeaderboard[index] = { ...person, achievement }; setContent(prev => ({ ...prev, leaderboard: newLeaderboard })); } };
   const handleOpacityChange = (key, value) => { setContent(prev => ({...prev, [key]: value[0]})); };
 
+  /* ---- Enrollment Data Handlers ---- */
+  const updateEnrollmentCategory = (catIndex, field, value) => {
+    setEnrollmentData(prev => {
+      const cats = [...prev.categories];
+      cats[catIndex] = { ...cats[catIndex], [field]: value };
+      return { ...prev, categories: cats };
+    });
+  };
+
+  const addEnrollmentCategory = () => {
+    const newCat = {
+      id: `cat-${Date.now()}`,
+      name: 'Kategori Baru',
+      description: '',
+      icon: '📋',
+      fees: [],
+      totalFee: '',
+      notes: [],
+      requirements: [],
+      order: enrollmentData.categories.length + 1,
+    };
+    setEnrollmentData(prev => ({ ...prev, categories: [...prev.categories, newCat] }));
+  };
+
+  const removeEnrollmentCategory = (catIndex) => {
+    if (!window.confirm('Hapus kategori ini beserta seluruh data biaya, catatan, dan syaratnya?')) return;
+    setEnrollmentData(prev => ({
+      ...prev,
+      categories: prev.categories.filter((_, i) => i !== catIndex),
+    }));
+  };
+
+  const addFeeItem = (catIndex) => {
+    const cats = [...enrollmentData.categories];
+    const fees = [...(cats[catIndex].fees || [])];
+    fees.push({ id: `f-${Date.now()}`, name: '', amount: '', order: fees.length + 1 });
+    cats[catIndex] = { ...cats[catIndex], fees };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const updateFeeItem = (catIndex, feeIndex, field, value) => {
+    const cats = [...enrollmentData.categories];
+    const fees = [...cats[catIndex].fees];
+    fees[feeIndex] = { ...fees[feeIndex], [field]: value };
+    cats[catIndex] = { ...cats[catIndex], fees };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const removeFeeItem = (catIndex, feeIndex) => {
+    const cats = [...enrollmentData.categories];
+    cats[catIndex] = { ...cats[catIndex], fees: cats[catIndex].fees.filter((_, i) => i !== feeIndex) };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const addNoteItem = (catIndex) => {
+    const cats = [...enrollmentData.categories];
+    const notes = [...(cats[catIndex].notes || [])];
+    notes.push({ id: `n-${Date.now()}`, icon: '📌', text: '' });
+    cats[catIndex] = { ...cats[catIndex], notes };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const updateNoteItem = (catIndex, noteIndex, field, value) => {
+    const cats = [...enrollmentData.categories];
+    const notes = [...cats[catIndex].notes];
+    notes[noteIndex] = { ...notes[noteIndex], [field]: value };
+    cats[catIndex] = { ...cats[catIndex], notes };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const removeNoteItem = (catIndex, noteIndex) => {
+    const cats = [...enrollmentData.categories];
+    cats[catIndex] = { ...cats[catIndex], notes: cats[catIndex].notes.filter((_, i) => i !== noteIndex) };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const addRequirementItem = (catIndex) => {
+    const cats = [...enrollmentData.categories];
+    const requirements = [...(cats[catIndex].requirements || [])];
+    requirements.push({ id: `r-${Date.now()}`, text: '' });
+    cats[catIndex] = { ...cats[catIndex], requirements };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const updateRequirementItem = (catIndex, reqIndex, value) => {
+    const cats = [...enrollmentData.categories];
+    const requirements = [...cats[catIndex].requirements];
+    requirements[reqIndex] = { ...requirements[reqIndex], text: value };
+    cats[catIndex] = { ...cats[catIndex], requirements };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const removeRequirementItem = (catIndex, reqIndex) => {
+    const cats = [...enrollmentData.categories];
+    cats[catIndex] = { ...cats[catIndex], requirements: cats[catIndex].requirements.filter((_, i) => i !== reqIndex) };
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const moveCategory = (catIndex, direction) => {
+    const cats = [...enrollmentData.categories];
+    const targetIndex = catIndex + direction;
+    if (targetIndex < 0 || targetIndex >= cats.length) return;
+    [cats[catIndex], cats[targetIndex]] = [cats[targetIndex], cats[catIndex]];
+    // Update order
+    cats.forEach((c, i) => { c.order = i + 1; });
+    setEnrollmentData({ ...enrollmentData, categories: cats });
+  };
+
+  const handleSaveEnrollment = async () => {
+    setIsEnrollmentSaving(true);
+    try {
+      await saveWebsiteContentItem({
+        key: 'enrollmentInfo',
+        content: enrollmentData,
+        isPublic: true,
+      });
+      toast({ title: "Tersimpan!", description: "Informasi pendaftaran berhasil disimpan." });
+    } catch (error) {
+      toast({ title: "Gagal Menyimpan", description: getPublicContentErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsEnrollmentSaving(false);
+    }
+  };
+
   const tabs = [
       { id: 'homepage', label: 'Halaman Depan', icon: Home },
       { id: 'apresiasi', label: 'Apresiasi', icon: Heart },
       { id: 'media', label: 'Media & Galeri', icon: ImageIcon },
+      { id: 'enrollment', label: 'Informasi Pendaftaran', icon: ClipboardList },
       { id: 'pesan', label: 'Pesan Masuk', icon: Mail },
       { id: 'hafalan', label: 'Hafalan', icon: BookCopy },
   ];
@@ -490,7 +623,118 @@ const ContentManagement = () => {
             <ContentSection title="Diskusi Wali Santri" modalType="waliDiscussions" data={content.waliDiscussions} icon={<Users/>} renderItem={item => <p className="truncate">{item.title} - {item.date}</p>} />
             <ContentSection title="Video Qiroati" modalType="qiroatiVideos" data={content.qiroatiVideos} icon={<Video/>} renderItem={item => <p className="truncate">{item.title}</p>} />
             <ContentSection title="Video Hafalan" modalType="hafalanVideos" data={content.hafalanVideos} icon={<Video/>} renderItem={item => <p className="truncate">{item.title}</p>} />
-            <ContentSection title="Fasilitas" modalType="facilities" data={content.facilities} icon={<Building/>} renderItem={item => <p className="truncate">{item.name}</p>} />
+          <ContentSection title="Fasilitas" modalType="facilities" data={content.facilities} icon={<Building/>} renderItem={item => <p className="truncate">{item.name}</p>} />
+        </TabsContent>
+        <TabsContent value="enrollment" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="font-bold text-xl flex items-center gap-2"><ClipboardList className="w-5 h-5" /> Informasi Pendaftaran</h3>
+              <p className="text-sm text-muted-foreground mt-1">Kelola kategori pendaftaran, biaya, catatan, dan syarat yang tampil di halaman publik.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={addEnrollmentCategory}><Plus className="w-4 h-4 mr-1" />Tambah Kategori</Button>
+              <Button size="sm" onClick={handleSaveEnrollment} disabled={isEnrollmentSaving}>
+                {isEnrollmentSaving ? 'Menyimpan…' : 'Simpan Pendaftaran'}
+              </Button>
+            </div>
+          </div>
+          {enrollmentData.categories.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground border rounded-lg">
+              <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Belum ada kategori pendaftaran</p>
+              <p className="text-sm mt-1">Klik "Tambah Kategori" untuk memulai.</p>
+            </div>
+          ) : (
+            enrollmentData.categories.map((cat, ci) => (
+              <div key={cat.id || ci} className="p-4 border rounded-lg space-y-4 bg-background">
+                {/* Category Header */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xl" aria-hidden="true">{cat.icon}</span>
+                    <Input
+                      value={cat.name}
+                      onChange={e => updateEnrollmentCategory(ci, 'name', e.target.value)}
+                      className="flex-1 font-bold"
+                      placeholder="Nama kategori"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveCategory(ci, -1)} disabled={ci === 0} title="Geser ke atas"><ArrowUp className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveCategory(ci, 1)} disabled={ci === enrollmentData.categories.length - 1} title="Geser ke bawah"><ArrowDown className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEnrollmentCategory(ci)} title="Hapus kategori"><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="text-xs font-medium text-muted-foreground">Icon (emoji)</label><Input value={cat.icon || ''} onChange={e => updateEnrollmentCategory(ci, 'icon', e.target.value)} placeholder="📋" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground">Total Biaya (teks)</label><Input value={cat.totalFee || ''} onChange={e => updateEnrollmentCategory(ci, 'totalFee', e.target.value)} placeholder="Rp 450.000" /></div>
+                </div>
+                <div><label className="text-xs font-medium text-muted-foreground">Deskripsi</label><Textarea value={cat.description || ''} onChange={e => updateEnrollmentCategory(ci, 'description', e.target.value)} rows={2} placeholder="Deskripsi singkat kategori ini…" /></div>
+
+                {/* Fees */}
+                <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-sm">Biaya</h4>
+                    <Button variant="outline" size="sm" onClick={() => addFeeItem(ci)}><PlusCircle className="w-3.5 h-3.5 mr-1" />Tambah Biaya</Button>
+                  </div>
+                  {(cat.fees || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-2">Belum ada item biaya</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {cat.fees.map((fee, fi) => (
+                        <div key={fee.id || fi} className="flex items-center gap-2">
+                          <Input value={fee.name} onChange={e => updateFeeItem(ci, fi, 'name', e.target.value)} placeholder="Nama biaya" className="flex-1" />
+                          <Input value={fee.amount} onChange={e => updateFeeItem(ci, fi, 'amount', e.target.value)} placeholder="Rp 0" className="w-36" />
+                          <label className="flex items-center gap-1 text-xs whitespace-nowrap"><input type="checkbox" checked={!!fee.disabled} onChange={e => updateFeeItem(ci, fi, 'disabled', e.target.checked)} />Nonaktif</label>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeFeeItem(ci, fi)}><MinusCircle className="w-3.5 h-3.5 text-destructive" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-sm">Catatan Penting</h4>
+                    <Button variant="outline" size="sm" onClick={() => addNoteItem(ci)}><PlusCircle className="w-3.5 h-3.5 mr-1" />Tambah Catatan</Button>
+                  </div>
+                  {(cat.notes || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-2">Belum ada catatan</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {cat.notes.map((note, ni) => (
+                        <div key={note.id || ni} className="flex items-center gap-2">
+                          <Input value={note.icon} onChange={e => updateNoteItem(ci, ni, 'icon', e.target.value)} placeholder="📌" className="w-14 text-center" />
+                          <Input value={note.text} onChange={e => updateNoteItem(ci, ni, 'text', e.target.value)} placeholder="Isi catatan" className="flex-1" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeNoteItem(ci, ni)}><MinusCircle className="w-3.5 h-3.5 text-destructive" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Requirements */}
+                <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-sm">Syarat Pendaftaran</h4>
+                    <Button variant="outline" size="sm" onClick={() => addRequirementItem(ci)}><PlusCircle className="w-3.5 h-3.5 mr-1" />Tambah Syarat</Button>
+                  </div>
+                  {(cat.requirements || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-2">Belum ada syarat</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {cat.requirements.map((req, ri) => (
+                        <div key={req.id || ri} className="flex items-center gap-2">
+                          <Input value={req.text} onChange={e => updateRequirementItem(ci, ri, e.target.value)} placeholder="Isi syarat" className="flex-1" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeRequirementItem(ci, ri)}><MinusCircle className="w-3.5 h-3.5 text-destructive" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </TabsContent>
         <TabsContent value="pesan" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="font-bold text-xl flex items-center gap-2"><Mail />Pesan dari Pengunjung</h3>
