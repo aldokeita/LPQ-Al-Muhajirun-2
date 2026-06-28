@@ -1,101 +1,391 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
-import { motion } from 'framer-motion';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, AlertTriangle, RefreshCw, X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
+import '@/styles/public-gallery.css';
 
+/* ── Size assignment (deterministic mosaic rhythm) ──────────────────── */
+const SIZES = ['normal', 'normal', 'wide', 'tall', 'normal', 'large', 'normal', 'normal', 'wide', 'normal'];
+const getSize = (index) => SIZES[index % SIZES.length];
+
+/* ── Helpers ────────────────────────────────────────────────────────── */
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleDateString('id-ID', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    });
+  } catch {
+    return String(dateStr);
+  }
+};
+
+const fallbackCaption = (index) => `Kegiatan ${index + 1}`;
+
+/* ── Image with error fallback ──────────────────────────────────────── */
+const GalleryImage = ({ src, alt, className, style, onLoad, onError }) => {
+  const [errored, setErrored] = useState(false);
+  if (errored) {
+    return (
+      <div className="gallery-item__broken" role="img" aria-label={alt || 'Gambar tidak tersedia'}>
+        <ImageIcon />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt || 'Gambar galeri'}
+      className={className}
+      style={style}
+      loading="lazy"
+      onLoad={onLoad}
+      onError={() => setErrored(true)}
+      draggable={false}
+    />
+  );
+};
+
+/* ── Loading skeleton ───────────────────────────────────────────────── */
+const LoadingSkeleton = () => (
+  <div aria-label="Memuat galeri..." role="status">
+    <Helmet>
+      <title>Galeri Kegiatan - LPQ Al-Muhajirun</title>
+    </Helmet>
+
+    {/* Hero skeleton */}
+    <div className="gallery-skeleton-hero" aria-hidden="true">
+      <div className="gallery-skeleton-hero__item" />
+      <div className="gallery-skeleton-hero__item" />
+      <div className="gallery-skeleton-hero__item" />
+    </div>
+    <div className="gallery-skeleton-text" aria-hidden="true">
+      <div className="gallery-skeleton-text__line" />
+    </div>
+
+    {/* Grid skeleton */}
+    <div className="gallery-skeleton-grid" aria-hidden="true">
+      {['normal', 'wide', 'tall', 'normal', 'large', 'normal', 'normal', 'wide'].map((size, i) => (
+        <div key={i} className="gallery-skeleton-item" data-size={size} />
+      ))}
+    </div>
+  </div>
+);
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+const EmptyState = () => (
+  <>
+    <Helmet>
+      <title>Galeri Kegiatan - LPQ Al-Muhajirun</title>
+    </Helmet>
+    <div className="gallery-page">
+      <div className="gallery-empty">
+        <ImageIcon className="gallery-empty__icon" />
+        <p className="gallery-empty__title">Belum ada foto di galeri</p>
+        <p className="gallery-empty__desc">
+          Dokumentasi kegiatan santri akan muncul di sini setelah ditambahkan oleh admin.
+        </p>
+      </div>
+    </div>
+  </>
+);
+
+/* ── Error state ────────────────────────────────────────────────────── */
+const ErrorState = ({ onRetry }) => (
+  <>
+    <Helmet>
+      <title>Galeri Kegiatan - LPQ Al-Muhajirun</title>
+    </Helmet>
+    <div className="gallery-page">
+      <div className="gallery-error">
+        <AlertTriangle className="gallery-error__icon" />
+        <p className="gallery-error__title">Gagal memuat galeri</p>
+        <p className="gallery-error__desc">
+          Terjadi kesalahan saat mengambil data. Silakan coba lagi.
+        </p>
+        <button className="gallery-error__retry" onClick={onRetry} type="button">
+          <RefreshCw className="w-4 h-4" />
+          Muat ulang
+        </button>
+      </div>
+    </div>
+  </>
+);
+
+/* ── Lightbox ───────────────────────────────────────────────────────── */
+const Lightbox = ({ photos, index, onClose, onPrev, onNext, originRef }) => {
+  const closeRef = useRef(null);
+  const prevFocusRef = useRef(null);
+  const photo = photos[index];
+
+  // Store original focus element on mount
+  useEffect(() => {
+    prevFocusRef.current = document.activeElement;
+    // Focus the close button after a tick
+    requestAnimationFrame(() => closeRef.current?.focus());
+  }, []);
+
+  // Restore focus on unmount
+  useEffect(() => {
+    return () => {
+      prevFocusRef.current?.focus();
+    };
+  }, []);
+
+  // Body scroll lock
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Keyboard handling
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') onPrev();
+      if (e.key === 'ArrowRight') onNext();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose, onPrev, onNext]);
+
+  // Touch swipe
+  const touchRef = useRef({ startX: 0, startY: 0, active: false });
+
+  const onTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    touchRef.current = { startX: t.clientX, startY: t.clientY, active: true };
+  }, []);
+
+  const onTouchEnd = useCallback((e) => {
+    if (!touchRef.current.active) return;
+    touchRef.current.active = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchRef.current.startX;
+    const dy = t.clientY - touchRef.current.startY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx > 0) onPrev();
+      else onNext();
+    } else if (dy > 80) {
+      onClose();
+    }
+  }, [onClose, onPrev, onNext]);
+
+  if (!photo) return null;
+
+  const caption = photo.caption || null;
+
+  return (
+    <div
+      className="gallery-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Preview gambar galeri"
+      data-animate="enter"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <div className="gallery-lightbox__backdrop" onClick={onClose} />
+
+      <button
+        ref={closeRef}
+        className="gallery-lightbox__close"
+        onClick={onClose}
+        aria-label="Tutup preview"
+        type="button"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {index > 0 && (
+        <button
+          className="gallery-lightbox__nav gallery-lightbox__nav--prev"
+          onClick={onPrev}
+          aria-label="Gambar sebelumnya"
+          type="button"
+        >
+          <ChevronLeft />
+        </button>
+      )}
+
+      {index < photos.length - 1 && (
+        <button
+          className="gallery-lightbox__nav gallery-lightbox__nav--next"
+          onClick={onNext}
+          aria-label="Gambar berikutnya"
+          type="button"
+        >
+          <ChevronRight />
+        </button>
+      )}
+
+      <div className="gallery-lightbox__content">
+        <div className="gallery-lightbox__image-wrap">
+          <img
+            className="gallery-lightbox__img"
+            src={photo.url}
+            alt={caption || 'Gambar galeri'}
+            draggable={false}
+          />
+        </div>
+        <div className="gallery-lightbox__panel">
+          {caption && <p className="gallery-lightbox__caption">{caption}</p>}
+          <p className="gallery-lightbox__counter">
+            {index + 1} dari {photos.length}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Main Gallery Page ──────────────────────────────────────────────── */
 const GalleryPage = () => {
-  const [galleryPhotos, setGalleryPhotos] = useState([]);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const itemRefs = useRef([]);
+
+  const fetchGallery = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from('website_content')
+        .select('content')
+        .eq('key', 'galleryPhotos')
+        .maybeSingle();
+
+      if (fetchErr) throw fetchErr;
+
+      if (data?.content && Array.isArray(data.content)) {
+        setPhotos(data.content);
+      } else {
+        setPhotos([]);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchGallery = async () => {
-      const { data } = await supabase.from('website_content').select('content').eq('key', 'galleryPhotos').maybeSingle();
-      if (data?.content && Array.isArray(data.content)) {
-        setGalleryPhotos(data.content);
-      }
-      setLoading(false);
-    };
     fetchGallery();
+  }, [fetchGallery]);
+
+  /* Lightbox navigation */
+  const closeLightbox = useCallback(() => setSelectedIndex(null), []);
+
+  const goPrev = useCallback(() => {
+    setSelectedIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : prev));
   }, []);
+
+  const goNext = useCallback(() => {
+    setSelectedIndex((prev) => (prev !== null && prev < photos.length - 1 ? prev + 1 : prev));
+  }, [photos.length]);
+
+  /* States */
+  if (loading) return <LoadingSkeleton />;
+  if (error) return <ErrorState onRetry={fetchGallery} />;
+  if (photos.length === 0) return <EmptyState />;
+
+  /* Pick hero images (first 3 or fewer) */
+  const heroImages = photos.slice(0, Math.min(3, photos.length));
 
   return (
     <>
       <Helmet>
         <title>Galeri Kegiatan - LPQ Al-Muhajirun Metode Qiroati Baturaja</title>
-        <meta name="description" content="Dokumentasi kegiatan santri LPQ Al-Muhajirun Metode Qiroati Baturaja." />
+        <meta
+          name="description"
+          content="Dokumentasi visual kegiatan dan momen berharga santri LPQ Al-Muhajirun Metode Qiroati Baturaja."
+        />
       </Helmet>
 
-      <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-12"
-          >
-            <h1 className="text-4xl font-bold text-primary mb-4 font-serif">Galeri Kegiatan</h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Momen-momen berharga dan kegiatan sehari-hari santri dalam menuntut ilmu di LPQ Al-Muhajirun Metode Qiroati Baturaja.
-            </p>
-          </motion.div>
-
-          {loading ? (
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-               {[1,2,3,4,5,6,7,8].map(i => (
-                 <div key={i} className="aspect-square bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
-               ))}
-             </div>
-          ) : galleryPhotos.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {galleryPhotos.map((photo, index) => (
-                <motion.div 
-                  key={photo.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all"
-                  onClick={() => setSelectedPhoto(photo)}
-                >
-                  <img 
-                    src={photo.url} 
-                    alt={photo.caption || "Gallery Photo"} 
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <p className="text-white font-medium text-sm line-clamp-2">
-                        {photo.caption || "Kegiatan Santri"}
-                    </p>
-                  </div>
-                </motion.div>
+      <div className="gallery-page">
+        {/* ── Hero ────────────────────────────────────────────────── */}
+        <section className="gallery-hero">
+          <div className="gallery-hero__inner">
+            <div className="gallery-hero__composite" aria-hidden="true">
+              {heroImages.map((img, i) => (
+                <GalleryImage
+                  key={img.id || i}
+                  src={img.url}
+                  alt=""
+                  className="gallery-hero__composite-img"
+                  style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                />
               ))}
             </div>
-          ) : (
-            <div className="text-center py-20 flex flex-col items-center justify-center text-muted-foreground">
-                <ImageIcon className="w-16 h-16 mb-4 opacity-20"/>
-                <p>Belum ada foto di galeri.</p>
-            </div>
-          )}
-        </div>
-      </div>
 
-      <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
-        <DialogContent className="max-w-4xl p-0 bg-transparent border-none shadow-none">
-          <div className="relative">
-            <img 
-                src={selectedPhoto?.url} 
-                alt={selectedPhoto?.caption} 
-                className="w-full max-h-[85vh] object-contain rounded-lg shadow-2xl bg-black/50 backdrop-blur-sm"
-            />
-            {selectedPhoto?.caption && (
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-4 rounded-b-lg text-center backdrop-blur-md">
-                    <p className="text-lg">{selectedPhoto.caption}</p>
-                </div>
-            )}
+            <div className="gallery-hero__text">
+              <h1 className="gallery-hero__label">
+                <span>A Living Archive</span>
+                Galeri Kegiatan
+              </h1>
+              <p className="gallery-hero__count" aria-label={`${photos.length} foto`}>
+                {photos.length} Foto
+              </p>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </section>
+
+        {/* ── Mosaic grid ────────────────────────────────────────── */}
+        <section className="gallery-grid-wrap">
+          <h2 className="sr-only">Galeri Kegiatan</h2>
+          <div className="gallery-mosaic" role="list">
+            {photos.map((photo, index) => {
+              const size = getSize(index);
+              const caption = photo.caption || fallbackCaption(index);
+              return (
+                <button
+                  key={photo.id || index}
+                  ref={(el) => { itemRefs.current[index] = el; }}
+                  className="gallery-item"
+                  data-size={size}
+                  role="listitem"
+                  type="button"
+                  aria-label={`${caption}. Tekan untuk melihat ukuran penuh.`}
+                  onClick={() => setSelectedIndex(index)}
+                >
+                  <div className="gallery-item__img-wrap">
+                    <GalleryImage
+                      src={photo.url}
+                      alt={caption}
+                      className="gallery-item__img"
+                    />
+
+                    {/* Overlay with caption — always on mobile via CSS */}
+                    <div className="gallery-item__overlay" aria-hidden="true">
+                      <p className="gallery-item__caption">{caption}</p>
+                    </div>
+
+                    {/* Expand icon — visible on hover */}
+                    <div className="gallery-item__icon" aria-hidden="true">
+                      <Maximize2 />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── Lightbox ───────────────────────────────────────────── */}
+        {selectedIndex !== null && (
+          <Lightbox
+            photos={photos}
+            index={selectedIndex}
+            onClose={closeLightbox}
+            onPrev={goPrev}
+            onNext={goNext}
+            originRef={itemRefs.current[selectedIndex]}
+          />
+        )}
+      </div>
     </>
   );
 };
