@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, Calendar, Clock, Share2, Copy, Check,
-  MessageCircle, Newspaper, RefreshCw, NewspaperIcon,
+  MessageCircle, Newspaper, RefreshCw,
 } from 'lucide-react';
 import { fetchNewsDetail, fetchPublishedNews, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 import '@/styles/public-news.css';
@@ -108,7 +108,7 @@ const DetailNotFound = () => (
     </div>
     <div className="news-container" style={{ padding: '3rem 0 5rem' }}>
       <div className="news-container--narrow" style={{ textAlign: 'center' }}>
-        <NewspaperIcon className="h-12 w-12 mx-auto" style={{ color: 'var(--news-emerald)', marginBottom: '1rem' }} />
+        <Newspaper className="h-12 w-12 mx-auto" style={{ color: 'var(--news-emerald)', marginBottom: '1rem' }} />
         <p style={{ color: 'var(--news-muted)', marginBottom: '1.5rem' }}>
           Berita yang Anda cari mungkin sudah tidak tersedia atau belum diterbitkan.
         </p>

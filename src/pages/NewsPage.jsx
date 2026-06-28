@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Search, ArrowRight, Newspaper, RefreshCw, Loader2, NewspaperIcon } from 'lucide-react';
+import { Search, ArrowRight, Newspaper, RefreshCw, Loader2 } from 'lucide-react';
 import { fetchPublishedNews, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 import '@/styles/public-news.css';
 
@@ -78,7 +78,7 @@ const EmptyState = () => (
 
 const ErrorState = ({ message, onRetry }) => (
   <div className="news-error">
-    <NewspaperIcon className="h-12 w-12" />
+    <Newspaper className="h-12 w-12" />
     <h3>Gagal memuat berita</h3>
     <p>{message}</p>
     {onRetry && (
