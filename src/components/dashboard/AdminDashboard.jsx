@@ -197,7 +197,7 @@ const AdminDashboard = () => {
 
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2 text-foreground font-serif">Dashboard Administrator</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2 text-foreground font-cinzel">Dashboard Administrator</h1>
             <p className="text-muted-foreground">Kelola seluruh sistem LPQ Al-Muhajirun</p>
         </div>
         <div className="flex flex-wrap gap-2">

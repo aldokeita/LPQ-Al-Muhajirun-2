@@ -402,7 +402,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <BirthdayGreeting user={santriData} type="Santri" />
-        <h1 className="text-3xl md:text-4xl font-bold text-[#112D4E] dark:text-white mb-8 flex items-center justify-between">
+        <h1 className="text-3xl md:text-4xl font-bold text-[#112D4E] dark:text-white mb-8 flex items-center justify-between font-cinzel">
             Dashboard Santri
         </h1>
         <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-[#112D4E] to-[#3F72AF] shadow-2xl text-white">

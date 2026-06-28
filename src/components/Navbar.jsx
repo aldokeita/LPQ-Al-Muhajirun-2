@@ -55,7 +55,7 @@ const NavbarLogo = ({ logoUrl, logoFailed, setLogoFailed }) => (
     ) : (
       <img src={logoUrl} alt="Logo LPQ Al-Muhajirun" onError={() => setLogoFailed(true)} />
     )}
-    <span>
+    <span className="font-cinzel">
       LPQ Al-Muhajirun
       <small>Metode Qiroati</small>
     </span>

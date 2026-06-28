@@ -424,7 +424,7 @@ const GuruDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <BirthdayGreeting user={guruData} type="Guru" />
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground font-serif">Dashboard Guru</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground font-cinzel">Dashboard Guru</h1>
             <div className="flex flex-wrap gap-2 items-center justify-center md:justify-end">
                 <div className="relative mr-2">
                     <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-primary/20 hover:bg-primary/10 text-primary hover:text-primary/80 shadow-sm" title="Ulang Tahun Bulan Ini"><Cake className="w-5 h-5" />{birthdayCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">{birthdayCount}</span>}</Button>
