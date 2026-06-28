@@ -134,7 +134,16 @@
 .reg-intro__inner {
   position: relative;
   z-index: 1;
-  max-width: 40rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(2rem, 4vw, 3rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .reg-intro__inner {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
 }
 
 /* Text side */
@@ -183,17 +192,16 @@
   margin: 0 0 1.5rem;
 }
 
-/* Method highlights — 2x2 grid in hero */
+/* Method highlights — 2x2 grid in hero, right side */
 .reg-intro__highlights {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.75rem;
-  max-width: 30rem;
 }
 
-@media (max-width: 480px) {
+@media (min-width: 500px) {
   .reg-intro__highlights {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 

@@ -28,7 +28,7 @@ const DEFAULT_ENROLLMENT_DATA = {
       id: 'tpq',
       name: 'Santri TPQ (Anak)',
       description: 'Program pembelajaran Al-Qur\'an untuk mulai dari usia 3 - 16 tahun dengan kurikulum terstruktur dan lingkungan belajar yang menyenangkan.',
-      icon: '📚',
+      icon: '👦',
       fees: [
         { id: 'f1', name: 'Sarpras', amount: 'Rp 115.000', order: 1 },
         { id: 'f2', name: 'Seragam', amount: 'Rp 175.000', order: 2 },
@@ -155,6 +155,7 @@ const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
     </div>
 
     <div className="reg-container reg-intro__inner">
+      {/* Left: text */}
       <motion.div
         className="reg-intro__text"
         variants={stagger}
@@ -174,20 +175,26 @@ const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
         <motion.p variants={fadeUp} className="reg-intro__lead">
           Metode Qiroati membantu Anda atau buah hati membaca Al-Qur'an dengan lancar dan benar dalam waktu yang lebih singkat — langsung dari tahap dasar hingga mahir.
         </motion.p>
+      </motion.div>
 
-        <motion.div variants={fadeUp} className="reg-intro__highlights">
-          {METHOD_HIGHLIGHTS.map((item) => (
-            <div key={item.label} className="reg-highlight">
-              <div className="reg-highlight__icon-wrap">
-                <item.icon className="reg-highlight__icon" />
-              </div>
-              <div className="reg-highlight__text">
-                <span className="reg-highlight__label">{item.label}</span>
-                <span className="reg-highlight__desc">{item.desc}</span>
-              </div>
+      {/* Right: method highlights */}
+      <motion.div
+        className="reg-intro__highlights"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
+        {METHOD_HIGHLIGHTS.map((item) => (
+          <motion.div key={item.label} variants={fadeUp} className="reg-highlight">
+            <div className="reg-highlight__icon-wrap">
+              <item.icon className="reg-highlight__icon" />
             </div>
-          ))}
-        </motion.div>
+            <div className="reg-highlight__text">
+              <span className="reg-highlight__label">{item.label}</span>
+              <span className="reg-highlight__desc">{item.desc}</span>
+            </div>
+          </motion.div>
+        ))}
       </motion.div>
     </div>
   </section>
@@ -228,7 +235,7 @@ const CategoryNav = ({ categories, activeId, onSelect }) => (
 );
 
 /* ---------- Fee Module ---------- */
-const FEE_EMOJI = ['📄', '👕', '📖', '🪪', '📚', '💰', '🏫', '🎒', '📝', '✅', '🎓', '🎁'];
+const FEE_EMOJI = ['🏢', '👕', '📖', '🪪', '📚', '💰', '🏫', '🎒', '📝', '✅', '🎓', '🎁'];
 
 const FeeModule = ({ fees, totalFee }) => (
   <div className="reg-fee">
