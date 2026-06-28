@@ -308,8 +308,8 @@ const GalleryPage = () => {
         <section className="gallery-hero">
           <div className="gallery-hero__inner">
             <div className="gallery-hero__text">
+              <p className="gallery-hero__eyebrow">A Living Archive</p>
               <h1 className="gallery-hero__label">
-                <span className="gallery-hero__eyebrow">A Living Archive</span>
                 Galeri Kegiatan
               </h1>
               <p className="gallery-hero__subtitle">
