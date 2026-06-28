@@ -35,7 +35,6 @@ import GatchaGamePage from '@/pages/GatchaGamePage';
 import GalleryPage from '@/pages/GalleryPage';
 import RandomNamePage from '@/pages/RandomNamePage';
 import TopScorePage from '@/pages/TopScorePage';
-import { motion, AnimatePresence } from 'framer-motion';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { verifyDatabaseSchema } from '@/utils/verifyDatabaseSchema';
@@ -51,46 +50,71 @@ const RouteLogger = () => {
   return null;
 };
 
-const LoadingScreen = () => {
-  const [logoUrl, setLogoUrl] = useState('/logo.png');
+/* ------------------------------------------------------------------ */
+/* Dynamic logo crossfade helper                                      */
+/* Shows local /logo.png first, then crossfades to a Supabase logo.  */
+/* ------------------------------------------------------------------ */
+const DynamicLogo = ({ className = '', width = 48, height = 48 }) => {
+  const [dynamicUrl, setDynamicUrl] = useState(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
+    let cancelled = false;
 
     const fetchLogo = async () => {
-      const { data } = await supabase.from('website_content').select('content').eq('key', 'logoUrl').maybeSingle();
-      if (data?.content) {
-        setLogoUrl(data.content);
+      try {
+        const { data } = await supabase
+          .from('website_content')
+          .select('content')
+          .eq('key', 'logoUrl')
+          .maybeSingle();
+        if (!cancelled && data?.content && data.content !== '/logo.png') {
+          // Preload the dynamic logo in background before crossfading
+          const img = new Image();
+          img.onload = () => {
+            if (!cancelled) {
+              setDynamicUrl(data.content);
+              setReady(true);
+            }
+          };
+          img.onerror = () => {
+            // Keep local logo on failure — never show empty
+          };
+          img.src = data.content;
+        }
+      } catch {
+        // Supabase offline or error — keep local logo
       }
     };
+
     fetchLogo();
+    return () => { cancelled = true; };
   }, []);
 
   return (
-    <motion.div
-      initial={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className="fixed inset-0 bg-background z-[200] flex flex-col items-center justify-center"
-    >
-      <motion.img
-        src={logoUrl} 
-        alt="Loading LPQ Al-Muhajirun"
-        className="w-40 h-40 object-contain rounded-full mb-6 shadow-[0_0_30px_rgba(27,94,32,0.3)]"
-        animate={{ 
-          opacity: [0.6, 1, 0.6],
-          scale: [0.95, 1.05, 0.95]
-        }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+    <span className={`relative inline-block ${className}`} style={{ width, height }}>
+      {/* Local logo — always present */}
+      <img
+        src="/logo.png"
+        alt="Logo LPQ Al-Muhajirun"
+        width={width}
+        height={height}
+        className="absolute inset-0 w-full h-full object-contain"
+        style={{ opacity: ready ? 0 : 1, transition: 'opacity 0.5s ease' }}
       />
-      <motion.h2 
-        className="text-2xl font-bold font-cinzel text-primary"
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
-      >
-        LPQ Al-Muhajirun Metode Qiroati Baturaja
-      </motion.h2>
-    </motion.div>
+      {/* Dynamic logo — crossfades in when loaded */}
+      {dynamicUrl && (
+        <img
+          src={dynamicUrl}
+          alt="Logo LPQ Al-Muhajirun"
+          width={width}
+          height={height}
+          className="absolute inset-0 w-full h-full object-contain"
+          style={{ opacity: ready ? 1 : 0, transition: 'opacity 0.5s ease' }}
+        />
+      )}
+    </span>
   );
 };
 
@@ -149,29 +173,27 @@ const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
 const operationalDisplayRoles = ['admin', 'guru', 'pentashih'];
 
 function App() {
-  const [loading, setLoading] = useState(() => {
+  /* ----------------------------------------------------------------
+   * Dismiss the inline loading shell that lives in index.html.
+   * The shell is pure HTML+CSS and appears instantly before React.
+   * We remove it on mount so there is zero additional delay.
+   * ---------------------------------------------------------------- */
+  useEffect(() => {
+    const shell = document.getElementById('lpq-loading');
+    if (shell) {
+      shell.classList.add('lpq-loading-hide');
+      // Remove from DOM after transition completes
+      const onEnd = () => shell.remove();
+      shell.addEventListener('transitionend', onEnd, { once: true });
+      // Fallback removal if transitionend doesn't fire
+      setTimeout(() => shell.remove(), 600);
+    }
     try {
-      return sessionStorage.getItem('lpq_initial_load_done') !== 'true';
+      sessionStorage.setItem('lpq_initial_load_done', 'true');
     } catch {
-      return true;
+      // sessionStorage can be unavailable in restricted browser modes.
     }
-  });
-
-  useEffect(() => {
-    if (!loading) return undefined;
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, [loading]);
-
-  useEffect(() => {
-    if (!loading) {
-      try {
-        sessionStorage.setItem('lpq_initial_load_done', 'true');
-      } catch {
-        // sessionStorage can be unavailable in restricted browser modes.
-      }
-    }
-  }, [loading]);
+  }, []);
 
   return (
     <ThemeProvider>
@@ -180,9 +202,6 @@ function App() {
           <Router>
             <DatabaseHealthCheck />
             <RouteLogger />
-            <AnimatePresence>
-              {loading && <LoadingScreen />}
-            </AnimatePresence>
             <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
               <Routes>
                 <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
