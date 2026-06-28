@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   Info,
   Sparkles,
+  GraduationCap,
+  Users,
+  Clock,
+  Award,
 } from 'lucide-react';
 import { fetchWebsiteContentMap, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 import '@/styles/public-enrollment.css';
@@ -134,6 +138,13 @@ const ErrorState = ({ message, onRetry }) => (
 );
 
 /* ---------- Enrollment Intro (Hero replacement) ---------- */
+const METHOD_HIGHLIGHTS = [
+  { icon: GraduationCap, label: 'Metode Qiroati', desc: 'Baca lancar dalam waktu singkat' },
+  { icon: Users, label: 'Ustadz & Ustadzah', desc: 'Pengajar bersertifikat & berpengalaman' },
+  { icon: Clock, label: 'Jadwal Fleksibel', desc: 'Pagi, siang, atau malam' },
+  { icon: Award, label: 'Kurikulum Terstruktur', desc: 'Tahap demi tahap terukur' },
+];
+
 const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
   <section className="reg-intro" aria-labelledby="reg-intro-title">
     {/* Decorative background */}
@@ -156,18 +167,27 @@ const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
           <span aria-current="page">Informasi Pendaftaran</span>
         </motion.div>
 
-        <motion.div variants={fadeUp} className="reg-intro__badge">
-          <Sparkles className="h-3.5 w-3.5" />
-          Pendaftaran Terbuka
-        </motion.div>
-
         <motion.h1 variants={fadeUp} id="reg-intro-title">
-          Mulai Langkah Belajar <em>Al-Qur'an</em>
+          Kenapa Harus <em>Qiroati</em> di LPQ Al-Muhajirun?
         </motion.h1>
 
         <motion.p variants={fadeUp} className="reg-intro__lead">
-          Temukan program yang tepat untuk Anda atau buah hati. Lihat biaya, syarat, dan catatan penting untuk setiap kategori pendaftaran.
+          Metode Qiroati membantu Anda atau buah hati membaca Al-Qur'an dengan lancar dan benar dalam waktu yang lebih singkat — langsung dari tahap dasar hingga mahir.
         </motion.p>
+
+        <motion.div variants={fadeUp} className="reg-intro__highlights">
+          {METHOD_HIGHLIGHTS.map((item) => (
+            <div key={item.label} className="reg-highlight">
+              <div className="reg-highlight__icon-wrap">
+                <item.icon className="reg-highlight__icon" />
+              </div>
+              <div className="reg-highlight__text">
+                <span className="reg-highlight__label">{item.label}</span>
+                <span className="reg-highlight__desc">{item.desc}</span>
+              </div>
+            </div>
+          ))}
+        </motion.div>
       </motion.div>
     </div>
   </section>
