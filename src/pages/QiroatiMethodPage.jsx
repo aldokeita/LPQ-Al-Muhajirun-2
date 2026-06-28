@@ -6,7 +6,6 @@ import {
   Target,
   CheckCircle2,
   ArrowRight,
-  Quote,
   PlayCircle,
   GraduationCap,
   Eye,
@@ -14,6 +13,8 @@ import {
   UserCheck,
   Heart,
 } from 'lucide-react';
+import SplitText from '@/components/reactbits/SplitText/SplitText';
+import GradientText from '@/components/reactbits/GradientText/GradientText';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -194,7 +195,23 @@ const QiroatiMethodPage = () => {
               Metode Qiroati
             </span>
             <h1 id="qm-hero-title" className="qm-hero__title">
-              Disiplin di Balik <span className="qm-hero__title-accent">Bacaan Tartil</span>
+              <SplitText
+                text="Disiplin di Balik"
+                splitType="words"
+                delay={80}
+                duration={0.8}
+                className="qm-hero__title-line"
+              />
+              <span className="qm-hero__title-line qm-hero__title-accent-wrap">
+                <GradientText
+                  colors={['#6366f1', '#818cf8', '#a78bfa', '#6366f1']}
+                  animationSpeed={6}
+                  showBorder={false}
+                  direction="horizontal"
+                >
+                  Bacaan Tartil
+                </GradientText>
+              </span>
             </h1>
             <p className="qm-hero__desc">
               Metode praktis belajar membaca Al-Qur'an yang menekankan ketepatan sejak awal — karena bacaan yang benar tidak dibentuk secara kebetulan.
@@ -217,7 +234,17 @@ const QiroatiMethodPage = () => {
                 <BookOpen className="w-3.5 h-3.5" />
                 Asal Usul
               </p>
-              <h2 id="qm-origin-title" className="qm-section__title">Apa Itu Metode Qiroati?</h2>
+              <h2 id="qm-origin-title" className="qm-section__title">
+                Apa Itu{' '}
+                <GradientText
+                  colors={['#3730a3', '#6366f1', '#a78bfa', '#3730a3']}
+                  animationSpeed={8}
+                  showBorder={false}
+                >
+                  Metode Qiroati
+                </GradientText>
+                ?
+              </h2>
               <p className="qm-section__desc">
                 Metode Qiroati adalah sistem pembelajaran membaca Al-Qur'an yang dirancang agar setiap orang bisa belajar dengan benar, tidak sekadar cepat selesai.
               </p>
@@ -306,7 +333,16 @@ const QiroatiMethodPage = () => {
                 <Target className="w-3.5 h-3.5" />
                 Prinsip
               </p>
-              <h2 id="qm-principles-title" className="qm-section__title">Prinsip Pembelajaran Qiroati</h2>
+              <h2 id="qm-principles-title" className="qm-section__title">
+                Prinsip Pembelajaran{' '}
+                <GradientText
+                  colors={['#3730a3', '#6366f1', '#a78bfa', '#3730a3']}
+                  animationSpeed={8}
+                  showBorder={false}
+                >
+                  Qiroati
+                </GradientText>
+              </h2>
               <p className="qm-section__desc">
                 Fondasi yang membuat Qiroati berbeda dari sekadar "belajar baca" — setiap prinsip dirancang agar bacaan benar sejak awal.
               </p>
@@ -347,7 +383,10 @@ const QiroatiMethodPage = () => {
                 <GraduationCap className="w-3.5 h-3.5" />
                 Tahapan Belajar
               </p>
-              <h2 id="qm-journey-title" className="qm-section__title">Alur Pembelajaran Bertahap</h2>
+              <h2 id="qm-journey-title" className="qm-section__title">
+                Alur Pembelajaran{' '}
+                <span className="qm-title-blur">Bertahap</span>
+              </h2>
               <p className="qm-section__desc">
                 Materi disusun secara bertahap dan sistematis. Setiap jilid harus benar-benar dikuasai sebelum melangkah ke jilid berikutnya.
               </p>
@@ -390,7 +429,16 @@ const QiroatiMethodPage = () => {
                 <Heart className="w-3.5 h-3.5" />
                 Di LPQ Al-Muhajirun
               </p>
-              <h2 id="qm-application-title" className="qm-section__title">Penerapan di LPQ Al-Muhajirun</h2>
+              <h2 id="qm-application-title" className="qm-section__title">
+                Penerapan di{' '}
+                <GradientText
+                  colors={['#047857', '#10b981', '#6ee7b7', '#047857']}
+                  animationSpeed={7}
+                  showBorder={false}
+                >
+                  LPQ Al-Muhajirun
+                </GradientText>
+              </h2>
               <p className="qm-section__desc">
                 Qiroati bukan sekadar metode di atas kertas — kami menerapkannya secara langsung dalam setiap sesi pembelajaran.
               </p>
@@ -470,7 +518,15 @@ const QiroatiMethodPage = () => {
                   <PlayCircle className="w-3.5 h-3.5" />
                   Video
                 </p>
-                <h2 id="qm-videos-title" className="qm-section__title">Video Pembelajaran</h2>
+                <h2 id="qm-videos-title" className="qm-section__title">
+                <span className="qm-title-split">
+                  {'Video Pembelajaran'.split(' ').map((word, i) => (
+                    <span key={i} className="qm-title-split__word" style={{ animationDelay: `${i * 0.08}s` }}>
+                      {word}{' '}
+                    </span>
+                  ))}
+                </span>
+              </h2>
                 <p className="qm-section__desc">
                   Lihat bagaimana metode Qiroati diterapkan dalam praktik pembelajaran.
                 </p>

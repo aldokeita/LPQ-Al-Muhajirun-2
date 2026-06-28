@@ -816,6 +816,72 @@
   outline-offset: 2px;
 }
 
+/* ---------- Title Line ---------- */
+.qm-hero__title-line {
+  display: block;
+}
+
+.qm-hero__title-accent-wrap {
+  display: block;
+  padding-top: 0.125rem;
+}
+
+/* ---------- Blur Title ---------- */
+.qm-title-blur {
+  background: linear-gradient(135deg, var(--qm-indigo) 0%, var(--qm-indigo-bright) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: blur(0px);
+  position: relative;
+}
+
+.qm-title-blur::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: linear-gradient(135deg, var(--qm-indigo) 0%, var(--qm-indigo-bright) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: blur(8px);
+  opacity: 0.5;
+  z-index: -1;
+}
+
+/* ---------- Split Text Title ---------- */
+.qm-title-split {
+  display: inline-flex;
+  gap: 0.35em;
+  flex-wrap: wrap;
+}
+
+.qm-title-split__word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: qm-word-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  background: linear-gradient(135deg, var(--qm-navy) 0%, var(--qm-slate) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark .qm-title-split__word {
+  background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes qm-word-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ---------- Reduced Motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .qm-principle-card,
@@ -826,5 +892,11 @@
   .qm-principle-card:hover,
   .qm-video-card:hover {
     transform: none;
+  }
+
+  .qm-title-split__word {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 }
