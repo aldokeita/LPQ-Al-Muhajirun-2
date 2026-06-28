@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -9,35 +9,40 @@ import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import GradientText from '@/components/reactbits/GradientText/GradientText';
 import '@/styles/public-login.css';
 
+/* Lazy load DarkVeil to avoid blocking initial render */
+const DarkVeil = lazy(() => import('@/components/reactbits/DarkVeil/DarkVeil'));
+
 /* ---------- Animation Variants ---------- */
 const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 24, scale: 0.97 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+    scale: 1,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
-const identityVariants = {
-  hidden: { opacity: 0 },
+const brandVariants = {
+  hidden: { opacity: 0, y: -12 },
   visible: {
     opacity: 1,
-    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+    y: 0,
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 },
   },
 };
 
 const staggerContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.3 } },
+  visible: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } },
 };
 
 const staggerItem = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 14 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -86,7 +91,6 @@ const LoginPage = () => {
 
   const usernameRef = useRef(null);
   const passwordRef = useRef(null);
-  const errorAlertRef = useRef(null);
 
   /* --- Redirect if already authenticated --- */
   useEffect(() => {
@@ -142,7 +146,6 @@ const LoginPage = () => {
     const errors = validate();
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      // Focus first field with error
       if (errors.username) {
         usernameRef.current?.focus();
       } else if (errors.password) {
@@ -165,9 +168,7 @@ const LoginPage = () => {
       if (error) {
         const errorMsg = mapErrorMessage(error);
         setFormError(errorMsg);
-        // Clear password on failed login for security
         setPassword('');
-        // Focus password field for retry
         setTimeout(() => passwordRef.current?.focus(), 100);
       } else if (loggedInUser) {
         toast({
@@ -192,7 +193,12 @@ const LoginPage = () => {
         <Helmet>
           <title>Login - LPQ Al-Muhajirun Metode Qiroati Baturaja</title>
         </Helmet>
-        <div className="login-form-panel">
+        <div className="login-bg">
+          <Suspense fallback={null}>
+            <DarkVeil hueShift={58} speed={0.5} resolutionScale={0.5} />
+          </Suspense>
+        </div>
+        <div className="login-content">
           <div className="login-spinner" style={{ width: 32, height: 32 }} aria-label="Memuat..." />
         </div>
       </div>
@@ -211,49 +217,37 @@ const LoginPage = () => {
       </Helmet>
 
       <div className="login-page">
-        {/* ===== Identity Panel (Desktop) ===== */}
-        <motion.aside
-          className="login-identity-panel"
-          variants={identityVariants}
-          initial="hidden"
-          animate="visible"
-          aria-hidden="true"
-        >
-          <div className="login-identity-content">
-            <div className="login-identity-logo">
-              <img src={logoUrl} alt="" />
-            </div>
-
-            <h1 className="login-identity-title">
-              LPQ Al-Muhajirun
-            </h1>
-
-            <div className="login-identity-divider" />
-
-            <p className="login-identity-subtitle">
-              Metode Qiroati Baturaja — Membentuk generasi Qur&rsquo;ani yang berakhlak mulia dan berprestasi.
-            </p>
-
-            <div className="login-identity-badge">
-              <span className="login-identity-badge-dot" />
-              Sistem Terintegrasi
-            </div>
-          </div>
-        </motion.aside>
-
-        {/* ===== Form Panel ===== */}
-        <main className="login-form-panel" role="main">
-          {/* Mobile Logo */}
-          <div className="login-mobile-logo">
-            <img
-              src={logoUrl}
-              alt="Logo LPQ Al-Muhajirun"
-              className="login-mobile-logo-img"
+        {/* ===== DarkVeil Background ===== */}
+        <div className="login-bg" aria-hidden="true">
+          <Suspense fallback={null}>
+            <DarkVeil
+              hueShift={58}
+              noiseIntensity={0.08}
+              scanlineIntensity={0.1}
+              speed={0.6}
+              scanlineFrequency={0.5}
+              warpAmount={0.15}
             />
-            <span className="login-mobile-title">LPQ Al-Muhajirun</span>
-          </div>
+          </Suspense>
+        </div>
 
-          {/* Form Card */}
+        {/* ===== Content Layer ===== */}
+        <main className="login-content" role="main">
+          {/* Brand */}
+          <motion.div
+            className="login-brand"
+            variants={brandVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <div className="login-brand-logo">
+              <img src={logoUrl} alt="Logo LPQ Al-Muhajirun" />
+            </div>
+            <h1 className="login-brand-name">LPQ Al-Muhajirun</h1>
+            <p className="login-brand-sub">Metode Qiroati Baturaja</p>
+          </motion.div>
+
+          {/* Glass Card */}
           <motion.div
             className="login-card"
             variants={prefersReducedMotion ? undefined : cardVariants}
@@ -269,22 +263,20 @@ const LoginPage = () => {
             >
               <motion.h2 variants={staggerItem} className="login-card-greeting">
                 <GradientText
-                  colors={['hsl(152 58% 37%)', 'hsl(152 45% 50%)', 'hsl(42 65% 55%)', 'hsl(152 58% 37%)']}
+                  colors={['rgba(78, 190, 120, 0.9)', 'rgba(120, 220, 160, 0.9)', 'rgba(200, 170, 80, 0.8)', 'rgba(78, 190, 120, 0.9)']}
                   animationSpeed={6}
-                  className="login-card-greeting"
                 >
                   Selamat Datang
                 </GradientText>
               </motion.h2>
               <motion.p variants={staggerItem} className="login-card-description">
-                Masukkan kredensial Anda untuk mengakses dashboard LPQ Al-Muhajirun.
+                Masukkan kredensial Anda untuk mengakses dashboard.
               </motion.p>
             </motion.div>
 
             {/* Inline Error Alert */}
             {formError && (
               <div
-                ref={errorAlertRef}
                 className="login-alert"
                 role="alert"
                 aria-live="assertive"
