@@ -85,6 +85,16 @@ const ModelScene = ({
     onModelLoaded?.();
   }, [model, onModelLoaded, position, rotation, scale]);
 
+  useEffect(() => {
+    if (!normalizedRef.current || !groupRef.current) return;
+    const group = groupRef.current;
+    const [rotationX, rotationY, rotationZ] = rotation.map(degToRad);
+    baseRotationRef.current = [rotationX, rotationY, rotationZ];
+    basePositionRef.current = position;
+    group.rotation.set(rotationX, rotationY, rotationZ);
+    group.position.set(...position);
+  }, [position, rotation]);
+
   useFrame((_, delta) => {
     if (!groupRef.current) return;
     const group = groupRef.current;
@@ -109,7 +119,7 @@ const ModelScene = ({
     group.scale.y += (targetScale - group.scale.y) * easing;
     group.scale.z += (targetScale - group.scale.z) * easing;
 
-    if (enabled && hovered) {
+    if (enabled && autoRotateSpeed > 0) {
       group.rotation.y += autoRotateSpeed * delta * 0.08;
     }
   });
