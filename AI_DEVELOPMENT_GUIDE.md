@@ -674,6 +674,51 @@ Pastikan:
 - reduced motion;
 - status message dapat dipahami assistive technology.
 
+### 14.5 Visual identity dan animasi
+
+Bangun karakter visual halaman melalui pendekatan berikut, bukan melalui dekorasi berlebihan:
+
+- **typography editorial yang kuat** — gunakan font display yang menarik untuk heading;
+- **`GradientText`** — penekanan kata atau frasa penting secara selektif;
+- **`SplitText`** — hero heading atau heading section utama;
+- **`BlurText`** — entrance lembut untuk heading pendek;
+- **`ScrollReveal`** — statement naratif atau paragraf pendek;
+- **accent line, numbering, border, surface, dan whitespace** — struktur visual tanpa ornament;
+- **icon SVG yang konsisten** — hanya saat ikon membantu pemahaman, bukan sebagai hiasan.
+
+Referensi efek teks: `https://reactbits.dev/text-animations/`
+
+#### Emoji
+
+Emoji hanya boleh dipakai jika memiliki fungsi komunikasi yang jelas dan sesuai konteks. Jangan menggunakan emoji sebagai dekorasi default pada card, heading, atau section.
+
+#### Penggunaan efek React Bits
+
+Sebelum menggunakan efek dari React Bits:
+
+1. Periksa apakah komponen tersebut sudah tersedia di project.
+2. Reuse implementasi yang sudah ada bila ada.
+3. Gunakan maksimal satu efek teks dominan per section.
+4. Jangan menambahkan beberapa animasi berbeda hanya demi variasi.
+5. Jangan menganimasikan seluruh paragraf panjang per karakter.
+6. Hindari efek glitch, scramble, rotating, atau typewriter pada halaman yang membutuhkan kesan tenang dan berwibawa, kecuali benar-benar sesuai konteks.
+7. Pastikan heading tetap terbaca sebelum JavaScript selesai dimuat (tidak bergantung pada JS untuk konten utama).
+8. Hindari hydration mismatch dan layout shift.
+9. Hormati `prefers-reduced-motion`.
+10. Jangan mengorbankan accessibility, SEO, performa, atau keterbacaan.
+
+#### Pemilihan animasi berdasarkan fungsi
+
+| Komponen | Fungsi |
+|---|---|
+| `GradientText` | Penekanan kata atau frasa penting |
+| `SplitText` | Hero heading atau heading section utama |
+| `BlurText` | Entrance lembut untuk heading pendek |
+| `ScrollReveal` | Statement naratif atau paragraf pendek |
+| Efek lain | Hanya jika selaras dengan identitas halaman, bukan demo teknologi |
+
+Website harus terasa premium dan khas — bukan etalase seluruh efek React Bits.
+
 ---
 
 ## 15. Performance
