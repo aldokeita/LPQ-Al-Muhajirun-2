@@ -102,8 +102,8 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
             defaultZoom={3.05}
             modelScale={1.36}
             modelPosition={[0, -0.01, 0]}
-            modelRotation={[18, -58, -6]}
-            autoRotateSpeed={0.16}
+            modelRotation={[0, 0, 0]}
+            autoRotateSpeed={0}
           />
         </Suspense>
       </div>
