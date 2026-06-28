@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
-import GradientText from '@/components/reactbits/GradientText/GradientText';
+import TextType from '@/components/reactbits/TextType/TextType';
 import '@/styles/public-login.css';
 
 /* Lazy load DarkVeil to avoid blocking initial render */
@@ -195,7 +195,7 @@ const LoginPage = () => {
         </Helmet>
         <div className="login-bg">
           <Suspense fallback={null}>
-            <DarkVeil hueShift={58} speed={0.5} resolutionScale={0.5} />
+            <DarkVeil hueShift={58} speed={0.5} scanlineIntensity={0} resolutionScale={0.5} />
           </Suspense>
         </div>
         <div className="login-content">
@@ -223,9 +223,9 @@ const LoginPage = () => {
             <DarkVeil
               hueShift={58}
               noiseIntensity={0.08}
-              scanlineIntensity={0.1}
+              scanlineIntensity={0}
               speed={0.6}
-              scanlineFrequency={0.5}
+              scanlineFrequency={0}
               warpAmount={0.15}
             />
           </Suspense>
@@ -254,21 +254,26 @@ const LoginPage = () => {
             initial="hidden"
             animate="visible"
           >
-            {/* Header */}
+            {/* Header with TextType */}
             <motion.div
               className="login-card-header"
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
             >
-              <motion.h2 variants={staggerItem} className="login-card-greeting">
-                <GradientText
-                  colors={['rgba(78, 190, 120, 0.9)', 'rgba(120, 220, 160, 0.9)', 'rgba(200, 170, 80, 0.8)', 'rgba(78, 190, 120, 0.9)']}
-                  animationSpeed={6}
-                >
-                  Selamat Datang
-                </GradientText>
-              </motion.h2>
+              <motion.div variants={staggerItem} className="login-card-greeting">
+                <TextType
+                  text={['Selamat Datang']}
+                  typingSpeed={75}
+                  initialDelay={300}
+                  pauseDuration={4000}
+                  showCursor={true}
+                  cursorCharacter="|"
+                  cursorClassName="login-text-cursor"
+                  as="span"
+                  textColors={['rgba(78, 190, 120, 0.9)']}
+                />
+              </motion.div>
               <motion.p variants={staggerItem} className="login-card-description">
                 Masukkan kredensial Anda untuk mengakses dashboard.
               </motion.p>
@@ -305,7 +310,7 @@ const LoginPage = () => {
                     autoComplete="username"
                     autoCapitalize="none"
                     spellCheck="false"
-                    placeholder="Email Admin/Guru atau Nama Panggilan Santri"
+                    placeholder="Masukkan email atau username santri"
                     value={username}
                     onChange={(e) => {
                       setUsername(e.target.value);
