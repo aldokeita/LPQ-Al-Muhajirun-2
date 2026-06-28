@@ -53,14 +53,15 @@ const LoadingSkeleton = () => (
       <title>Galeri Kegiatan - LPQ Al-Muhajirun</title>
     </Helmet>
 
-    {/* Hero skeleton */}
+    {/* Hero skeleton — text lines */}
     <div className="gallery-skeleton-hero" aria-hidden="true">
-      <div className="gallery-skeleton-hero__item" />
-      <div className="gallery-skeleton-hero__item" />
-      <div className="gallery-skeleton-hero__item" />
-    </div>
-    <div className="gallery-skeleton-text" aria-hidden="true">
-      <div className="gallery-skeleton-text__line" />
+      <div className="gallery-skeleton-hero__lines">
+        <div className="gallery-skeleton-hero__line gallery-skeleton-hero__line--eyebrow" />
+        <div className="gallery-skeleton-hero__line gallery-skeleton-hero__line--title" />
+        <div className="gallery-skeleton-hero__line gallery-skeleton-hero__line--subtitle" />
+        <div className="gallery-skeleton-hero__line gallery-skeleton-hero__line--subtitle" style={{ width: '70%' }} />
+        <div className="gallery-skeleton-hero__line gallery-skeleton-hero__line--meta" />
+      </div>
     </div>
 
     {/* Grid skeleton */}
@@ -292,9 +293,6 @@ const GalleryPage = () => {
   if (error) return <ErrorState onRetry={fetchGallery} />;
   if (photos.length === 0) return <EmptyState />;
 
-  /* Pick hero images (first 3 or fewer) */
-  const heroImages = photos.slice(0, Math.min(3, photos.length));
-
   return (
     <>
       <Helmet>
@@ -309,26 +307,23 @@ const GalleryPage = () => {
         {/* ── Hero ────────────────────────────────────────────────── */}
         <section className="gallery-hero">
           <div className="gallery-hero__inner">
-            <div className="gallery-hero__composite" aria-hidden="true">
-              {heroImages.map((img, i) => (
-                <GalleryImage
-                  key={img.id || i}
-                  src={img.url}
-                  alt=""
-                  className="gallery-hero__composite-img"
-                  style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                />
-              ))}
-            </div>
-
             <div className="gallery-hero__text">
               <h1 className="gallery-hero__label">
-                <span>A Living Archive</span>
+                <span className="gallery-hero__eyebrow">A Living Archive</span>
                 Galeri Kegiatan
               </h1>
-              <p className="gallery-hero__count" aria-label={`${photos.length} foto`}>
-                {photos.length} Foto
+              <p className="gallery-hero__subtitle">
+                Momen-momen berharga yang terekam dari kegiatan sehari-hari santri dalam menuntut ilmu —
+                mulai dari pembelajaran di kelas, latihan tahfidz, hingga perayaan bersama.
+                Setiap foto adalah satu cerita dari perjalanan spiritual dan intelektual mereka.
               </p>
+              <div className="gallery-hero__meta">
+                <span className="gallery-hero__count" aria-label={`${photos.length} foto`}>
+                  {photos.length} Foto
+                </span>
+                <span className="gallery-hero__divider" aria-hidden="true" />
+                <span className="gallery-hero__tagline">LPQ Al-Muhajirun · Metode Qiroati · Baturaja</span>
+              </div>
             </div>
           </div>
         </section>
