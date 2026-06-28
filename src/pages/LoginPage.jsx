@@ -243,8 +243,8 @@ const LoginPage = () => {
             <div className="login-brand-logo">
               <img src={logoUrl} alt="Logo LPQ Al-Muhajirun" />
             </div>
-            <h1 className="login-brand-name">LPQ Al-Muhajirun</h1>
-            <p className="login-brand-sub">Metode Qiroati Baturaja</p>
+            <h1 className="login-brand-name font-cinzel">LPQ Al-Muhajirun</h1>
+            <p className="login-brand-sub font-montserrat">Metode Qiroati Baturaja</p>
           </motion.div>
 
           {/* Glass Card */}
@@ -267,6 +267,7 @@ const LoginPage = () => {
                   typingSpeed={75}
                   initialDelay={300}
                   pauseDuration={4000}
+                  loop={false}
                   showCursor={true}
                   cursorCharacter="|"
                   cursorClassName="login-text-cursor"
