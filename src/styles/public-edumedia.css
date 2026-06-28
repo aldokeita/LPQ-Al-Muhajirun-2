@@ -1,0 +1,591 @@
+/* ==========================================================================
+   Public Educational Media — Interactive Learning Library
+   Visual identity: fresh, educational, playful-yet-premium, child & family-friendly.
+   Distinct from News, Parenting, Enrollment, Learning System.
+   ========================================================================== */
+
+/* ---------- Design Tokens ---------- */
+.edu-page {
+  --edu-ink: #0c1220;
+  --edu-deep: #080e18;
+  --edu-cream: #f6faff;
+  --edu-paper: #fbfdff;
+
+  /* Brand — soft teal + warm coral */
+  --edu-teal: #0891b2;
+  --edu-teal-bright: #22d3ee;
+  --edu-teal-deep: #0e7490;
+  --edu-teal-soft: #cffafe;
+  --edu-coral: #e11d48;
+  --edu-coral-soft: #fff1f2;
+  --edu-amber: #d97706;
+  --edu-amber-soft: #fef3c7;
+  --edu-violet: #7c3aed;
+  --edu-violet-soft: #ede9fe;
+  --edu-green: #059669;
+  --edu-green-soft: #d1fae5;
+
+  /* Semantic */
+  --edu-muted: rgba(12, 18, 32, 0.55);
+  --edu-muted-soft: rgba(12, 18, 32, 0.38);
+  --edu-border: rgba(12, 18, 32, 0.06);
+  --edu-border-med: rgba(12, 18, 32, 0.1);
+  --edu-border-strong: rgba(12, 18, 32, 0.15);
+  --edu-surface: rgba(255, 255, 255, 0.82);
+  --edu-surface-raised: rgba(255, 255, 255, 0.96);
+
+  /* Depth */
+  --edu-shadow-sm: 0 1px 4px rgba(12, 18, 32, 0.06), 0 1px 2px rgba(12, 18, 32, 0.03);
+  --edu-shadow-md: 0 4px 20px rgba(12, 18, 32, 0.06), 0 2px 6px rgba(12, 18, 32, 0.03);
+  --edu-shadow-lg: 0 12px 40px rgba(12, 18, 32, 0.08), 0 4px 12px rgba(12, 18, 32, 0.04);
+
+  /* Radii */
+  --edu-r-sm: 0.5rem;
+  --edu-r-md: 0.75rem;
+  --edu-r-lg: 1rem;
+  --edu-r-xl: 1.25rem;
+  --edu-r-2xl: 1.5rem;
+
+  background: var(--edu-cream);
+  color: var(--edu-ink);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  padding-top: 5rem;
+}
+
+.dark .edu-page {
+  --edu-ink: #e2e8f0;
+  --edu-cream: #070c16;
+  --edu-paper: #0c1526;
+  --edu-deep: #080e18;
+  --edu-muted: rgba(226, 232, 240, 0.6);
+  --edu-muted-soft: rgba(226, 232, 240, 0.4);
+  --edu-border: rgba(226, 232, 240, 0.06);
+  --edu-border-med: rgba(226, 232, 240, 0.1);
+  --edu-border-strong: rgba(226, 232, 240, 0.15);
+  --edu-surface: rgba(12, 21, 38, 0.78);
+  --edu-surface-raised: rgba(12, 21, 38, 0.95);
+  --edu-teal-soft: #083344;
+  --edu-coral-soft: #4c0519;
+  --edu-amber-soft: #451a03;
+  --edu-violet-soft: #2e1065;
+  --edu-green-soft: #022c22;
+}
+
+/* ---------- Hero ---------- */
+.edu-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(2rem, 4vw, 3rem);
+}
+
+.edu-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 60% at 25% 35%, rgba(8, 145, 178, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 80% 65%, rgba(124, 58, 237, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.dark .edu-hero::before {
+  background:
+    radial-gradient(ellipse 50% 60% at 25% 35%, rgba(34, 211, 238, 0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 80% 65%, rgba(124, 58, 237, 0.04) 0%, transparent 70%);
+}
+
+.edu-hero__inner {
+  position: relative;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+.edu-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  border-radius: 9999px;
+  background: var(--edu-teal-soft);
+  color: var(--edu-teal-deep);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+}
+
+.dark .edu-hero__badge {
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--edu-teal-bright);
+}
+
+.edu-hero__title {
+  font-size: clamp(1.875rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--edu-ink);
+  margin: 0 0 1rem;
+}
+
+.edu-hero__title-accent {
+  background: linear-gradient(135deg, var(--edu-teal) 0%, var(--edu-teal-bright) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.edu-hero__desc {
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  line-height: 1.7;
+  color: var(--edu-muted);
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+/* ---------- Container ---------- */
+.edu-container {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ---------- Section ---------- */
+.edu-section {
+  padding: clamp(2.5rem, 5vw, 4rem) 0;
+}
+
+.edu-section + .edu-section {
+  border-top: 1px solid var(--edu-border);
+}
+
+.edu-section__header {
+  text-align: center;
+  max-width: 40rem;
+  margin: 0 auto clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.edu-section__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--edu-teal);
+  margin-bottom: 0.625rem;
+}
+
+.dark .edu-section__kicker {
+  color: var(--edu-teal-bright);
+}
+
+.edu-section__title {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--edu-ink);
+  margin: 0 0 0.625rem;
+}
+
+.edu-section__desc {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--edu-muted);
+  margin: 0;
+}
+
+/* ---------- Breadcrumb ---------- */
+.edu-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 0;
+  font-size: 0.8rem;
+  color: var(--edu-muted);
+  flex-wrap: wrap;
+}
+
+.edu-breadcrumb__link {
+  color: var(--edu-teal);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.edu-breadcrumb__link:hover {
+  color: var(--edu-teal-deep);
+}
+
+.dark .edu-breadcrumb__link {
+  color: var(--edu-teal-bright);
+}
+
+.edu-breadcrumb__sep {
+  color: var(--edu-muted-soft);
+}
+
+.edu-breadcrumb__current {
+  color: var(--edu-muted);
+}
+
+/* ---------- Tajwid Dictionary ---------- */
+.edu-tajwid {
+  background: var(--edu-surface-raised);
+  border: 1px solid var(--edu-border);
+  border-radius: var(--edu-r-2xl);
+  overflow: hidden;
+}
+
+.edu-tajwid__header {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, var(--edu-teal-soft) 0%, var(--edu-violet-soft) 100%);
+  border-bottom: 1px solid var(--edu-border);
+}
+
+.dark .edu-tajwid__header {
+  background: linear-gradient(135deg, rgba(8, 145, 178, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+}
+
+.edu-tajwid__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--edu-ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.edu-tajwid__body {
+  padding: 1.5rem 2rem 2rem;
+}
+
+.edu-tajwid__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.edu-tajwid-card {
+  padding: 1.25rem;
+  border-radius: var(--edu-r-lg);
+  background: var(--edu-cream);
+  border: 1px solid var(--edu-border);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.dark .edu-tajwid-card {
+  background: var(--edu-deep);
+}
+
+.edu-tajwid-card:hover {
+  box-shadow: var(--edu-shadow-sm);
+  border-color: var(--edu-border-med);
+}
+
+.edu-tajwid-card__term {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--edu-teal);
+  margin: 0 0 0.375rem;
+}
+
+.dark .edu-tajwid-card__term {
+  color: var(--edu-teal-bright);
+}
+
+.edu-tajwid-card__def {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--edu-muted);
+  margin: 0;
+}
+
+/* ---------- Hijaiyah Game ---------- */
+.edu-game {
+  background: var(--edu-surface-raised);
+  border: 1px solid var(--edu-border);
+  border-radius: var(--edu-r-2xl);
+  overflow: hidden;
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.edu-game__header {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, var(--edu-amber-soft) 0%, var(--edu-coral-soft) 100%);
+  border-bottom: 1px solid var(--edu-border);
+}
+
+.dark .edu-game__header {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.1) 0%, rgba(225, 29, 72, 0.1) 100%);
+}
+
+.edu-game__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--edu-ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.edu-game__body {
+  padding: 2rem;
+  text-align: center;
+}
+
+.edu-game__letter {
+  font-size: clamp(5rem, 12vw, 8rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--edu-teal);
+  padding: 1.5rem 2rem;
+  margin: 0 auto 1.5rem;
+  background: var(--edu-teal-soft);
+  border-radius: 50%;
+  width: 10rem;
+  height: 10rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark .edu-game__letter {
+  color: var(--edu-teal-bright);
+  background: rgba(8, 145, 178, 0.15);
+}
+
+.edu-game__question {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--edu-ink);
+  margin: 0 0 1.5rem;
+}
+
+.edu-game__options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.edu-game__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--edu-r-md);
+  background: var(--edu-surface);
+  border: 1.5px solid var(--edu-border-med);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--edu-ink);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edu-game__option:hover:not(:disabled) {
+  border-color: var(--edu-teal);
+  background: var(--edu-teal-soft);
+}
+
+.edu-game__option:disabled {
+  cursor: default;
+}
+
+.edu-game__option--correct {
+  background: #dcfce7 !important;
+  border-color: #16a34a !important;
+  color: #166534 !important;
+}
+
+.dark .edu-game__option--correct {
+  background: rgba(22, 163, 74, 0.15) !important;
+  border-color: #16a34a !important;
+  color: #4ade80 !important;
+}
+
+.edu-game__option--wrong {
+  background: #fee2e2 !important;
+  border-color: #dc2626 !important;
+  color: #991b1b !important;
+}
+
+.dark .edu-game__option--wrong {
+  background: rgba(220, 38, 38, 0.15) !important;
+  border-color: #dc2626 !important;
+  color: #f87171 !important;
+}
+
+.edu-game__option-label {
+  font-weight: 700;
+  color: var(--edu-muted-soft);
+  font-size: 0.85rem;
+}
+
+.edu-game__feedback {
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.edu-game__feedback-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.edu-game__next-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--edu-r-md);
+  background: var(--edu-teal);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.edu-game__next-btn:hover {
+  background: var(--edu-teal-deep);
+  transform: translateY(-1px);
+}
+
+/* ---------- States ---------- */
+.edu-loading,
+.edu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: clamp(3rem, 6vw, 5rem) 1.5rem;
+  text-align: center;
+}
+
+.edu-loading__spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid var(--edu-border);
+  border-top-color: var(--edu-teal);
+  border-radius: 50%;
+  animation: edu-spin 0.8s linear infinite;
+}
+
+@keyframes edu-spin {
+  to { transform: rotate(360deg); }
+}
+
+.edu-empty__icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--edu-muted-soft);
+}
+
+.edu-empty__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--edu-ink);
+  margin: 0;
+}
+
+.edu-empty__text {
+  font-size: 0.9rem;
+  color: var(--edu-muted);
+  margin: 0;
+  max-width: 24rem;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  .edu-page {
+    padding-top: 4.5rem;
+  }
+
+  .edu-tajwid__body {
+    padding: 1.25rem;
+  }
+
+  .edu-tajwid__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .edu-game__body {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .edu-game__options {
+    grid-template-columns: 1fr;
+  }
+
+  .edu-game__letter {
+    width: 8rem;
+    height: 8rem;
+    font-size: 5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .edu-hero__inner {
+    padding: 0 1rem;
+  }
+
+  .edu-container {
+    padding: 0 1rem;
+  }
+
+  .edu-breadcrumb {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* ---------- Reduced Motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .edu-game__option,
+  .edu-game__next-btn,
+  .edu-tajwid-card {
+    transition: none;
+  }
+
+  .edu-loading__spinner {
+    animation: none;
+  }
+}
+
+/* ---------- Focus States ---------- */
+.edu-game__option:focus-visible,
+.edu-game__next-btn:focus-visible,
+.edu-breadcrumb__link:focus-visible {
+  outline: 2px solid var(--edu-teal);
+  outline-offset: 2px;
+}
+
+/* ---------- Print ---------- */
+@media print {
+  .edu-page {
+    background: white;
+    padding-top: 0;
+  }
+
+  .edu-hero::before {
+    display: none;
+  }
+}
