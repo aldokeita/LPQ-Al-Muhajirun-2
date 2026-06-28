@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
@@ -141,7 +143,7 @@ const HafalanItemManager = ({ category }) => {
 
 const ContentManagement = () => {
   const [content, setContent] = useState({
-    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: []
+    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
   });
 
   const [feedbacks, setFeedbacks] = useState([]);
@@ -188,6 +190,9 @@ const ContentManagement = () => {
     const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'testimonials', 'schedules', 'faqs'];
     arrayKeys.forEach(key => { if (!newContent[key] || !Array.isArray(newContent[key])) newContent[key] = []; });
     if(!newContent.quotas) newContent.quotas = { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 };
+    if(!newContent.model3dSettings || typeof newContent.model3dSettings !== 'object' || Array.isArray(newContent.model3dSettings)) {
+      newContent.model3dSettings = { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 };
+    }
     try {
       const [news, announcements] = await Promise.all([fetchAdminNews(), fetchAdminAnnouncements()]);
       setContent(prev => ({ ...prev, ...newContent, news, announcements }));
@@ -395,6 +400,77 @@ const ContentManagement = () => {
             <ContentSection title="FAQ (Tanya Jawab)" modalType="faqs" data={content.faqs} icon={<HelpCircle/>} renderItem={item => <div className="text-sm"><p className="font-bold">{item.question}</p></div>} />
             <div className="p-4 border rounded-lg"><h3 className="font-bold text-xl mb-4">Kuota Santri</h3><div className="grid grid-cols-2 md:grid-cols-3 gap-4">{Object.keys(content.quotas).map(k => <div key={k}><label className="text-sm capitalize">{k.replace(/([A-Z])/g, ' $1')}</label><Input type="number" value={content.quotas[k] || 0} onChange={e => setContent(p => ({...p, quotas: {...p.quotas, [k]: parseInt(e.target.value)}}))} /></div>)}</div></div>
             <ContentSection title="Testimoni" modalType="testimonials" data={content.testimonials} icon={<Quote/>} renderItem={item => <div className="text-sm flex items-center gap-2"><Avatar className="w-8 h-8"><AvatarImage src={item.photo_url}/></Avatar><div><p className="font-bold">{item.name} <span className="text-xs font-normal text-muted-foreground">({item.role})</span></p><p className="truncate w-40">{item.text}</p></div></div>} />
+
+            <div className="p-4 border rounded-lg space-y-4">
+              <h3 className="font-bold text-xl flex items-center gap-2"><RotateCcw className="w-5 h-5" /> Model 3D</h3>
+              <p className="text-sm text-muted-foreground">Atur rotasi model 3D yang tampil di bagian hero halaman depan.</p>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">Auto-Rotate</p>
+                  <p className="text-sm text-muted-foreground">Putar model secara otomatis</p>
+                </div>
+                <Switch
+                  checked={content.model3dSettings?.autoRotate || false}
+                  onCheckedChange={(checked) => setContent(prev => ({
+                    ...prev,
+                    model3dSettings: { ...prev.model3dSettings, autoRotate: checked }
+                  }))}
+                />
+              </div>
+              {content.model3dSettings?.autoRotate && (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="font-medium text-sm">Kecepatan Putar</label>
+                    <span className="text-xs text-muted-foreground">{(content.model3dSettings?.autoRotateSpeed || 0.34).toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    value={[content.model3dSettings?.autoRotateSpeed || 0.34]}
+                    min={0.05}
+                    max={2.0}
+                    step={0.05}
+                    onValueChange={(val) => setContent(prev => ({
+                      ...prev,
+                      model3dSettings: { ...prev.model3dSettings, autoRotateSpeed: val[0] }
+                    }))}
+                  />
+                </div>
+              )}
+              <div className="space-y-3 rounded-lg border p-3">
+                <label className="font-medium text-sm">Rotasi Awal (derajat)</label>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { axis: 'rotationX', label: 'Sumbu X' },
+                    { axis: 'rotationY', label: 'Sumbu Y' },
+                    { axis: 'rotationZ', label: 'Sumbu Z' },
+                  ].map(({ axis, label }) => (
+                    <div key={axis} className="space-y-1">
+                      <label className="text-xs text-muted-foreground">{label}</label>
+                      <Input
+                        type="number"
+                        min={-180}
+                        max={180}
+                        step={1}
+                        value={content.model3dSettings?.[axis] ?? 0}
+                        onChange={(e) => setContent(prev => ({
+                          ...prev,
+                          model3dSettings: { ...prev.model3dSettings, [axis]: parseFloat(e.target.value) || 0 }
+                        }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setContent(prev => ({
+                    ...prev,
+                    model3dSettings: { ...prev.model3dSettings, rotationX: 0, rotationY: 0, rotationZ: 0 }
+                  }))}
+                >
+                  <RotateCcw className="w-3 h-3 mr-2" /> Reset ke Default
+                </Button>
+              </div>
+            </div>
         </TabsContent>
 
         <TabsContent value="apresiasi" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">

@@ -22,6 +22,14 @@ const getQuality = () => {
 };
 
 const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
+  const model3dSettings = content?.model3dSettings || {};
+  const autoRotate = model3dSettings.autoRotate === true;
+  const autoRotateSpeed = autoRotate ? (model3dSettings.autoRotateSpeed || 0.34) : 0;
+  const modelRotation = [
+    model3dSettings.rotationX || 0,
+    model3dSettings.rotationY || 0,
+    model3dSettings.rotationZ || 0,
+  ];
   const slides = safeArray(content.heroSlides);
   const activeSlide = slides[currentSlide] || slides[0] || {};
   const heroText = activeSlide.text || 'Masuki ruang belajar Al-Qur’an yang hangat, tertata, dan dekat dengan keluarga.';
@@ -102,8 +110,8 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
             defaultZoom={3.05}
             modelScale={1.36}
             modelPosition={[0, -0.01, 0]}
-            modelRotation={[0, 0, 0]}
-            autoRotateSpeed={0}
+            modelRotation={modelRotation}
+            autoRotateSpeed={autoRotateSpeed}
           />
         </Suspense>
       </div>
