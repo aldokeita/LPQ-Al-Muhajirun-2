@@ -488,8 +488,8 @@
   background: #f7f9f8;
 }
 
-:root:not(.dark) .login-bg {
-  display: none;
+:root:not(.dark) .login-bg::after {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(247, 249, 248, 0.4) 100%);
 }
 
 :root:not(.dark) .login-brand-name {
