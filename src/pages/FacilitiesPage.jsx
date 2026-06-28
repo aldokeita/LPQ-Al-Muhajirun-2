@@ -146,6 +146,25 @@ const ErrorState = ({ onRetry }) => (
 /*            MAIN COMPONENT                */
 /* ======================================== */
 
+/* ---------- Default Facilities (fallback when Supabase has no data) ---------- */
+const defaultFacilities = [
+  {
+    name: 'Ruang Kelas Nyaman',
+    description: 'Dilengkapi AC dan pencahayaan yang baik untuk mendukung konsentrasi belajar.',
+    image_url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=80',
+  },
+  {
+    name: 'Perpustakaan Mini',
+    description: 'Koleksi buku-buku Islam dan Al-Qur\'an untuk menambah wawasan santri.',
+    image_url: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=800&q=80',
+  },
+  {
+    name: 'Musholla',
+    description: 'Tempat praktik shalat berjamaah dan kegiatan keagamaan lainnya.',
+    image_url: 'https://images.unsplash.com/photo-1598300230903-73a3d344423e?w=800&q=80',
+  },
+];
+
 const FacilitiesPage = () => {
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -167,10 +186,10 @@ const FacilitiesPage = () => {
       if (data?.content && Array.isArray(data.content) && data.content.length > 0) {
         setFacilities(data.content);
       } else {
-        setFacilities([]);
+        setFacilities(defaultFacilities);
       }
     } catch {
-      setError(true);
+      setFacilities(defaultFacilities);
     } finally {
       setLoading(false);
     }
