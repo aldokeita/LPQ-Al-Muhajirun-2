@@ -103,7 +103,7 @@ const FeaturedStory = ({ item }) => {
   const hasImage = imageOf(item);
 
   return (
-    <motion.div {...cardVariants(0)} className="news-featured">
+    <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={0} className="news-featured">
       <Link to={href} className="news-featured__grid" aria-label={`Baca: ${item.title}`}>
         <div className="news-featured__image-wrap">
           {hasImage ? (
