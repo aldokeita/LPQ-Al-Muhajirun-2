@@ -485,90 +485,96 @@
    LIGHT THEME
    =========================================== */
 :root:not(.dark) .login-page {
-  background: #f0f4f3;
+  background: #f7f9f8;
 }
 
-:root:not(.dark) .login-bg::after {
-  background: radial-gradient(ellipse at center, transparent 20%, rgba(240, 244, 243, 0.7) 100%);
+:root:not(.dark) .login-bg {
+  display: none;
 }
 
 :root:not(.dark) .login-brand-name {
-  color: #0a1f15;
+  color: #111917;
   text-shadow: none;
 }
 
 :root:not(.dark) .login-brand-sub {
-  color: rgba(10, 31, 21, 0.45);
+  color: #6b7c76;
+}
+
+:root:not(.dark) .login-brand-logo img {
+  filter: none;
 }
 
 :root:not(.dark) .login-card {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.02) inset,
-    0 8px 40px rgba(15, 23, 42, 0.08),
-    0 2px 8px rgba(15, 23, 42, 0.04);
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 8px 32px rgba(0, 0, 0, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 :root:not(.dark) .login-card-greeting {
-  color: #0a1f15;
+  color: #111917;
 }
 
 :root:not(.dark) .login-card-description {
-  color: rgba(10, 31, 21, 0.5);
+  color: #6b7c76;
 }
 
 :root:not(.dark) .login-field-label {
-  color: rgba(10, 31, 21, 0.55);
+  color: #4a5c55;
 }
 
 :root:not(.dark) .login-input {
-  color: #0a1f15;
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.1);
+  color: #111917;
+  background: #f7f9f8;
+  border-color: #d1d9d6;
 }
 
 :root:not(.dark) .login-input::placeholder {
-  color: rgba(10, 31, 21, 0.3);
+  color: #9aa8a2;
 }
 
 :root:not(.dark) .login-input:hover {
-  border-color: rgba(0, 0, 0, 0.18);
-  background: rgba(0, 0, 0, 0.04);
+  border-color: #b0bcb8;
+  background: #f0f3f2;
 }
 
 :root:not(.dark) .login-input:focus {
-  border-color: rgba(46, 158, 90, 0.5);
+  border-color: #2e9e5a;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(46, 158, 90, 0.1);
+  box-shadow: 0 0 0 3px rgba(46, 158, 90, 0.12);
 }
 
 :root:not(.dark) .login-input:focus ~ .login-input-icon,
 :root:not(.dark) .login-input-wrapper:focus-within .login-input-icon {
-  color: rgba(46, 158, 90, 0.7);
+  color: #2e9e5a;
 }
 
 :root:not(.dark) .login-input-icon {
-  color: rgba(10, 31, 21, 0.25);
+  color: #9aa8a2;
 }
 
 :root:not(.dark) .login-password-toggle {
-  color: rgba(10, 31, 21, 0.3);
+  color: #9aa8a2;
 }
 
 :root:not(.dark) .login-password-toggle:hover {
-  color: rgba(10, 31, 21, 0.6);
+  color: #4a5c55;
   background: rgba(0, 0, 0, 0.04);
 }
 
 :root:not(.dark) .login-submit-btn {
-  background: linear-gradient(135deg, rgba(30, 130, 70, 0.95), rgba(20, 100, 55, 1));
-  box-shadow: 0 2px 12px rgba(30, 130, 70, 0.25);
+  background: linear-gradient(135deg, #2e8c52, #1e6e3c);
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(46, 140, 82, 0.3);
 }
 
 :root:not(.dark) .login-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(24, 110, 60, 1), rgba(16, 85, 45, 1));
-  box-shadow: 0 6px 24px rgba(30, 130, 70, 0.35);
+  background: linear-gradient(135deg, #267a47, #176035);
+  box-shadow: 0 4px 16px rgba(46, 140, 82, 0.4);
 }
 
 :root:not(.dark) .login-spinner {
@@ -577,41 +583,41 @@
 }
 
 :root:not(.dark) .login-field-error {
-  color: rgba(200, 50, 50, 0.85);
+  color: #c0392b;
 }
 
 :root:not(.dark) .login-alert {
-  background: rgba(200, 50, 50, 0.06);
-  border-color: rgba(200, 50, 50, 0.12);
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 :root:not(.dark) .login-alert-icon {
-  color: rgba(200, 50, 50, 0.7);
+  color: #dc2626;
 }
 
 :root:not(.dark) .login-alert-title {
-  color: rgba(180, 40, 40, 0.9);
+  color: #991b1b;
 }
 
 :root:not(.dark) .login-alert-message {
-  color: rgba(180, 40, 40, 0.7);
+  color: #b91c1c;
 }
 
 :root:not(.dark) .login-footer {
-  color: rgba(10, 31, 21, 0.3);
+  color: #9aa8a2;
 }
 
 :root:not(.dark) .login-text-cursor {
-  color: rgba(46, 158, 90, 0.9);
+  color: #2e9e5a;
 }
 
 :root:not(.dark) .login-input--error {
-  border-color: rgba(200, 50, 50, 0.4);
+  border-color: #e57373;
 }
 
 :root:not(.dark) .login-input--error:focus {
-  box-shadow: 0 0 0 3px rgba(200, 50, 50, 0.08);
-  border-color: rgba(200, 50, 50, 0.5);
+  box-shadow: 0 0 0 3px rgba(229, 115, 115, 0.12);
+  border-color: #e57373;
 }
 
 /* --- Autofill overrides for dark bg --- */
