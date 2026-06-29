@@ -14,36 +14,25 @@ import {
   Briefcase,
   Fingerprint,
   Calendar,
-  Hash,
 } from 'lucide-react';
 
 /**
  * AttendanceProfileCard — Shared premium profile card for attendance results.
- *
- * Props:
- * - variant: 'student' | 'teacher'
- * - name, photo, role, status, time
- * - For student: jilid, points, kelas, sesi, nis, gender, levelInfo
- * - For teacher: jabatan, no_hp, sesi, guruStats
- * - quote, message, showSuccessBadge
+ * Center-aligned, portrait-optimized layout.
  */
 const AttendanceProfileCard = ({
   variant = 'student',
   name,
   photo,
-  role,
   status,
   time,
   jilid,
   points,
   kelas,
   sesi,
-  nis,
   rfid,
-  gender,
   levelInfo,
   jabatan,
-  no_hp,
   guruStats,
   quote,
   message,
@@ -52,18 +41,15 @@ const AttendanceProfileCard = ({
 }) => {
   const isTeacher = variant === 'teacher';
 
-  // Level info for students
   const {
     label: levelLabel,
     color: levelColor,
-    badgeIcon: levelBadgeIcon,
     enableGradient,
     textColor,
     avatarBorderThickness,
     textGradient,
   } = levelInfo || {};
 
-  // Status color mapping
   const statusConfig = getStatusConfig(status);
 
   return (
@@ -75,94 +61,91 @@ const AttendanceProfileCard = ({
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
     >
-      {/* Identity Header */}
-      <div className="attendance-profile-card__header">
-        <div className="attendance-profile-card__avatar-wrap">
-          <Avatar
-            className="attendance-profile-card__avatar"
-            style={
-              !isTeacher && levelColor
-                ? {
-                    borderColor: levelColor,
-                    borderWidth: `${avatarBorderThickness || 3}px`,
-                    boxShadow: `0 0 24px ${levelColor}33, 0 8px 32px rgba(0,0,0,0.12)`,
-                  }
-                : undefined
-            }
+      {/* Avatar — large, centered, top anchor */}
+      <div className="attendance-profile-card__avatar-wrap">
+        <Avatar
+          className="attendance-profile-card__avatar"
+          style={
+            !isTeacher && levelColor
+              ? {
+                  borderColor: levelColor,
+                  borderWidth: `${avatarBorderThickness || 3}px`,
+                  boxShadow: `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
+                }
+              : undefined
+          }
+        >
+          <AvatarImage src={photo} alt={name} className="object-cover" />
+          <AvatarFallback className="attendance-profile-card__avatar-fallback">
+            {name?.[0]?.toUpperCase() || '?'}
+          </AvatarFallback>
+        </Avatar>
+
+        {showSuccessBadge && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
+            className="attendance-profile-card__success-badge"
           >
-            <AvatarImage src={photo} alt={name} className="object-cover" />
-            <AvatarFallback className="attendance-profile-card__avatar-fallback">
-              {name?.[0]?.toUpperCase() || '?'}
-            </AvatarFallback>
-          </Avatar>
+            <CheckCircle className="w-5 h-5" />
+          </motion.div>
+        )}
 
-          {showSuccessBadge && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
-              className="attendance-profile-card__success-badge"
-            >
-              <CheckCircle className="w-5 h-5" />
-            </motion.div>
-          )}
-
-          {/* Level badge for students */}
-          {!isTeacher && levelLabel && (
-            <motion.div
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="attendance-profile-card__level-badge"
-              style={{ borderColor: levelColor || 'var(--att-accent)' }}
-            >
-              <span
-                className={enableGradient ? 'gradient-text' : ''}
-                style={{ color: enableGradient ? undefined : levelColor || 'var(--att-accent)' }}
-              >
-                {levelLabel}
-              </span>
-            </motion.div>
-          )}
-
-          {/* Role badge for teachers */}
-          {isTeacher && (
-            <div className="attendance-profile-card__role-badge">
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>{isPentashih ? 'Pentashih' : 'Guru'}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="attendance-profile-card__identity">
-          <h2
-            className="attendance-profile-card__name"
-            style={
-              !isTeacher && textGradient && textColor
-                ? { color: textColor }
-                : undefined
-            }
+        {/* Level badge for students */}
+        {!isTeacher && levelLabel && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="attendance-profile-card__level-badge"
+            style={{ borderColor: levelColor || 'var(--att-accent)' }}
           >
-            {name}
-          </h2>
+            <span
+              className={enableGradient ? 'gradient-text' : ''}
+              style={{ color: enableGradient ? undefined : levelColor || 'var(--att-accent)' }}
+            >
+              {levelLabel}
+            </span>
+          </motion.div>
+        )}
 
-          {/* Subtitle: jabatan for teacher, jilid for student */}
-          {isTeacher && jabatan && (
-            <p className="attendance-profile-card__subtitle">{jabatan}</p>
-          )}
-          {!isTeacher && jilid && (
-            <p className="attendance-profile-card__subtitle">{jilid}</p>
-          )}
-        </div>
+        {/* Role badge for teachers */}
+        {isTeacher && (
+          <div className="attendance-profile-card__role-badge">
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>{isPentashih ? 'Pentashih' : 'Guru'}</span>
+          </div>
+        )}
       </div>
 
-      {/* Status & Time Section */}
+      {/* Name — primary hierarchy, centered */}
+      <h2
+        className="attendance-profile-card__name"
+        style={
+          !isTeacher && textGradient && textColor
+            ? { color: textColor }
+            : undefined
+        }
+      >
+        {name}
+      </h2>
+
+      {/* Subtitle */}
+      {isTeacher && jabatan && (
+        <p className="attendance-profile-card__subtitle">{jabatan}</p>
+      )}
+      {!isTeacher && jilid && (
+        <p className="attendance-profile-card__subtitle">{jilid}</p>
+      )}
+
+      {/* Status & Time */}
       {status && (
         <div className="attendance-profile-card__status-row">
           <div
             className="attendance-profile-card__status-chip"
             style={{
-              backgroundColor: `${statusConfig.color}12`,
+              backgroundColor: `${statusConfig.color}14`,
               borderColor: `${statusConfig.color}30`,
               color: statusConfig.color,
             }}
@@ -185,82 +168,34 @@ const AttendanceProfileCard = ({
           <>
             {guruStats && (
               <>
-                <DetailItem
-                  icon={<Briefcase className="w-4 h-4" />}
-                  label="Sesi"
-                  value={guruStats.session}
-                  accent
-                />
-                <DetailItem
-                  icon={<Clock className="w-4 h-4" />}
-                  label="Jam Total"
-                  value={guruStats.hours}
-                />
-                <DetailItem
-                  icon={<Star className="w-4 h-4" />}
-                  label="Streak"
-                  value={guruStats.streak}
-                  amber
-                />
+                <DetailItem icon={<Briefcase className="w-4 h-4" />} label="Sesi" value={guruStats.session} accent />
+                <DetailItem icon={<Clock className="w-4 h-4" />} label="Jam Total" value={guruStats.hours} />
+                <DetailItem icon={<Star className="w-4 h-4" />} label="Streak" value={guruStats.streak} amber />
               </>
             )}
             {sesi && !guruStats && (
-              <DetailItem
-                icon={<Calendar className="w-4 h-4" />}
-                label="Sesi"
-                value={sesi}
-                accent
-              />
+              <DetailItem icon={<Calendar className="w-4 h-4" />} label="Sesi" value={sesi} accent />
             )}
             {rfid && (
-              <DetailItem
-                icon={<Fingerprint className="w-4 h-4" />}
-                label="RFID"
-                value={rfid}
-                mono
-              />
+              <DetailItem icon={<Fingerprint className="w-4 h-4" />} label="RFID" value={rfid} mono />
             )}
           </>
         ) : (
           <>
             {jilid && (
-              <DetailItem
-                icon={<BookOpen className="w-4 h-4" />}
-                label="Jilid"
-                value={jilid}
-                accent
-              />
+              <DetailItem icon={<BookOpen className="w-4 h-4" />} label="Jilid" value={jilid} accent />
             )}
             {points !== undefined && points !== null && (
-              <DetailItem
-                icon={<Star className="w-4 h-4" />}
-                label="Poin"
-                value={points}
-                amber
-              />
+              <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} amber />
             )}
             {kelas && (
-              <DetailItem
-                icon={<Users className="w-4 h-4" />}
-                label="Kelas"
-                value={kelas}
-              />
+              <DetailItem icon={<Users className="w-4 h-4" />} label="Kelas" value={kelas} />
             )}
             {sesi && (
-              <DetailItem
-                icon={<Calendar className="w-4 h-4" />}
-                label="Sesi"
-                value={sesi}
-                accent
-              />
+              <DetailItem icon={<Calendar className="w-4 h-4" />} label="Sesi" value={sesi} accent />
             )}
             {rfid && (
-              <DetailItem
-                icon={<Fingerprint className="w-4 h-4" />}
-                label="RFID"
-                value={rfid}
-                mono
-              />
+              <DetailItem icon={<Fingerprint className="w-4 h-4" />} label="RFID" value={rfid} mono />
             )}
           </>
         )}
@@ -279,14 +214,14 @@ const AttendanceProfileCard = ({
           transition={{ delay: 0.5 }}
           className="attendance-profile-card__quote"
         >
-          <p>"{quote}"</p>
+          <p>&ldquo;{quote}&rdquo;</p>
         </motion.div>
       )}
     </motion.div>
   );
 };
 
-/* --- Detail Item Sub-component --- */
+/* --- Detail Item --- */
 const DetailItem = ({ icon, label, value, accent, amber, mono }) => (
   <div
     className="attendance-profile-card__detail-item"
@@ -322,47 +257,23 @@ const DetailItem = ({ icon, label, value, accent, amber, mono }) => (
   </div>
 );
 
-/* --- Status Config Helper --- */
+/* --- Status Config --- */
 function getStatusConfig(status) {
   switch (status) {
     case 'Hadir':
     case 'Tepat Waktu':
-      return {
-        label: 'Tepat Waktu',
-        color: 'var(--att-success)',
-        icon: <CheckCircle className="w-4 h-4" />,
-      };
+      return { label: 'Tepat Waktu', color: 'var(--att-success)', icon: <CheckCircle className="w-4 h-4" /> };
     case 'Terlambat':
-      return {
-        label: 'Terlambat',
-        color: 'var(--att-amber)',
-        icon: <Clock className="w-4 h-4" />,
-      };
+      return { label: 'Terlambat', color: 'var(--att-amber)', icon: <Clock className="w-4 h-4" /> };
     case 'Tidak Hadir':
     case 'Alpha':
-      return {
-        label: 'Tidak Hadir',
-        color: 'var(--att-danger)',
-        icon: <span className="w-4 h-4 flex items-center justify-center">&#x2716;</span>,
-      };
+      return { label: 'Tidak Hadir', color: 'var(--att-danger)', icon: <span className="w-4 h-4 flex items-center justify-center">&#x2716;</span> };
     case 'Izin':
-      return {
-        label: 'Izin',
-        color: 'var(--att-cyan)',
-        icon: <span className="w-4 h-4 flex items-center justify-center">&#9998;</span>,
-      };
+      return { label: 'Izin', color: 'var(--att-cyan)', icon: <span className="w-4 h-4 flex items-center justify-center">&#9998;</span> };
     case 'Sakit':
-      return {
-        label: 'Sakit',
-        color: 'var(--att-violet)',
-        icon: <span className="w-4 h-4 flex items-center justify-center">&#9829;</span>,
-      };
+      return { label: 'Sakit', color: 'var(--att-violet)', icon: <span className="w-4 h-4 flex items-center justify-center">&#9829;</span> };
     default:
-      return {
-        label: status || 'Unknown',
-        color: 'var(--att-text-muted)',
-        icon: <Clock className="w-4 h-4" />,
-      };
+      return { label: status || 'Unknown', color: 'var(--att-text-muted)', icon: <Clock className="w-4 h-4" /> };
   }
 }
 
