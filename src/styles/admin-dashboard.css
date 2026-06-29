@@ -1284,6 +1284,133 @@
   border-color: hsl(var(--admin-border)) !important;
 }
 
+/* Override shadcn Dialog inside admin to remove green tint */
+.lpq-admin-surface [data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.lpq-admin-surface [data-radix-dialog-content],
+.lpq-admin-surface [role="dialog"] {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-dialog-content],
+.dark .lpq-admin-surface [role="dialog"] {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Override shadcn Popover/SelectContent inside admin */
+.lpq-admin-surface [data-radix-popper-content-wrapper],
+.lpq-admin-surface [data-radix-select-content],
+.lpq-admin-surface [role="listbox"],
+.lpq-admin-surface [role="dialog"] [data-radix-select-content] {
+  background-color: hsl(0 0% 100%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-popper-content-wrapper],
+.dark .lpq-admin-surface [data-radix-select-content],
+.dark .lpq-admin-surface [role="listbox"],
+.dark .lpq-admin-surface [role="dialog"] [data-radix-select-content] {
+  background-color: hsl(222 22% 14%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item],
+.dark .lpq-admin-surface [role="option"] {
+  color: hsl(30 30% 92%) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item]:hover,
+.dark .lpq-admin-surface [data-radix-select-item][data-highlighted],
+.dark .lpq-admin-surface [role="option"]:hover {
+  background-color: hsl(var(--admin-accent) / 0.15) !important;
+  color: hsl(30 30% 96%) !important;
+}
+
+/* Override shadcn TabsList inside admin */
+.lpq-admin-surface [role="tablist"] {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+}
+
+.dark .lpq-admin-surface [role="tablist"] {
+  background-color: hsl(222 25% 10%) !important;
+}
+
+.lpq-admin-surface [role="tab"][data-state="active"],
+.lpq-admin-surface [role="tab"][data-state="active"]:hover {
+  background-color: hsl(var(--admin-surface)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.1) !important;
+}
+
+.dark .lpq-admin-surface [role="tab"][data-state="active"],
+.dark .lpq-admin-surface [role="tab"][data-state="active"]:hover {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+/* Override toast / sonner inside admin */
+.lpq-admin-surface [data-sonner-toast],
+.lpq-admin-surface [data-state="open"][data-sonner-toast] {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+/* Payment receipt footer — ensure buttons visible in dark mode */
+.lpq-admin-surface .bg-slate-50 {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+}
+
+.dark .lpq-admin-surface .bg-slate-50 {
+  background-color: hsl(222 25% 10%) !important;
+}
+
+.lpq-admin-surface .bg-slate-50 .border-t {
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Ensure dialog footer buttons are visible in dark mode */
+.lpq-admin-surface [role="dialog"] .flex.justify-center,
+.lpq-admin-surface [role="dialog"] .p-4.bg-slate-50 {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+.dark .lpq-admin-surface [role="dialog"] .flex.justify-center,
+.dark .lpq-admin-surface [role="dialog"] .p-4.bg-slate-50 {
+  background-color: hsl(222 22% 13%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Override Badge inside admin for dark mode consistency */
+.dark .lpq-admin-surface .bg-green-50 {
+  background-color: hsl(152 45% 42% / 0.15) !important;
+}
+
+.dark .lpq-admin-surface .border-green-100,
+.dark .lpq-admin-surface .border-green-200 {
+  border-color: hsl(152 45% 42% / 0.3) !important;
+}
+
+.dark .lpq-admin-surface .text-green-600,
+.dark .lpq-admin-surface .text-green-800 {
+  color: hsl(152 50% 55%) !important;
+}
+
+.dark .lpq-admin-surface .text-green-700,
+.dark .lpq-admin-surface .text-green-900 {
+  color: hsl(152 50% 60%) !important;
+}
+
+.dark .lpq-admin-surface .hover\:bg-green-50:hover {
+  background-color: hsl(152 45% 42% / 0.15) !important;
+}
+
 /* --- Theme-aware Skeleton inside admin --- */
 .lpq-admin-surface .skeleton,
 .lpq-admin-surface [class*="Skeleton"],

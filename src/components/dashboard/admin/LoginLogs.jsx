@@ -15,16 +15,16 @@ const LoginLogs = () => {
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
     const ITEMS_PER_PAGE = 15;
 
-    const fetchLogs = useCallback(async (reset = false) => {
+    const fetchLogs = useCallback(async (reset = false, overridePage) => {
         setLoading(true);
-        const currentPage = reset ? 0 : page;
+        const targetPage = reset ? 0 : (overridePage ?? page);
 
         try {
             let query = supabase
                 .from('login_logs')
-                .select('id, username_attempt, ip_address, role, city, country, device, status, created_at')
+                .select('*')
                 .order('created_at', { ascending: false })
-                .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
+                .range(targetPage * ITEMS_PER_PAGE, (targetPage + 1) * ITEMS_PER_PAGE - 1);
             
             if (searchTerm) {
                 query = query.or(`username_attempt.ilike.%${searchTerm}%,ip_address.ilike.%${searchTerm}%`);
@@ -35,16 +35,16 @@ const LoginLogs = () => {
             if (error) throw error;
             
             setLogs(prev => {
-                if (reset) return data;
-                const newItems = data.filter(d => !prev.some(p => p.id === d.id));
+                if (reset) return data || [];
+                const newItems = (data || []).filter(d => !prev.some(p => p.id === d.id));
                 return [...prev, ...newItems];
             });
 
-            if (data.length < ITEMS_PER_PAGE) {
+            if (!data || data.length < ITEMS_PER_PAGE) {
                 setHasMore(false);
             } else {
                 setHasMore(true);
-                if (!reset) setPage(currentPage + 1);
+                if (!reset) setPage(targetPage + 1);
             }
         } catch (err) {
             toast({ title: 'Gagal memuat log', description: err.message, variant: 'destructive' });
@@ -54,7 +54,7 @@ const LoginLogs = () => {
 
     useEffect(() => {
         setPage(0);
-        fetchLogs(true);
+        fetchLogs(true, 0);
     }, [searchTerm]);
 
 
@@ -62,7 +62,7 @@ const LoginLogs = () => {
         e.preventDefault();
         setPage(0);
         setLogs([]);
-        fetchLogs(true);
+        fetchLogs(true, 0);
     };
     
     const handleDeleteLog = (logId) => {

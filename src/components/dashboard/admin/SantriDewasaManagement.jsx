@@ -255,7 +255,7 @@ const SantriDewasaManagement = () => {
       console.log('--- INVESTIGATION: Fetching all santri (Dewasa) ---');
       const [santriRes, classesRes, configRes] = await Promise.all([
         supabase.from('santri').select('*'),
-        supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
+        supabase.from('classes').select('id, nama_kelas, kategori, guru:id_guru(nama)'),
         supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
       ]);
 
