@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -931,84 +930,83 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   }, [santriList, filters, sortConfig, classGuruMap]);
 
   return (
-    <div className="bg-card p-6 rounded-2xl shadow-xl">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border pb-6">
+    <div>
+      <div className="admin-panel-header">
           <div className="flex items-center gap-3">
-             <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
-                <Users className="w-8 h-8" />
+             <div className="admin-panel-header-icon">
+                <Users />
              </div>
-             <div>
-                <h2 className="text-2xl font-bold text-foreground">Manajemen Santri ({subCategory.toUpperCase()})</h2>
-                <p className="text-muted-foreground text-sm">Kelola data santri, jilid, dan status aktif.</p>
+             <div className="admin-panel-header-text">
+                <h2>Manajemen Santri ({subCategory.toUpperCase()})</h2>
+                <p>Kelola data santri, jilid, dan status aktif.</p>
              </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative mr-2">
-                <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-pink-200 hover:bg-pink-50 text-pink-500">
-                    <Cake className="w-5 h-5" />
-                    {birthdayCount > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">
-                            {birthdayCount}
-                        </span>
-                    )}
-                </Button>
-            </div>
+          <div className="admin-panel-header-actions">
+            <button
+                onClick={() => setIsBirthdayModalOpen(true)}
+                className="admin-action-cluster-btn relative"
+                style={{ border: '1px solid hsl(330 80% 85%)', color: 'hsl(330 60% 55%)' }}
+            >
+                <Cake className="w-4 h-4" />
+                {birthdayCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full shadow-sm animate-bounce leading-none">
+                        {birthdayCount}
+                    </span>
+                )}
+            </button>
 
             {selectedSantri.size > 0 && (
-                <div className="flex bg-muted/50 p-1 rounded-lg border border-border mr-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleBulkStatusChange('Aktif')} className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50">
-                        <CheckCircle className="w-4 h-4 mr-1"/> Aktifkan
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleBulkStatusChange('Nonaktif')} className="h-8 px-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50">
-                        <XCircle className="w-4 h-4 mr-1"/> Non-Aktif
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleDelete} className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50">
-                        <Trash2 className="w-4 h-4 mr-1"/> Hapus ({selectedSantri.size})
-                    </Button>
+                <div className="admin-bulk-bar">
+                    <button onClick={() => handleBulkStatusChange('Aktif')} className="admin-bulk-btn admin-bulk-btn--activate">
+                        <CheckCircle className="w-3.5 h-3.5"/> Aktifkan
+                    </button>
+                    <button onClick={() => handleBulkStatusChange('Nonaktif')} className="admin-bulk-btn admin-bulk-btn--deactivate">
+                        <XCircle className="w-3.5 h-3.5"/> Non-Aktif
+                    </button>
+                    <button onClick={handleDelete} className="admin-bulk-btn admin-bulk-btn--delete">
+                        <Trash2 className="w-3.5 h-3.5"/> Hapus ({selectedSantri.size})
+                    </button>
                 </div>
             )}
-            <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
-                 <Button variant="ghost" size="sm" onClick={() => setIsBulkUploadOpen(true)} className="h-8 px-2 hover:bg-background shadow-none">
-                    <Upload className="w-4 h-4 mr-2 text-blue-600"/> Import
-                 </Button>
-                 <Button variant="ghost" size="sm" onClick={handleDownloadData} className="h-8 px-2 hover:bg-background shadow-none">
-                    <Download className="w-4 h-4 mr-2 text-green-600"/> Export
-                 </Button>
+            <div className="admin-action-cluster">
+                 <button onClick={() => setIsBulkUploadOpen(true)} className="admin-action-cluster-btn">
+                    <Upload className="w-3.5 h-3.5"/> Import
+                 </button>
+                 <button onClick={handleDownloadData} className="admin-action-cluster-btn">
+                    <Download className="w-3.5 h-3.5"/> Export
+                 </button>
             </div>
-            <Button onClick={() => { resetForm(); setIsFormOpen(true); }} className="bg-primary hover:bg-primary/90 shadow-md">
-                <Plus className="w-4 h-4 mr-2"/> Tambah Santri
-            </Button>
+            <button onClick={() => { resetForm(); setIsFormOpen(true); }} className="admin-panel-primary-btn">
+                <Plus className="w-4 h-4"/> Tambah Santri
+            </button>
           </div>
       </div>
 
-       <Card className="bg-slate-50 dark:bg-slate-900/50 border-none shadow-sm mb-6 mt-6">
-            <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
-                 <div className="relative flex-grow w-full md:w-auto">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input 
-                        placeholder="Cari santri berdasarkan nama, wali, atau RFID..." 
-                        value={filters.search} 
-                        onChange={e => setFilters(f => ({...f, search: e.target.value}))} 
-                        className="pl-9 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-                    />
-                 </div>
-                 <div className="grid grid-cols-3 gap-2 w-full md:w-auto min-w-[400px]">
-                    <Select value={filters.sesi} onValueChange={val => setFilters(f => ({...f, sesi: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="Sesi" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="Jilid" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua Jilid</SelectItem>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Select value={filters.rfid} onValueChange={val => setFilters(f => ({...f, rfid: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="RFID" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua RFID</SelectItem><SelectItem value="assigned">Ada RFID</SelectItem><SelectItem value="unassigned">Tanpa RFID</SelectItem></SelectContent>
-                    </Select>
-                 </div>
-            </CardContent>
-        </Card>
+       <div className="admin-filter-bar">
+            <div className="admin-search-input">
+                <Search />
+                <Input 
+                    placeholder="Cari santri berdasarkan nama, wali, atau RFID..." 
+                    value={filters.search} 
+                    onChange={e => setFilters(f => ({...f, search: e.target.value}))} 
+                />
+            </div>
+            <div className="admin-filter-selects">
+                <Select value={filters.sesi} onValueChange={val => setFilters(f => ({...f, sesi: val}))}>
+                    <SelectTrigger><SelectValue placeholder="Sesi" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
+                    <SelectTrigger><SelectValue placeholder="Jilid" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua Jilid</SelectItem>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={filters.rfid} onValueChange={val => setFilters(f => ({...f, rfid: val}))}>
+                    <SelectTrigger><SelectValue placeholder="RFID" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua RFID</SelectItem><SelectItem value="assigned">Ada RFID</SelectItem><SelectItem value="unassigned">Tanpa RFID</SelectItem></SelectContent>
+                </Select>
+            </div>
+       </div>
 
       {fetchError && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-xl mb-4 flex items-center justify-between">
@@ -1017,16 +1015,17 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         </div>
       )}
 
-      <div className="overflow-auto max-h-[65vh] border rounded-lg shadow-sm relative">
+      <div className="admin-table-shell">
         {isLoadingData && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-                <p className="text-muted-foreground font-medium">Sedang memproses data...</p>
+            <div className="admin-table-loading">
+                <div className="admin-table-loading-spinner"></div>
+                <p>Sedang memproses data...</p>
             </div>
         )}
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-card z-10 shadow-sm backdrop-blur-md">
-            <tr className="border-b bg-muted/30">
+        <div className="admin-table-scroll">
+        <table>
+          <thead>
+            <tr>
               <th className="p-3 w-10"><Checkbox onCheckedChange={toggleSelectAll} checked={sortedAndFilteredSantri.length > 0 && selectedSantri.size === sortedAndFilteredSantri.length} /></th>
               <th className="p-3 text-left w-12 text-xs font-semibold text-muted-foreground uppercase tracking-wider">No.</th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('nama_lengkap')}><div className="flex items-center">Nama <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
@@ -1082,115 +1081,116 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           </tbody>
         </table>
         {!isLoadingData && sortedAndFilteredSantri.length === 0 && !fetchError && (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Search className="w-12 h-12 mb-2 opacity-20"/>
+            <div className="admin-table-empty">
+                <Search />
                 <p>Tidak ada data santri ditemukan.</p>
             </div>
         )}
+        </div>
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>{editingSantri ? `Edit Data Santri ${subCategory.toUpperCase()}` : `Tambah Santri ${subCategory.toUpperCase()} Baru`}</DialogTitle></DialogHeader>
           
-          <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-            <div className="space-y-6 overflow-y-auto flex-1 pr-2">
+          <form onSubmit={handleSubmit} className="admin-edit-shell">
+            <div className="admin-edit-body">
             
                 {/* 1. Header & Photo Section */}
-                <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-muted/20 rounded-xl border">
-                    <Avatar className="w-24 h-24 border-4 border-background shadow-md cursor-pointer hover:opacity-80 transition-opacity" onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
+                <div className="admin-edit-photo-area">
+                    <Avatar className="w-20 h-20 border-2 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" style={{ borderColor: 'hsl(var(--admin-border))' }} onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
                         <AvatarImage src={formData.foto_url} />
-                        <AvatarFallback><Upload /></AvatarFallback>
+                        <AvatarFallback style={{ backgroundColor: 'hsl(var(--admin-accent-soft))', color: 'hsl(var(--admin-accent))' }}><Upload className="w-6 h-6" /></AvatarFallback>
                     </Avatar>
                     <div className="flex-1 w-full space-y-2">
-                        <div className="flex gap-2">
-                             <Button type="button" onClick={triggerPhotoUpload} variant="outline" disabled={isUploading || !editingSantri?.id} title={!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined}>{isUploading ? 'Mengunggah...' : 'Upload Foto'}</Button>
+                        <div className="flex gap-2 flex-wrap">
+                             <Button type="button" onClick={triggerPhotoUpload} variant="outline" size="sm" disabled={isUploading || !editingSantri?.id} title={!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined}>{isUploading ? 'Mengunggah...' : 'Upload Foto'}</Button>
                              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
                         </div>
-                        <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
+                        <p className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
                         <div className="relative">
                             <Input type="text" placeholder="https://example.com/foto.jpg" value={formData.foto_url || ''} onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })} className="pl-9 text-xs" />
-                            <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>
+                            <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'hsl(var(--admin-text-muted))' }}/>
                         </div>
                     </div>
                 </div>
 
                 {/* 2. Personal Information Section */}
-                <div>
-                    <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><User className="w-5 h-5"/> Informasi Pribadi</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Panggilan</label><Input type="text" value={formData.nama_panggilan || ''} onChange={handleNicknameChange} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} required /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Masuk</label><Input type="date" value={formData.tanggal_pendaftaran || ''} onChange={(e) => setFormData({ ...formData, tanggal_pendaftaran: e.target.value })} /></div>
+                <div className="admin-edit-section">
+                    <div className="admin-edit-section-header"><User /> Informasi Pribadi</div>
+                    <div className="admin-edit-field-grid">
+                        <div className="admin-edit-field"><label>Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
+                        <div className="admin-edit-field"><label>Nama Panggilan</label><Input type="text" value={formData.nama_panggilan || ''} onChange={handleNicknameChange} /></div>
+                        <div className="admin-edit-field"><label>Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
+                        <div className="admin-edit-field"><label>Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} required /></div>
+                        <div className="admin-edit-field"><label>Tanggal Masuk</label><Input type="date" value={formData.tanggal_pendaftaran || ''} onChange={(e) => setFormData({ ...formData, tanggal_pendaftaran: e.target.value })} /></div>
                     </div>
                 </div>
 
                 {/* 3. Family & Contact Section */}
-                <div>
-                    <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><Users className="w-5 h-5"/> Keluarga & Kontak</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} onChange={(e) => setFormData({ ...formData, nama_ayah: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} onChange={(e) => setFormData({ ...formData, nama_ibu: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. KK</label><Input type="text" value={formData.no_kk || ''} onChange={(e) => setFormData({ ...formData, no_kk: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. NIK</label><Input type="text" value={formData.no_nik || ''} onChange={(e) => setFormData({ ...formData, no_nik: e.target.value })} /></div>
-                        <div className="col-span-full space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" /></div>
+                <div className="admin-edit-section">
+                    <div className="admin-edit-section-header"><Users /> Keluarga & Kontak</div>
+                    <div className="admin-edit-field-grid">
+                        <div className="admin-edit-field"><label>Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} onChange={(e) => setFormData({ ...formData, nama_ayah: e.target.value })} /></div>
+                        <div className="admin-edit-field"><label>Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} onChange={(e) => setFormData({ ...formData, nama_ibu: e.target.value })} /></div>
+                        <div className="admin-edit-field"><label>No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
+                        <div className="admin-edit-field"><label>No. KK</label><Input type="text" value={formData.no_kk || ''} onChange={(e) => setFormData({ ...formData, no_kk: e.target.value })} /></div>
+                        <div className="admin-edit-field"><label>No. NIK</label><Input type="text" value={formData.no_nik || ''} onChange={(e) => setFormData({ ...formData, no_nik: e.target.value })} /></div>
+                        <div className="admin-edit-field admin-edit-field-full"><label>Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" /></div>
                     </div>
                 </div>
 
                 {/* 4. Academic Section */}
-                <div>
-                    <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><GraduationCap className="w-5 h-5"/> Akademik & Sistem</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">No. Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={handleQiroatiIdChange} required={!editingSantri} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Kelas Aktif <span className="normal-case text-[10px] text-muted-foreground">(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
+                <div className="admin-edit-section">
+                    <div className="admin-edit-section-header"><GraduationCap /> Akademik & Sistem</div>
+                    <div className="admin-edit-field-grid">
+                        <div className="admin-edit-field"><label>No. Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={handleQiroatiIdChange} required={!editingSantri} /></div>
+                        <div className="admin-edit-field"><label>RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
+                        <div className="admin-edit-field"><label>Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
+                        <div className="admin-edit-field">
+                            <label className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
                             <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
                         </div>
                     </div>
 
-                    <div className="mt-4 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800">
-                        <h4 className="text-sm font-semibold mb-2 flex items-center gap-2 text-yellow-700 dark:text-yellow-500"><Lock className="w-4 h-4"/> Akses Login</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Username</label><Input type="text" value={formData.nama_panggilan || ''} className="bg-white/50" readOnly /></div>
-                            <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Password</label><Input type="text" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} disabled={Boolean(editingSantri)} required={!editingSantri} placeholder={editingSantri ? 'Reset password melalui alur admin terpisah' : ''} /></div>
+                    <div className="admin-edit-access-card mt-4">
+                        <h4><Lock /> Akses Login</h4>
+                        <div className="admin-edit-field-grid">
+                            <div className="admin-edit-field"><label>Username</label><Input type="text" value={formData.nama_panggilan || ''} readOnly style={{ opacity: 0.7 }} /></div>
+                            <div className="admin-edit-field"><label>Password</label><Input type="text" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} disabled={Boolean(editingSantri)} required={!editingSantri} placeholder={editingSantri ? 'Reset password melalui alur admin terpisah' : ''} /></div>
                         </div>
                     </div>
                 </div>
 
                 {/* 5. Document Section */}
-                <div>
-                     <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><FileText className="w-5 h-5"/> Kelengkapan Berkas</h3>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_foto" checked={Boolean(formData.berkas_foto)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_foto: Boolean(checked) })} /><label htmlFor="berkas_foto" className="text-sm text-muted-foreground">Foto</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_akta" checked={Boolean(formData.berkas_akta)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_akta: Boolean(checked) })} /><label htmlFor="berkas_akta" className="text-sm text-muted-foreground">Akta Kelahiran</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_kk" checked={Boolean(formData.berkas_kk)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_kk: Boolean(checked) })} /><label htmlFor="berkas_kk" className="text-sm text-muted-foreground">Kartu Keluarga</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_form" checked={Boolean(formData.berkas_form)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_form: Boolean(checked) })} /><label htmlFor="berkas_form" className="text-sm text-muted-foreground">Formulir</label></div>
+                <div className="admin-edit-section">
+                     <div className="admin-edit-section-header"><FileText /> Kelengkapan Berkas</div>
+                     <div className="admin-edit-field-grid">
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_foto" checked={Boolean(formData.berkas_foto)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_foto: Boolean(checked) })} /><label htmlFor="berkas_foto" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Foto</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_akta" checked={Boolean(formData.berkas_akta)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_akta: Boolean(checked) })} /><label htmlFor="berkas_akta" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Akta Kelahiran</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_kk" checked={Boolean(formData.berkas_kk)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_kk: Boolean(checked) })} /><label htmlFor="berkas_kk" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Kartu Keluarga</label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id="berkas_form" checked={Boolean(formData.berkas_form)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_form: Boolean(checked) })} /><label htmlFor="berkas_form" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Formulir</label></div>
                     </div>
                 </div>
 
             </div>
 
-            <DialogFooter className="pt-4 mt-auto border-t">
+            <div className="admin-edit-footer">
                 {editingSantri && (
-                    <Button type="button" variant="outline" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 mr-auto" onClick={handleMigration}>
+                    <Button type="button" variant="outline" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200" onClick={handleMigration}>
                         <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke Dewasa
                     </Button>
                 )}
-                <div className="flex gap-2 ml-auto">
+                <div className="admin-edit-footer-actions">
                     <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button>
                     <Button type="submit">{editingSantri ? 'Simpan Perubahan' : 'Tambah Santri'}</Button>
                 </div>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

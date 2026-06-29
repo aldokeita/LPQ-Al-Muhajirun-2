@@ -260,8 +260,8 @@ const AdminDashboard = () => {
               onToggleMask={() => setShowExpense(!showExpense)}
             />
             <AdminStatCard
-              label="Absensi Digital"
-              value="Mode Kiosk"
+              label="MODE KIOSK"
+              value="Absensi Digital"
               icon={Fingerprint}
               onClick={() => navigate('/absensi-digital')}
             />
