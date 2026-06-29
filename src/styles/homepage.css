@@ -58,10 +58,10 @@
   --home-surface-b: #0d1a2e;
   --home-heading-color: #f1f5f9;
   --home-text-color: rgba(226, 232, 240, 0.68);
-  --home-card-bg: rgba(255, 255, 255, 0.06);
+  --home-card-bg: #131b2e;
   --home-card-border: rgba(255, 255, 255, 0.08);
   --home-card-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-  --home-card-surface: rgba(255, 255, 255, 0.05);
+  --home-card-surface: rgba(255, 255, 255, 0.06);
   --home-icon-color: #6ee7b7;
   --home-accent-text: #6ee7b7;
   --home-quote-icon: #f59e0b;
