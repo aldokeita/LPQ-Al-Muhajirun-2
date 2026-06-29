@@ -100,6 +100,17 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log(`[AuthContext] Auth event triggered: ${event}`);
+
+        // Only re-fetch profile on meaningful auth events.
+        // TOKEN_REFRESHED fires when the user switches back to the tab, which
+        // should NOT trigger a full profile re-fetch (that causes an unwanted
+        // "refresh" feel). We just silently update the session reference.
+        if (event === 'TOKEN_REFRESHED') {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          return;
+        }
+
         await handleSession(currentSession);
       }
     );

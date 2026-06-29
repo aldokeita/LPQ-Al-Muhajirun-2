@@ -47,10 +47,15 @@ const DashboardPage = () => {
     
     if (isLoadingProfile) {
         return (
-          <div className="flex justify-center items-center h-[60vh]">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <h2 className="text-2xl font-semibold">Memuat Profil...</h2>
+          <div className="admin-loading-container">
+            <div className="admin-loading-spinner">
+              <div className="admin-loading-spinner-ring" />
+              <div className="admin-loading-spinner-ring admin-loading-spinner-ring--delay" />
+            </div>
+            <h2 className="admin-loading-title">Memuat Profil…</h2>
+            <p className="admin-loading-subtitle">Mengambil data akun Anda</p>
+            <div className="admin-loading-bar-track">
+              <div className="admin-loading-bar-fill" />
             </div>
           </div>
         );
@@ -82,11 +87,15 @@ const DashboardPage = () => {
     }
 
     return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-2xl font-semibold">Menyiapkan Dashboard...</h2>
-          <p className="text-muted-foreground mt-2">Mendeteksi hak akses Anda.</p>
+      <div className="admin-loading-container">
+        <div className="admin-loading-spinner">
+          <div className="admin-loading-spinner-ring" />
+          <div className="admin-loading-spinner-ring admin-loading-spinner-ring--delay" />
+        </div>
+        <h2 className="admin-loading-title">Menyiapkan Dashboard…</h2>
+        <p className="admin-loading-subtitle">Mendeteksi hak akses Anda</p>
+        <div className="admin-loading-bar-track">
+          <div className="admin-loading-bar-fill" />
         </div>
       </div>
     );

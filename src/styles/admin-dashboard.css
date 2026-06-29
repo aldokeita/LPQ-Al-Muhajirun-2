@@ -1200,6 +1200,219 @@
   scrollbar-width: none;
 }
 
+/* --- Override shadcn CSS variables inside admin to remove green tint --- */
+.lpq-admin-surface {
+  --background: var(--admin-bg);
+  --foreground: var(--admin-text-primary);
+  --card: var(--admin-surface);
+  --card-foreground: var(--admin-text-primary);
+  --popover: var(--admin-surface-raised);
+  --popover-foreground: var(--admin-text-primary);
+  --muted: var(--admin-surface-sunken);
+  --muted-foreground: var(--admin-text-muted);
+  --border: var(--admin-border);
+  --input: var(--admin-border);
+  --ring: 152 45% 42%;
+}
+
+.lpq-admin-surface .dark,
+.dark .lpq-admin-surface {
+  --background: var(--admin-bg);
+  --foreground: var(--admin-text-primary);
+  --card: var(--admin-surface);
+  --card-foreground: var(--admin-text-primary);
+  --popover: var(--admin-surface-raised);
+  --popover-foreground: var(--admin-text-primary);
+  --muted: var(--admin-surface-sunken);
+  --muted-foreground: var(--admin-text-muted);
+  --border: var(--admin-border);
+  --input: var(--admin-border);
+  --ring: 152 45% 42%;
+}
+
+/* --- White-field input style for admin (inspired by TV Settings Kuota & Pendaftaran) --- */
+.lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.lpq-admin-surface textarea,
+.lpq-admin-surface select {
+  background-color: hsl(0 0% 100%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.dark .lpq-admin-surface textarea,
+.dark .lpq-admin-surface select {
+  background-color: hsl(222 20% 10%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+.lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+.lpq-admin-surface textarea:focus,
+.lpq-admin-surface select:focus {
+  border-color: hsl(var(--admin-accent) / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.1) !important;
+}
+
+.dark .lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+.dark .lpq-admin-surface textarea:focus,
+.dark .lpq-admin-surface select:focus {
+  border-color: hsl(var(--admin-accent) / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.12) !important;
+}
+
+/* Override shadcn SelectTrigger inside admin */
+.lpq-admin-surface button[role="combobox"],
+.lpq-admin-surface [data-radix-select-trigger] {
+  background-color: hsl(0 0% 100%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+.dark .lpq-admin-surface button[role="combobox"],
+.dark .lpq-admin-surface [data-radix-select-trigger] {
+  background-color: hsl(222 20% 10%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+/* Override shadcn Card inside admin to remove green */
+.lpq-admin-surface [data-slot="card"],
+.lpq-admin-surface .admin-card {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* --- Theme-aware Skeleton inside admin --- */
+.lpq-admin-surface .skeleton,
+.lpq-admin-surface [class*="Skeleton"],
+.lpq-admin-surface [data-slot="skeleton"] {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+  border-radius: 0.75rem;
+}
+
+.dark .lpq-admin-surface .skeleton,
+.dark .lpq-admin-surface [class*="Skeleton"],
+.dark .lpq-admin-surface [data-slot="skeleton"] {
+  background-color: hsl(var(--admin-surface-raised)) !important;
+}
+
+/* Shimmer skeleton animation for admin */
+@keyframes admin-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.lpq-admin-surface .admin-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-surface-sunken)) 25%,
+    hsl(var(--admin-surface-raised)) 37%,
+    hsl(var(--admin-surface-sunken)) 63%
+  );
+  background-size: 200% 100%;
+  animation: admin-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.dark .lpq-admin-surface .admin-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-surface-raised)) 25%,
+    hsl(222 18% 20%) 37%,
+    hsl(var(--admin-surface-raised)) 63%
+  );
+  background-size: 200% 100%;
+  animation: admin-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* --- Premium Loading State for admin --- */
+@keyframes admin-loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes admin-loading-ring {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes admin-loading-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.admin-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  animation: admin-loading-fade-in 0.4s ease-out;
+}
+
+.admin-loading-spinner {
+  position: relative;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-loading-spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid hsl(var(--admin-border));
+  border-top-color: hsl(var(--admin-accent));
+  animation: admin-loading-ring 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.admin-loading-spinner-ring--delay {
+  border-top-color: hsl(var(--admin-accent-cyan));
+  animation-delay: 0.15s;
+  opacity: 0.6;
+  inset: 4px;
+}
+
+.admin-loading-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--admin-text-primary));
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.admin-loading-subtitle {
+  font-size: 0.8125rem;
+  color: hsl(var(--admin-text-muted));
+  margin-bottom: 1.25rem;
+}
+
+.admin-loading-bar-track {
+  width: 12rem;
+  height: 3px;
+  border-radius: 9999px;
+  background-color: hsl(var(--admin-surface-sunken));
+  overflow: hidden;
+}
+
+.admin-loading-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-accent)),
+    hsl(var(--admin-accent-cyan))
+  );
+  animation: admin-loading-bar 1.5s ease-in-out infinite;
+}
+
+@keyframes admin-loading-bar {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
 /* --- Motion Preferences --- */
 @media (prefers-reduced-motion: reduce) {
   .admin-card,
@@ -1214,5 +1427,12 @@
   .admin-card:hover,
   .admin-stat-card:hover {
     transform: none !important;
+  }
+
+  .admin-loading-spinner-ring,
+  .admin-loading-spinner-ring--delay,
+  .admin-loading-bar-fill,
+  .admin-skeleton-shimmer {
+    animation: none !important;
   }
 }
