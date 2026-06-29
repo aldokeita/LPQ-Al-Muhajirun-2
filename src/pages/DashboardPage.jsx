@@ -115,28 +115,28 @@ const DashboardPage = () => {
         <meta name="description" content="Dashboard sistem manajemen LPQ Al-Muhajirun" />
       </Helmet>
 
-      <div className="lpq-admin-surface min-h-screen py-8 relative overflow-hidden">
-        {/* Subtle animated ray background — dark mode only */}
+      <div className="lpq-admin-surface min-h-screen py-8 relative">
+        {renderDashboard()}
+        {/* Atmospheric ray overlay — dark mode only.
+            Rendered above content so it's never blocked by opaque cards.
+            Ultra-low opacity keeps it ambient, not distracting. */}
         {isDark && (
-          <div className="pointer-events-none absolute inset-0" style={{ opacity: 0.18 }}>
+          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 50 }}>
             <SideRays
-              speed={1.5}
+              speed={1.2}
               rayColor1="#06b6d4"
               rayColor2="#8b5cf6"
-              intensity={1.2}
+              intensity={1.0}
               spread={2.5}
               origin="top-right"
               tilt={5}
-              saturation={1.2}
+              saturation={1.3}
               blend={0.6}
               falloff={1.8}
-              opacity={1.0}
+              opacity={0.12}
             />
           </div>
         )}
-        <div className="relative z-10">
-          {renderDashboard()}
-        </div>
       </div>
     </>
   );
