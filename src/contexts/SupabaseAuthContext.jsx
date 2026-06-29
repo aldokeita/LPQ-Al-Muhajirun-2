@@ -101,11 +101,21 @@ export const AuthProvider = ({ children }) => {
       async (event, currentSession) => {
         console.log(`[AuthContext] Auth event triggered: ${event}`);
 
-        // Only re-fetch profile on meaningful auth events.
-        // TOKEN_REFRESHED fires when the user switches back to the tab, which
-        // should NOT trigger a full profile re-fetch (that causes an unwanted
-        // "refresh" feel). We just silently update the session reference.
-        if (event === 'TOKEN_REFRESHED') {
+        // Silent session-only updates — these events fire when the user
+        // switches back to the tab or Supabase auto-refreshes the token.
+        // They must NOT trigger a full profile re-fetch because that sets
+        // profileLoading=true, which causes ProtectedRoute to flash its
+        // loading spinner and the user perceives an unwanted "reload".
+        if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          return;
+        }
+
+        // SIGNED_IN also fires on tab return when Supabase recovers the
+        // session. If we already have a valid session for the same user,
+        // skip the expensive profile re-fetch.
+        if (event === 'SIGNED_IN' && session?.user?.id === currentSession?.user?.id) {
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
           return;
