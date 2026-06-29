@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Sector } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, Search, Calendar, TrendingUp, PieChart as PieChartIcon, ListChecks } from 'lucide-react';
+import { CheckCircle, XCircle, Search, Calendar, TrendingUp, PieChart as PieChartIcon, ListChecks, DollarSign } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -221,19 +221,29 @@ const PaymentRecap = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-card p-6 rounded-2xl shadow-xl space-y-4">
-        <Skeleton className="h-8 w-64" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div><Skeleton className="h-[400px] w-full" />
+      <div className="space-y-6">
+        <div className="admin-panel-header">
+          <div className="flex items-center gap-3">
+            <div className="admin-panel-header-icon"><DollarSign /></div>
+            <div className="admin-panel-header-text"><h2>Rekap Pembayaran</h2><p>Memuat data...</p></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div><Skeleton className="h-[400px] w-full" />
       </div>
     );
   }
 
   return (
-    <div className="bg-card p-6 rounded-2xl shadow-xl space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-accent-foreground">Rekap Pembayaran</h2>
+    <div className="space-y-6">
+        <div className="admin-panel-header">
+            <div className="flex items-center gap-3">
+                <div className="admin-panel-header-icon"><DollarSign /></div>
+                <div className="admin-panel-header-text">
+                    <h2>Rekap Pembayaran</h2>
+                    <p>Monitor status pembayaran SPP dan rekap per item.</p>
+                </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="admin-panel-header-actions">
                 <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}>
                     <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{availableYears.map(year => <SelectItem key={year} value={year.toString()}>{year}</SelectItem>)}</SelectContent>
@@ -248,29 +258,17 @@ const PaymentRecap = () => {
             </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center mb-6">
-                <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+                <div className="admin-segmented-control">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`
-                                relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
-                                ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
-                            `}
+                            className={`admin-segmented-control-item ${activeTab === tab.id ? 'active' : ''}`}
                         >
-                            {activeTab === tab.id && (
-                                <motion.div
-                                    layoutId="payment-pill"
-                                    className="absolute inset-0 bg-blue-600 dark:bg-blue-500 shadow-sm rounded-full"
-                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                />
-                            )}
-                            <span className="relative z-10 flex items-center gap-2">
-                                <tab.icon className="w-4 h-4" />
-                                {tab.label}
-                            </span>
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
                         </button>
                     ))}
                 </div>
@@ -287,31 +285,42 @@ const PaymentRecap = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    <div className="p-4 bg-green-100 dark:bg-green-900/50 rounded-xl shadow-sm"><p className="text-sm font-medium text-green-800 dark:text-green-300">Sudah Bayar SPP</p><p className="text-2xl font-bold text-green-600">{totalPaid}</p></div>
-                    <div className="p-4 bg-red-100 dark:bg-red-900/50 rounded-xl shadow-sm"><p className="text-sm font-medium text-red-800 dark:text-red-300">Belum Bayar SPP</p><p className="text-2xl font-bold text-red-600">{totalUnpaid}</p></div>
-                    <div className="p-4 bg-blue-100 dark:bg-blue-900/50 rounded-xl sm:col-span-2 lg:col-span-1 shadow-sm"><p className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Pemasukan SPP (Periode Ini)</p><p className="text-2xl font-bold text-blue-600">Rp {totalIncome.toLocaleString('id-ID')}</p></div>
+                    <div className="admin-stat-card admin-stat-card--accent">
+                        <p className="admin-stat-card-label">Sudah Bayar SPP</p>
+                        <p className="admin-stat-card-value">{totalPaid}</p>
+                    </div>
+                    <div className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
+                        <p className="admin-stat-card-label">Belum Bayar SPP</p>
+                        <p className="admin-stat-card-value">{totalUnpaid}</p>
+                    </div>
+                    <div className="admin-stat-card admin-stat-card--amber">
+                        <p className="admin-stat-card-label">Total Pemasukan SPP</p>
+                        <p className="admin-stat-card-value">Rp {totalIncome.toLocaleString('id-ID')}</p>
+                    </div>
                 </div>
 
-                <div className="overflow-auto max-h-[500px] border rounded-xl shadow-inner bg-white dark:bg-slate-950">
-                    <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 z-10"><tr>
-                            <th className="px-4 py-3 text-left font-semibold">No</th>
-                            <th className="px-4 py-3 text-left font-semibold" colSpan={2}>Nama Santri</th>
-                            <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('sesi_mengaji')}>Sesi</th>
-                            <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('status_spp')}>Status</th>
-                            <th className="px-4 py-3 text-left font-semibold">Jumlah</th>
-                            <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('tanggal_pembayaran')}>Tanggal Bayar</th>
-                        </tr></thead>
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">{filteredRecapData.map((item, index) => (<tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                            <td className="px-4 py-3">{index + 1}</td>
-                            <td className="px-2 py-3"><Avatar className="w-8 h-8"><AvatarImage src={item.foto_url} alt={item.nama_lengkap} /><AvatarFallback>{item.nama_lengkap.charAt(0)}</AvatarFallback></Avatar></td>
-                            <td className="px-2 py-3 font-medium">{item.nama_lengkap}</td>
-                            <td className="px-4 py-3">{item.sesi_mengaji}</td>
-                            <td className="px-4 py-3">{item.status_spp === 'Sudah Bayar' ? (<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"><CheckCircle className="w-3.5 h-3.5"/> Lunas</span>) : (<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"><XCircle className="w-3.5 h-3.5"/> Belum</span>)}</td>
-                            <td className="px-4 py-3">{item.jumlah > 0 ? `Rp ${item.jumlah.toLocaleString('id-ID')}` : '-'}</td>
-                            <td className="px-4 py-3">{item.tanggal_pembayaran ? item.tanggal_pembayaran.toLocaleDateString('id-ID') : '-'}</td>
-                        </tr>))}</tbody>
-                    </table>
+                <div className="admin-table-shell">
+                    <div className="admin-table-scroll" style={{ maxHeight: '500px' }}>
+                        <table>
+                            <thead><tr>
+                                <th>No</th>
+                                <th colSpan={2}>Nama Santri</th>
+                                <th className="cursor-pointer" onClick={() => handleSort('sesi_mengaji')}>Sesi</th>
+                                <th className="cursor-pointer" onClick={() => handleSort('status_spp')}>Status</th>
+                                <th>Jumlah</th>
+                                <th className="cursor-pointer" onClick={() => handleSort('tanggal_pembayaran')}>Tanggal Bayar</th>
+                            </tr></thead>
+                            <tbody>{filteredRecapData.map((item, index) => (<tr key={item.id}>
+                                <td>{index + 1}</td>
+                                <td><Avatar className="w-8 h-8"><AvatarImage src={item.foto_url} alt={item.nama_lengkap} /><AvatarFallback>{item.nama_lengkap.charAt(0)}</AvatarFallback></Avatar></td>
+                                <td className="font-medium">{item.nama_lengkap}</td>
+                                <td>{item.sesi_mengaji}</td>
+                                <td>{item.status_spp === 'Sudah Bayar' ? (<span className="admin-status-badge admin-status-badge--success"><CheckCircle className="w-3 h-3"/> Lunas</span>) : (<span className="admin-status-badge admin-status-badge--danger"><XCircle className="w-3 h-3"/> Belum</span>)}</td>
+                                <td>{item.jumlah > 0 ? `Rp ${item.jumlah.toLocaleString('id-ID')}` : '-'}</td>
+                                <td>{item.tanggal_pembayaran ? item.tanggal_pembayaran.toLocaleDateString('id-ID') : '-'}</td>
+                            </tr>))}</tbody>
+                        </table>
+                    </div>
                 </div>
             </TabsContent>
 
@@ -355,24 +364,26 @@ const PaymentRecap = () => {
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                             <Select value={selectedItem} onValueChange={setSelectedItem}><SelectTrigger className="w-full sm:w-[280px] rounded-lg"><SelectValue /></SelectTrigger><SelectContent>{paymentItemsList.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
                         </div>
-                        <div className="overflow-auto max-h-[500px] border rounded-xl shadow-inner bg-white dark:bg-slate-950">
-                            <table className="w-full text-sm">
-                                <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 z-10"><tr><th className="px-4 py-3 text-left font-semibold">No</th><th className="px-4 py-3 text-left font-semibold">Nama Santri</th><th className="px-4 py-3 text-left font-semibold">Sesi</th><th className="px-4 py-3 text-right font-semibold">Jumlah</th><th className="px-4 py-3 text-center font-semibold">Tanggal</th><th className="px-4 py-3 text-center font-semibold">Tagihan</th></tr></thead>
-                                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                                    {itemDetailData.map((item, index) => (
-                                        <tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                                            <td className="px-4 py-3">{index + 1}</td>
-                                            <td className="px-4 py-3 font-medium">{item.nama_lengkap}</td>
-                                            <td className="px-4 py-3">{item.sesi_mengaji}</td>
-                                            <td className="px-4 py-3 text-right font-mono font-semibold text-green-600 dark:text-green-400">
-                                                Rp {(item.jumlah || 0).toLocaleString('id-ID')}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">{new Date(item.tanggal_pembayaran).toLocaleDateString('id-ID')}</td>
-                                            <td className="px-4 py-3 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">{item.billing_month || '-'} {item.billing_year}</span></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="admin-table-shell">
+                            <div className="admin-table-scroll" style={{ maxHeight: '500px' }}>
+                                <table>
+                                    <thead><tr><th>No</th><th>Nama Santri</th><th>Sesi</th><th>Jumlah</th><th>Tanggal</th><th>Tagihan</th></tr></thead>
+                                    <tbody>
+                                        {itemDetailData.map((item, index) => (
+                                            <tr key={item.id}>
+                                                <td>{index + 1}</td>
+                                                <td className="font-medium">{item.nama_lengkap}</td>
+                                                <td>{item.sesi_mengaji}</td>
+                                                <td className="text-right font-mono font-semibold text-green-600 dark:text-green-400">
+                                                    Rp {(item.jumlah || 0).toLocaleString('id-ID')}
+                                                </td>
+                                                <td className="text-center">{new Date(item.tanggal_pembayaran).toLocaleDateString('id-ID')}</td>
+                                                <td className="text-center"><span className="admin-status-badge admin-status-badge--info">{item.billing_month || '-'} {item.billing_year}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                   </>

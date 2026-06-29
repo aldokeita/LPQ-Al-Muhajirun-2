@@ -250,21 +250,34 @@ const SalaryCalculation = () => {
     };
 
     return (
-        <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-6">
+            <div className="admin-panel-header">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
-                        <Calculator className="w-8 h-8" />
+                    <div className="admin-panel-header-icon">
+                        <Calculator />
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-foreground">Kalkulasi Bisyaroh (Gaji)</h2>
-                        <p className="text-muted-foreground text-sm">Pilih guru untuk melihat detail dan menghitung gaji.</p>
+                    <div className="admin-panel-header-text">
+                        <h2>Kalkulasi Bisyaroh (Gaji)</h2>
+                        <p>Pilih guru untuk melihat detail dan menghitung gaji.</p>
                     </div>
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="admin-panel-header-actions">
+                    <div className="admin-action-cluster">
+                        <button onClick={handleExport} className="admin-action-cluster-btn" disabled={filteredData.length === 0}>
+                            <Download className="w-3.5 h-3.5" /> Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="admin-filter-bar">
+                <div className="admin-search-input flex-1">
+                    <Search />
+                    <Input placeholder="Cari nama guru..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                </div>
+                <div className="flex gap-2">
                     <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[90px]"><SelectValue /></SelectTrigger><SelectContent>{[2024, 2025, 2026].map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select>
                     <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}</SelectContent></Select>
-                    <Button onClick={handleExport} variant="outline" className="text-green-600 border-green-200 hover:bg-green-50"><Download className="w-4 h-4 mr-2"/> Excel</Button>
                 </div>
             </div>
 
@@ -289,12 +302,6 @@ const SalaryCalculation = () => {
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Search */}
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Cari nama guru..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 text-lg" />
-            </div>
 
             {/* List of Gurus */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

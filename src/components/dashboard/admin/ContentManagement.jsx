@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart } from 'lucide-react';
+import { Plus, Trash2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart, Save } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -499,15 +499,27 @@ const ContentManagement = () => {
   );
 
   return (
-    <div className="bg-card p-6 rounded-2xl shadow-xl space-y-8">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-accent-foreground">Manajemen Konten Website</h2>
-        <Button onClick={handleSaveAll}>Simpan Semua Perubahan</Button>
+    <div className="space-y-6">
+      <div className="admin-panel-header">
+        <div className="flex items-center gap-3">
+          <div className="admin-panel-header-icon">
+            <FileText />
+          </div>
+          <div className="admin-panel-header-text">
+            <h2>Manajemen Konten Website</h2>
+            <p>Kelola konten yang tampil di halaman publik LPQ Al-Muhajirun.</p>
+          </div>
+        </div>
+        <div className="admin-panel-header-actions">
+          <button onClick={handleSaveAll} className="admin-panel-primary-btn">
+            <Save className="w-4 h-4" /> Simpan Semua Perubahan
+          </button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex justify-center mb-6">
-            <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+            <div className="admin-segmented-control">
                 {tabs.map((tab) => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}>
                         {activeTab === tab.id && (<motion.div layoutId="content-pill" className="absolute inset-0 bg-blue-600 dark:bg-blue-500 shadow-sm rounded-full" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />)}

@@ -344,7 +344,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             </TabsList>
 
             <TabsContent value="rekap_absensi">
-                <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6">
+                <div className="space-y-6">
                      <div className="admin-panel-header">
                         <div className="flex items-center gap-3">
                             <div className="admin-panel-header-icon"><UserCheck /></div>

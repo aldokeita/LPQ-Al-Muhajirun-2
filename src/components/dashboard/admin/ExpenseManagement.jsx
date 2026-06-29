@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 import {
@@ -171,26 +171,33 @@ const ExpenseManagement = () => {
     }, [expenses, filter.year]);
 
     return (
-        <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-accent-foreground">Manajemen Pengeluaran</h2>
-                    <p className="text-sm text-muted-foreground">Kelola pengeluaran dan pantau arus kas sederhana.</p>
+        <div className="space-y-6">
+            <div className="admin-panel-header">
+                <div className="flex items-center gap-3">
+                    <div className="admin-panel-header-icon">
+                        <TrendingDown />
+                    </div>
+                    <div className="admin-panel-header-text">
+                        <h2>Manajemen Pengeluaran</h2>
+                        <p>Kelola pengeluaran dan pantau arus kas sederhana.</p>
+                    </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button onClick={fetchFinanceData} variant="outline" disabled={isLoading}>
-                        <RefreshCw className="w-4 h-4 mr-2" /> Muat Ulang
-                    </Button>
-                    <Button onClick={handleExport} variant="outline" disabled={expenses.length === 0}>
-                        <Download className="w-4 h-4 mr-2" /> Ekspor Excel
-                    </Button>
-                    <Button onClick={handleAdd}>
-                        <Plus className="w-4 h-4 mr-2" /> Tambah Pengeluaran
-                    </Button>
+                <div className="admin-panel-header-actions">
+                    <div className="admin-action-cluster">
+                        <button onClick={fetchFinanceData} className="admin-action-cluster-btn" disabled={isLoading}>
+                            <RefreshCw className="w-3.5 h-3.5" /> Muat Ulang
+                        </button>
+                        <button onClick={handleExport} className="admin-action-cluster-btn" disabled={expenses.length === 0}>
+                            <Download className="w-3.5 h-3.5" /> Export
+                        </button>
+                    </div>
+                    <button onClick={handleAdd} className="admin-panel-primary-btn">
+                        <Plus className="w-4 h-4" /> Tambah Pengeluaran
+                    </button>
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="admin-filter-bar">
                 <Select value={String(filter.year)} onValueChange={(value) => setFilter((prev) => ({ ...prev, year: Number(value) }))}>
                     <SelectTrigger className="w-full md:w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{years.map((year) => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}</SelectContent>
@@ -205,20 +212,20 @@ const ExpenseManagement = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="border rounded-lg p-4 bg-emerald-50 dark:bg-emerald-950/20">
-                    <p className="text-sm text-muted-foreground">Pemasukan</p>
-                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatRupiah(cashflow.totalPemasukan)}</p>
-                    <p className="text-xs text-muted-foreground">{cashflow.paymentCount} pembayaran aktif</p>
+                <div className="admin-stat-card admin-stat-card--accent">
+                    <p className="admin-stat-card-label">Pemasukan</p>
+                    <p className="admin-stat-card-value">{formatRupiah(cashflow.totalPemasukan)}</p>
+                    <p className="text-xs mt-1" style={{ color: 'hsl(var(--admin-text-muted))' }}>{cashflow.paymentCount} pembayaran aktif</p>
                 </div>
-                <div className="border rounded-lg p-4 bg-red-50 dark:bg-red-950/20">
-                    <p className="text-sm text-muted-foreground">Pengeluaran</p>
-                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatRupiah(cashflow.totalPengeluaran)}</p>
-                    <p className="text-xs text-muted-foreground">{cashflow.expenseCount} pengeluaran aktif</p>
+                <div className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
+                    <p className="admin-stat-card-label">Pengeluaran</p>
+                    <p className="admin-stat-card-value">{formatRupiah(cashflow.totalPengeluaran)}</p>
+                    <p className="text-xs mt-1" style={{ color: 'hsl(var(--admin-text-muted))' }}>{cashflow.expenseCount} pengeluaran aktif</p>
                 </div>
-                <div className="border rounded-lg p-4 bg-secondary/30">
-                    <p className="text-sm text-muted-foreground">Saldo Bersih</p>
-                    <p className={`text-2xl font-bold ${cashflow.saldoBersih >= 0 ? 'text-primary' : 'text-destructive'}`}>{formatRupiah(cashflow.saldoBersih)}</p>
-                    <p className="text-xs text-muted-foreground">Pemasukan dikurangi pengeluaran</p>
+                <div className="admin-stat-card admin-stat-card--amber">
+                    <p className="admin-stat-card-label">Saldo Bersih</p>
+                    <p className="admin-stat-card-value">{formatRupiah(cashflow.saldoBersih)}</p>
+                    <p className="text-xs mt-1" style={{ color: 'hsl(var(--admin-text-muted))' }}>Pemasukan dikurangi pengeluaran</p>
                 </div>
             </div>
 
@@ -235,42 +242,49 @@ const ExpenseManagement = () => {
                 </ResponsiveContainer>
             </div>
 
-            <div className="overflow-auto max-h-[60vh] border rounded-lg">
-                <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-secondary">
-                        <tr>
-                            <th className="p-3 text-left">Tanggal</th>
-                            <th className="p-3 text-left">Kategori</th>
-                            <th className="p-3 text-left">Keterangan</th>
-                            <th className="p-3 text-left">Jumlah</th>
-                            <th className="p-3 text-left">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading ? (
-                            <tr><td colSpan="5" className="p-6 text-center text-muted-foreground">Memuat data pengeluaran...</td></tr>
-                        ) : expenses.length === 0 ? (
-                            <tr><td colSpan="5" className="p-6 text-center text-muted-foreground">Belum ada pengeluaran pada periode ini.</td></tr>
-                        ) : expenses.map((expense) => (
-                            <tr key={expense.id} className="border-b last:border-b-0 hover:bg-muted/50">
-                                <td className="p-3">{expense.tanggal_pengeluaran}</td>
-                                <td className="p-3">{expense.kategori}</td>
-                                <td className="p-3 font-medium">{expense.deskripsi}</td>
-                                <td className="p-3">{formatRupiah(expense.jumlah)}</td>
-                                <td className="p-3">
-                                    <div className="flex gap-2">
-                                        <Button size="sm" variant="outline" onClick={() => handleEdit(expense)} aria-label="Edit pengeluaran">
-                                            <Edit className="w-4 h-4" />
-                                        </Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleDelete(expense.id)} aria-label="Hapus pengeluaran">
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </td>
+            <div className="admin-table-shell">
+                <div className="admin-table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Kategori</th>
+                                <th>Keterangan</th>
+                                <th>Jumlah</th>
+                                <th>Aksi</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr><td colSpan="5" className="text-center py-8 text-muted-foreground">Memuat data pengeluaran...</td></tr>
+                            ) : expenses.length === 0 ? (
+                                <tr><td colSpan="5">
+                                    <div className="admin-table-empty">
+                                        <TrendingDown />
+                                        <p>Belum ada pengeluaran pada periode ini.</p>
+                                    </div>
+                                </td></tr>
+                            ) : expenses.map((expense) => (
+                                <tr key={expense.id}>
+                                    <td>{expense.tanggal_pengeluaran}</td>
+                                    <td>{expense.kategori}</td>
+                                    <td className="font-medium">{expense.deskripsi}</td>
+                                    <td>{formatRupiah(expense.jumlah)}</td>
+                                    <td>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => handleEdit(expense)} aria-label="Edit pengeluaran">
+                                                <Edit className="w-4 h-4" />
+                                            </Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(expense.id)} aria-label="Hapus pengeluaran">
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
