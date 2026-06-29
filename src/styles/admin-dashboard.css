@@ -2035,4 +2035,1068 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .admin-skeleton-shimmer {
     animation: none !important;
   }
+
+  .attendance-profile-card,
+  .attendance-profile-card__avatar,
+  .attendance-status-ready,
+  .attendance-status-processing,
+  .attendance-scan-area {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+   ATTENDANCE DIGITAL — Premium Design Tokens
+   ============================================================ */
+
+:root {
+  /* Attendance semantic tokens */
+  --att-bg: 30 33% 96%;
+  --att-surface: 0 0% 100%;
+  --att-surface-raised: 30 20% 97%;
+  --att-surface-sunken: 30 20% 93%;
+  --att-border: 30 12% 88%;
+  --att-border-subtle: 30 10% 92%;
+  --att-text-primary: 220 15% 15%;
+  --att-text-secondary: 220 8% 40%;
+  --att-text-muted: 220 6% 58%;
+
+  --att-accent: 152 58% 37%;
+  --att-accent-muted: 152 40% 45%;
+  --att-accent-soft: 152 40% 94%;
+  --att-accent-bg: 152 40% 96%;
+  --att-accent-border: 152 35% 80%;
+  --att-cyan: 199 89% 48%;
+  --att-violet: 265 70% 55%;
+  --att-amber: 38 92% 50%;
+  --att-amber-bg: 38 90% 95%;
+  --att-amber-border: 38 80% 78%;
+  --att-success: 152 58% 37%;
+  --att-danger: 0 84% 55%;
+  --att-danger-bg: 0 84% 96%;
+  --att-danger-border: 0 70% 80%;
+
+  --att-glow: 152 58% 37%;
+  --att-shadow-color: 220 15% 60%;
+  --att-radius: 1rem;
+  --att-radius-sm: 0.625rem;
+  --att-radius-lg: 1.5rem;
+}
+
+.dark {
+  --att-bg: 222 30% 8%;
+  --att-surface: 222 20% 12%;
+  --att-surface-raised: 222 18% 15%;
+  --att-surface-sunken: 222 35% 6%;
+  --att-border: 222 18% 18%;
+  --att-border-subtle: 222 15% 15%;
+  --att-text-primary: 30 30% 92%;
+  --att-text-secondary: 30 15% 65%;
+  --att-text-muted: 222 10% 45%;
+
+  --att-accent: 152 45% 42%;
+  --att-accent-muted: 152 35% 35%;
+  --att-accent-soft: 152 30% 14%;
+  --att-accent-bg: 152 30% 16%;
+  --att-accent-border: 152 25% 25%;
+  --att-cyan: 199 80% 55%;
+  --att-violet: 265 60% 60%;
+  --att-amber: 38 85% 55%;
+  --att-amber-bg: 38 40% 14%;
+  --att-amber-border: 38 35% 25%;
+  --att-success: 152 45% 42%;
+  --att-danger: 0 70% 55%;
+  --att-danger-bg: 0 50% 14%;
+  --att-danger-border: 0 40% 25%;
+
+  --att-glow: 152 45% 42%;
+  --att-shadow-color: 222 30% 5%;
+}
+
+/* ============================================================
+   ATTENDANCE PAGE — Layout & Background
+   ============================================================ */
+
+.attendance-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background-color: hsl(var(--att-bg));
+  transition: background-color 0.3s ease;
+}
+
+.dark .attendance-page {
+  background-color: hsl(var(--att-bg));
+}
+
+/* Subtle gradient background */
+.attendance-page__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.attendance-page__bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--att-surface)) 0%,
+    hsl(var(--att-accent-soft)) 50%,
+    hsl(var(--att-surface)) 100%
+  );
+  opacity: 0.5;
+}
+
+.dark .attendance-page__bg::before {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--att-bg)) 0%,
+    hsl(var(--att-accent-soft)) 50%,
+    hsl(222 30% 5%) 100%
+  );
+  opacity: 0.7;
+}
+
+/* Noise texture overlay */
+.attendance-page__bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('https://grainy-gradients.vercel.app/noise.svg');
+  opacity: 0.15;
+  mix-blend-mode: overlay;
+}
+
+/* ============================================================
+   ATTENDANCE HEADER — Institution Identity & System Status
+   ============================================================ */
+
+.attendance-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .attendance-header {
+    padding: 1.25rem 2rem;
+  }
+}
+
+.attendance-header__left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.attendance-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--att-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--att-text-secondary));
+  background: transparent;
+  border: 1px solid hsl(var(--att-border-subtle));
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.attendance-header__back:hover {
+  color: hsl(var(--att-text-primary));
+  background-color: hsl(var(--att-surface-sunken));
+  border-color: hsl(var(--att-border));
+}
+
+.attendance-header__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.attendance-header__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: hsl(var(--att-text-secondary));
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.attendance-header__icon-btn:hover {
+  color: hsl(var(--att-text-primary));
+  background-color: hsl(var(--att-surface-sunken));
+}
+
+.attendance-header__system-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: 0.04em;
+  color: hsl(var(--att-accent));
+  background-color: hsl(var(--att-accent-soft));
+  border: 1px solid hsl(var(--att-accent-border));
+}
+
+.attendance-header__system-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: hsl(var(--att-accent));
+  animation: att-pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes att-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   ATTENDANCE CLOCK — Premium Time Display
+   ============================================================ */
+
+.attendance-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 10;
+  padding: 0.5rem 0;
+}
+
+.attendance-clock__time {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 800;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: hsl(var(--att-text-primary));
+  text-shadow: 0 2px 12px hsl(var(--att-shadow-color) / 0.1);
+}
+
+.dark .attendance-clock__time {
+  color: hsl(var(--att-accent));
+  text-shadow: 0 0 30px hsl(var(--att-accent) / 0.3);
+}
+
+.attendance-clock__date {
+  font-size: clamp(0.875rem, 2.5vw, 1.25rem);
+  font-weight: 400;
+  color: hsl(var(--att-text-muted));
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   ATTENDANCE SCAN AREA — RFID Input Focus
+   ============================================================ */
+
+.attendance-scan-area {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.attendance-scan-area__glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, hsl(var(--att-accent) / 0.2), hsl(var(--att-cyan) / 0.15));
+  filter: blur(12px);
+  opacity: 0.5;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.attendance-scan-area:focus-within .attendance-scan-area__glow {
+  opacity: 0.8;
+}
+
+.attendance-scan-area__form {
+  position: relative;
+  display: flex;
+}
+
+.attendance-scan-area__icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: hsl(var(--att-text-muted));
+  pointer-events: none;
+  z-index: 2;
+}
+
+.attendance-scan-area__input {
+  width: 100%;
+  padding: 1rem 3rem 1rem 3rem;
+  border-radius: var(--att-radius);
+  border: 1px solid hsl(var(--att-border));
+  background-color: hsl(var(--att-surface));
+  color: hsl(var(--att-text-primary));
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px hsl(var(--att-shadow-color) / 0.08),
+              0 1px 3px hsl(var(--att-shadow-color) / 0.06);
+}
+
+.attendance-scan-area__input:focus {
+  border-color: hsl(var(--att-accent) / 0.5);
+  box-shadow: 0 0 0 3px hsl(var(--att-accent) / 0.1),
+              0 4px 20px hsl(var(--att-shadow-color) / 0.1);
+}
+
+.attendance-scan-area__input::placeholder {
+  color: hsl(var(--att-text-muted));
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.attendance-scan-area__spinner {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid hsl(var(--att-border));
+  border-top-color: hsl(var(--att-accent));
+  border-radius: 9999px;
+  animation: att-spin 0.8s linear infinite;
+}
+
+@keyframes att-spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.attendance-scan-area__hint {
+  text-align: center;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--att-text-muted));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   ATTENDANCE STATUS — Ready / Processing / Result States
+   ============================================================ */
+
+.attendance-status-ready {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 3rem 2rem;
+  position: relative;
+  z-index: 10;
+  opacity: 0.4;
+}
+
+.attendance-status-ready__icon {
+  width: 8rem;
+  height: 8rem;
+  color: hsl(var(--att-accent) / 0.25);
+}
+
+.attendance-status-ready__text {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  color: hsl(var(--att-accent) / 0.4);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.attendance-status-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 2rem;
+  position: relative;
+  z-index: 10;
+}
+
+.attendance-status-processing__ring {
+  position: relative;
+  width: 8rem;
+  height: 8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attendance-status-processing__ring-inner {
+  position: absolute;
+  inset: 0;
+  border: 3px solid hsl(var(--att-border));
+  border-top-color: hsl(var(--att-accent));
+  border-radius: 9999px;
+  animation: att-spin-pulse 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.attendance-status-processing__ring-outer {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid hsl(var(--att-accent) / 0.2);
+  border-top-color: hsl(var(--att-cyan) / 0.4);
+  border-radius: 9999px;
+  animation: att-spin-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite reverse;
+}
+
+@keyframes att-spin-pulse {
+  to { transform: rotate(360deg); }
+}
+
+.attendance-status-processing__text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  color: hsl(var(--att-accent));
+  letter-spacing: 0.12em;
+  animation: att-pulse-text 1.5s ease-in-out infinite;
+}
+
+@keyframes att-pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   ATTENDANCE RESULT CARDS — Success / Warning / Error / Info
+   ============================================================ */
+
+.attendance-result {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.attendance-result-card {
+  background-color: hsl(var(--att-surface));
+  border: 1px solid hsl(var(--att-border));
+  border-radius: var(--att-radius-lg);
+  padding: 1.5rem;
+  box-shadow: 0 4px 24px hsl(var(--att-shadow-color) / 0.1),
+              0 1px 4px hsl(var(--att-shadow-color) / 0.06);
+  overflow: hidden;
+  position: relative;
+}
+
+.attendance-result-card--success {
+  border-color: hsl(var(--att-success) / 0.3);
+}
+
+.attendance-result-card--success::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, hsl(var(--att-success)), hsl(var(--att-accent)));
+}
+
+.attendance-result-card--warning {
+  border-color: hsl(var(--att-amber) / 0.3);
+}
+
+.attendance-result-card--warning::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, hsl(var(--att-amber)), hsl(var(--att-amber) / 0.6));
+}
+
+.attendance-result-card--error {
+  border-color: hsl(var(--att-danger) / 0.3);
+}
+
+.attendance-result-card--error::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, hsl(var(--att-danger)), hsl(var(--att-danger) / 0.6));
+}
+
+.attendance-result-card--info {
+  border-color: hsl(var(--att-cyan) / 0.3);
+}
+
+.attendance-result-card--info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, hsl(var(--att-cyan)), hsl(var(--att-violet) / 0.5));
+}
+
+/* Confirmation card */
+.attendance-confirmation {
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.attendance-confirmation__avatar {
+  width: 7rem;
+  height: 7rem;
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
+  border: 3px solid hsl(var(--att-border));
+  box-shadow: 0 4px 20px hsl(var(--att-shadow-color) / 0.12);
+}
+
+.attendance-confirmation__name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: hsl(var(--att-text-primary));
+  margin-bottom: 0.5rem;
+}
+
+.attendance-confirmation__text {
+  color: hsl(var(--att-text-secondary));
+  margin-bottom: 1.5rem;
+}
+
+.attendance-confirmation__prompt {
+  padding: 1rem;
+  border-radius: var(--att-radius);
+  background-color: hsl(var(--att-accent-soft));
+  border: 1px solid hsl(var(--att-accent-border));
+}
+
+.attendance-confirmation__prompt p {
+  color: hsl(var(--att-accent));
+  font-weight: 600;
+  animation: att-pulse-text 2s ease-in-out infinite;
+}
+
+.attendance-confirmation__hint {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: hsl(var(--att-text-muted));
+}
+
+/* ============================================================
+   ATTENDANCE PROFILE CARD — Premium Profile Display
+   ============================================================ */
+
+.attendance-profile-card {
+  background-color: hsl(var(--att-surface));
+  border: 1px solid hsl(var(--att-border));
+  border-radius: var(--att-radius-lg);
+  padding: 2rem;
+  box-shadow: 0 4px 24px hsl(var(--att-shadow-color) / 0.08),
+              0 1px 4px hsl(var(--att-shadow-color) / 0.04);
+  overflow: hidden;
+  position: relative;
+  max-width: 28rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .attendance-profile-card {
+    max-width: 32rem;
+    padding: 2.5rem;
+  }
+}
+
+/* Header: Avatar + Identity */
+.attendance-profile-card__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .attendance-profile-card__header {
+    flex-direction: row;
+    text-align: left;
+  }
+}
+
+.attendance-profile-card__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.attendance-profile-card__avatar {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  border: 3px solid hsl(var(--att-border));
+  box-shadow: 0 4px 20px hsl(var(--att-shadow-color) / 0.12);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .attendance-profile-card__avatar {
+    width: 7rem;
+    height: 7rem;
+  }
+}
+
+.attendance-profile-card__avatar-fallback {
+  font-size: 2rem;
+  font-weight: 700;
+  color: hsl(var(--att-text-muted));
+  background-color: hsl(var(--att-surface-sunken));
+}
+
+.attendance-profile-card__success-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--att-success));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid hsl(var(--att-surface));
+  box-shadow: 0 2px 8px hsl(var(--att-success) / 0.3);
+}
+
+.attendance-profile-card__level-badge {
+  position: absolute;
+  bottom: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--att-surface));
+  border: 2px solid hsl(var(--att-accent));
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px hsl(var(--att-shadow-color) / 0.1);
+  z-index: 5;
+}
+
+@media (min-width: 640px) {
+  .attendance-profile-card__level-badge {
+    left: auto;
+    right: -0.5rem;
+    transform: none;
+  }
+}
+
+.attendance-profile-card__role-badge {
+  position: absolute;
+  bottom: -0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--att-surface));
+  border: 1px solid hsl(var(--att-border));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: hsl(var(--att-text-secondary));
+  box-shadow: 0 1px 4px hsl(var(--att-shadow-color) / 0.08);
+  z-index: 5;
+}
+
+@media (min-width: 640px) {
+  .attendance-profile-card__role-badge {
+    left: auto;
+    right: -0.5rem;
+    transform: none;
+  }
+}
+
+.attendance-profile-card__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.attendance-profile-card__name {
+  font-size: clamp(1.375rem, 4vw, 1.75rem);
+  font-weight: 800;
+  color: hsl(var(--att-text-primary));
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.25rem;
+  word-wrap: break-word;
+}
+
+.attendance-profile-card__subtitle {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--att-text-muted));
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+/* Status & Time Row */
+.attendance-profile-card__status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.attendance-profile-card__status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.attendance-profile-card__time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--att-surface-sunken));
+  border: 1px solid hsl(var(--att-border-subtle));
+  font-size: 0.875rem;
+  color: hsl(var(--att-text-primary));
+}
+
+/* Details Grid */
+.attendance-profile-card__details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.625rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .attendance-profile-card__details {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.attendance-profile-card__detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--att-radius-sm);
+  background-color: hsl(var(--att-surface-sunken) / 0.5);
+  border: 1px solid hsl(var(--att-border-subtle));
+  transition: background-color 0.2s ease;
+}
+
+.attendance-profile-card__detail-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: hsl(var(--att-text-muted));
+  flex-shrink: 0;
+}
+
+.attendance-profile-card__detail-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attendance-profile-card__detail-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--att-text-muted));
+  line-height: 1.4;
+}
+
+.attendance-profile-card__detail-value {
+  font-size: 1rem;
+  font-weight: 800;
+  color: hsl(var(--att-text-primary));
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Message */
+.attendance-profile-card__message {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--att-text-secondary));
+  text-align: center;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+/* Quote */
+.attendance-profile-card__quote {
+  margin-top: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--att-radius);
+  background-color: hsl(var(--att-amber-bg));
+  border: 1px solid hsl(var(--att-amber-border));
+}
+
+.attendance-profile-card__quote p {
+  font-size: 0.875rem;
+  font-style: italic;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  color: hsl(var(--att-text-secondary));
+  line-height: 1.6;
+  text-align: center;
+  margin: 0;
+}
+
+.dark .attendance-profile-card__quote {
+  background-color: hsl(var(--att-amber-bg));
+  border-color: hsl(var(--att-amber-border));
+}
+
+.dark .attendance-profile-card__quote p {
+  color: hsl(var(--att-amber));
+}
+
+/* ============================================================
+   ATTENDANCE STATS ROW — Guru / Adult stats grid
+   ============================================================ */
+
+.attendance-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.attendance-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.875rem 0.5rem;
+  border-radius: var(--att-radius);
+  background-color: hsl(var(--att-surface-sunken) / 0.5);
+  border: 1px solid hsl(var(--att-border-subtle));
+  text-align: center;
+}
+
+.attendance-stat-item--amber {
+  background-color: hsl(var(--att-amber-bg));
+  border-color: hsl(var(--att-amber-border));
+}
+
+.attendance-stat-item__value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: hsl(var(--att-text-primary));
+  line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+  .attendance-stat-item__value {
+    font-size: 1.75rem;
+  }
+}
+
+.attendance-stat-item--amber .attendance-stat-item__value {
+  color: hsl(var(--att-amber));
+}
+
+.attendance-stat-item__label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(var(--att-text-muted));
+}
+
+.attendance-stat-item--amber .attendance-stat-item__label {
+  color: hsl(var(--att-amber));
+}
+
+/* ============================================================
+   ATTENDANCE SCHEDULE GRID — Guru class schedule
+   ============================================================ */
+
+.attendance-schedule-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .attendance-schedule-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .attendance-schedule-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1440px) {
+  .attendance-schedule-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.attendance-schedule-card {
+  background-color: hsl(var(--att-surface-sunken) / 0.5);
+  border: 1px solid hsl(var(--att-border-subtle));
+  border-radius: var(--att-radius);
+  padding: 0.875rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.attendance-schedule-card:hover {
+  background-color: hsl(var(--att-accent-soft) / 0.3);
+  border-color: hsl(var(--att-accent-border));
+}
+
+.attendance-schedule-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--att-border-subtle));
+}
+
+.attendance-schedule-card__name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: hsl(var(--att-accent));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attendance-schedule-card__session {
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--att-surface-sunken));
+  color: hsl(var(--att-text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.attendance-schedule-card__santri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.attendance-schedule-card__santri-chip {
+  display: inline-block;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--att-surface));
+  border: 1px solid hsl(var(--att-border-subtle));
+  font-size: 0.75rem;
+  color: hsl(var(--att-text-secondary));
+  white-space: nowrap;
+}
+
+/* ============================================================
+   ATTENDANCE FOOTER
+   ============================================================ */
+
+.attendance-footer {
+  position: relative;
+  z-index: 10;
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+}
+
+.attendance-footer__text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  color: hsl(var(--att-text-muted));
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+/* ============================================================
+   ATTENDANCE — Reduced Motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .attendance-status-processing__ring-inner,
+  .attendance-status-processing__ring-outer,
+  .attendance-header__system-dot,
+  .attendance-status-processing__text,
+  .attendance-confirmation__prompt p {
+    animation: none !important;
+  }
+
+  .attendance-profile-card,
+  .attendance-profile-card__avatar {
+    transition: none !important;
+  }
 }

@@ -1,9 +1,31 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Fingerprint, Search, CheckCircle, XCircle, AlertTriangle, Clock, ArrowLeft, ScanLine, Activity, Sun, Moon, HelpCircle, Tv, Gamepad2, Phone, Crown, Globe2, Zap, Book, Users, Briefcase, Star, ArrowRight, User, Dices, Trophy, Library } from 'lucide-react';
+import {
+  Fingerprint,
+  Search,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  ArrowLeft,
+  Activity,
+  Sun,
+  Moon,
+  Tv,
+  Gamepad2,
+  Crown,
+  Globe2,
+  Book,
+  Users,
+  Briefcase,
+  Star,
+  ArrowRight,
+  Dices,
+  Trophy,
+  Library,
+} from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
@@ -22,28 +44,9 @@ import {
   normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
+import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 
-// --- Animated Background Particles ---
-const Particle = ({ delay, isDark }) => (
-    <motion.div
-        className={`absolute rounded-full blur-[2px] ${isDark ? 'bg-white/20' : 'bg-[#4CAF50]/30'}`}
-        initial={{ y: "110vh", x: Math.random() * 100 + "vw", opacity: 0, scale: 0 }}
-        animate={{
-            y: "-10vh",
-            opacity: [0, 0.4, 0],
-            scale: [0, Math.random() * 2 + 0.5, 0],
-            rotate: 360
-        }}
-        transition={{
-            duration: Math.random() * 15 + 20,
-            repeat: Infinity,
-            delay: delay,
-            ease: "linear"
-        }}
-        style={{ width: Math.random() * 10 + 4, height: Math.random() * 10 + 4 }}
-    />
-);
-
+// --- Data (unchanged) ---
 const sessionTimes = {
   'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
   'Siang': { start: '13:00', end: '15:30', defaultQuota: 80 },
@@ -95,6 +98,7 @@ const adultQuotes = [
     "Membaca Al-Qur'an dengan terbata-bata pun mendapat dua pahala."
 ];
 
+// --- Business logic (unchanged) ---
 const canCheckIn = (sesi, userRole, isPentashih = false) => {
     if (isPentashih) return { can: true, message: '' };
     if (userRole === 'santri') return { can: true, message: '' };
@@ -121,6 +125,7 @@ const canCheckIn = (sesi, userRole, isPentashih = false) => {
     return { can: true, message: '' };
 };
 
+// --- Digital Clock Component ---
 const DigitalClock = ({ showSeconds = true }) => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -128,16 +133,19 @@ const DigitalClock = ({ showSeconds = true }) => {
     return () => clearInterval(timerId);
   }, []);
 
-  return <div className="flex flex-col items-center justify-center space-y-2 relative z-20">
-            <div className="text-6xl md:text-8xl font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#1B5E20] to-[#4CAF50] dark:from-[#4CAF50] dark:to-[#D4AF37] drop-shadow-sm dark:drop-shadow-[0_0_15px_rgba(76,175,80,0.5)] transition-all duration-300">
-                {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: showSeconds ? '2-digit' : undefined })}
-            </div>
-            <div className="text-xl md:text-2xl text-slate-500 dark:text-[#4CAF50]/70 font-light tracking-widest transition-colors duration-300">
-                {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </div>
-        </div>;
+  return (
+    <div className="attendance-clock">
+      <div className="attendance-clock__time">
+        {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: showSeconds ? '2-digit' : undefined })}
+      </div>
+      <div className="attendance-clock__date">
+        {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+      </div>
+    </div>
+  );
 };
 
+// --- Main Component ---
 const DigitalAttendancePage = () => {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
@@ -205,6 +213,7 @@ const DigitalAttendancePage = () => {
     return () => window.removeEventListener('click', reFocusHandler);
   }, [lastScan]);
 
+  // --- processScan (ALL business logic preserved exactly) ---
   const processScan = async (tagToProcess) => {
       if (!tagToProcess || isLoading) return;
       const tag = normalizeRfidTag(tagToProcess);
@@ -283,15 +292,12 @@ const DigitalAttendancePage = () => {
                     const timestamp = new Date().toISOString();
                     const sessionStart = `${todayStr}T${mmqSchedule.start_time}+07:00`;
 
-                    // Determine raw status from logic
                     let rawStatus = determineAttendanceStatus(timestamp, sessionStart);
                     const timeDiff = calculateTimeDifference(timestamp, sessionStart);
 
-                    // Valid allowed statuses defined in database check constraint mmq_attendance_status_check
                     const allowedStatuses = ['Hadir', 'Terlambat', 'Tidak Hadir', 'Alpha', 'Izin', 'Sakit'];
-                    let validStatus = 'Hadir'; // Default fallback
+                    let validStatus = 'Hadir';
 
-                    // Map raw logic to strictly exact database constraint values
                     if (rawStatus === 'Terlambat') validStatus = 'Terlambat';
                     else if (['Tidak Hadir', 'Alpha', 'Ghaib'].includes(rawStatus)) validStatus = 'Tidak Hadir';
                     else if (['Tepat Waktu', 'Hadir'].includes(rawStatus)) validStatus = 'Hadir';
@@ -389,7 +395,7 @@ const DigitalAttendancePage = () => {
                         photo: user?.foto_url
                     });
                 }
-                return; // Early return to bypass regular attendance
+                return;
             }
 
             // Normal Guru Attendance Session Assignment
@@ -559,253 +565,375 @@ const DigitalAttendancePage = () => {
 
   const handleRfidSubmit = async e => { e.preventDefault(); processScan(rfidTag); };
 
+  // --- Scan Result Component (modernized) ---
   const ScanResult = ({ scan }) => {
-     if (scan?.type === 'scanning') { return <div key="scanning" className="flex flex-col items-center justify-center h-full relative z-20"><div className="relative w-64 h-64 flex items-center justify-center"><div className="absolute inset-0 border-4 border-[#4CAF50]/30 rounded-full animate-ping" /><ScanLine className="w-32 h-32 text-[#4CAF50] animate-pulse" /></div><p className="text-[#4CAF50] text-xl mt-8 font-mono tracking-widest animate-pulse">PROCESSING DATA...</p></div>; }
-     if (!scan) return <div className="flex flex-col items-center justify-center h-full opacity-50 relative z-20"><Fingerprint className="w-32 h-32 text-[#4CAF50]/30 mb-4 transition-colors duration-300" /><p className="text-[#4CAF50]/50 text-lg font-mono transition-colors duration-300">READY TO SCAN</p></div>;
+    // Processing state
+    if (scan?.type === 'scanning') {
+      return (
+        <div className="attendance-status-processing" role="status" aria-live="polite" aria-label="Sedang memproses">
+          <div className="attendance-status-processing__ring">
+            <div className="attendance-status-processing__ring-outer" />
+            <div className="attendance-status-processing__ring-inner" />
+            <Fingerprint className="w-12 h-12" style={{ color: 'hsl(var(--att-accent))' }} />
+          </div>
+          <p className="attendance-status-processing__text">MEMPROSES DATA</p>
+        </div>
+      );
+    }
 
-     // MMQ Success View
-     if (scan.type === 'mmq_success') {
-        const isLate = scan.status === 'Terlambat';
-        const colorClass = isLate ? 'border-amber-500' : 'border-green-500';
-        const bgGradient = isLate ? 'from-amber-500/20 to-orange-500/20' : 'from-[#4CAF50]/20 to-emerald-500/20';
-        return (
-             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`bg-gradient-to-br ${bgGradient} rounded-[2rem] shadow-2xl border-[3px] ${colorClass} p-8 max-w-lg mx-auto text-center relative overflow-hidden z-20 backdrop-blur-md`}>
-                 <div className="absolute top-4 right-4"><Badge className="bg-white/90 text-primary border-none shadow-sm"><Library className="w-3 h-3 mr-1"/> MMQ Mode</Badge></div>
-                 <div className="flex justify-center mb-6">
-                    <Avatar className={`w-32 h-32 border-4 ${colorClass} shadow-md`}>
-                        <AvatarImage src={scan.photo} className="object-cover" />
-                        <AvatarFallback>{scan.name?.[0]}</AvatarFallback>
-                    </Avatar>
-                 </div>
-                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{scan.name}</h2>
-                 <p className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-6">{scan.message}</p>
-                 <div className="bg-white/80 dark:bg-black/40 p-4 rounded-xl mb-4 border border-white/20">
-                     <p className="font-mono text-3xl font-bold text-slate-800 dark:text-white">{scan.time}</p>
-                 </div>
-                 <p className="italic text-sm text-slate-600 dark:text-slate-300">"{scan.quote}"</p>
-             </motion.div>
-        );
-     }
+    // Ready state (no scan)
+    if (!scan) {
+      return (
+        <div className="attendance-status-ready" aria-label="Siap memindai">
+          <Fingerprint className="attendance-status-ready__icon" />
+          <p className="attendance-status-ready__text">SIAP MEMINDAI</p>
+        </div>
+      );
+    }
 
-     if (scan.type === 'confirmation') {
-         return (
-             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-4 border-[#4CAF50] p-8 max-w-lg mx-auto text-center relative z-20">
-                 {scan.isMMQ && <div className="absolute top-4 right-4"><Badge className="bg-[#4CAF50]/20 text-[#1B5E20] border-none"><Library className="w-3 h-3 mr-1"/> MMQ</Badge></div>}
-                 <div className="flex justify-center mb-6"><Avatar className="w-32 h-32 border-4 border-[#e8f5e9] shadow-md"><AvatarImage src={scan.photo} className="object-cover" /><AvatarFallback>{scan.name?.[0]}</AvatarFallback></Avatar></div>
-                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{scan.name}</h2>
-                 <p className="text-slate-600 dark:text-slate-300 mb-6">Anda sudah absen hari ini.</p>
-                 <div className="bg-[#e8f5e9] dark:bg-[#1B5E20]/20 p-4 rounded-xl border border-[#4CAF50]/30 mb-2"><p className="font-semibold text-[#1B5E20] dark:text-[#4CAF50] text-lg animate-pulse">Tap kartu sekali lagi untuk update jam pulang/masuk.</p></div>
-                 <p className="text-xs text-muted-foreground mt-4">Atau biarkan untuk membatalkan.</p>
-             </motion.div>
-         );
-     }
+    // MMQ Success
+    if (scan.type === 'mmq_success') {
+      return (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="attendance-result" role="status" aria-live="polite">
+          <AttendanceProfileCard
+            variant="teacher"
+            name={scan.name}
+            photo={scan.photo}
+            status={scan.status === 'Terlambat' ? 'Terlambat' : 'Hadir'}
+            time={scan.time}
+            message={scan.message}
+            quote={scan.quote}
+            showSuccessBadge
+          />
+        </motion.div>
+      );
+    }
 
-     if (scan.type === 'guru_schedule_detail') {
-         return (
-             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-[#1B5E20] p-6 w-full max-w-7xl mx-auto flex flex-col h-auto relative z-20">
-                 <div className="flex justify-between items-center mb-4 border-b pb-2"><h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Briefcase className="w-6 h-6 text-[#1B5E20]"/> Kelas Anda</h2></div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                     {scan.classesData && scan.classesData.length > 0 ? scan.classesData.map(cls => (
-                         <div key={cls.id} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border shadow-sm">
-                             <div className="flex justify-between items-center mb-2 border-b pb-1"><h3 className="font-bold text-base truncate text-[#1B5E20] dark:text-[#4CAF50]">{cls.nama_kelas}</h3><Badge variant="secondary" className="text-[10px]">{cls.sesi}</Badge></div>
-                             <div className="text-xs space-y-1">{cls.santri && cls.santri.length > 0 ? (<div className="flex flex-wrap gap-1">{cls.santri.map(s => (<span key={s.id} className="bg-white dark:bg-slate-950 border px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{s.nama_lengkap}</span>))}</div>) : <span className="text-muted-foreground italic">Kosong</span>}</div>
-                         </div>
-                     )) : <div className="col-span-full text-center py-10 text-muted-foreground">Tidak ada kelas yang diampu.</div>}
-                 </div>
-             </motion.div>
-         );
-     }
+    // Confirmation
+    if (scan.type === 'confirmation') {
+      return (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="attendance-result" role="status" aria-live="polite">
+          <div className="attendance-result-card attendance-result-card--info">
+            {scan.isMMQ && (
+              <div className="absolute top-4 right-4">
+                <Badge className="bg-[hsl(var(--att-accent-soft))] text-[hsl(var(--att-accent))] border-none text-xs">
+                  <Library className="w-3 h-3 mr-1" /> MMQ
+                </Badge>
+              </div>
+            )}
+            <div className="attendance-confirmation">
+              <Avatar className="attendance-confirmation__avatar">
+                <AvatarImage src={scan.photo} className="object-cover" />
+                <AvatarFallback>{scan.name?.[0]}</AvatarFallback>
+              </Avatar>
+              <h2 className="attendance-confirmation__name">{scan.name}</h2>
+              <p className="attendance-confirmation__text">Anda sudah absen hari ini.</p>
+              <div className="attendance-confirmation__prompt">
+                <p>Tap kartu sekali lagi untuk update jam pulang/masuk.</p>
+              </div>
+              <p className="attendance-confirmation__hint">Atau biarkan untuk membatalkan.</p>
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
 
-     if (scan.type === 'pentashih_history') {
-         return (
-             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-[#4CAF50] p-6 w-full max-w-6xl mx-auto h-auto flex flex-col relative z-20">
-                 <div className="flex justify-between items-center mb-6 border-b pb-4"><h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity className="w-6 h-6 text-[#4CAF50]"/> Riwayat Mutasi Terkini</h2></div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                     {scan.historyData.map((history, idx) => (
-                         <div key={idx} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 relative overflow-hidden">
-                             <div className="absolute top-0 left-0 w-1 h-full bg-[#4CAF50]"></div>
-                             <div className="flex items-center gap-3 mb-3"><Avatar className="w-10 h-10 border-2 border-white shadow-sm"><AvatarImage src={history.santri?.foto_url} /><AvatarFallback>{history.santri?.nama_lengkap?.[0]}</AvatarFallback></Avatar><div className="overflow-hidden"><p className="font-bold text-sm truncate">{history.santri?.nama_lengkap}</p><p className="text-xs text-muted-foreground">{new Date(history.mutation_date).toLocaleDateString()}</p></div></div>
-                             <div className="flex items-center justify-between text-xs bg-white dark:bg-slate-900 p-2 rounded-lg border"><div className="text-center w-1/2"><p className="text-red-500 font-bold">{history.from_jilid || '?'}</p><p className="text-[10px] text-muted-foreground truncate">{history.from_class?.nama_kelas || '-'}</p></div><ArrowRight className="w-4 h-4 text-slate-400" /><div className="text-center w-1/2"><p className="text-green-500 font-bold">{history.to_jilid || '?'}</p><p className="text-[10px] text-muted-foreground truncate">{history.to_class?.nama_kelas || '-'}</p></div></div>
-                         </div>
-                     ))}
-                 </div>
-             </motion.div>
-         );
-     }
-
-     if (scan.type === 'error') {
-         return (
-             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border-[3px] border-red-500 p-8 max-w-md mx-auto text-center relative overflow-hidden z-20">
-                 <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
-                 <div className="flex justify-center mb-4">
-                     <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
-                         <XCircle className="w-16 h-16 text-red-500" />
-                     </div>
-                 </div>
-                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{scan.name}</h2>
-                 <div className="bg-red-50 dark:bg-red-950/30 p-4 rounded-xl border border-red-100 dark:border-red-900/30 mb-4">
-                     <p className="text-red-600 dark:text-red-400 font-medium">{scan.message}</p>
-                 </div>
-                 <p className="text-sm text-slate-500">Silakan hubungi admin jika ini adalah kesalahan.</p>
-             </motion.div>
-         );
-     }
-
-     if (scan.type === 'guru_info' || (scan.type === 'success' && scan.role === 'guru')) {
-         const isFemale = scan.gender === 'Perempuan';
-         const gradientClass = isFemale ? 'from-[#D4AF37] to-yellow-500' : 'from-[#1B5E20] to-[#4CAF50]';
-         const borderClass = isFemale ? 'border-yellow-100 dark:border-yellow-900/30' : 'border-[#e8f5e9] dark:border-[#1B5E20]/30';
-         const isPentashih = scan.type === 'guru_info' ? ((scan.roles && scan.roles.includes('Pentashih')) || (scan.jabatan && scan.jabatan.toLowerCase().includes('pentashih'))) : scan.isPentashih;
-
-         return (
-             <motion.div key="guru_info" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden w-full max-w-4xl border-2 ${borderClass} relative mx-auto flex flex-col md:flex-row h-auto z-20`}>
-                 <div className={`absolute top-0 left-0 w-full h-full md:w-1/3 bg-gradient-to-b ${gradientClass}`}></div>
-                 <div className="relative p-8 flex flex-col items-center text-center z-10 md:w-1/3 justify-center">
-                     <div className="relative"><Avatar className="w-56 h-56 border-[8px] border-white shadow-2xl rounded-3xl bg-white aspect-square object-cover"><AvatarImage src={scan.photo} className="object-cover" /><AvatarFallback className="text-8xl font-bold text-slate-300">{scan.name?.[0]}</AvatarFallback></Avatar>{scan.type === 'success' && <div className="absolute -bottom-3 -right-3 bg-[#4CAF50] text-white p-3 rounded-full shadow-lg animate-bounce"><CheckCircle className="w-8 h-8" /></div>}</div>
-                     <h2 className="text-3xl font-black mt-6 text-white leading-tight drop-shadow-md">{scan.name}</h2>
-                     <p className="text-white/90 mt-2 uppercase tracking-wide text-sm font-bold bg-black/20 px-3 py-1 rounded-full">{scan.jabatan || 'Guru Pengajar'}</p>
-                 </div>
-                 <div className="p-8 flex-1 flex flex-col justify-center bg-white dark:bg-slate-900">
-                     <div className="w-full space-y-6">
-                         {scan.type === 'success' && isPentashih && (<div className="bg-[#e8f5e9] dark:bg-[#1B5E20]/30 p-6 rounded-2xl border border-[#4CAF50]/30 text-center space-y-4"><div className="inline-flex items-center gap-2 bg-[#4CAF50]/20 px-4 py-2 rounded-full text-[#1B5E20] dark:text-[#4CAF50] font-bold text-xl animate-pulse"><CheckCircle className="w-6 h-6"/> Absensi Berhasil</div><p className="text-4xl font-mono font-bold text-slate-800 dark:text-white">{scan.time}</p><div className="grid grid-cols-2 gap-4 text-left bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800"><div><p className="text-xs text-muted-foreground uppercase">Nama Lengkap</p><p className="font-bold text-slate-800 dark:text-white">{scan.name}</p></div><div><p className="text-xs text-muted-foreground uppercase">Jabatan</p><p className="font-bold text-[#D4AF37]">{scan.jabatan}</p></div></div></div>)}
-                         {scan.type === 'success' && !isPentashih && (<><div className="bg-[#e8f5e9] dark:bg-[#1B5E20]/30 p-6 rounded-2xl border border-[#4CAF50]/30 text-center flex items-center justify-between"><div className="flex items-center gap-3"><div className="bg-[#4CAF50]/20 p-2 rounded-full"><CheckCircle className="w-8 h-8 text-[#4CAF50]"/></div><div className="text-left"><p className="text-[#1B5E20] dark:text-[#4CAF50] font-bold text-xl">Absensi Berhasil</p><p className="text-sm text-[#4CAF50]">Selamat Mengajar!</p></div></div><p className="text-3xl text-[#1B5E20] dark:text-[#4CAF50] font-mono font-bold">{scan.time}</p></div>{scan.guruStats && (<div className="grid grid-cols-3 gap-4 w-full"><div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 text-center"><p className="text-2xl font-black text-slate-800 dark:text-white">{scan.guruStats.session}</p><p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Sesi</p></div><div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 text-center"><p className="text-2xl font-black text-slate-800 dark:text-white">{scan.guruStats.hours}</p><p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Jam Total</p></div><div className="bg-[#D4AF37]/10 p-4 rounded-2xl border border-[#D4AF37]/30 text-center"><p className="text-2xl font-black text-[#D4AF37]">{scan.guruStats.streak}</p><p className="text-xs text-[#D4AF37] uppercase font-bold tracking-wider">Streak</p></div></div>)}</>)}
-                         {scan.type === 'guru_info' && scan.stats && (<div className="grid grid-cols-3 gap-4 w-full"><div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 text-center"><p className="text-3xl font-black text-slate-800 dark:text-white">{scan.stats.sessions}</p><p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Kelas</p></div><div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 text-center"><p className="text-3xl font-black text-slate-800 dark:text-white">{scan.stats.hours}</p><p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Jam Total</p></div><div className="bg-[#D4AF37]/10 p-4 rounded-2xl border border-[#D4AF37]/30 text-center"><p className="text-3xl font-black text-[#D4AF37]">{scan.stats.streak}</p><p className="text-xs text-[#D4AF37] uppercase font-bold tracking-wider">Streak</p></div></div>)}
-                         {scan.quote && (<div className="bg-[#D4AF37]/10 p-6 rounded-2xl border border-[#D4AF37]/30 relative overflow-hidden"><p className="text-lg italic text-[#1B5E20] dark:text-[#D4AF37] font-serif relative z-10 leading-relaxed text-center">"{scan.quote}"</p></div>)}
-                     </div>
-                 </div>
-             </motion.div>
-         );
-     }
-
-     if (scan.type === 'success' && scan.role === 'santri' && scan.kategori === 'Dewasa') {
-         const isFemale = scan.gender === 'Perempuan';
-         const borderClass = isFemale ? 'border-pink-500' : 'border-[#4CAF50]';
-         const glowColor = isFemale ? 'shadow-pink-500/50' : 'shadow-[#4CAF50]/50';
-         const bgGradient = isFemale ? 'from-pink-50 via-white to-pink-50 dark:from-pink-950/30 dark:via-slate-900 dark:to-pink-950/20' : 'from-[#e8f5e9] via-white to-[#e8f5e9] dark:from-[#1B5E20]/30 dark:via-slate-900 dark:to-[#1B5E20]/20';
-         return (
-             <motion.div key="success_adult" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`bg-gradient-to-br ${bgGradient} rounded-[2rem] shadow-2xl border-[3px] ${borderClass} p-8 w-full max-w-md mx-auto relative overflow-hidden z-20`}>
-                 <div className="absolute top-4 right-4"><Badge variant="outline" className="bg-white/80 dark:bg-black/50 text-xs uppercase tracking-wider border-slate-200 dark:border-slate-700 backdrop-blur-sm">Santri Dewasa</Badge></div>
-                 <div className="flex flex-col items-center text-center relative z-10"><div className="relative mb-6"><Avatar className={`w-48 h-48 rounded-full border-[6px] ${borderClass} shadow-2xl ${glowColor}`}><AvatarImage src={scan.photo} className="object-cover" /><AvatarFallback className="rounded-full text-6xl font-bold">{scan.name?.[0]}</AvatarFallback></Avatar><div className="absolute -bottom-2 -right-2 bg-[#4CAF50] text-white p-2 rounded-full shadow-lg border-4 border-white dark:border-slate-900"><CheckCircle className="w-6 h-6" /></div></div><h2 className="text-3xl font-black text-slate-800 dark:text-white leading-tight mb-1 drop-shadow-sm">{scan.name}</h2><p className="text-sm text-muted-foreground font-medium mb-6 uppercase tracking-widest">{scan.jilid}</p><div className="bg-white/70 dark:bg-black/30 rounded-2xl p-5 w-full mb-6 border border-slate-200 dark:border-slate-700 shadow-inner backdrop-blur-md"><div className="flex items-center justify-center gap-3 mb-2"><div className="h-3 w-3 rounded-full bg-[#4CAF50]"></div><span className="font-bold text-[#4CAF50] text-xl tracking-wide">ABSEN BERHASIL</span></div><p className="text-md text-slate-500 dark:text-slate-400 font-mono font-medium">{scan.time}</p></div>{scan.quote && <div className="w-full bg-[#D4AF37]/10 p-4 rounded-xl border border-[#D4AF37]/30 relative"><p className="text-sm italic text-[#1B5E20] dark:text-[#D4AF37] font-serif leading-relaxed">"{scan.quote}"</p></div>}</div>
-             </motion.div>
-         );
-     }
-
-     if (scan.type === 'success' && scan.role === 'santri') {
-         const { label, color, badgeIcon, enableGradient, textColor, avatarBorderThickness, textGradient } = scan.levelInfo || { label: 'Level C', color: '#4CAF50', badgeIcon: <Book className="w-8 h-8"/>, enableGradient: false, textColor: '#333333', avatarBorderThickness: 4, textGradient: false };
-         const textGradientClass = "bg-clip-text text-transparent bg-gradient-to-r from-[#D4AF37] to-yellow-500";
-         return (
-            <motion.div
-                key="success"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="relative flex flex-col items-center p-10 rounded-[2.5rem] mx-auto w-fit max-w-4xl z-20 glass-card bg-gradient-to-br from-[#4CAF50]/10 to-[#1B5E20]/10"
-                style={{ borderColor: `color-mix(in srgb, ${color} 40%, transparent)` }}
-            >
-                <div className="relative mb-8 mt-2">
-                    <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="absolute -top-6 -right-6 glass-card p-4 rounded-2xl z-20 flex items-center justify-center border-t-white/40 border-l-white/40" style={{ borderColor: color }}>{badgeIcon}</motion.div>
-
-                    <Avatar className="w-64 h-64 rounded-[2.5rem] premium-shadow" style={{ borderWidth: `${avatarBorderThickness}px`, borderColor: color, borderStyle: 'solid', boxShadow: `0 0 30px color-mix(in srgb, ${color} 50%, transparent)` }}><AvatarImage src={scan.photo} className="object-cover" /><AvatarFallback className="rounded-[2.5rem] text-7xl font-bold text-slate-300">{scan.name?.[0]}</AvatarFallback></Avatar>
-
-                    <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 glass-card px-8 py-2 rounded-full z-20 whitespace-nowrap min-w-[140px] text-center border-t-white/40 border-l-white/40" style={{ borderColor: color }}>
-                      <span className={`text-sm font-black uppercase tracking-[0.2em] ${enableGradient ? 'gradient-text' : ''}`} style={{ color: enableGradient ? 'inherit' : color }}>{label}</span>
-                    </div>
-                </div>
-
-                <div className="text-center space-y-4 mt-4 w-full">
-                    <h2 className={`text-5xl font-black leading-tight px-4 drop-shadow-sm text-foreground ${textGradient ? textGradientClass : ''}`} style={{ color: textGradient ? undefined : textColor }}>{scan.name}</h2>
-
-                    <div className="flex items-center justify-center gap-3 opacity-90 mt-2">
-                      <div className="flex items-center gap-2 px-5 py-2 rounded-full glass-card border-t-white/40 border-l-white/40">
-                        <Clock className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-                        <span className="font-mono text-xl font-bold text-slate-700 dark:text-slate-200">{scan.time}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-center gap-4 mt-4">
-                      {scan.jilid &&
-                        <div className="glass-card px-6 py-3 rounded-2xl text-center border-t-white/40 border-l-white/40">
-                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider mb-1">Jilid</p>
-                          <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{scan.jilid}</p>
-                        </div>
-                      }
-                      {scan.points !== undefined &&
-                        <div className="glass-card px-6 py-3 rounded-2xl text-center border-t-white/40 border-l-white/40">
-                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider mb-1">Poin</p>
-                          <p className="text-2xl font-black text-yellow-600 dark:text-yellow-400">{scan.points}</p>
-                        </div>
-                      }
-                    </div>
-
-                    <div className="pt-6 pb-2">
-                      <p className="text-xl font-medium text-slate-700 dark:text-slate-200 opacity-90">{scan.message}</p>
-                    </div>
-
-                    {scan.quote && (
-                      <div className="mt-4 max-w-lg mx-auto p-5 glass-card rounded-2xl border-t-white/40 border-l-white/40 text-center">
-                        <div className="mb-3 animate-shine font-bold uppercase text-sm tracking-widest flex items-center justify-center gap-2">
-                          <Star className="w-4 h-4 text-yellow-500"/>
-                          Pesan Untukmu
-                          <Star className="w-4 h-4 text-yellow-500"/>
-                        </div>
-                        <p className="italic font-serif text-lg text-slate-700 dark:text-slate-300 opacity-90">"{scan.quote}"</p>
-                      </div>
-                    )}
-                </div>
-
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="absolute top-6 left-6">
-                  <div className="bg-[#4CAF50] text-white p-3 rounded-full premium-shadow border-2 border-white/20">
-                    <CheckCircle className="w-7 h-7" />
+    // Guru Schedule Detail
+    if (scan.type === 'guru_schedule_detail') {
+      return (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="attendance-result" role="region" aria-label="Daftar kelas" style={{ maxWidth: '72rem' }}>
+          <div className="attendance-result-card" style={{ maxWidth: '100%' }}>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b" style={{ borderColor: 'hsl(var(--att-border-subtle))' }}>
+              <Briefcase className="w-5 h-5" style={{ color: 'hsl(var(--att-accent))' }} />
+              <h2 className="text-xl font-bold" style={{ color: 'hsl(var(--att-text-primary))' }}>Kelas Anda</h2>
+            </div>
+            <div className="attendance-schedule-grid">
+              {scan.classesData && scan.classesData.length > 0 ? scan.classesData.map(cls => (
+                <div key={cls.id} className="attendance-schedule-card">
+                  <div className="attendance-schedule-card__header">
+                    <h3 className="attendance-schedule-card__name">{cls.nama_kelas}</h3>
+                    <span className="attendance-schedule-card__session">{cls.sesi}</span>
                   </div>
-                </motion.div>
-            </motion.div>
-         );
-     }
-     return null;
+                  <div className="attendance-schedule-card__santri">
+                    {cls.santri && cls.santri.length > 0 ? (
+                      cls.santri.map(s => (
+                        <span key={s.id} className="attendance-schedule-card__santri-chip">{s.nama_lengkap}</span>
+                      ))
+                    ) : (
+                      <span className="text-xs italic" style={{ color: 'hsl(var(--att-text-muted))' }}>Kosong</span>
+                    )}
+                  </div>
+                </div>
+              )) : (
+                <div className="col-span-full text-center py-10" style={{ color: 'hsl(var(--att-text-muted))' }}>
+                  Tidak ada kelas yang diampu.
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
+    // Pentashih History
+    if (scan.type === 'pentashih_history') {
+      return (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="attendance-result" role="region" aria-label="Riwayat mutasi" style={{ maxWidth: '64rem' }}>
+          <div className="attendance-result-card" style={{ maxWidth: '100%' }}>
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b" style={{ borderColor: 'hsl(var(--att-border-subtle))' }}>
+              <Activity className="w-5 h-5" style={{ color: 'hsl(var(--att-accent))' }} />
+              <h2 className="text-xl font-bold" style={{ color: 'hsl(var(--att-text-primary))' }}>Riwayat Mutasi Terkini</h2>
+            </div>
+            <div className="attendance-schedule-grid">
+              {scan.historyData.map((history, idx) => (
+                <div key={idx} className="attendance-schedule-card">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
+                      <AvatarImage src={history.santri?.foto_url} />
+                      <AvatarFallback>{history.santri?.nama_lengkap?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="overflow-hidden">
+                      <p className="font-bold text-sm truncate" style={{ color: 'hsl(var(--att-text-primary))' }}>{history.santri?.nama_lengkap}</p>
+                      <p className="text-xs" style={{ color: 'hsl(var(--att-text-muted))' }}>{new Date(history.mutation_date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs p-2 rounded-lg" style={{ backgroundColor: 'hsl(var(--att-surface))', border: '1px solid hsl(var(--att-border-subtle))' }}>
+                    <div className="text-center w-1/2">
+                      <p className="font-bold" style={{ color: 'hsl(var(--att-danger))' }}>{history.from_jilid || '?'}</p>
+                      <p className="text-[10px] truncate" style={{ color: 'hsl(var(--att-text-muted))' }}>{history.from_class?.nama_kelas || '-'}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4" style={{ color: 'hsl(var(--att-text-muted))' }} />
+                    <div className="text-center w-1/2">
+                      <p className="font-bold" style={{ color: 'hsl(var(--att-success))' }}>{history.to_jilid || '?'}</p>
+                      <p className="text-[10px] truncate" style={{ color: 'hsl(var(--att-text-muted))' }}>{history.to_class?.nama_kelas || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
+    // Error
+    if (scan.type === 'error') {
+      return (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="attendance-result" role="alert" aria-live="assertive">
+          <div className="attendance-result-card attendance-result-card--error">
+            <div className="flex flex-col items-center text-center py-4">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'hsl(var(--att-danger-bg))' }}>
+                <XCircle className="w-10 h-10" style={{ color: 'hsl(var(--att-danger))' }} />
+              </div>
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'hsl(var(--att-text-primary))' }}>{scan.name}</h2>
+              <div className="w-full p-4 rounded-xl mb-4" style={{ backgroundColor: 'hsl(var(--att-danger-bg))', border: '1px solid hsl(var(--att-danger-border))' }}>
+                <p className="font-medium" style={{ color: 'hsl(var(--att-danger))' }}>{scan.message}</p>
+              </div>
+              <p className="text-sm" style={{ color: 'hsl(var(--att-text-muted))' }}>Silakan hubungi admin jika ini adalah kesalahan.</p>
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
+    // Warning
+    if (scan.type === 'warning') {
+      return (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="attendance-result" role="alert" aria-live="polite">
+          <div className="attendance-result-card attendance-result-card--warning">
+            <div className="flex flex-col items-center text-center py-4">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'hsl(var(--att-amber-bg))' }}>
+                <AlertTriangle className="w-10 h-10" style={{ color: 'hsl(var(--att-amber))' }} />
+              </div>
+              {scan.photo && (
+                <Avatar className="w-20 h-20 mb-3 border-2" style={{ borderColor: 'hsl(var(--att-amber))' }}>
+                  <AvatarImage src={scan.photo} className="object-cover" />
+                  <AvatarFallback>{scan.name?.[0]}</AvatarFallback>
+                </Avatar>
+              )}
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'hsl(var(--att-text-primary))' }}>{scan.name}</h2>
+              <p className="text-sm" style={{ color: 'hsl(var(--att-text-secondary))' }}>{scan.message}</p>
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
+    // Guru Info or Guru Success
+    if (scan.type === 'guru_info' || (scan.type === 'success' && scan.role === 'guru')) {
+      const isPentashih = scan.type === 'guru_info'
+        ? ((scan.roles && scan.roles.includes('Pentashih')) || (scan.jabatan && scan.jabatan.toLowerCase().includes('pentashih')))
+        : scan.isPentashih;
+
+      return (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="attendance-result" role="status" aria-live="polite">
+          <AttendanceProfileCard
+            variant="teacher"
+            name={scan.name}
+            photo={scan.photo}
+            status={scan.type === 'success' ? (scan.status || 'Hadir') : undefined}
+            time={scan.type === 'success' ? scan.time : undefined}
+            jabatan={scan.jabatan}
+            sesi={scan.type === 'guru_info' && scan.stats ? undefined : undefined}
+            guruStats={scan.type === 'success' && scan.guruStats ? scan.guruStats : (scan.type === 'guru_info' && scan.stats ? { session: scan.stats.sessions, hours: scan.stats.hours, streak: scan.stats.streak } : undefined)}
+            quote={scan.quote}
+            message={scan.type === 'success' ? scan.message : undefined}
+            showSuccessBadge={scan.type === 'success'}
+            isPentashih={isPentashih}
+          />
+          {/* Pentashih success: extra info grid */}
+          {scan.type === 'success' && isPentashih && scan.name && (
+            <div className="attendance-stats-row mt-4">
+              <div className="attendance-stat-item">
+                <span className="attendance-stat-item__value">{scan.name}</span>
+                <span className="attendance-stat-item__label">Nama</span>
+              </div>
+              <div className="attendance-stat-item attendance-stat-item--amber">
+                <span className="attendance-stat-item__value">{scan.jabatan || '-'}</span>
+                <span className="attendance-stat-item__label">Jabatan</span>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      );
+    }
+
+    // Santri Success — Adult
+    if (scan.type === 'success' && scan.role === 'santri' && scan.kategori === 'Dewasa') {
+      return (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="attendance-result" role="status" aria-live="polite">
+          <AttendanceProfileCard
+            variant="student"
+            name={scan.name}
+            photo={scan.photo}
+            status={scan.status || 'Hadir'}
+            time={scan.time}
+            jilid={scan.jilid}
+            message={scan.message}
+            quote={scan.quote}
+            showSuccessBadge
+          />
+        </motion.div>
+      );
+    }
+
+    // Santri Success — Child
+    if (scan.type === 'success' && scan.role === 'santri') {
+      return (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="attendance-result" role="status" aria-live="polite">
+          <AttendanceProfileCard
+            variant="student"
+            name={scan.name}
+            photo={scan.photo}
+            status={scan.status || 'Hadir'}
+            time={scan.time}
+            jilid={scan.jilid}
+            points={scan.points}
+            levelInfo={scan.levelInfo}
+            message={scan.message}
+            quote={scan.quote}
+            showSuccessBadge
+          />
+        </motion.div>
+      );
+    }
+
+    return null;
   };
 
-  return <>
-        <Helmet><title>Absensi Digital - LPQ Al-Muhajirun</title></Helmet>
-        <div className="min-h-screen relative overflow-hidden flex flex-col transition-colors duration-300 bg-white dark:bg-slate-950">
-            <div className="absolute inset-0 z-0 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#f8fafc] via-[#e8f5e9] to-[#c8e6c9] dark:from-slate-950 dark:via-[#0a1f10] dark:to-[#1B5E20]/20 transition-colors duration-500" />
-                <motion.div animate={{ x: [0, 100, 0], y: [0, -50, 0], scale: [1, 1.2, 1] }} transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }} className={`absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full blur-[100px] transition-colors duration-500 ${isDark ? 'bg-green-800/20' : 'bg-green-200/40'}`} />
-                <motion.div animate={{ x: [0, -100, 0], y: [0, 100, 0], scale: [1, 1.5, 1] }} transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }} className={`absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] rounded-full blur-[120px] transition-colors duration-500 ${isDark ? 'bg-emerald-800/20' : 'bg-emerald-200/40'}`} />
-                <div className={`absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 mix-blend-overlay ${!isDark && 'invert opacity-10'}`}></div>
-                {[...Array(20)].map((_, i) => <Particle key={i} delay={i * 0.5} isDark={isDark} />)}
+  // --- Render ---
+  return (
+    <>
+      <Helmet><title>Absensi Digital - LPQ Al-Muhajirun</title></Helmet>
+      <div className="attendance-page">
+        {/* Background */}
+        <div className="attendance-page__bg" aria-hidden="true" />
+
+        {/* Header */}
+        <header className="attendance-header">
+          <div className="attendance-header__left">
+            <button
+              className="attendance-header__back"
+              onClick={() => navigate('/dashboard')}
+              aria-label="Kembali ke Dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Kembali</span>
+            </button>
+          </div>
+          <div className="attendance-header__right">
+            {enableDeferredFeatures && (
+              <>
+                <button className="attendance-header__icon-btn" onClick={() => navigate('/top-score')} title="Top Score" aria-label="Top Score" style={{ color: 'hsl(var(--att-amber))' }}>
+                  <Trophy className="w-4 h-4" />
+                </button>
+                <button className="attendance-header__icon-btn" onClick={() => navigate('/random-name')} title="Acak Nama" aria-label="Acak Nama">
+                  <Dices className="w-4 h-4" />
+                </button>
+                <button className="attendance-header__icon-btn" onClick={() => navigate('/gatcha-game')} title="Gatcha Game" aria-label="Gatcha Game">
+                  <Gamepad2 className="w-4 h-4" />
+                </button>
+                <button className="attendance-header__icon-btn" onClick={() => navigate('/quiz-hafalan')} title="Quiz Mode" aria-label="Quiz Mode">
+                  <Gamepad2 className="w-4 h-4" />
+                </button>
+              </>
+            )}
+            <button className="attendance-header__icon-btn" onClick={() => navigate('/tv-display-mode')} title="TV Display" aria-label="TV Display Mode">
+              <Tv className="w-4 h-4" />
+            </button>
+            <button className="attendance-header__icon-btn" onClick={toggleTheme} title={isDark ? 'Mode Terang' : 'Mode Gelap'} aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}>
+              {isDark ? <Sun className="w-4 h-4" style={{ color: 'hsl(var(--att-amber))' }} /> : <Moon className="w-4 h-4" />}
+            </button>
+            <div className="attendance-header__system-chip">
+              <span className="attendance-header__system-dot" />
+              <span>SYSTEM ONLINE</span>
             </div>
-            <div className="relative z-10 p-6 flex justify-between items-center">
-                <Button variant="ghost" className="text-slate-600 dark:text-[#4CAF50] hover:text-slate-900 dark:hover:text-emerald-300 hover:bg-slate-200 dark:hover:bg-green-900/30 gap-2 transition-colors duration-300" onClick={() => navigate('/dashboard')}><ArrowLeft className="w-5 h-5" /> Kembali ke Dashboard</Button>
-                <div className="flex items-center gap-4">
-                    {enableDeferredFeatures && (
-                      <>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('/top-score')} className="rounded-full hover:bg-slate-200 dark:hover:bg-green-900/30 transition-colors duration-300 text-yellow-600 dark:text-yellow-400 animate-pulse" title="Top Score"><Trophy className="w-5 h-5"/></Button>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('/random-name')} className="rounded-full hover:bg-slate-200 dark:hover:bg-green-900/30 transition-colors duration-300 text-slate-600 dark:text-[#4CAF50]" title="Acak Nama"><Dices className="w-5 h-5"/></Button>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('/gatcha-game')} className="rounded-full hover:bg-slate-200 dark:hover:bg-green-900/30 transition-colors duration-300 text-slate-600 dark:text-[#4CAF50]" title="Gatcha Game"><Gamepad2 className="w-5 h-5"/></Button>
-                        <Button variant="ghost" size="icon" onClick={() => navigate('/quiz-hafalan')} className="rounded-full hover:bg-slate-200 dark:hover:bg-green-900/30 transition-colors duration-300 text-slate-600 dark:text-[#4CAF50]" title="Quiz Mode"><Gamepad2 className="w-5 h-5"/></Button>
-                      </>
-                    )}
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/tv-display-mode')} className="rounded-full hover:bg-slate-200 dark:hover:bg-green-900/30 transition-colors duration-300 text-slate-600 dark:text-[#4CAF50]" title="TV Display Mode"><Tv className="w-5 h-5"/></Button>
-                    <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full hover:bg-slate-200 dark:hover:bg-green-900/30 transition-colors duration-300">{isDark ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-600" />}</Button>
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-[#1B5E20]/30 border border-slate-200 dark:border-[#4CAF50]/30 transition-colors duration-300"><Activity className="w-4 h-4 text-green-500 dark:text-green-400 animate-pulse" /><span className="text-xs text-slate-600 dark:text-[#4CAF50] font-mono">SYSTEM ONLINE</span></div>
-                </div>
-            </div>
-            <div className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 md:p-8 gap-8">
-                <DigitalClock />
-                <div className="w-full flex items-center justify-center">{lastScan ? <ScanResult scan={lastScan} /> : <ScanResult scan={null} />}</div>
-                <div className="w-full max-w-md relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-[#1B5E20] to-[#4CAF50] dark:from-[#4CAF50] dark:to-[#D4AF37] rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-                    <form onSubmit={handleRfidSubmit} className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#4CAF50] transition-colors duration-300"><Search className="w-5 h-5" /></div>
-                        <Input ref={inputRef} type="text" placeholder="Menunggu Scan Kartu..." value={rfidTag} onChange={e => setRfidTag(e.target.value)} className="w-full bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-[#4CAF50]/30 text-slate-900 dark:text-emerald-100 placeholder:text-slate-400 dark:placeholder:text-[#4CAF50]/50 pl-12 h-14 rounded-lg focus:ring-2 focus:ring-[#4CAF50] dark:focus:ring-[#4CAF50] focus:border-transparent font-mono text-lg tracking-wider shadow-xl transition-all duration-300" disabled={isLoading} autoFocus autoComplete="off" />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2">{isLoading && <div className="w-5 h-5 border-2 border-[#4CAF50] dark:border-[#4CAF50] border-t-transparent rounded-full animate-spin"></div>}</div>
-                    </form>
-                    <p className="text-center text-slate-400 dark:text-[#4CAF50]/50 text-xs mt-3 font-mono transition-colors duration-300">SILAHKAN TAP KARTU UNTUK SCAN ABSEN</p>
-                </div>
-                <MediaPlayerWidget />
-            </div>
-            <div className="relative z-10 p-6 text-center"><p className="text-slate-400 dark:text-slate-600 text-sm font-mono transition-colors duration-300">LPQ AL-MUHAJIRUN • DIGITAL ATTENDANCE SYSTEM v4.0 (Premium)</p></div>
-        </div>
-  </>;
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 md:p-8 gap-6 md:gap-8">
+          <DigitalClock />
+
+          {/* Scan Result Area */}
+          <div className="w-full flex items-center justify-center">
+            <AnimatePresence mode="wait">
+              <ScanResult key={lastScan?.type || 'ready'} scan={lastScan} />
+            </AnimatePresence>
+          </div>
+
+          {/* RFID Input */}
+          <div className="attendance-scan-area">
+            <div className="attendance-scan-area__glow" aria-hidden="true" />
+            <form onSubmit={handleRfidSubmit} className="attendance-scan-area__form">
+              <Search className="attendance-scan-area__icon w-5 h-5" />
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Menunggu Scan Kartu..."
+                value={rfidTag}
+                onChange={e => setRfidTag(e.target.value)}
+                className="attendance-scan-area__input"
+                disabled={isLoading}
+                autoFocus
+                autoComplete="off"
+                aria-label="Input RFID"
+              />
+              {isLoading && <div className="attendance-scan-area__spinner" aria-hidden="true" />}
+            </form>
+            <p className="attendance-scan-area__hint">Silakan tap kartu untuk scan absen</p>
+          </div>
+
+          <MediaPlayerWidget />
+        </main>
+
+        {/* Footer */}
+        <footer className="attendance-footer">
+          <p className="attendance-footer__text">LPQ AL-MUHAJIRUN &bull; DIGITAL ATTENDANCE SYSTEM v5.0</p>
+        </footer>
+      </div>
+    </>
+  );
 };
+
 export default DigitalAttendancePage;
