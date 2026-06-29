@@ -154,7 +154,8 @@ const PaymentHistory = () => {
     };
 
     return (
-        <div className="bg-card p-6 rounded-2xl shadow-xl space-y-4">
+        <div className="space-y-6">
+            <div className="admin-panel-header"><div className="flex items-center gap-3"><div className="admin-panel-header-icon"><FileText /></div><div className="admin-panel-header-text"><h2>Riwayat Pembayaran Santri</h2><p>Total {payments.length} records pembayaran</p></div></div></div>
             
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4 shadow-xl">
@@ -204,9 +205,9 @@ const PaymentHistory = () => {
                 </div>
             </div>
 
-            <div className="overflow-auto max-h-[60vh] border rounded-lg">
-                <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-secondary z-10">
+            <div className="admin-table-shell">
+                <div className="admin-table-scroll" style={{maxHeight:"60vh"}}><table>
+                    <thead className="">
                         <tr>
                             <th className="p-3 text-left w-12">
                                 <Checkbox
