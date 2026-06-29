@@ -74,7 +74,7 @@ const AdminStatCard = ({
       className={`admin-stat-card ${variantClass} ${clickableClass} ${className}`}
       {...extraProps}
     >
-      <div className="admin-stat-card-content">
+      <div className="admin-stat-card-content text-left">
         <div className="flex items-center gap-2 mb-2">
           <p className="admin-stat-card-label">{label}</p>
           {masked && onToggleMask && (

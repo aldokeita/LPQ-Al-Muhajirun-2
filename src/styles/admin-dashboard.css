@@ -517,6 +517,7 @@
 /* Clickable stat card (e.g., Absensi Digital) */
 .admin-stat-card--clickable {
   cursor: pointer;
+  text-align: left;
 }
 
 .admin-stat-card--clickable:hover {
