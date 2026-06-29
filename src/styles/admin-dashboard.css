@@ -1,1 +1,2026 @@
-/* ============================================================   Admin Dashboard — Premium Institutional Command Center   Design tokens and component styles for admin dashboard.   ============================================================ *//* --- Admin Design Tokens --- */:root {  /* Light theme admin tokens */  --admin-bg: 30 33% 96%;               /* warm ivory */  --admin-surface: 0 0% 100%;           /* white-cream */  --admin-surface-raised: 0 0% 100%;    /* elevated white */  --admin-surface-sunken: 30 20% 93%;   /* light stone */  --admin-border: 30 12% 85%;           /* warm light gray */  --admin-border-subtle: 30 10% 90%;    /* very subtle border */  --admin-text-primary: 220 15% 15%;    /* charcoal */  --admin-text-secondary: 220 8% 40%;   /* warm gray */  --admin-text-muted: 220 6% 60%;       /* muted gray */  --admin-accent: 152 58% 37%;          /* emerald */  --admin-accent-muted: 152 40% 45%;    /* muted emerald */  --admin-accent-soft: 152 40% 94%;     /* very light emerald */  --admin-accent-cyan: 199 89% 48%;     /* cyan accent */  --admin-accent-violet: 265 70% 55%;   /* violet accent */  --admin-accent-amber: 38 92% 50%;     /* warm amber */  --admin-nav-active-bg: 152 58% 37%;   /* emerald active */  --admin-nav-active-fg: 0 0% 100%;     /* white */  --admin-nav-hover-bg: 152 30% 92%;    /* light emerald hover */  --admin-nav-indicator: 152 58% 37%;   /* emerald indicator */  --admin-glow: 152 58% 37%;  --admin-shadow-color: 220 15% 60%;}.dark {  /* Dark theme admin tokens */  --admin-bg: 222 30% 8%;               /* midnight navy */  --admin-surface: 222 20% 12%;         /* charcoal */  --admin-surface-raised: 222 18% 15%;  /* lighter charcoal */  --admin-surface-sunken: 222 35% 6%;   /* deeper navy */  --admin-border: 222 18% 18%;          /* subtle navy border */  --admin-border-subtle: 222 15% 15%;   /* very subtle */  --admin-text-primary: 30 30% 92%;     /* warm ivory */  --admin-text-secondary: 30 15% 65%;   /* muted warm gray */  --admin-text-muted: 222 10% 45%;      /* muted */  --admin-accent: 152 45% 42%;          /* muted emerald */  --admin-accent-muted: 152 35% 35%;    /* darker muted emerald */  --admin-accent-soft: 152 30% 14%;     /* subtle emerald bg */  --admin-accent-cyan: 199 80% 55%;  --admin-accent-violet: 265 60% 60%;  --admin-accent-amber: 38 85% 55%;  --admin-nav-active-bg: 152 45% 42%;  --admin-nav-active-fg: 0 0% 100%;  --admin-nav-hover-bg: 152 25% 18%;  --admin-nav-indicator: 152 45% 42%;  --admin-glow: 152 45% 42%;  --admin-shadow-color: 222 30% 5%;}/* --- Admin Dashboard Surface --- */.lpq-admin-surface {  background-color: hsl(var(--admin-bg));  color: hsl(var(--admin-text-primary));  transition: background-color 0.3s ease, color 0.3s ease;}/* Dark mode: transparent surface so SideRays animated background is visible */.dark .lpq-admin-surface {  background-color: hsl(var(--admin-bg));}/* Override the global green body and bg-background in admin context */.dark body.lpq-admin-context {  background-color: hsl(222 30% 4%) !important;}.dark body.lpq-admin-context .bg-background,.dark body.lpq-admin-context .bg-background,.dark body.lpq-admin-context > #root > div {  background-color: transparent !important;}/* ============================================================   PORTAL DROPDOWN OVERRIDES — Covers all portal-rendered menus   These selectors target portal content that escapes .lpq-admin-surface   ============================================================ *//* --- Select Content (Portal) --- */.lpq-admin-surface [data-radix-select-viewport] + [data-radix-select-scroll-up-button],.lpq-admin-surface [data-radix-select-viewport] + [data-radix-select-scroll-down-button] {  color: hsl(var(--admin-text-muted));}/* --- Select Item — Light Mode --- */.lpq-admin-surface [data-radix-select-item] {  color: hsl(var(--admin-text-primary));  border-radius: 0.375rem;  transition: background-color 0.15s ease, color 0.15s ease;}.lpq-admin-surface [data-radix-select-item][data-highlighted] {  background-color: hsl(var(--admin-accent) / 0.1);  color: hsl(var(--admin-text-primary));  outline: none;}.lpq-admin-surface [data-radix-select-item][data-state="checked"] {  color: hsl(var(--admin-accent));  font-weight: 600;}.lpq-admin-surface [data-radix-select-item][data-disabled] {  opacity: 0.4;  pointer-events: none;}/* --- DropdownMenuItem — Light Mode --- */.lpq-admin-surface [data-radix-dropdown-menu-item] {  border-radius: 0.375rem;  transition: background-color 0.15s ease, color 0.15s ease;}.lpq-admin-surface [data-radix-dropdown-menu-item][data-highlighted] {  background-color: hsl(var(--admin-accent) / 0.1);  color: hsl(var(--admin-text-primary));  outline: none;}/* --- Popover Content — Light Mode --- */.lpq-admin-surface [data-radix-popper-content-wrapper] [data-radix-popover-content] {  background-color: hsl(0 0% 100%);  border-color: hsl(var(--admin-border));  color: hsl(var(--admin-text-primary));}/* --- Dark Mode — ALL Portal Dropdowns --- */.dark .lpq-admin-surface [data-radix-select-content],.dark .lpq-admin-surface [role="listbox"],.dark .lpq-admin-surface [data-radix-popper-content-wrapper],.dark .lpq-admin-surface [data-radix-dropdown-menu-content],.dark .lpq-admin-surface [data-radix-dropdown-menu-sub-content],.dark .lpq-admin-surface [data-radix-popover-content],.dark .lpq-admin-surface [data-radix-popper-content-wrapper] [data-radix-popover-content] {  background-color: hsl(222 20% 12%) !important;  border-color: hsl(222 18% 20%) !important;  color: hsl(30 30% 92%) !important;  box-shadow: 0 10px 40px hsl(222 30% 3% / 0.5), 0 2px 8px hsl(222 30% 3% / 0.3) !important;}.dark .lpq-admin-surface [data-radix-select-item],.dark .lpq-admin-surface [role="option"],.dark .lpq-admin-surface [data-radix-dropdown-menu-item],.dark .lpq-admin-surface [data-radix-dropdown-menu-checkbox-item],.dark .lpq-admin-surface [data-radix-dropdown-menu-radio-item],.dark .lpq-admin-surface [data-radix-dropdown-menu-sub-trigger] {  color: hsl(30 20% 82%) !important;  border-radius: 0.375rem;}.dark .lpq-admin-surface [data-radix-select-item][data-highlighted],.dark .lpq-admin-surface [role="option"]:hover,.dark .lpq-admin-surface [data-radix-dropdown-menu-item][data-highlighted],.dark .lpq-admin-surface [data-radix-dropdown-menu-sub-trigger][data-highlighted],.dark .lpq-admin-surface [data-radix-dropdown-menu-checkbox-item][data-highlighted],.dark .lpq-admin-surface [data-radix-dropdown-menu-radio-item][data-highlighted] {  background-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 96%) !important;}.dark .lpq-admin-surface [data-radix-select-item][data-state="checked"],.dark .lpq-admin-surface [role="option"][aria-selected="true"] {  color: hsl(152 45% 55%) !important;  font-weight: 600;}.dark .lpq-admin-surface [data-radix-dropdown-menu-label],.dark .lpq-admin-surface [data-radix-select-group] [data-radix-select-label] {  color: hsl(var(--admin-text-muted)) !important;}/* --- Light Mode — ALL Portal Dropdowns --- */.lpq-admin-surface [data-radix-select-content],.lpq-admin-surface [role="listbox"],.lpq-admin-surface [data-radix-popper-content-wrapper],.lpq-admin-surface [data-radix-dropdown-menu-content],.lpq-admin-surface [data-radix-dropdown-menu-sub-content],.lpq-admin-surface [data-radix-popover-content] {  background-color: hsl(30 20% 97%) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(var(--admin-text-primary)) !important;  box-shadow: 0 10px 40px hsl(220 15% 60% / 0.12), 0 2px 8px hsl(220 15% 60% / 0.08) !important;}/* --- Command Palette (if used) --- */.dark .lpq-admin-surface [cmdk-root],.dark .lpq-admin-surface [cmdk-list],.dark .lpq-admin-surface [cmdk-group] {  background-color: hsl(222 20% 12%) !important;  color: hsl(30 30% 92%) !important;}.dark .lpq-admin-surface [cmdk-item][data-selected="true"] {  background-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 96%) !important;}.lpq-admin-surface [cmdk-root],.lpq-admin-surface [cmdk-list] {  background-color: hsl(30 20% 97%) !important;  color: hsl(var(--admin-text-primary)) !important;}.lpq-admin-surface [cmdk-item][data-selected="true"] {  background-color: hsl(var(--admin-accent) / 0.1) !important;}/* --- Admin Card (replaces heavy gradient cards) --- */.admin-card {  background-color: hsl(var(--admin-surface));  border: 1px solid hsl(var(--admin-border));  border-radius: 0.75rem;  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.08),              0 1px 2px hsl(var(--admin-shadow-color) / 0.04);  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;}.admin-card:hover {  box-shadow: 0 4px 12px hsl(var(--admin-shadow-color) / 0.12),              0 2px 4px hsl(var(--admin-shadow-color) / 0.06);  border-color: hsl(var(--admin-border-subtle));}.admin-card-interactive:hover {  transform: translateY(-1px);}/* --- Admin Section --- */.admin-section {  margin-bottom: 1.5rem;}.admin-section-title {  font-size: 0.8125rem;  font-weight: 600;  text-transform: uppercase;  letter-spacing: 0.06em;  color: hsl(var(--admin-text-muted));  margin-bottom: 0.5rem;  padding-left: 0.125rem;}/* --- Admin Module Navigation — Two-Row Wrapping Pill Nav --- */.admin-module-nav {  position: sticky;  top: 0;  z-index: 30;  background-color: hsl(var(--admin-bg));  padding: 0.75rem 0;  transition: background-color 0.3s ease;  display: flex;  justify-content: center;}.admin-module-nav > div {  display: flex;  flex-wrap: wrap;  justify-content: center;  align-items: center;  gap: 0.5rem;  padding: 0.625rem 1rem;  border-radius: 0.875rem;  background-color: hsl(var(--admin-surface));  border: 1px solid hsl(var(--admin-border-subtle));  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06),              0 1px 2px hsl(var(--admin-shadow-color) / 0.03);  overflow: visible;  max-width: 100%;}.dark .admin-module-nav > div {  background-color: hsl(var(--admin-surface-raised));  border-color: hsl(var(--admin-border));  box-shadow: 0 2px 8px hsl(222 30% 3% / 0.2),              0 1px 3px hsl(222 30% 3% / 0.12);}/* Mobile: allow horizontal scroll when space is tight */@media (max-width: 767px) {  .admin-module-nav > div {    flex-wrap: nowrap;    overflow-x: auto;    overflow-y: hidden;    scrollbar-width: none;    -ms-overflow-style: none;    padding: 0.5rem 0.75rem;    justify-content: flex-start;    gap: 0.375rem;    border-radius: 0.75rem;  }  .admin-module-nav > div::-webkit-scrollbar {    display: none;  }}.admin-nav-pill {  display: inline-flex;  align-items: center;  gap: 0.375rem;  padding: 0.4375rem 0.875rem;  border-radius: 9999px;  font-size: 0.75rem;  font-weight: 500;  color: hsl(var(--admin-text-secondary));  background: transparent;  border: 1px solid hsl(var(--admin-border-subtle));  cursor: pointer;  transition: all 0.2s ease;  white-space: nowrap;  flex-shrink: 0;  outline: none;  -webkit-tap-highlight-color: transparent;  user-select: none;}.admin-nav-pill:hover {  color: hsl(var(--admin-text-primary));  background-color: hsl(var(--admin-nav-hover-bg));}.admin-nav-pill:focus-visible {  outline: 2px solid hsl(var(--admin-accent));  outline-offset: 2px;}.admin-nav-pill.active {  color: hsl(var(--admin-nav-active-fg));  background-color: hsl(var(--admin-nav-active-bg));  border-color: hsl(var(--admin-nav-active-bg));  box-shadow: 0 2px 8px hsl(var(--admin-glow) / 0.25);}.admin-nav-pill.active .admin-nav-pill-icon {  color: hsl(var(--admin-nav-active-fg));}.admin-nav-pill-icon {  width: 1rem;  height: 1rem;  transition: transform 0.2s ease;  flex-shrink: 0;}.admin-nav-pill:not(.active):hover .admin-nav-pill-icon {  transform: scale(1.1);}/* Nav group separator */.admin-nav-group-separator {  width: 1px;  height: 1.5rem;  background-color: hsl(var(--admin-border));  margin: 0 0.25rem;  flex-shrink: 0;  align-self: center;}/* Nav group label */.admin-nav-group-label {  font-size: 0.625rem;  font-weight: 700;  text-transform: uppercase;  letter-spacing: 0.1em;  color: hsl(var(--admin-text-muted));  padding: 0 0.5rem;  white-space: nowrap;  flex-shrink: 0;  align-self: center;}/* --- Admin Stat Card --- */.admin-stat-card {  position: relative;  overflow: visible;  padding: 1.25rem 1.5rem;  border-radius: 0.75rem;  background-color: hsl(var(--admin-accent) / 0.04);  border: 1px solid hsl(var(--admin-accent) / 0.2);  box-shadow: 0 0 0 0 hsl(var(--admin-accent) / 0),              0 1px 3px hsl(var(--admin-shadow-color) / 0.06);  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;}.admin-stat-card:hover {  box-shadow: 0 0 20px hsl(var(--admin-accent) / 0.12),              0 0 40px hsl(var(--admin-accent) / 0.06),              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);  transform: translateY(-2px);  border-color: hsl(var(--admin-accent) / 0.35);}.admin-stat-card-label {  font-size: 0.75rem;  font-weight: 500;  color: hsl(var(--admin-text-muted));  margin-bottom: 0.5rem;  text-transform: uppercase;  letter-spacing: 0.04em;}.admin-stat-card-value {  font-size: 1.75rem;  font-weight: 800;  color: hsl(var(--admin-text-primary));  line-height: 1.2;  font-family: 'Montserrat', sans-serif;}@media (min-width: 768px) {  .admin-stat-card-value {    font-size: 2rem;  }}/* Premium decorative icon — large, partially clipped by card edge */.admin-stat-card-icon {  color: hsl(var(--admin-accent) / 0.9);  transition: opacity 0.3s ease, transform 0.3s ease;  position: absolute;  right: -0.375rem;  bottom: -0.375rem;  width: 4.5rem;  height: 4.5rem;  opacity: 0.15;  flex-shrink: 0;}@media (min-width: 768px) {  .admin-stat-card-icon {    width: 5.5rem;    height: 5.5rem;    right: -0.5rem;    bottom: -0.5rem;    opacity: 0.18;  }}@media (min-width: 1280px) {  .admin-stat-card-icon {    width: 6rem;    height: 6rem;    right: -0.5rem;    bottom: -0.5rem;  }}.admin-stat-card:hover .admin-stat-card-icon {  opacity: 0.28;  transform: scale(1.04);}.admin-stat-card--accent .admin-stat-card-icon {  color: hsl(var(--admin-accent-cyan) / 0.9);}.admin-stat-card--accent:hover .admin-stat-card-icon {  opacity: 0.28;}.admin-stat-card--amber .admin-stat-card-icon {  color: hsl(var(--admin-accent-amber) / 0.9);}.admin-stat-card--amber:hover .admin-stat-card-icon {  opacity: 0.28;}/* Accent variants for stat cards */.admin-stat-card--accent {  background-color: hsl(var(--admin-accent-cyan) / 0.04);  border-color: hsl(var(--admin-accent-cyan) / 0.2);}.admin-stat-card--accent:hover {  box-shadow: 0 0 20px hsl(var(--admin-accent-cyan) / 0.12),              0 0 40px hsl(var(--admin-accent-cyan) / 0.06),              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);  border-color: hsl(var(--admin-accent-cyan) / 0.35);}.admin-stat-card--amber {  background-color: hsl(var(--admin-accent-amber) / 0.04);  border-color: hsl(var(--admin-accent-amber) / 0.2);}.admin-stat-card--amber:hover {  box-shadow: 0 0 20px hsl(var(--admin-accent-amber) / 0.12),              0 0 40px hsl(var(--admin-accent-amber) / 0.06),              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);  border-color: hsl(var(--admin-accent-amber) / 0.35);}/* Clickable stat card (e.g., Absensi Digital) */.admin-stat-card--clickable {  cursor: pointer;}.admin-stat-card--clickable:hover {  border-color: hsl(var(--admin-accent) / 0.4);}/* --- Admin Table Container --- */.admin-table-container {  background-color: hsl(var(--admin-surface));  border: 1px solid hsl(var(--admin-border));  border-radius: 0.75rem;  overflow: hidden;  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06);}.admin-table-container thead {  background-color: hsl(var(--admin-surface-sunken));}.admin-table-container thead th {  padding: 0.75rem 1rem;  font-size: 0.6875rem;  font-weight: 700;  text-transform: uppercase;  letter-spacing: 0.06em;  color: hsl(var(--admin-text-muted));  text-align: left;  border-bottom: 1px solid hsl(var(--admin-border));  white-space: nowrap;}.admin-table-container tbody tr {  border-bottom: 1px solid hsl(var(--admin-border-subtle));  transition: background-color 0.15s ease;}.admin-table-container tbody tr:last-child {  border-bottom: none;}.admin-table-container tbody tr:nth-child(even) {  background-color: hsl(var(--admin-surface-sunken) / 0.3);}.admin-table-container tbody tr:hover {  background-color: hsl(var(--admin-accent-soft));}.admin-table-container tbody td {  padding: 0.75rem 1rem;  font-size: 0.875rem;  color: hsl(var(--admin-text-primary));  vertical-align: middle;}/* --- Admin Status Badge --- */.admin-status-badge {  display: inline-flex;  align-items: center;  gap: 0.25rem;  padding: 0.25rem 0.625rem;  border-radius: 9999px;  font-size: 0.6875rem;  font-weight: 600;  white-space: nowrap;  line-height: 1.4;}.admin-status-badge--success {  background-color: hsl(var(--admin-accent-soft));  color: hsl(var(--admin-accent));}.admin-status-badge--warning {  background-color: hsl(var(--admin-accent-amber) / 0.12);  color: hsl(var(--admin-accent-amber));}.admin-status-badge--danger {  background-color: hsl(0 84% 60% / 0.1);  color: hsl(0 84% 55%);}.admin-status-badge--info {  background-color: hsl(var(--admin-accent-cyan) / 0.1);  color: hsl(var(--admin-accent-cyan));}.admin-status-badge--neutral {  background-color: hsl(var(--admin-surface-sunken));  color: hsl(var(--admin-text-secondary));}/* --- Admin Toolbar --- */.admin-toolbar {  display: flex;  flex-wrap: wrap;  align-items: center;  gap: 0.75rem;  padding: 1rem 0;}.admin-toolbar-group {  display: flex;  align-items: center;  gap: 0.5rem;}/* --- Admin Empty State --- */.admin-empty-state {  display: flex;  flex-direction: column;  align-items: center;  justify-content: center;  padding: 3rem 2rem;  text-align: center;}.admin-empty-state-icon {  width: 3rem;  height: 3rem;  color: hsl(var(--admin-text-muted));  margin-bottom: 1rem;  opacity: 0.5;}.admin-empty-state-title {  font-size: 1rem;  font-weight: 600;  color: hsl(var(--admin-text-primary));  margin-bottom: 0.5rem;}.admin-empty-state-description {  font-size: 0.875rem;  color: hsl(var(--admin-text-secondary));  max-width: 24rem;}/* --- Admin Error State --- */.admin-error-state {  display: flex;  align-items: flex-start;  gap: 0.75rem;  padding: 1rem 1.25rem;  border-radius: 0.75rem;  background-color: hsl(0 84% 60% / 0.06);  border: 1px solid hsl(0 84% 60% / 0.15);  color: hsl(0 84% 45%);}.admin-error-state-icon {  width: 1.25rem;  height: 1.25rem;  flex-shrink: 0;  margin-top: 0.125rem;}/* --- Admin Form Section --- */.admin-form-section {  padding: 1.25rem;  border-radius: 0.75rem;  background-color: hsl(var(--admin-surface));  border: 1px solid hsl(var(--admin-border));  margin-bottom: 1rem;}.admin-form-section-title {  font-size: 0.9375rem;  font-weight: 600;  color: hsl(var(--admin-text-primary));  margin-bottom: 1rem;  padding-bottom: 0.5rem;  border-bottom: 1px solid hsl(var(--admin-border-subtle));}.admin-form-label {  display: block;  font-size: 0.8125rem;  font-weight: 500;  color: hsl(var(--admin-text-primary));  margin-bottom: 0.375rem;}.admin-form-helper {  font-size: 0.75rem;  color: hsl(var(--admin-text-muted));  margin-top: 0.25rem;}.admin-form-required {  color: hsl(0 84% 55%);  margin-left: 0.125rem;}/* --- Admin Button Enhancements --- */.admin-btn {  display: inline-flex;  align-items: center;  justify-content: center;  gap: 0.5rem;  padding: 0.5rem 1rem;  border-radius: 0.5rem;  font-size: 0.8125rem;  font-weight: 500;  transition: all 0.15s ease;  border: 1px solid transparent;  cursor: pointer;  outline: none;}.admin-btn:focus-visible {  outline: 2px solid hsl(var(--admin-accent));  outline-offset: 2px;}.admin-btn-primary {  background-color: hsl(var(--admin-accent));  color: white;  border-color: hsl(var(--admin-accent));}.admin-btn-primary:hover {  background-color: hsl(var(--admin-accent-muted));  border-color: hsl(var(--admin-accent-muted));}.admin-btn-secondary {  background-color: hsl(var(--admin-surface));  color: hsl(var(--admin-text-primary));  border-color: hsl(var(--admin-border));}.admin-btn-secondary:hover {  background-color: hsl(var(--admin-surface-sunken));}.admin-btn-ghost {  background: transparent;  color: hsl(var(--admin-text-secondary));}.admin-btn-ghost:hover {  background-color: hsl(var(--admin-surface-sunken));  color: hsl(var(--admin-text-primary));}/* Quick action buttons — refined, not gradient-heavy */.admin-btn-action {  padding: 0.5rem 1rem;  border-radius: 0.5rem;  font-size: 0.8125rem;  font-weight: 600;  color: white;  border: none;  cursor: pointer;  transition: all 0.2s ease;  display: inline-flex;  align-items: center;  gap: 0.375rem;}.admin-btn-action:focus-visible {  outline: 2px solid hsl(var(--admin-accent));  outline-offset: 2px;}.admin-btn-action--emerald {  background-color: hsl(var(--admin-accent));}.admin-btn-action--emerald:hover {  background-color: hsl(var(--admin-accent-muted));}.admin-btn-action--cyan {  background-color: hsl(var(--admin-accent-cyan));}.admin-btn-action--cyan:hover {  background-color: hsl(var(--admin-accent-cyan) / 0.85);}.admin-btn-action--amber {  background-color: hsl(var(--admin-accent-amber));  color: hsl(220 15% 10%);}.admin-btn-action--amber:hover {  background-color: hsl(var(--admin-accent-amber) / 0.85);}/* --- Sub-tab Segmented Control --- */.admin-segmented-control {  display: inline-flex;  background-color: hsl(var(--admin-surface-sunken));  padding: 0.25rem;  border-radius: 9999px;  border: 1px solid hsl(var(--admin-border-subtle));}.admin-segmented-control-item {  display: inline-flex;  align-items: center;  gap: 0.375rem;  padding: 0.5rem 1.25rem;  border-radius: 9999px;  font-size: 0.8125rem;  font-weight: 500;  color: hsl(var(--admin-text-secondary));  background: transparent;  border: none;  cursor: pointer;  transition: all 0.2s ease;  outline: none;}.admin-segmented-control-item:hover {  color: hsl(var(--admin-text-primary));}.admin-segmented-control-item.active,.admin-segmented-control-item[data-state="active"] {  background-color: hsl(var(--admin-accent));  color: white;  box-shadow: 0 1px 4px hsl(var(--admin-glow) / 0.2);}.admin-segmented-control-item:focus-visible {  outline: 2px solid hsl(var(--admin-accent));  outline-offset: 2px;}/* --- Admin Panel Header (Premium Editorial Surface) --- */.admin-panel-header {  position: relative;  display: flex;  flex-direction: column;  gap: 1rem;  padding: 1.5rem;  border-radius: 0.875rem;  background-color: hsl(var(--admin-surface));  border: 1px solid hsl(var(--admin-border));  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06),              0 1px 2px hsl(var(--admin-shadow-color) / 0.03);  overflow: hidden;}.admin-panel-header::before {  content: '';  position: absolute;  top: 0;  left: 0;  right: 0;  height: 3px;  background: linear-gradient(    90deg,    hsl(var(--admin-accent) / 0.9),    hsl(var(--admin-accent-cyan) / 0.5),    hsl(var(--admin-accent-violet) / 0.3)  );  border-radius: 0.875rem 0.875rem 0 0;}@media (min-width: 768px) {  .admin-panel-header {    flex-direction: row;    align-items: center;    justify-content: space-between;    padding: 1.25rem 1.75rem;  }}.admin-panel-header-icon {  display: flex;  align-items: center;  justify-content: center;  width: 2.75rem;  height: 2.75rem;  border-radius: 0.625rem;  background-color: hsl(var(--admin-accent) / 0.08);  color: hsl(var(--admin-accent));  flex-shrink: 0;  transition: background-color 0.2s ease;}.admin-panel-header-icon svg {  width: 1.25rem;  height: 1.25rem;}.admin-panel-header-text h2 {  font-size: 1.25rem;  font-weight: 700;  color: hsl(var(--admin-text-primary));  line-height: 1.3;  letter-spacing: -0.01em;  margin: 0;}.admin-panel-header-text p {  font-size: 0.8125rem;  color: hsl(var(--admin-text-secondary));  margin: 0.25rem 0 0 0;  line-height: 1.5;}.admin-panel-header-actions {  display: flex;  flex-wrap: wrap;  align-items: center;  gap: 0.5rem;  flex-shrink: 0;}/* --- Admin Action Button Group (Import/Export cluster) --- */.admin-action-cluster {  display: inline-flex;  align-items: center;  padding: 0.1875rem;  border-radius: 0.5rem;  background-color: hsl(var(--admin-surface-sunken));  border: 1px solid hsl(var(--admin-border-subtle));  gap: 0.125rem;}.admin-action-cluster-btn {  display: inline-flex;  align-items: center;  gap: 0.375rem;  padding: 0.375rem 0.75rem;  border-radius: 0.375rem;  font-size: 0.75rem;  font-weight: 500;  color: hsl(var(--admin-text-secondary));  background: transparent;  border: none;  cursor: pointer;  transition: all 0.15s ease;  white-space: nowrap;  outline: none;}.admin-action-cluster-btn:hover {  background-color: hsl(var(--admin-surface));  color: hsl(var(--admin-text-primary));  box-shadow: 0 1px 2px hsl(var(--admin-shadow-color) / 0.06);}.admin-action-cluster-btn:focus-visible {  outline: 2px solid hsl(var(--admin-accent));  outline-offset: 1px;}/* Primary action button within panel header */.admin-panel-primary-btn {  display: inline-flex;  align-items: center;  gap: 0.5rem;  padding: 0.5rem 1rem;  border-radius: 0.5rem;  font-size: 0.8125rem;  font-weight: 600;  color: white;  background-color: hsl(var(--admin-accent));  border: none;  cursor: pointer;  transition: all 0.2s ease;  box-shadow: 0 1px 3px hsl(var(--admin-accent) / 0.25);  outline: none;}.admin-panel-primary-btn:hover {  background-color: hsl(var(--admin-accent-muted));  box-shadow: 0 2px 8px hsl(var(--admin-accent) / 0.3);  transform: translateY(-0.5px);}.admin-panel-primary-btn:focus-visible {  outline: 2px solid hsl(var(--admin-accent));  outline-offset: 2px;}/* --- Admin Filter Bar (Premium Search + Filter) --- */.admin-filter-bar {  display: flex;  flex-direction: column;  gap: 0.75rem;  padding: 1rem 1.25rem;  border-radius: 0.75rem;  background-color: hsl(var(--admin-surface));  border: 1px solid hsl(var(--admin-border-subtle));  margin-top: 1rem;  margin-bottom: 1rem;}@media (min-width: 768px) {  .admin-filter-bar {    flex-direction: row;    align-items: center;    gap: 0.75rem;  }}.admin-filter-bar .admin-search-input {  position: relative;  flex: 1;  min-width: 0;}.admin-filter-bar .admin-search-input input {  width: 100%;  padding: 0.5rem 0.75rem 0.5rem 2.25rem;  border-radius: 0.5rem;  border: 1px solid hsl(var(--admin-border));  background-color: hsl(var(--admin-surface-sunken) / 0.5);  font-size: 0.8125rem;  color: hsl(var(--admin-text-primary));  transition: all 0.2s ease;  outline: none;}.admin-filter-bar .admin-search-input input:focus {  border-color: hsl(var(--admin-accent) / 0.5);  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.08);  background-color: hsl(var(--admin-surface));}.admin-filter-bar .admin-search-input input::placeholder {  color: hsl(var(--admin-text-muted));}.admin-filter-bar .admin-search-input svg {  position: absolute;  left: 0.75rem;  top: 50%;  transform: translateY(-50%);  width: 1rem;  height: 1rem;  color: hsl(var(--admin-text-muted));  pointer-events: none;}.admin-filter-selects {  display: grid;  grid-template-columns: repeat(3, 1fr);  gap: 0.5rem;  width: 100%;}@media (min-width: 768px) {  .admin-filter-selects {    width: auto;    min-width: 24rem;  }}/* --- Admin Premium Table Shell --- */.admin-table-shell {  position: relative;  border-radius: 0.75rem;  border: 1px solid hsl(var(--admin-border));  background-color: hsl(var(--admin-surface));  overflow: hidden;  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.05);}.admin-table-scroll {  overflow: auto;  max-height: 65vh;}.admin-table-shell table {  width: 100%;  border-collapse: collapse;  font-size: 0.875rem;}.admin-table-shell thead {  position: sticky;  top: 0;  z-index: 10;}.admin-table-shell thead th {  padding: 0.75rem 1rem;  font-size: 0.6875rem;  font-weight: 700;  text-transform: uppercase;  letter-spacing: 0.06em;  color: hsl(var(--admin-text-muted));  text-align: left;  background-color: hsl(var(--admin-surface-sunken));  border-bottom: 1px solid hsl(var(--admin-border));  white-space: nowrap;  backdrop-filter: blur(8px);  -webkit-backdrop-filter: blur(8px);}.admin-table-shell thead th:hover {  color: hsl(var(--admin-text-primary));}.admin-table-shell tbody tr {  border-bottom: 1px solid hsl(var(--admin-border-subtle));  transition: background-color 0.15s ease;}.admin-table-shell tbody tr:last-child {  border-bottom: none;}.admin-table-shell tbody tr:hover {  background-color: hsl(var(--admin-accent-soft) / 0.5);}.admin-table-shell tbody td {  padding: 0.625rem 1rem;  color: hsl(var(--admin-text-primary));  vertical-align: middle;}/* Loading overlay for table */.admin-table-loading {  position: absolute;  inset: 0;  z-index: 20;  display: flex;  flex-direction: column;  align-items: center;  justify-content: center;  background-color: hsl(var(--admin-surface) / 0.7);  backdrop-filter: blur(4px);  -webkit-backdrop-filter: blur(4px);}.admin-table-loading-spinner {  width: 2rem;  height: 2rem;  border: 2px solid hsl(var(--admin-border));  border-top-color: hsl(var(--admin-accent));  border-radius: 9999px;  animation: admin-spin 0.8s linear infinite;  margin-bottom: 0.75rem;}@keyframes admin-spin {  to { transform: rotate(360deg); }}.admin-table-loading p {  font-size: 0.8125rem;  color: hsl(var(--admin-text-secondary));  font-weight: 500;}/* --- Admin Edit Form Shell (Premium Dialog) --- */.admin-edit-shell {  display: flex;  flex-direction: column;  height: 100%;  overflow: hidden;}.admin-edit-body {  flex: 1;  overflow-y: auto;  padding: 1.5rem;  display: flex;  flex-direction: column;  gap: 1.5rem;}.admin-edit-section {  padding: 1.25rem;  border-radius: 0.75rem;  background-color: hsl(var(--admin-surface-sunken) / 0.4);  border: 1px solid hsl(var(--admin-border-subtle));}.admin-edit-section-header {  display: flex;  align-items: center;  gap: 0.5rem;  font-size: 0.9375rem;  font-weight: 600;  color: hsl(var(--admin-text-primary));  padding-bottom: 0.75rem;  margin-bottom: 1rem;  border-bottom: 1px solid hsl(var(--admin-border-subtle));}.admin-edit-section-header svg {  width: 1.125rem;  height: 1.125rem;  color: hsl(var(--admin-accent));  flex-shrink: 0;}.admin-edit-field-grid {  display: grid;  grid-template-columns: 1fr;  gap: 1rem;}@media (min-width: 768px) {  .admin-edit-field-grid {    grid-template-columns: 1fr 1fr;  }}.admin-edit-field {  display: flex;  flex-direction: column;  gap: 0.375rem;}.admin-edit-field label {  font-size: 0.75rem;  font-weight: 600;  text-transform: uppercase;  letter-spacing: 0.04em;  color: hsl(var(--admin-text-muted));}.admin-edit-field-full {  grid-column: 1 / -1;}/* Photo upload area */.admin-edit-photo-area {  display: flex;  flex-direction: column;  align-items: center;  gap: 1rem;  padding: 1.25rem;  border-radius: 0.75rem;  background-color: hsl(var(--admin-surface-sunken) / 0.3);  border: 1px dashed hsl(var(--admin-border));  transition: border-color 0.2s ease;}@media (min-width: 640px) {  .admin-edit-photo-area {    flex-direction: row;    align-items: flex-start;  }}.admin-edit-photo-area:hover {  border-color: hsl(var(--admin-accent) / 0.3);}/* Login access card */.admin-edit-access-card {  padding: 1rem 1.25rem;  border-radius: 0.625rem;  background-color: hsl(var(--admin-accent-amber) / 0.06);  border: 1px solid hsl(var(--admin-accent-amber) / 0.15);}.admin-edit-access-card h4 {  font-size: 0.8125rem;  font-weight: 600;  display: flex;  align-items: center;  gap: 0.5rem;  color: hsl(var(--admin-accent-amber));  margin-bottom: 0.75rem;}.admin-edit-access-card h4 svg {  width: 1rem;  height: 1rem;}/* Form footer */.admin-edit-footer {  display: flex;  align-items: center;  justify-content: space-between;  padding: 1rem 1.5rem;  border-top: 1px solid hsl(var(--admin-border-subtle));  background-color: hsl(var(--admin-surface));  gap: 0.75rem;  flex-shrink: 0;}.admin-edit-footer-actions {  display: flex;  gap: 0.5rem;  margin-left: auto;}/* --- Bulk action bar (selection) --- */.admin-bulk-bar {  display: inline-flex;  align-items: center;  padding: 0.1875rem;  border-radius: 0.5rem;  background-color: hsl(var(--admin-surface-sunken));  border: 1px solid hsl(var(--admin-border-subtle));  gap: 0.0625rem;}.admin-bulk-btn {  display: inline-flex;  align-items: center;  gap: 0.25rem;  padding: 0.375rem 0.625rem;  border-radius: 0.375rem;  font-size: 0.75rem;  font-weight: 500;  background: transparent;  border: none;  cursor: pointer;  transition: all 0.15s ease;  white-space: nowrap;  outline: none;}.admin-bulk-btn--activate {  color: hsl(var(--admin-accent));}.admin-bulk-btn--activate:hover {  background-color: hsl(var(--admin-accent-soft));}.admin-bulk-btn--deactivate {  color: hsl(var(--admin-accent-amber));}.admin-bulk-btn--deactivate:hover {  background-color: hsl(var(--admin-accent-amber) / 0.1);}.admin-bulk-btn--delete {  color: hsl(0 84% 55%);}.admin-bulk-btn--delete:hover {  background-color: hsl(0 84% 60% / 0.08);}/* --- Admin empty table state --- */.admin-table-empty {  display: flex;  flex-direction: column;  align-items: center;  justify-content: center;  padding: 3rem 2rem;  text-align: center;}.admin-table-empty svg {  width: 3rem;  height: 3rem;  color: hsl(var(--admin-text-muted) / 0.3);  margin-bottom: 0.75rem;}.admin-table-empty p {  font-size: 0.875rem;  color: hsl(var(--admin-text-muted));}/* --- Responsive Adjustments --- */@media (max-width: 767px) {  .admin-stat-card {    padding: 1rem 1.25rem;  }  .admin-stat-card-value {    font-size: 1.5rem;  }  .admin-nav-pill {    padding: 0.375rem 0.75rem;    font-size: 0.75rem;  }  .admin-toolbar {    flex-direction: column;    align-items: stretch;  }}/* --- Scrollbar for nav --- */.admin-nav-scroll::-webkit-scrollbar {  display: none;}.admin-nav-scroll {  -ms-overflow-style: none;  scrollbar-width: none;}/* --- Override shadcn CSS variables inside admin to remove green tint --- */.lpq-admin-surface {  --background: var(--admin-bg);  --foreground: var(--admin-text-primary);  --card: var(--admin-surface);  --card-foreground: var(--admin-text-primary);  --popover: 30 20% 97%;  --popover-foreground: var(--admin-text-primary);  --muted: var(--admin-surface-sunken);  --muted-foreground: var(--admin-text-muted);  --border: var(--admin-border);  --input: var(--admin-border);  --ring: 152 45% 42%;  --accent: 152 58% 37%;  --accent-foreground: 0 0% 100%;}.lpq-admin-surface .dark,.dark .lpq-admin-surface {  --background: var(--admin-bg);  --foreground: var(--admin-text-primary);  --card: var(--admin-surface);  --card-foreground: var(--admin-text-primary);  --popover: 222 20% 12%;  --popover-foreground: 30 30% 92%;  --muted: var(--admin-surface-sunken);  --muted-foreground: var(--admin-text-muted);  --border: var(--admin-border);  --input: var(--admin-border);  --ring: 152 45% 42%;  --accent: 152 45% 42%;  --accent-foreground: 0 0% 100%;}/* --- White-field input style for admin (inspired by TV Settings Kuota & Pendaftaran) --- */.lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),.lpq-admin-surface textarea,.lpq-admin-surface select {  background-color: hsl(0 0% 100%) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(var(--admin-text-primary)) !important;  transition: border-color 0.2s ease, box-shadow 0.2s ease;}.dark .lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),.dark .lpq-admin-surface textarea,.dark .lpq-admin-surface select {  background-color: hsl(222 20% 10%) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(30 30% 94%) !important;}.lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,.lpq-admin-surface textarea:focus,.lpq-admin-surface select:focus {  border-color: hsl(var(--admin-accent) / 0.5) !important;  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.1) !important;}.dark .lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,.dark .lpq-admin-surface textarea:focus,.dark .lpq-admin-surface select:focus {  border-color: hsl(var(--admin-accent) / 0.5) !important;  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.12) !important;}/* Override shadcn SelectTrigger inside admin — remove green tint */.lpq-admin-surface button[role="combobox"],.lpq-admin-surface [data-radix-select-trigger],.lpq-admin-surface [data-slot="select-trigger"] {  background-color: hsl(30 20% 97%) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(var(--admin-text-primary)) !important;  --ring: var(--admin-accent) !important;}.dark .lpq-admin-surface button[role="combobox"],.dark .lpq-admin-surface [data-radix-select-trigger],.dark .lpq-admin-surface [data-slot="select-trigger"] {  background-color: hsl(222 20% 10%) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(30 30% 94%) !important;}/* Override select trigger focus state to use admin accent instead of green */.lpq-admin-surface button[role="combobox"]:focus,.lpq-admin-surface button[role="combobox"]:focus-visible,.lpq-admin-surface [data-radix-select-trigger]:focus,.lpq-admin-surface [data-radix-select-trigger]:focus-visible {  border-color: hsl(var(--admin-accent) / 0.5) !important;  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.1) !important;  outline: none !important;}/* Override shadcn Card inside admin to remove green */.lpq-admin-surface [data-slot="card"],.lpq-admin-surface .admin-card {  background-color: hsl(var(--admin-surface)) !important;  border-color: hsl(var(--admin-border)) !important;}/* Override shadcn Dialog inside admin to remove green tint */.lpq-admin-surface [data-radix-dialog-overlay] {  background-color: rgba(0, 0, 0, 0.6) !important;}.lpq-admin-surface [data-radix-dialog-content],.lpq-admin-surface [role="dialog"] {  background-color: hsl(var(--admin-surface)) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(var(--admin-text-primary)) !important;}.dark .lpq-admin-surface [data-radix-dialog-content],.dark .lpq-admin-surface [role="dialog"] {  background-color: hsl(var(--admin-surface)) !important;  border-color: hsl(var(--admin-border)) !important;}/* Override shadcn Popover/SelectContent inside admin */.lpq-admin-surface [data-radix-popper-content-wrapper],.lpq-admin-surface [data-radix-select-content],.lpq-admin-surface [role="listbox"],.lpq-admin-surface [role="dialog"] [data-radix-select-content],.lpq-admin-surface [role="dialog"] [data-radix-popper-content-wrapper],.lpq-admin-surface [role="dialog"] [data-radix-dropdown-menu-content] {  background-color: hsl(30 20% 97%) !important;  border-color: hsl(var(--admin-border)) !important;}.dark .lpq-admin-surface [data-radix-popper-content-wrapper],.dark .lpq-admin-surface [data-radix-select-content],.dark .lpq-admin-surface [role="listbox"],.dark .lpq-admin-surface [role="dialog"] [data-radix-select-content],.dark .lpq-admin-surface [role="dialog"] [data-radix-popper-content-wrapper],.dark .lpq-admin-surface [role="dialog"] [data-radix-dropdown-menu-content] {  background-color: hsl(222 20% 12%) !important;  border-color: hsl(222 18% 20%) !important;}.dark .lpq-admin-surface [data-radix-select-item],.dark .lpq-admin-surface [role="option"] {  color: hsl(30 20% 82%) !important;}.dark .lpq-admin-surface [data-radix-select-item]:hover,.dark .lpq-admin-surface [data-radix-select-item][data-highlighted],.dark .lpq-admin-surface [role="option"]:hover {  background-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 96%) !important;}/* Override highlighted/selected item inside select to remove green accent */.lpq-admin-surface [data-radix-select-item][data-highlighted] {  background-color: hsl(var(--admin-accent) / 0.1) !important;  color: hsl(var(--admin-text-primary)) !important;}.lpq-admin-surface [data-radix-select-item][data-state="checked"] {  color: hsl(var(--admin-accent)) !important;}/* Override shadcn TabsList inside admin */.lpq-admin-surface [role="tablist"] {  background-color: hsl(var(--admin-surface-sunken)) !important;}.dark .lpq-admin-surface [role="tablist"] {  background-color: hsl(222 25% 10%) !important;}.lpq-admin-surface [role="tab"][data-state="active"],.lpq-admin-surface [role="tab"][data-state="active"]:hover {  background-color: hsl(var(--admin-surface)) !important;  color: hsl(var(--admin-text-primary)) !important;  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.1) !important;}.dark .lpq-admin-surface [role="tab"][data-state="active"],.dark .lpq-admin-surface [role="tab"][data-state="active"]:hover {  background-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 94%) !important;}/* Override toast / sonner inside admin */.lpq-admin-surface [data-sonner-toast],.lpq-admin-surface [data-state="open"][data-sonner-toast] {  background-color: hsl(var(--admin-surface)) !important;  border-color: hsl(var(--admin-border)) !important;  color: hsl(var(--admin-text-primary)) !important;}/* Payment receipt footer — ensure buttons visible in dark mode */.lpq-admin-surface .bg-slate-50 {  background-color: hsl(var(--admin-surface-sunken)) !important;}.dark .lpq-admin-surface .bg-slate-50 {  background-color: hsl(222 25% 10%) !important;}.lpq-admin-surface .bg-slate-50 .border-t {  border-color: hsl(var(--admin-border)) !important;}/* Ensure dialog footer buttons are visible in dark mode */.lpq-admin-surface [role="dialog"] .flex.justify-center,.lpq-admin-surface [role="dialog"] .p-4.bg-slate-50 {  background-color: hsl(var(--admin-surface-sunken)) !important;  border-color: hsl(var(--admin-border)) !important;}.dark .lpq-admin-surface [role="dialog"] .flex.justify-center,.dark .lpq-admin-surface [role="dialog"] .p-4.bg-slate-50 {  background-color: hsl(222 22% 13%) !important;  border-color: hsl(var(--admin-border)) !important;}/* Override Badge inside admin for dark mode consistency */.dark .lpq-admin-surface .bg-green-50 {  background-color: hsl(152 45% 42% / 0.15) !important;}.dark .lpq-admin-surface .border-green-100,.dark .lpq-admin-surface .border-green-200 {  border-color: hsl(152 45% 42% / 0.3) !important;}.dark .lpq-admin-surface .text-green-600,.dark .lpq-admin-surface .text-green-800 {  color: hsl(152 50% 55%) !important;}.dark .lpq-admin-surface .text-green-700,.dark .lpq-admin-surface .text-green-900 {  color: hsl(152 50% 60%) !important;}.dark .lpq-admin-surface .hover\:bg-green-50:hover {  background-color: hsl(152 45% 42% / 0.15) !important;}/* --- Theme-aware Skeleton inside admin --- */.lpq-admin-surface .skeleton,.lpq-admin-surface [class*="Skeleton"],.lpq-admin-surface [data-slot="skeleton"] {  background-color: hsl(var(--admin-surface-sunken)) !important;  border-radius: 0.75rem;}.dark .lpq-admin-surface .skeleton,.dark .lpq-admin-surface [class*="Skeleton"],.dark .lpq-admin-surface [data-slot="skeleton"] {  background-color: hsl(var(--admin-surface-raised)) !important;}/* Shimmer skeleton animation for admin */@keyframes admin-skeleton-shimmer {  0% { background-position: 200% 0; }  100% { background-position: -200% 0; }}.lpq-admin-surface .admin-skeleton-shimmer {  background: linear-gradient(    90deg,    hsl(var(--admin-surface-sunken)) 25%,    hsl(var(--admin-surface-raised)) 37%,    hsl(var(--admin-surface-sunken)) 63%  );  background-size: 200% 100%;  animation: admin-skeleton-shimmer 1.8s ease-in-out infinite;}.dark .lpq-admin-surface .admin-skeleton-shimmer {  background: linear-gradient(    90deg,    hsl(var(--admin-surface-raised)) 25%,    hsl(222 18% 20%) 37%,    hsl(var(--admin-surface-raised)) 63%  );  background-size: 200% 100%;  animation: admin-skeleton-shimmer 1.8s ease-in-out infinite;}/* --- Premium Loading State for admin --- */@keyframes admin-loading-pulse {  0%, 100% { opacity: 1; }  50% { opacity: 0.5; }}@keyframes admin-loading-ring {  0% { transform: rotate(0deg); }  100% { transform: rotate(360deg); }}@keyframes admin-loading-fade-in {  from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: translateY(0); }}.admin-loading-container {  display: flex;  flex-direction: column;  align-items: center;  justify-content: center;  min-height: 60vh;  animation: admin-loading-fade-in 0.4s ease-out;}.admin-loading-spinner {  position: relative;  width: 3.5rem;  height: 3.5rem;  margin-bottom: 1.5rem;}.admin-loading-spinner-ring {  position: absolute;  inset: 0;  border-radius: 9999px;  border: 3px solid hsl(var(--admin-border));  border-top-color: hsl(var(--admin-accent));  animation: admin-loading-ring 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;}.admin-loading-spinner-ring--delay {  border-top-color: hsl(var(--admin-accent-cyan));  animation-delay: 0.15s;  opacity: 0.6;  inset: 4px;}.admin-loading-title {  font-size: 1.125rem;  font-weight: 600;  color: hsl(var(--admin-text-primary));  margin-bottom: 0.5rem;  letter-spacing: -0.01em;}.admin-loading-subtitle {  font-size: 0.8125rem;  color: hsl(var(--admin-text-muted));  margin-bottom: 1.25rem;}.admin-loading-bar-track {  width: 12rem;  height: 3px;  border-radius: 9999px;  background-color: hsl(var(--admin-surface-sunken));  overflow: hidden;}.admin-loading-bar-fill {  height: 100%;  border-radius: 9999px;  background: linear-gradient(    90deg,    hsl(var(--admin-accent)),    hsl(var(--admin-accent-cyan))  );  animation: admin-loading-bar 1.5s ease-in-out infinite;}@keyframes admin-loading-bar {  0% { width: 0%; margin-left: 0%; }  50% { width: 60%; margin-left: 20%; }  100% { width: 0%; margin-left: 100%; }}/* ============================================================   BODY-SCOPED PORTAL OVERRIDES   Radix portals render under <body>, escaping .lpq-admin-surface.   The lpq-admin-context class is added to <body> by useAdminBodyClass hook   when an admin page is active. This ensures dropdown styling only applies   in admin context, never on public pages.   ============================================================ *//* --- Body-scoped Select Trigger overrides — covers bg-background, bg-primary, bg-white leaks --- */body.lpq-admin-context [data-radix-select-trigger],body.lpq-admin-context button[role="combobox"] {  background-color: hsl(30 20% 97%) !important;  border-color: hsl(30 12% 85%) !important;  color: hsl(220 15% 15%) !important;}.dark body.lpq-admin-context [data-radix-select-trigger],.dark body.lpq-admin-context button[role="combobox"] {  background-color: hsl(222 20% 10%) !important;  border-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 94%) !important;}body.lpq-admin-context [data-radix-select-trigger]:focus,body.lpq-admin-context [data-radix-select-trigger]:focus-visible,body.lpq-admin-context button[role="combobox"]:focus,body.lpq-admin-context button[role="combobox"]:focus-visible {  border-color: hsl(152 58% 37% / 0.5) !important;  box-shadow: 0 0 0 3px hsl(152 58% 37% / 0.1) !important;  outline: none !important;}.dark body.lpq-admin-context [data-radix-select-trigger]:focus,.dark body.lpq-admin-context [data-radix-select-trigger]:focus-visible,.dark body.lpq-admin-context button[role="combobox"]:focus,.dark body.lpq-admin-context button[role="combobox"]:focus-visible {  border-color: hsl(152 45% 42% / 0.5) !important;  box-shadow: 0 0 0 3px hsl(152 45% 42% / 0.12) !important;  outline: none !important;}/* Override explicit bg-white on triggers in admin context */body.lpq-admin-context .bg-white[class*="SelectTrigger"],body.lpq-admin-context [data-radix-select-trigger].bg-white {  background-color: hsl(30 20% 97%) !important;}.dark body.lpq-admin-context .bg-white[class*="SelectTrigger"],.dark body.lpq-admin-context [data-radix-select-trigger].bg-white,.dark body.lpq-admin-context [data-radix-select-trigger].bg-black,.dark body.lpq-admin-context [data-radix-select-trigger][class*="dark:bg-"] {  background-color: hsl(222 20% 10%) !important;}/* Neutralize bg-primary on trigger buttons in admin (e.g. non-semantic primary bg) */body.lpq-admin-context [data-radix-select-trigger].bg-primary,body.lpq-admin-context button[role="combobox"].bg-primary {  background-color: hsl(30 20% 97%) !important;}.dark body.lpq-admin-context [data-radix-select-trigger].bg-primary,.dark body.lpq-admin-context button[role="combobox"].bg-primary {  background-color: hsl(222 20% 10%) !important;}/* --- Portal Dropdown Content — Light Mode --- */body.lpq-admin-context [data-radix-select-content],body.lpq-admin-context [role="listbox"],body.lpq-admin-context [data-radix-popper-content-wrapper],body.lpq-admin-context [data-radix-dropdown-menu-content],body.lpq-admin-context [data-radix-dropdown-menu-sub-content],body.lpq-admin-context [data-radix-popover-content] {  background-color: hsl(30 20% 97%) !important;  border-color: hsl(30 12% 85%) !important;  color: hsl(220 15% 15%) !important;  box-shadow: 0 10px 40px hsl(220 15% 60% / 0.12), 0 2px 8px hsl(220 15% 60% / 0.08) !important;}/* --- Portal Dropdown Content — Dark Mode --- */.dark body.lpq-admin-context [data-radix-select-content],.dark body.lpq-admin-context [role="listbox"],.dark body.lpq-admin-context [data-radix-popper-content-wrapper],.dark body.lpq-admin-context [data-radix-dropdown-menu-content],.dark body.lpq-admin-context [data-radix-dropdown-menu-sub-content],.dark body.lpq-admin-context [data-radix-popover-content] {  background-color: hsl(222 20% 12%) !important;  border-color: hsl(222 18% 20%) !important;  color: hsl(30 30% 92%) !important;  box-shadow: 0 10px 40px hsl(222 30% 3% / 0.5), 0 2px 8px hsl(222 30% 3% / 0.3) !important;}/* --- Portal Select Item — Light Mode --- */body.lpq-admin-context [data-radix-select-item],body.lpq-admin-context [role="option"],body.lpq-admin-context [data-radix-dropdown-menu-item],body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item],body.lpq-admin-context [data-radix-dropdown-menu-radio-item],body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger] {  color: hsl(220 15% 15%);  border-radius: 0.375rem;  transition: background-color 0.15s ease, color 0.15s ease;}body.lpq-admin-context [data-radix-select-item][data-highlighted],body.lpq-admin-context [role="option"]:hover,body.lpq-admin-context [data-radix-dropdown-menu-item][data-highlighted],body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger][data-highlighted],body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item][data-highlighted],body.lpq-admin-context [data-radix-dropdown-menu-radio-item][data-highlighted] {  background-color: hsl(152 58% 37% / 0.1) !important;  color: hsl(220 15% 15%) !important;  outline: none;}body.lpq-admin-context [data-radix-select-item][data-state="checked"],body.lpq-admin-context [role="option"][aria-selected="true"] {  color: hsl(152 58% 37%) !important;  font-weight: 600;}body.lpq-admin-context [data-radix-select-item][data-disabled],body.lpq-admin-context [data-radix-dropdown-menu-item][data-disabled] {  opacity: 0.4;  pointer-events: none;}/* --- Portal Select Item — Dark Mode --- */.dark body.lpq-admin-context [data-radix-select-item],.dark body.lpq-admin-context [role="option"],.dark body.lpq-admin-context [data-radix-dropdown-menu-item],.dark body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item],.dark body.lpq-admin-context [data-radix-dropdown-menu-radio-item],.dark body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger] {  color: hsl(30 20% 82%) !important;  border-radius: 0.375rem;}.dark body.lpq-admin-context [data-radix-select-item][data-highlighted],.dark body.lpq-admin-context [role="option"]:hover,.dark body.lpq-admin-context [data-radix-dropdown-menu-item][data-highlighted],.dark body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger][data-highlighted],.dark body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item][data-highlighted],.dark body.lpq-admin-context [data-radix-dropdown-menu-radio-item][data-highlighted] {  background-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 96%) !important;}.dark body.lpq-admin-context [data-radix-select-item][data-state="checked"],.dark body.lpq-admin-context [role="option"][aria-selected="true"] {  color: hsl(152 45% 55%) !important;  font-weight: 600;}/* --- Portal scroll buttons --- */body.lpq-admin-context [data-radix-select-scroll-up-button],body.lpq-admin-context [data-radix-select-scroll-down-button] {  color: hsl(220 6% 60%);}.dark body.lpq-admin-context [data-radix-select-scroll-up-button],.dark body.lpq-admin-context [data-radix-select-scroll-down-button] {  color: hsl(222 10% 45%);}/* --- Portal dropdown labels --- */body.lpq-admin-context [data-radix-dropdown-menu-label],body.lpq-admin-context [data-radix-select-group] [data-radix-select-label] {  color: hsl(220 6% 60%);}.dark body.lpq-admin-context [data-radix-dropdown-menu-label],.dark body.lpq-admin-context [data-radix-select-group] [data-radix-select-label] {  color: hsl(222 10% 45%) !important;}/* --- Command palette portal (if used) --- */body.lpq-admin-context [cmdk-root],body.lpq-admin-context [cmdk-list] {  background-color: hsl(30 20% 97%) !important;  color: hsl(220 15% 15%) !important;}body.lpq-admin-context [cmdk-item][data-selected="true"] {  background-color: hsl(152 58% 37% / 0.1) !important;}.dark body.lpq-admin-context [cmdk-root],.dark body.lpq-admin-context [cmdk-list] {  background-color: hsl(222 20% 12%) !important;  color: hsl(30 30% 92%) !important;}.dark body.lpq-admin-context [cmdk-item][data-selected="true"] {  background-color: hsl(222 18% 18%) !important;  color: hsl(30 30% 96%) !important;}/* ============================================================   TV DISPLAY SETTINGS — Leaderboard dark mode surfaces   Targets the Leaderboard subtab inside Pengaturan TV.   ============================================================ *//* Category panel wrapper (e.g. "Santri Paling Disiplin") */.dark .lpq-admin-surface .bg-slate-50\/50,.dark .lpq-admin-surface [class*="bg-slate-50"] {  background-color: hsl(var(--admin-surface-raised)) !important;  border-color: hsl(var(--admin-border)) !important;}/* Session cards (Pagi/Siang/Sore) inside Leaderboard */.dark .lpq-admin-surface .bg-white {  background-color: hsl(var(--admin-surface-sunken)) !important;  border-color: hsl(var(--admin-border)) !important;  box-shadow: 0 1px 3px hsl(222 30% 3% / 0.2) !important;}/* Info banners (blue-50) in TV Settings Leaderboard */.dark .lpq-admin-surface .bg-blue-50 {  background-color: hsl(222 30% 14%) !important;  border-color: hsl(222 30% 22%) !important;}.dark .lpq-admin-surface .bg-blue-50 .text-blue-700 {  color: hsl(200 80% 70%) !important;}/* --- Motion Preferences --- */@media (prefers-reduced-motion: reduce) {  .admin-card,  .admin-stat-card,  .admin-nav-pill,  .admin-btn,  .admin-btn-action,  .admin-segmented-control-item {    transition: none !important;  }    .admin-card:hover,  .admin-stat-card:hover {    transform: none !important;  }  .admin-loading-spinner-ring,  .admin-loading-spinner-ring--delay,  .admin-loading-bar-fill,  .admin-skeleton-shimmer {    animation: none !important;  }}
+/* ============================================================
+   Admin Dashboard — Premium Institutional Command Center
+   Design tokens and component styles for admin dashboard.
+   ============================================================ */
+
+/* --- Admin Design Tokens --- */
+:root {
+  /* Light theme admin tokens */
+  --admin-bg: 30 33% 96%;               /* warm ivory */
+  --admin-surface: 0 0% 100%;           /* white-cream */
+  --admin-surface-raised: 0 0% 100%;    /* elevated white */
+  --admin-surface-sunken: 30 20% 93%;   /* light stone */
+  --admin-border: 30 12% 85%;           /* warm light gray */
+  --admin-border-subtle: 30 10% 90%;    /* very subtle border */
+  --admin-text-primary: 220 15% 15%;    /* charcoal */
+  --admin-text-secondary: 220 8% 40%;   /* warm gray */
+  --admin-text-muted: 220 6% 60%;       /* muted gray */
+
+  --admin-accent: 152 58% 37%;          /* emerald */
+  --admin-accent-muted: 152 40% 45%;    /* muted emerald */
+  --admin-accent-soft: 152 40% 94%;     /* very light emerald */
+  --admin-accent-cyan: 199 89% 48%;     /* cyan accent */
+  --admin-accent-violet: 265 70% 55%;   /* violet accent */
+  --admin-accent-amber: 38 92% 50%;     /* warm amber */
+
+  --admin-nav-active-bg: 152 58% 37%;   /* emerald active */
+  --admin-nav-active-fg: 0 0% 100%;     /* white */
+  --admin-nav-hover-bg: 152 30% 92%;    /* light emerald hover */
+  --admin-nav-indicator: 152 58% 37%;   /* emerald indicator */
+
+  --admin-glow: 152 58% 37%;
+  --admin-shadow-color: 220 15% 60%;
+}
+
+.dark {
+  /* Dark theme admin tokens */
+  --admin-bg: 222 30% 8%;               /* midnight navy */
+  --admin-surface: 222 20% 12%;         /* charcoal */
+  --admin-surface-raised: 222 18% 15%;  /* lighter charcoal */
+  --admin-surface-sunken: 222 35% 6%;   /* deeper navy */
+  --admin-border: 222 18% 18%;          /* subtle navy border */
+  --admin-border-subtle: 222 15% 15%;   /* very subtle */
+  --admin-text-primary: 30 30% 92%;     /* warm ivory */
+  --admin-text-secondary: 30 15% 65%;   /* muted warm gray */
+  --admin-text-muted: 222 10% 45%;      /* muted */
+
+  --admin-accent: 152 45% 42%;          /* muted emerald */
+  --admin-accent-muted: 152 35% 35%;    /* darker muted emerald */
+  --admin-accent-soft: 152 30% 14%;     /* subtle emerald bg */
+  --admin-accent-cyan: 199 80% 55%;
+  --admin-accent-violet: 265 60% 60%;
+  --admin-accent-amber: 38 85% 55%;
+
+  --admin-nav-active-bg: 152 45% 42%;
+  --admin-nav-active-fg: 0 0% 100%;
+  --admin-nav-hover-bg: 152 25% 18%;
+  --admin-nav-indicator: 152 45% 42%;
+
+  --admin-glow: 152 45% 42%;
+  --admin-shadow-color: 222 30% 5%;
+}
+
+/* --- Admin Dashboard Surface --- */
+.lpq-admin-surface {
+  background-color: hsl(var(--admin-bg));
+  color: hsl(var(--admin-text-primary));
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark mode: transparent surface so SideRays animated background is visible */
+.dark .lpq-admin-surface {
+  background-color: transparent;
+}
+
+/* Override the global green body and bg-background in admin context */
+.dark body.lpq-admin-context {
+  background-color: hsl(222 30% 4%) !important;
+}
+
+.dark body.lpq-admin-context .bg-background,
+.dark body.lpq-admin-context .bg-background,
+.dark body.lpq-admin-context > #root > div {
+  background-color: transparent !important;
+}
+
+/* ============================================================
+   PORTAL DROPDOWN OVERRIDES — Covers all portal-rendered menus
+   These selectors target portal content that escapes .lpq-admin-surface
+   ============================================================ */
+
+/* --- Select Content (Portal) --- */
+.lpq-admin-surface [data-radix-select-viewport] + [data-radix-select-scroll-up-button],
+.lpq-admin-surface [data-radix-select-viewport] + [data-radix-select-scroll-down-button] {
+  color: hsl(var(--admin-text-muted));
+}
+
+/* --- Select Item — Light Mode --- */
+.lpq-admin-surface [data-radix-select-item] {
+  color: hsl(var(--admin-text-primary));
+  border-radius: 0.375rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lpq-admin-surface [data-radix-select-item][data-highlighted] {
+  background-color: hsl(var(--admin-accent) / 0.1);
+  color: hsl(var(--admin-text-primary));
+  outline: none;
+}
+
+.lpq-admin-surface [data-radix-select-item][data-state="checked"] {
+  color: hsl(var(--admin-accent));
+  font-weight: 600;
+}
+
+.lpq-admin-surface [data-radix-select-item][data-disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* --- DropdownMenuItem — Light Mode --- */
+.lpq-admin-surface [data-radix-dropdown-menu-item] {
+  border-radius: 0.375rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lpq-admin-surface [data-radix-dropdown-menu-item][data-highlighted] {
+  background-color: hsl(var(--admin-accent) / 0.1);
+  color: hsl(var(--admin-text-primary));
+  outline: none;
+}
+
+/* --- Popover Content — Light Mode --- */
+.lpq-admin-surface [data-radix-popper-content-wrapper] [data-radix-popover-content] {
+  background-color: hsl(0 0% 100%);
+  border-color: hsl(var(--admin-border));
+  color: hsl(var(--admin-text-primary));
+}
+
+/* --- Dark Mode — ALL Portal Dropdowns --- */
+.dark .lpq-admin-surface [data-radix-select-content],
+.dark .lpq-admin-surface [role="listbox"],
+.dark .lpq-admin-surface [data-radix-popper-content-wrapper],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-content],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-sub-content],
+.dark .lpq-admin-surface [data-radix-popover-content],
+.dark .lpq-admin-surface [data-radix-popper-content-wrapper] [data-radix-popover-content] {
+  background-color: hsl(222 20% 12%) !important;
+  border-color: hsl(222 18% 20%) !important;
+  color: hsl(30 30% 92%) !important;
+  box-shadow: 0 10px 40px hsl(222 30% 3% / 0.5), 0 2px 8px hsl(222 30% 3% / 0.3) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item],
+.dark .lpq-admin-surface [role="option"],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-item],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-checkbox-item],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-radio-item],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-sub-trigger] {
+  color: hsl(30 20% 82%) !important;
+  border-radius: 0.375rem;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item][data-highlighted],
+.dark .lpq-admin-surface [role="option"]:hover,
+.dark .lpq-admin-surface [data-radix-dropdown-menu-item][data-highlighted],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-sub-trigger][data-highlighted],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-checkbox-item][data-highlighted],
+.dark .lpq-admin-surface [data-radix-dropdown-menu-radio-item][data-highlighted] {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 96%) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item][data-state="checked"],
+.dark .lpq-admin-surface [role="option"][aria-selected="true"] {
+  color: hsl(152 45% 55%) !important;
+  font-weight: 600;
+}
+
+.dark .lpq-admin-surface [data-radix-dropdown-menu-label],
+.dark .lpq-admin-surface [data-radix-select-group] [data-radix-select-label] {
+  color: hsl(var(--admin-text-muted)) !important;
+}
+
+/* --- Light Mode — ALL Portal Dropdowns --- */
+.lpq-admin-surface [data-radix-select-content],
+.lpq-admin-surface [role="listbox"],
+.lpq-admin-surface [data-radix-popper-content-wrapper],
+.lpq-admin-surface [data-radix-dropdown-menu-content],
+.lpq-admin-surface [data-radix-dropdown-menu-sub-content],
+.lpq-admin-surface [data-radix-popover-content] {
+  background-color: hsl(30 20% 97%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+  box-shadow: 0 10px 40px hsl(220 15% 60% / 0.12), 0 2px 8px hsl(220 15% 60% / 0.08) !important;
+}
+
+/* --- Command Palette (if used) --- */
+.dark .lpq-admin-surface [cmdk-root],
+.dark .lpq-admin-surface [cmdk-list],
+.dark .lpq-admin-surface [cmdk-group] {
+  background-color: hsl(222 20% 12%) !important;
+  color: hsl(30 30% 92%) !important;
+}
+
+.dark .lpq-admin-surface [cmdk-item][data-selected="true"] {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 96%) !important;
+}
+
+.lpq-admin-surface [cmdk-root],
+.lpq-admin-surface [cmdk-list] {
+  background-color: hsl(30 20% 97%) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+.lpq-admin-surface [cmdk-item][data-selected="true"] {
+  background-color: hsl(var(--admin-accent) / 0.1) !important;
+}
+
+/* --- Admin Card (replaces heavy gradient cards) --- */
+.admin-card {
+  background-color: hsl(var(--admin-surface));
+  border: 1px solid hsl(var(--admin-border));
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.08),
+              0 1px 2px hsl(var(--admin-shadow-color) / 0.04);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-card:hover {
+  box-shadow: 0 4px 12px hsl(var(--admin-shadow-color) / 0.12),
+              0 2px 4px hsl(var(--admin-shadow-color) / 0.06);
+  border-color: hsl(var(--admin-border-subtle));
+}
+
+.admin-card-interactive:hover {
+  transform: translateY(-1px);
+}
+
+/* --- Admin Section --- */
+.admin-section {
+  margin-bottom: 1.5rem;
+}
+
+.admin-section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--admin-text-muted));
+  margin-bottom: 0.5rem;
+  padding-left: 0.125rem;
+}
+
+/* --- Admin Module Navigation — Two-Row Wrapping Pill Nav --- */
+.admin-module-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background-color: transparent;
+  padding: 0.75rem 0;
+  transition: background-color 0.3s ease;
+  display: flex;
+  justify-content: center;
+}
+
+.admin-module-nav > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 0.875rem;
+  background-color: hsl(var(--admin-surface));
+  border: 1px solid hsl(var(--admin-border-subtle));
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06),
+              0 1px 2px hsl(var(--admin-shadow-color) / 0.03);
+  overflow: visible;
+  max-width: 100%;
+}
+
+.dark .admin-module-nav > div {
+  background-color: hsl(var(--admin-surface-raised));
+  border-color: hsl(var(--admin-border));
+  box-shadow: 0 2px 8px hsl(222 30% 3% / 0.2),
+              0 1px 3px hsl(222 30% 3% / 0.12);
+}
+
+/* Mobile: allow horizontal scroll when space is tight */
+@media (max-width: 767px) {
+  .admin-module-nav > div {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 0.5rem 0.75rem;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    border-radius: 0.75rem;
+  }
+  .admin-module-nav > div::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.admin-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--admin-text-secondary));
+  background: transparent;
+  border: 1px solid hsl(var(--admin-border-subtle));
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.admin-nav-pill:hover {
+  color: hsl(var(--admin-text-primary));
+  background-color: hsl(var(--admin-nav-hover-bg));
+}
+
+.admin-nav-pill:focus-visible {
+  outline: 2px solid hsl(var(--admin-accent));
+  outline-offset: 2px;
+}
+
+.admin-nav-pill.active {
+  color: hsl(var(--admin-nav-active-fg));
+  background-color: hsl(var(--admin-nav-active-bg));
+  border-color: hsl(var(--admin-nav-active-bg));
+  box-shadow: 0 2px 8px hsl(var(--admin-glow) / 0.25);
+}
+
+.admin-nav-pill.active .admin-nav-pill-icon {
+  color: hsl(var(--admin-nav-active-fg));
+}
+
+.admin-nav-pill-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.admin-nav-pill:not(.active):hover .admin-nav-pill-icon {
+  transform: scale(1.1);
+}
+
+/* Nav group separator */
+.admin-nav-group-separator {
+  width: 1px;
+  height: 1.5rem;
+  background-color: hsl(var(--admin-border));
+  margin: 0 0.25rem;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Nav group label */
+.admin-nav-group-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: hsl(var(--admin-text-muted));
+  padding: 0 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* --- Admin Stat Card --- */
+.admin-stat-card {
+  position: relative;
+  overflow: visible;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  background-color: hsl(var(--admin-accent) / 0.04);
+  border: 1px solid hsl(var(--admin-accent) / 0.2);
+  box-shadow: 0 0 0 0 hsl(var(--admin-accent) / 0),
+              0 1px 3px hsl(var(--admin-shadow-color) / 0.06);
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+
+.admin-stat-card:hover {
+  box-shadow: 0 0 20px hsl(var(--admin-accent) / 0.12),
+              0 0 40px hsl(var(--admin-accent) / 0.06),
+              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
+  transform: translateY(-2px);
+  border-color: hsl(var(--admin-accent) / 0.35);
+}
+
+.admin-stat-card-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--admin-text-muted));
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-stat-card-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: hsl(var(--admin-text-primary));
+  line-height: 1.2;
+  font-family: 'Montserrat', sans-serif;
+}
+
+@media (min-width: 768px) {
+  .admin-stat-card-value {
+    font-size: 2rem;
+  }
+}
+
+/* Premium decorative icon — large, partially overflowing right/bottom edge */
+.admin-stat-card-icon {
+  color: hsl(var(--admin-accent) / 0.9);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  position: absolute;
+  right: -0.75rem;
+  bottom: -0.75rem;
+  width: 6.5rem;
+  height: 6.5rem;
+  opacity: 0.18;
+  flex-shrink: 0;
+  filter: blur(0px);
+}
+
+@media (min-width: 768px) {
+  .admin-stat-card-icon {
+    width: 8rem;
+    height: 8rem;
+    right: -1rem;
+    bottom: -1rem;
+    opacity: 0.2;
+  }
+}
+
+@media (min-width: 1280px) {
+  .admin-stat-card-icon {
+    width: 9rem;
+    height: 9rem;
+    right: -1.25rem;
+    bottom: -1.25rem;
+  }
+}
+
+.admin-stat-card:hover .admin-stat-card-icon {
+  opacity: 0.32;
+  transform: scale(1.05);
+}
+
+.admin-stat-card--accent .admin-stat-card-icon {
+  color: hsl(var(--admin-accent-cyan) / 0.9);
+}
+
+.admin-stat-card--accent:hover .admin-stat-card-icon {
+  opacity: 0.32;
+}
+
+.admin-stat-card--amber .admin-stat-card-icon {
+  color: hsl(var(--admin-accent-amber) / 0.9);
+}
+
+.admin-stat-card--amber:hover .admin-stat-card-icon {
+  opacity: 0.32;
+}
+
+/* Accent variants for stat cards */
+.admin-stat-card--accent {
+  background-color: hsl(var(--admin-accent-cyan) / 0.04);
+  border-color: hsl(var(--admin-accent-cyan) / 0.2);
+}
+
+.admin-stat-card--accent:hover {
+  box-shadow: 0 0 20px hsl(var(--admin-accent-cyan) / 0.12),
+              0 0 40px hsl(var(--admin-accent-cyan) / 0.06),
+              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
+  border-color: hsl(var(--admin-accent-cyan) / 0.35);
+}
+
+.admin-stat-card--amber {
+  background-color: hsl(var(--admin-accent-amber) / 0.04);
+  border-color: hsl(var(--admin-accent-amber) / 0.2);
+}
+
+.admin-stat-card--amber:hover {
+  box-shadow: 0 0 20px hsl(var(--admin-accent-amber) / 0.12),
+              0 0 40px hsl(var(--admin-accent-amber) / 0.06),
+              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
+  border-color: hsl(var(--admin-accent-amber) / 0.35);
+}
+
+/* Clickable stat card (e.g., Absensi Digital) */
+.admin-stat-card--clickable {
+  cursor: pointer;
+}
+
+.admin-stat-card--clickable:hover {
+  border-color: hsl(var(--admin-accent) / 0.4);
+}
+
+/* --- Admin Table Enhancements --- */
+.admin-table-container {
+  background-color: hsl(var(--admin-surface));
+  border: 1px solid hsl(var(--admin-border));
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06);
+}
+
+.admin-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table-container thead {
+  background-color: hsl(var(--admin-surface-sunken));
+}
+
+.admin-table-container thead th {
+  padding: 0.75rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--admin-text-muted));
+  text-align: left;
+  border-bottom: 1px solid hsl(var(--admin-border));
+  white-space: nowrap;
+}
+
+.admin-table-container tbody tr {
+  border-bottom: 1px solid hsl(var(--admin-border-subtle));
+  transition: background-color 0.15s ease;
+}
+
+.admin-table-container tbody tr:last-child {
+  border-bottom: none;
+}
+
+.admin-table-container tbody tr:nth-child(even) {
+  background-color: hsl(var(--admin-surface-sunken) / 0.3);
+}
+
+.admin-table-container tbody tr:hover {
+  background-color: hsl(var(--admin-accent-soft));
+}
+
+.admin-table-container tbody td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: hsl(var(--admin-text-primary));
+  vertical-align: middle;
+}
+
+/* --- Admin Status Badge --- */
+.admin-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.admin-status-badge--success {
+  background-color: hsl(var(--admin-accent-soft));
+  color: hsl(var(--admin-accent));
+}
+
+.admin-status-badge--warning {
+  background-color: hsl(var(--admin-accent-amber) / 0.12);
+  color: hsl(var(--admin-accent-amber));
+}
+
+.admin-status-badge--danger {
+  background-color: hsl(0 84% 60% / 0.1);
+  color: hsl(0 84% 55%);
+}
+
+.admin-status-badge--info {
+  background-color: hsl(var(--admin-accent-cyan) / 0.1);
+  color: hsl(var(--admin-accent-cyan));
+}
+
+.admin-status-badge--neutral {
+  background-color: hsl(var(--admin-surface-sunken));
+  color: hsl(var(--admin-text-secondary));
+}
+
+/* --- Admin Toolbar --- */
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.admin-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* --- Admin Empty State --- */
+.admin-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.admin-empty-state-icon {
+  width: 3rem;
+  height: 3rem;
+  color: hsl(var(--admin-text-muted));
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.admin-empty-state-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--admin-text-primary));
+  margin-bottom: 0.5rem;
+}
+
+.admin-empty-state-description {
+  font-size: 0.875rem;
+  color: hsl(var(--admin-text-secondary));
+  max-width: 24rem;
+}
+
+/* --- Admin Error State --- */
+.admin-error-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  background-color: hsl(0 84% 60% / 0.06);
+  border: 1px solid hsl(0 84% 60% / 0.15);
+  color: hsl(0 84% 45%);
+}
+
+.admin-error-state-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+/* --- Admin Form Section --- */
+.admin-form-section {
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background-color: hsl(var(--admin-surface));
+  border: 1px solid hsl(var(--admin-border));
+  margin-bottom: 1rem;
+}
+
+.admin-form-section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: hsl(var(--admin-text-primary));
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--admin-border-subtle));
+}
+
+.admin-form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--admin-text-primary));
+  margin-bottom: 0.375rem;
+}
+
+.admin-form-helper {
+  font-size: 0.75rem;
+  color: hsl(var(--admin-text-muted));
+  margin-top: 0.25rem;
+}
+
+.admin-form-required {
+  color: hsl(0 84% 55%);
+  margin-left: 0.125rem;
+}
+
+/* --- Admin Button Enhancements --- */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.admin-btn:focus-visible {
+  outline: 2px solid hsl(var(--admin-accent));
+  outline-offset: 2px;
+}
+
+.admin-btn-primary {
+  background-color: hsl(var(--admin-accent));
+  color: white;
+  border-color: hsl(var(--admin-accent));
+}
+
+.admin-btn-primary:hover {
+  background-color: hsl(var(--admin-accent-muted));
+  border-color: hsl(var(--admin-accent-muted));
+}
+
+.admin-btn-secondary {
+  background-color: hsl(var(--admin-surface));
+  color: hsl(var(--admin-text-primary));
+  border-color: hsl(var(--admin-border));
+}
+
+.admin-btn-secondary:hover {
+  background-color: hsl(var(--admin-surface-sunken));
+}
+
+.admin-btn-ghost {
+  background: transparent;
+  color: hsl(var(--admin-text-secondary));
+}
+
+.admin-btn-ghost:hover {
+  background-color: hsl(var(--admin-surface-sunken));
+  color: hsl(var(--admin-text-primary));
+}
+
+/* Quick action buttons — refined, not gradient-heavy */
+.admin-btn-action {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.admin-btn-action:focus-visible {
+  outline: 2px solid hsl(var(--admin-accent));
+  outline-offset: 2px;
+}
+
+.admin-btn-action--emerald {
+  background-color: hsl(var(--admin-accent));
+}
+
+.admin-btn-action--emerald:hover {
+  background-color: hsl(var(--admin-accent-muted));
+}
+
+.admin-btn-action--cyan {
+  background-color: hsl(var(--admin-accent-cyan));
+}
+
+.admin-btn-action--cyan:hover {
+  background-color: hsl(var(--admin-accent-cyan) / 0.85);
+}
+
+.admin-btn-action--amber {
+  background-color: hsl(var(--admin-accent-amber));
+  color: hsl(220 15% 10%);
+}
+
+.admin-btn-action--amber:hover {
+  background-color: hsl(var(--admin-accent-amber) / 0.85);
+}
+
+/* --- Sub-tab Segmented Control --- */
+.admin-segmented-control {
+  display: inline-flex;
+  background-color: hsl(var(--admin-surface-sunken));
+  padding: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--admin-border-subtle));
+}
+
+.admin-segmented-control-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--admin-text-secondary));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.admin-segmented-control-item:hover {
+  color: hsl(var(--admin-text-primary));
+}
+
+.admin-segmented-control-item.active,
+.admin-segmented-control-item[data-state="active"] {
+  background-color: hsl(var(--admin-accent));
+  color: white;
+  box-shadow: 0 1px 4px hsl(var(--admin-glow) / 0.2);
+}
+
+.admin-segmented-control-item:focus-visible {
+  outline: 2px solid hsl(var(--admin-accent));
+  outline-offset: 2px;
+}
+
+/* --- Admin Panel Header (Premium Editorial Surface) --- */
+.admin-panel-header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 0.875rem;
+  background-color: hsl(var(--admin-surface));
+  border: 1px solid hsl(var(--admin-border));
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06),
+              0 1px 2px hsl(var(--admin-shadow-color) / 0.03);
+  overflow: hidden;
+}
+
+.admin-panel-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-accent) / 0.9),
+    hsl(var(--admin-accent-cyan) / 0.5),
+    hsl(var(--admin-accent-violet) / 0.3)
+  );
+  border-radius: 0.875rem 0.875rem 0 0;
+}
+
+@media (min-width: 768px) {
+  .admin-panel-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.75rem;
+  }
+}
+
+.admin-panel-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.625rem;
+  background-color: hsl(var(--admin-accent) / 0.08);
+  color: hsl(var(--admin-accent));
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.admin-panel-header-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.admin-panel-header-text h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: hsl(var(--admin-text-primary));
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.admin-panel-header-text p {
+  font-size: 0.8125rem;
+  color: hsl(var(--admin-text-secondary));
+  margin: 0.25rem 0 0 0;
+  line-height: 1.5;
+}
+
+.admin-panel-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* --- Admin Action Button Group (Import/Export cluster) --- */
+.admin-action-cluster {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1875rem;
+  border-radius: 0.5rem;
+  background-color: hsl(var(--admin-surface-sunken));
+  border: 1px solid hsl(var(--admin-border-subtle));
+  gap: 0.125rem;
+}
+
+.admin-action-cluster-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--admin-text-secondary));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  outline: none;
+}
+
+.admin-action-cluster-btn:hover {
+  background-color: hsl(var(--admin-surface));
+  color: hsl(var(--admin-text-primary));
+  box-shadow: 0 1px 2px hsl(var(--admin-shadow-color) / 0.06);
+}
+
+.admin-action-cluster-btn:focus-visible {
+  outline: 2px solid hsl(var(--admin-accent));
+  outline-offset: 1px;
+}
+
+/* Primary action button within panel header */
+.admin-panel-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: white;
+  background-color: hsl(var(--admin-accent));
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px hsl(var(--admin-accent) / 0.25);
+  outline: none;
+}
+
+.admin-panel-primary-btn:hover {
+  background-color: hsl(var(--admin-accent-muted));
+  box-shadow: 0 2px 8px hsl(var(--admin-accent) / 0.3);
+  transform: translateY(-0.5px);
+}
+
+.admin-panel-primary-btn:focus-visible {
+  outline: 2px solid hsl(var(--admin-accent));
+  outline-offset: 2px;
+}
+
+/* --- Admin Filter Bar (Premium Search + Filter) --- */
+.admin-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  background-color: hsl(var(--admin-surface));
+  border: 1px solid hsl(var(--admin-border-subtle));
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .admin-filter-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
+.admin-filter-bar .admin-search-input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-filter-bar .admin-search-input input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--admin-border));
+  background-color: hsl(var(--admin-surface-sunken) / 0.5);
+  font-size: 0.8125rem;
+  color: hsl(var(--admin-text-primary));
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.admin-filter-bar .admin-search-input input:focus {
+  border-color: hsl(var(--admin-accent) / 0.5);
+  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.08);
+  background-color: hsl(var(--admin-surface));
+}
+
+.admin-filter-bar .admin-search-input input::placeholder {
+  color: hsl(var(--admin-text-muted));
+}
+
+.admin-filter-bar .admin-search-input svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: hsl(var(--admin-text-muted));
+  pointer-events: none;
+}
+
+.admin-filter-selects {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .admin-filter-selects {
+    width: auto;
+    min-width: 24rem;
+  }
+}
+
+/* --- Admin Premium Table Shell --- */
+.admin-table-shell {
+  position: relative;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--admin-border));
+  background-color: hsl(var(--admin-surface));
+  overflow: hidden;
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.05);
+}
+
+.admin-table-scroll {
+  overflow: auto;
+  max-height: 65vh;
+}
+
+.admin-table-shell table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table-shell thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-table-shell thead th {
+  padding: 0.75rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--admin-text-muted));
+  text-align: left;
+  background-color: hsl(var(--admin-surface-sunken));
+  border-bottom: 1px solid hsl(var(--admin-border));
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.admin-table-shell thead th:hover {
+  color: hsl(var(--admin-text-primary));
+}
+
+.admin-table-shell tbody tr {
+  border-bottom: 1px solid hsl(var(--admin-border-subtle));
+  transition: background-color 0.15s ease;
+}
+
+.admin-table-shell tbody tr:last-child {
+  border-bottom: none;
+}
+
+.admin-table-shell tbody tr:hover {
+  background-color: hsl(var(--admin-accent-soft) / 0.5);
+}
+
+.admin-table-shell tbody td {
+  padding: 0.625rem 1rem;
+  color: hsl(var(--admin-text-primary));
+  vertical-align: middle;
+}
+
+/* Loading overlay for table */
+.admin-table-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: hsl(var(--admin-surface) / 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.admin-table-loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid hsl(var(--admin-border));
+  border-top-color: hsl(var(--admin-accent));
+  border-radius: 9999px;
+  animation: admin-spin 0.8s linear infinite;
+  margin-bottom: 0.75rem;
+}
+
+@keyframes admin-spin {
+  to { transform: rotate(360deg); }
+}
+
+.admin-table-loading p {
+  font-size: 0.8125rem;
+  color: hsl(var(--admin-text-secondary));
+  font-weight: 500;
+}
+
+/* --- Admin Edit Form Shell (Premium Dialog) --- */
+.admin-edit-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.admin-edit-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.admin-edit-section {
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background-color: hsl(var(--admin-surface-sunken) / 0.4);
+  border: 1px solid hsl(var(--admin-border-subtle));
+}
+
+.admin-edit-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: hsl(var(--admin-text-primary));
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--admin-border-subtle));
+}
+
+.admin-edit-section-header svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: hsl(var(--admin-accent));
+  flex-shrink: 0;
+}
+
+.admin-edit-field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .admin-edit-field-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.admin-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.admin-edit-field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: hsl(var(--admin-text-muted));
+}
+
+.admin-edit-field-full {
+  grid-column: 1 / -1;
+}
+
+/* Photo upload area */
+.admin-edit-photo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background-color: hsl(var(--admin-surface-sunken) / 0.3);
+  border: 1px dashed hsl(var(--admin-border));
+  transition: border-color 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .admin-edit-photo-area {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+.admin-edit-photo-area:hover {
+  border-color: hsl(var(--admin-accent) / 0.3);
+}
+
+/* Login access card */
+.admin-edit-access-card {
+  padding: 1rem 1.25rem;
+  border-radius: 0.625rem;
+  background-color: hsl(var(--admin-accent-amber) / 0.06);
+  border: 1px solid hsl(var(--admin-accent-amber) / 0.15);
+}
+
+.admin-edit-access-card h4 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: hsl(var(--admin-accent-amber));
+  margin-bottom: 0.75rem;
+}
+
+.admin-edit-access-card h4 svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Form footer */
+.admin-edit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid hsl(var(--admin-border-subtle));
+  background-color: hsl(var(--admin-surface));
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.admin-edit-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* --- Bulk action bar (selection) --- */
+.admin-bulk-bar {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1875rem;
+  border-radius: 0.5rem;
+  background-color: hsl(var(--admin-surface-sunken));
+  border: 1px solid hsl(var(--admin-border-subtle));
+  gap: 0.0625rem;
+}
+
+.admin-bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  outline: none;
+}
+
+.admin-bulk-btn--activate {
+  color: hsl(var(--admin-accent));
+}
+.admin-bulk-btn--activate:hover {
+  background-color: hsl(var(--admin-accent-soft));
+}
+
+.admin-bulk-btn--deactivate {
+  color: hsl(var(--admin-accent-amber));
+}
+.admin-bulk-btn--deactivate:hover {
+  background-color: hsl(var(--admin-accent-amber) / 0.1);
+}
+
+.admin-bulk-btn--delete {
+  color: hsl(0 84% 55%);
+}
+.admin-bulk-btn--delete:hover {
+  background-color: hsl(0 84% 60% / 0.08);
+}
+
+/* --- Admin empty table state --- */
+.admin-table-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.admin-table-empty svg {
+  width: 3rem;
+  height: 3rem;
+  color: hsl(var(--admin-text-muted) / 0.3);
+  margin-bottom: 0.75rem;
+}
+
+.admin-table-empty p {
+  font-size: 0.875rem;
+  color: hsl(var(--admin-text-muted));
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 767px) {
+  .admin-stat-card {
+    padding: 1rem 1.25rem;
+  }
+
+  .admin-stat-card-value {
+    font-size: 1.5rem;
+  }
+
+  .admin-nav-pill {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* --- Scrollbar for nav --- */
+.admin-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+.admin-nav-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* --- Override shadcn CSS variables inside admin to remove green tint --- */
+.lpq-admin-surface {
+  --background: var(--admin-bg);
+  --foreground: var(--admin-text-primary);
+  --card: var(--admin-surface);
+  --card-foreground: var(--admin-text-primary);
+  --popover: 30 20% 97%;
+  --popover-foreground: var(--admin-text-primary);
+  --muted: var(--admin-surface-sunken);
+  --muted-foreground: var(--admin-text-muted);
+  --border: var(--admin-border);
+  --input: var(--admin-border);
+  --ring: 152 45% 42%;
+  --accent: 152 58% 37%;
+  --accent-foreground: 0 0% 100%;
+}
+
+.lpq-admin-surface .dark,
+.dark .lpq-admin-surface {
+  --background: var(--admin-bg);
+  --foreground: var(--admin-text-primary);
+  --card: var(--admin-surface);
+  --card-foreground: var(--admin-text-primary);
+  --popover: 222 20% 12%;
+  --popover-foreground: 30 30% 92%;
+  --muted: var(--admin-surface-sunken);
+  --muted-foreground: var(--admin-text-muted);
+  --border: var(--admin-border);
+  --input: var(--admin-border);
+  --ring: 152 45% 42%;
+  --accent: 152 45% 42%;
+  --accent-foreground: 0 0% 100%;
+}
+
+/* --- White-field input style for admin (inspired by TV Settings Kuota & Pendaftaran) --- */
+.lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.lpq-admin-surface textarea,
+.lpq-admin-surface select {
+  background-color: hsl(0 0% 100%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark .lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.dark .lpq-admin-surface textarea,
+.dark .lpq-admin-surface select {
+  background-color: hsl(222 20% 10%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+.lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+.lpq-admin-surface textarea:focus,
+.lpq-admin-surface select:focus {
+  border-color: hsl(var(--admin-accent) / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.1) !important;
+}
+
+.dark .lpq-admin-surface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus,
+.dark .lpq-admin-surface textarea:focus,
+.dark .lpq-admin-surface select:focus {
+  border-color: hsl(var(--admin-accent) / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.12) !important;
+}
+
+/* Override shadcn SelectTrigger inside admin — remove green tint */
+.lpq-admin-surface button[role="combobox"],
+.lpq-admin-surface [data-radix-select-trigger],
+.lpq-admin-surface [data-slot="select-trigger"] {
+  background-color: hsl(30 20% 97%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+  --ring: var(--admin-accent) !important;
+}
+
+.dark .lpq-admin-surface button[role="combobox"],
+.dark .lpq-admin-surface [data-radix-select-trigger],
+.dark .lpq-admin-surface [data-slot="select-trigger"] {
+  background-color: hsl(222 20% 10%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+/* Override select trigger focus state to use admin accent instead of green */
+.lpq-admin-surface button[role="combobox"]:focus,
+.lpq-admin-surface button[role="combobox"]:focus-visible,
+.lpq-admin-surface [data-radix-select-trigger]:focus,
+.lpq-admin-surface [data-radix-select-trigger]:focus-visible {
+  border-color: hsl(var(--admin-accent) / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(var(--admin-accent) / 0.1) !important;
+  outline: none !important;
+}
+
+/* Override shadcn Card inside admin to remove green */
+.lpq-admin-surface [data-slot="card"],
+.lpq-admin-surface .admin-card {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Override shadcn Dialog inside admin to remove green tint */
+.lpq-admin-surface [data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.lpq-admin-surface [data-radix-dialog-content],
+.lpq-admin-surface [role="dialog"] {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-dialog-content],
+.dark .lpq-admin-surface [role="dialog"] {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Override shadcn Popover/SelectContent inside admin */
+.lpq-admin-surface [data-radix-popper-content-wrapper],
+.lpq-admin-surface [data-radix-select-content],
+.lpq-admin-surface [role="listbox"],
+.lpq-admin-surface [role="dialog"] [data-radix-select-content],
+.lpq-admin-surface [role="dialog"] [data-radix-popper-content-wrapper],
+.lpq-admin-surface [role="dialog"] [data-radix-dropdown-menu-content] {
+  background-color: hsl(30 20% 97%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-popper-content-wrapper],
+.dark .lpq-admin-surface [data-radix-select-content],
+.dark .lpq-admin-surface [role="listbox"],
+.dark .lpq-admin-surface [role="dialog"] [data-radix-select-content],
+.dark .lpq-admin-surface [role="dialog"] [data-radix-popper-content-wrapper],
+.dark .lpq-admin-surface [role="dialog"] [data-radix-dropdown-menu-content] {
+  background-color: hsl(222 20% 12%) !important;
+  border-color: hsl(222 18% 20%) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item],
+.dark .lpq-admin-surface [role="option"] {
+  color: hsl(30 20% 82%) !important;
+}
+
+.dark .lpq-admin-surface [data-radix-select-item]:hover,
+.dark .lpq-admin-surface [data-radix-select-item][data-highlighted],
+.dark .lpq-admin-surface [role="option"]:hover {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 96%) !important;
+}
+
+/* Override highlighted/selected item inside select to remove green accent */
+.lpq-admin-surface [data-radix-select-item][data-highlighted] {
+  background-color: hsl(var(--admin-accent) / 0.1) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+.lpq-admin-surface [data-radix-select-item][data-state="checked"] {
+  color: hsl(var(--admin-accent)) !important;
+}
+
+/* Override shadcn TabsList inside admin */
+.lpq-admin-surface [role="tablist"] {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+}
+
+.dark .lpq-admin-surface [role="tablist"] {
+  background-color: hsl(222 25% 10%) !important;
+}
+
+.lpq-admin-surface [role="tab"][data-state="active"],
+.lpq-admin-surface [role="tab"][data-state="active"]:hover {
+  background-color: hsl(var(--admin-surface)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.1) !important;
+}
+
+.dark .lpq-admin-surface [role="tab"][data-state="active"],
+.dark .lpq-admin-surface [role="tab"][data-state="active"]:hover {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+/* Override toast / sonner inside admin */
+.lpq-admin-surface [data-sonner-toast],
+.lpq-admin-surface [data-state="open"][data-sonner-toast] {
+  background-color: hsl(var(--admin-surface)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  color: hsl(var(--admin-text-primary)) !important;
+}
+
+/* Payment receipt footer — ensure buttons visible in dark mode */
+.lpq-admin-surface .bg-slate-50 {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+}
+
+.dark .lpq-admin-surface .bg-slate-50 {
+  background-color: hsl(222 25% 10%) !important;
+}
+
+.lpq-admin-surface .bg-slate-50 .border-t {
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Ensure dialog footer buttons are visible in dark mode */
+.lpq-admin-surface [role="dialog"] .flex.justify-center,
+.lpq-admin-surface [role="dialog"] .p-4.bg-slate-50 {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+.dark .lpq-admin-surface [role="dialog"] .flex.justify-center,
+.dark .lpq-admin-surface [role="dialog"] .p-4.bg-slate-50 {
+  background-color: hsl(222 22% 13%) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Override Badge inside admin for dark mode consistency */
+.dark .lpq-admin-surface .bg-green-50 {
+  background-color: hsl(152 45% 42% / 0.15) !important;
+}
+
+.dark .lpq-admin-surface .border-green-100,
+.dark .lpq-admin-surface .border-green-200 {
+  border-color: hsl(152 45% 42% / 0.3) !important;
+}
+
+.dark .lpq-admin-surface .text-green-600,
+.dark .lpq-admin-surface .text-green-800 {
+  color: hsl(152 50% 55%) !important;
+}
+
+.dark .lpq-admin-surface .text-green-700,
+.dark .lpq-admin-surface .text-green-900 {
+  color: hsl(152 50% 60%) !important;
+}
+
+.dark .lpq-admin-surface .hover\:bg-green-50:hover {
+  background-color: hsl(152 45% 42% / 0.15) !important;
+}
+
+/* --- Theme-aware Skeleton inside admin --- */
+.lpq-admin-surface .skeleton,
+.lpq-admin-surface [class*="Skeleton"],
+.lpq-admin-surface [data-slot="skeleton"] {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+  border-radius: 0.75rem;
+}
+
+.dark .lpq-admin-surface .skeleton,
+.dark .lpq-admin-surface [class*="Skeleton"],
+.dark .lpq-admin-surface [data-slot="skeleton"] {
+  background-color: hsl(var(--admin-surface-raised)) !important;
+}
+
+/* Shimmer skeleton animation for admin */
+@keyframes admin-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.lpq-admin-surface .admin-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-surface-sunken)) 25%,
+    hsl(var(--admin-surface-raised)) 37%,
+    hsl(var(--admin-surface-sunken)) 63%
+  );
+  background-size: 200% 100%;
+  animation: admin-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.dark .lpq-admin-surface .admin-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-surface-raised)) 25%,
+    hsl(222 18% 20%) 37%,
+    hsl(var(--admin-surface-raised)) 63%
+  );
+  background-size: 200% 100%;
+  animation: admin-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* --- Premium Loading State for admin --- */
+@keyframes admin-loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes admin-loading-ring {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes admin-loading-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.admin-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  animation: admin-loading-fade-in 0.4s ease-out;
+}
+
+.admin-loading-spinner {
+  position: relative;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-loading-spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid hsl(var(--admin-border));
+  border-top-color: hsl(var(--admin-accent));
+  animation: admin-loading-ring 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.admin-loading-spinner-ring--delay {
+  border-top-color: hsl(var(--admin-accent-cyan));
+  animation-delay: 0.15s;
+  opacity: 0.6;
+  inset: 4px;
+}
+
+.admin-loading-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--admin-text-primary));
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.admin-loading-subtitle {
+  font-size: 0.8125rem;
+  color: hsl(var(--admin-text-muted));
+  margin-bottom: 1.25rem;
+}
+
+.admin-loading-bar-track {
+  width: 12rem;
+  height: 3px;
+  border-radius: 9999px;
+  background-color: hsl(var(--admin-surface-sunken));
+  overflow: hidden;
+}
+
+.admin-loading-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--admin-accent)),
+    hsl(var(--admin-accent-cyan))
+  );
+  animation: admin-loading-bar 1.5s ease-in-out infinite;
+}
+
+@keyframes admin-loading-bar {
+  0% { width: 0%; margin-left: 0%; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+/* ============================================================
+   BODY-SCOPED PORTAL OVERRIDES
+   Radix portals render under <body>, escaping .lpq-admin-surface.
+   The lpq-admin-context class is added to <body> by useAdminBodyClass hook
+   when an admin page is active. This ensures dropdown styling only applies
+   in admin context, never on public pages.
+   ============================================================ */
+
+/* --- Body-scoped Select Trigger overrides — covers bg-background, bg-primary, bg-white leaks --- */
+body.lpq-admin-context [data-radix-select-trigger],
+body.lpq-admin-context button[role="combobox"] {
+  background-color: hsl(30 20% 97%) !important;
+  border-color: hsl(30 12% 85%) !important;
+  color: hsl(220 15% 15%) !important;
+}
+
+.dark body.lpq-admin-context [data-radix-select-trigger],
+.dark body.lpq-admin-context button[role="combobox"] {
+  background-color: hsl(222 20% 10%) !important;
+  border-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 94%) !important;
+}
+
+body.lpq-admin-context [data-radix-select-trigger]:focus,
+body.lpq-admin-context [data-radix-select-trigger]:focus-visible,
+body.lpq-admin-context button[role="combobox"]:focus,
+body.lpq-admin-context button[role="combobox"]:focus-visible {
+  border-color: hsl(152 58% 37% / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(152 58% 37% / 0.1) !important;
+  outline: none !important;
+}
+
+.dark body.lpq-admin-context [data-radix-select-trigger]:focus,
+.dark body.lpq-admin-context [data-radix-select-trigger]:focus-visible,
+.dark body.lpq-admin-context button[role="combobox"]:focus,
+.dark body.lpq-admin-context button[role="combobox"]:focus-visible {
+  border-color: hsl(152 45% 42% / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(152 45% 42% / 0.12) !important;
+  outline: none !important;
+}
+
+/* Override explicit bg-white on triggers in admin context */
+body.lpq-admin-context .bg-white[class*="SelectTrigger"],
+body.lpq-admin-context [data-radix-select-trigger].bg-white {
+  background-color: hsl(30 20% 97%) !important;
+}
+
+.dark body.lpq-admin-context .bg-white[class*="SelectTrigger"],
+.dark body.lpq-admin-context [data-radix-select-trigger].bg-white,
+.dark body.lpq-admin-context [data-radix-select-trigger].bg-black,
+.dark body.lpq-admin-context [data-radix-select-trigger][class*="dark:bg-"] {
+  background-color: hsl(222 20% 10%) !important;
+}
+
+/* Neutralize bg-primary on trigger buttons in admin (e.g. non-semantic primary bg) */
+body.lpq-admin-context [data-radix-select-trigger].bg-primary,
+body.lpq-admin-context button[role="combobox"].bg-primary {
+  background-color: hsl(30 20% 97%) !important;
+}
+
+.dark body.lpq-admin-context [data-radix-select-trigger].bg-primary,
+.dark body.lpq-admin-context button[role="combobox"].bg-primary {
+  background-color: hsl(222 20% 10%) !important;
+}
+
+/* --- Portal Dropdown Content — Light Mode --- */
+body.lpq-admin-context [data-radix-select-content],
+body.lpq-admin-context [role="listbox"],
+body.lpq-admin-context [data-radix-popper-content-wrapper],
+body.lpq-admin-context [data-radix-dropdown-menu-content],
+body.lpq-admin-context [data-radix-dropdown-menu-sub-content],
+body.lpq-admin-context [data-radix-popover-content] {
+  background-color: hsl(30 20% 97%) !important;
+  border-color: hsl(30 12% 85%) !important;
+  color: hsl(220 15% 15%) !important;
+  box-shadow: 0 10px 40px hsl(220 15% 60% / 0.12), 0 2px 8px hsl(220 15% 60% / 0.08) !important;
+}
+
+/* --- Portal Dropdown Content — Dark Mode --- */
+.dark body.lpq-admin-context [data-radix-select-content],
+.dark body.lpq-admin-context [role="listbox"],
+.dark body.lpq-admin-context [data-radix-popper-content-wrapper],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-content],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-sub-content],
+.dark body.lpq-admin-context [data-radix-popover-content] {
+  background-color: hsl(222 20% 12%) !important;
+  border-color: hsl(222 18% 20%) !important;
+  color: hsl(30 30% 92%) !important;
+  box-shadow: 0 10px 40px hsl(222 30% 3% / 0.5), 0 2px 8px hsl(222 30% 3% / 0.3) !important;
+}
+
+/* --- Portal Select Item — Light Mode --- */
+body.lpq-admin-context [data-radix-select-item],
+body.lpq-admin-context [role="option"],
+body.lpq-admin-context [data-radix-dropdown-menu-item],
+body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item],
+body.lpq-admin-context [data-radix-dropdown-menu-radio-item],
+body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger] {
+  color: hsl(220 15% 15%);
+  border-radius: 0.375rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+body.lpq-admin-context [data-radix-select-item][data-highlighted],
+body.lpq-admin-context [role="option"]:hover,
+body.lpq-admin-context [data-radix-dropdown-menu-item][data-highlighted],
+body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger][data-highlighted],
+body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item][data-highlighted],
+body.lpq-admin-context [data-radix-dropdown-menu-radio-item][data-highlighted] {
+  background-color: hsl(152 58% 37% / 0.1) !important;
+  color: hsl(220 15% 15%) !important;
+  outline: none;
+}
+
+body.lpq-admin-context [data-radix-select-item][data-state="checked"],
+body.lpq-admin-context [role="option"][aria-selected="true"] {
+  color: hsl(152 58% 37%) !important;
+  font-weight: 600;
+}
+
+body.lpq-admin-context [data-radix-select-item][data-disabled],
+body.lpq-admin-context [data-radix-dropdown-menu-item][data-disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* --- Portal Select Item — Dark Mode --- */
+.dark body.lpq-admin-context [data-radix-select-item],
+.dark body.lpq-admin-context [role="option"],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-item],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-radio-item],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger] {
+  color: hsl(30 20% 82%) !important;
+  border-radius: 0.375rem;
+}
+
+.dark body.lpq-admin-context [data-radix-select-item][data-highlighted],
+.dark body.lpq-admin-context [role="option"]:hover,
+.dark body.lpq-admin-context [data-radix-dropdown-menu-item][data-highlighted],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-sub-trigger][data-highlighted],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-checkbox-item][data-highlighted],
+.dark body.lpq-admin-context [data-radix-dropdown-menu-radio-item][data-highlighted] {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 96%) !important;
+}
+
+.dark body.lpq-admin-context [data-radix-select-item][data-state="checked"],
+.dark body.lpq-admin-context [role="option"][aria-selected="true"] {
+  color: hsl(152 45% 55%) !important;
+  font-weight: 600;
+}
+
+/* --- Portal scroll buttons --- */
+body.lpq-admin-context [data-radix-select-scroll-up-button],
+body.lpq-admin-context [data-radix-select-scroll-down-button] {
+  color: hsl(220 6% 60%);
+}
+
+.dark body.lpq-admin-context [data-radix-select-scroll-up-button],
+.dark body.lpq-admin-context [data-radix-select-scroll-down-button] {
+  color: hsl(222 10% 45%);
+}
+
+/* --- Portal dropdown labels --- */
+body.lpq-admin-context [data-radix-dropdown-menu-label],
+body.lpq-admin-context [data-radix-select-group] [data-radix-select-label] {
+  color: hsl(220 6% 60%);
+}
+
+.dark body.lpq-admin-context [data-radix-dropdown-menu-label],
+.dark body.lpq-admin-context [data-radix-select-group] [data-radix-select-label] {
+  color: hsl(222 10% 45%) !important;
+}
+
+/* --- Command palette portal (if used) --- */
+body.lpq-admin-context [cmdk-root],
+body.lpq-admin-context [cmdk-list] {
+  background-color: hsl(30 20% 97%) !important;
+  color: hsl(220 15% 15%) !important;
+}
+
+body.lpq-admin-context [cmdk-item][data-selected="true"] {
+  background-color: hsl(152 58% 37% / 0.1) !important;
+}
+
+.dark body.lpq-admin-context [cmdk-root],
+.dark body.lpq-admin-context [cmdk-list] {
+  background-color: hsl(222 20% 12%) !important;
+  color: hsl(30 30% 92%) !important;
+}
+
+.dark body.lpq-admin-context [cmdk-item][data-selected="true"] {
+  background-color: hsl(222 18% 18%) !important;
+  color: hsl(30 30% 96%) !important;
+}
+
+/* ============================================================
+   TV DISPLAY SETTINGS — Leaderboard dark mode surfaces
+   Targets the Leaderboard subtab inside Pengaturan TV.
+   ============================================================ */
+
+/* Category panel wrapper (e.g. "Santri Paling Disiplin") */
+.dark .lpq-admin-surface .bg-slate-50\/50,
+.dark .lpq-admin-surface [class*="bg-slate-50"] {
+  background-color: hsl(var(--admin-surface-raised)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+}
+
+/* Session cards (Pagi/Siang/Sore) inside Leaderboard */
+.dark .lpq-admin-surface .bg-white {
+  background-color: hsl(var(--admin-surface-sunken)) !important;
+  border-color: hsl(var(--admin-border)) !important;
+  box-shadow: 0 1px 3px hsl(222 30% 3% / 0.2) !important;
+}
+
+/* Info banners (blue-50) in TV Settings Leaderboard */
+.dark .lpq-admin-surface .bg-blue-50 {
+  background-color: hsl(222 30% 14%) !important;
+  border-color: hsl(222 30% 22%) !important;
+}
+.dark .lpq-admin-surface .bg-blue-50 .text-blue-700 {
+  color: hsl(200 80% 70%) !important;
+}
+
+/* --- Motion Preferences --- */
+@media (prefers-reduced-motion: reduce) {
+  .admin-card,
+  .admin-stat-card,
+  .admin-nav-pill,
+  .admin-btn,
+  .admin-btn-action,
+  .admin-segmented-control-item {
+    transition: none !important;
+  }
+  
+  .admin-card:hover,
+  .admin-stat-card:hover {
+    transform: none !important;
+  }
+
+  .admin-loading-spinner-ring,
+  .admin-loading-spinner-ring--delay,
+  .admin-loading-bar-fill,
+  .admin-skeleton-shimmer {
+    animation: none !important;
+  }
+}
