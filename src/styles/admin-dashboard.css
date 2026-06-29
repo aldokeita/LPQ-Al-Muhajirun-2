@@ -117,13 +117,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.5rem 1rem;
+  padding: 0.4375rem 0.875rem;
   border-radius: 9999px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: hsl(var(--admin-text-secondary));
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid hsl(var(--admin-border-subtle));
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -188,69 +188,25 @@
   align-self: center;
 }
 
-/* Scroll fade indicators */
-.admin-nav-scroll-container {
-  position: relative;
-  overflow: hidden;
-}
-
-.admin-nav-scroll-container::before,
-.admin-nav-scroll-container::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2rem;
-  z-index: 5;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-.admin-nav-scroll-container::before {
-  left: 0;
-  background: linear-gradient(to right, hsl(var(--admin-bg)), transparent);
-}
-
-.admin-nav-scroll-container::after {
-  right: 0;
-  background: linear-gradient(to left, hsl(var(--admin-bg)), transparent);
-}
-
-.admin-nav-scroll-container.hide-fade-left::before,
-.admin-nav-scroll-container.hide-fade-right::after {
-  opacity: 0;
-}
-
 /* --- Admin Stat Card --- */
 .admin-stat-card {
   position: relative;
   overflow: hidden;
   padding: 1.25rem 1.5rem;
   border-radius: 0.75rem;
-  background-color: hsl(var(--admin-surface));
-  border: 1px solid hsl(var(--admin-border));
-  box-shadow: 0 1px 3px hsl(var(--admin-shadow-color) / 0.06);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.admin-stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(
-    to right,
-    hsl(var(--admin-accent)),
-    hsl(var(--admin-accent) / 0.3)
-  );
-  opacity: 0.8;
+  background-color: hsl(var(--admin-accent) / 0.04);
+  border: 1px solid hsl(var(--admin-accent) / 0.2);
+  box-shadow: 0 0 0 0 hsl(var(--admin-accent) / 0),
+              0 1px 3px hsl(var(--admin-shadow-color) / 0.06);
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
 }
 
 .admin-stat-card:hover {
-  box-shadow: 0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
+  box-shadow: 0 0 20px hsl(var(--admin-accent) / 0.12),
+              0 0 40px hsl(var(--admin-accent) / 0.06),
+              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
   transform: translateY(-2px);
+  border-color: hsl(var(--admin-accent) / 0.35);
 }
 
 .admin-stat-card-label {
@@ -286,20 +242,28 @@
 }
 
 /* Accent variants for stat cards */
-.admin-stat-card--accent::before {
-  background: linear-gradient(
-    to right,
-    hsl(var(--admin-accent)),
-    hsl(var(--admin-accent-cyan) / 0.3)
-  );
+.admin-stat-card--accent {
+  background-color: hsl(var(--admin-accent-cyan) / 0.04);
+  border-color: hsl(var(--admin-accent-cyan) / 0.2);
 }
 
-.admin-stat-card--amber::before {
-  background: linear-gradient(
-    to right,
-    hsl(var(--admin-accent-amber)),
-    hsl(var(--admin-accent-amber) / 0.3)
-  );
+.admin-stat-card--accent:hover {
+  box-shadow: 0 0 20px hsl(var(--admin-accent-cyan) / 0.12),
+              0 0 40px hsl(var(--admin-accent-cyan) / 0.06),
+              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
+  border-color: hsl(var(--admin-accent-cyan) / 0.35);
+}
+
+.admin-stat-card--amber {
+  background-color: hsl(var(--admin-accent-amber) / 0.04);
+  border-color: hsl(var(--admin-accent-amber) / 0.2);
+}
+
+.admin-stat-card--amber:hover {
+  box-shadow: 0 0 20px hsl(var(--admin-accent-amber) / 0.12),
+              0 0 40px hsl(var(--admin-accent-amber) / 0.06),
+              0 4px 16px hsl(var(--admin-shadow-color) / 0.1);
+  border-color: hsl(var(--admin-accent-amber) / 0.35);
 }
 
 /* Clickable stat card (e.g., Absensi Digital) */
