@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library } from 'lucide-react';
 import SantriManagement from './admin/SantriManagement';
 import SantriDewasaManagement from './admin/SantriDewasaManagement';
@@ -52,7 +52,7 @@ const AdminDashboard = () => {
 
   const [showIncome, setShowIncome] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
-  
+
   // State for global search navigation
   const [selectedSantri, setSelectedSantri] = useState(null);
   const [isSantriModalOpen, setIsSantriModalOpen] = useState(false);
@@ -61,12 +61,12 @@ const AdminDashboard = () => {
     const fetchStats = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const today = new Date();
         const currentMonth = today.getMonth() + 1;
         const currentYear = today.getFullYear();
-        
+
         const santriQuery = supabase.from('santri').select('*', { count: 'exact', head: true }).in('status', ['Aktif', 'active']);
         const [santriResult, financeSummary] = await Promise.all([
           withTimeout(santriQuery, 10000),
@@ -92,7 +92,7 @@ const AdminDashboard = () => {
         setIsLoading(false);
       }
     };
-    
+
     fetchStats();
   }, []);
 
@@ -142,9 +142,10 @@ const AdminDashboard = () => {
 
   // Tab definitions with group property for AdminModuleNav
   const adminTabs = [
-    { value: 'santri', label: 'Data Santri', icon: Users, group: 'data' },
-    { value: 'kelas', label: 'Manajemen Kelas', icon: BookOpen, group: 'data' },
+    { value: 'santri', label: 'Santri TPQ', icon: Users, group: 'data' },
+    { value: 'santri-dewasa', label: 'Santri Dewasa', icon: Briefcase, group: 'data' },
     { value: 'guru', label: 'Data Guru', icon: BookUser, group: 'data' },
+    { value: 'kelas', label: 'Manajemen Kelas', icon: BookOpen, group: 'akademik' },
     { value: 'rekap-absensi', label: 'Rekap Santri', icon: CalendarCheck, group: 'akademik' },
     { value: 'rekap-guru', label: 'Rekap Guru', icon: GraduationCap, group: 'akademik' },
     { value: 'mmq', label: 'MMQ', icon: Library, group: 'akademik' },
@@ -160,12 +161,12 @@ const AdminDashboard = () => {
     { value: 'backup', label: 'Backup & Restore', icon: Database, group: 'sistem' },
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
   ].filter(tab => enableDeferredFeatures || !['game-config', 'backup'].includes(tab.value));
-  
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-      
-      {/* Global Search Section */}
-      <div className="mb-6 relative z-50">
+
+      {/* Global Search Section — z-20 below navbar z-50 */}
+      <div className="mb-6 relative z-20">
         <GlobalSearch onNavigate={handleGlobalSearchNavigate} />
       </div>
 
@@ -271,37 +272,15 @@ const AdminDashboard = () => {
       {/* Tab Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6">
         <div>
+            <TabsContent value="santri"><SantriManagement /></TabsContent>
+            <TabsContent value="santri-dewasa"><SantriDewasaManagement /></TabsContent>
+            <TabsContent value="kelas"><ClassManagement /></TabsContent>
+            <TabsContent value="guru"><GuruManagement /></TabsContent>
             <TabsContent value="rekap-absensi"><AttendanceRecap /></TabsContent>
             <TabsContent value="rekap-guru"><GuruAttendanceRecap /></TabsContent>
             <TabsContent value="mmq"><MMQManagement /></TabsContent>
             <TabsContent value="salary"><SalaryCalculation /></TabsContent>
             <TabsContent value="academic-calendar"><CalendarManagement /></TabsContent>
-            
-            <TabsContent value="santri">
-            <Tabs defaultValue="tpq" className="w-full">
-                <div className="flex justify-center mb-6">
-                  <div className="admin-segmented-control">
-                    <TabsList className="bg-transparent p-0 h-auto gap-0.5">
-                      {['tpq', 'dewasa'].map(subTab => (
-                        <TabsTrigger
-                            key={subTab}
-                            value={subTab}
-                            className="admin-segmented-control-item"
-                        >
-                            {subTab === 'tpq' ? <Users className="w-3.5 h-3.5"/> : <Briefcase className="w-3.5 h-3.5"/>}
-                            {subTab === 'tpq' ? 'Santri TPQ' : 'Santri Dewasa'}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </div>
-                </div>
-                <TabsContent value="tpq" className="mt-0"><SantriManagement /></TabsContent>
-                <TabsContent value="dewasa" className="mt-0"><SantriDewasaManagement /></TabsContent>
-            </Tabs>
-            </TabsContent>
-            
-            <TabsContent value="kelas"><ClassManagement /></TabsContent>
-            <TabsContent value="guru"><GuruManagement /></TabsContent>
             <TabsContent value="payment"><PaymentSystem /></TabsContent>
             <TabsContent value="expense"><ExpenseManagement /></TabsContent>
             <TabsContent value="tv-settings"><TvDisplaySettings /></TabsContent>
@@ -315,7 +294,7 @@ const AdminDashboard = () => {
       </Tabs>
 
       {/* Global Modals for Search Navigation */}
-      <SantriDetailModal 
+      <SantriDetailModal
         santri={selectedSantri}
         isOpen={isSantriModalOpen}
         onOpenChange={setIsSantriModalOpen}
