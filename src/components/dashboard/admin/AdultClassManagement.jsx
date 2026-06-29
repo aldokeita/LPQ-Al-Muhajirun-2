@@ -108,7 +108,7 @@ const ReorderClassesModal = ({ isOpen, onClose, classes, onSave }) => {
 
     useEffect(() => {
         if (isOpen) {
-            setOrderedClasses([...classes].sort((a, b) => (a.order || 0) - (b.order || 0)));
+            setOrderedClasses([...classes].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
         }
     }, [isOpen, classes]);
 
@@ -355,7 +355,7 @@ const AdultClassManagement = () => {
       { data: attendanceData, error: attendanceError },
       { data: configData }
     ] = await Promise.all([
-      supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').eq('kategori', 'Dewasa').order('order', { ascending: true, nullsFirst: false }),
+      supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').eq('kategori', 'Dewasa').order('sort_order', { ascending: true, nullsFirst: false }),
       supabase.from('guru').select('id, nama, foto_url, no_hp'),
       supabase.from('santri').select('*, class:id_kelas(nama_kelas, sesi)').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
       supabase.from('attendance').select('*').eq('attendance_date', today),
@@ -431,7 +431,7 @@ const AdultClassManagement = () => {
 
       const updates = orderedClasses.map((cls, index) => ({
           id: cls.id,
-          order: index + 1,
+          sort_order: index + 1,
           nama_kelas: cls.nama_kelas,
           kategori: 'Dewasa'
       }));
@@ -501,7 +501,7 @@ const AdultClassManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const classData = { ...formData, kategori: 'Dewasa' };
-    if (!editingClass) { classData.order = classes.reduce((max, c) => Math.max(max, c.order || 0), 0) + 1; }
+    if (!editingClass) { classData.sort_order = classes.reduce((max, c) => Math.max(max, c.order || 0), 0) + 1; }
     const { error } = editingClass ? await supabase.from('classes').update(classData).eq('id', editingClass.id) : await supabase.from('classes').insert(classData);
     if (error) toast({ title: 'Gagal', variant: 'destructive' }); else { toast({ title: 'Berhasil' }); setIsFormOpen(false); fetchAllData(); }
   };
@@ -532,7 +532,7 @@ const AdultClassManagement = () => {
         grouped[c.sesi].push(c);
     });
     // Order based on object keys (config order)
-    Object.keys(grouped).forEach(key => grouped[key].sort((a,b) => a.order - b.order));
+    Object.keys(grouped).forEach(key => grouped[key].sort((a,b) => (a.sort_order || 0) - (b.sort_order || 0)));
     return grouped;
   }, [classes, sessionTimes]);
 
