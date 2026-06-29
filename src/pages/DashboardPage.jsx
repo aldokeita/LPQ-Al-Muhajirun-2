@@ -7,6 +7,7 @@ import GuruDashboard from '@/components/dashboard/GuruDashboard';
 import SantriDashboard from '@/components/dashboard/SantriDashboard';
 import PentashihDashboard from '@/components/dashboard/PentashihDashboard';
 import { supabase } from '@/lib/customSupabaseClient';
+import '@/styles/admin-dashboard.css';
 
 const DashboardPage = () => {
   const { role, user } = useAuth();
@@ -98,7 +99,7 @@ const DashboardPage = () => {
         <meta name="description" content="Dashboard sistem manajemen LPQ Al-Muhajirun" />
       </Helmet>
 
-      <div className="dark lpq-dashboard-surface min-h-screen py-8 text-foreground">
+      <div className="lpq-admin-surface min-h-screen py-8">
         {renderDashboard()}
       </div>
     </>
