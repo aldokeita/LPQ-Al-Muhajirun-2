@@ -1,4 +1,3 @@
-import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -75,8 +74,8 @@ const AdminStatCard = ({
       className={`admin-stat-card ${variantClass} ${clickableClass} ${className}`}
       {...extraProps}
     >
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="flex-1 min-w-0">
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2 mb-2">
             <p className="admin-stat-card-label">{label}</p>
             {masked && onToggleMask && (
