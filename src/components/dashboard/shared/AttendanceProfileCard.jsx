@@ -63,18 +63,20 @@ const AttendanceProfileCard = ({
     >
       {/* Avatar — large, centered, top anchor */}
       <div className="attendance-profile-card__avatar-wrap">
-        <Avatar
-          className="attendance-profile-card__avatar"
-          style={
-            !isTeacher && levelColor
-              ? {
-                  borderColor: levelColor,
-                  borderWidth: `${avatarBorderThickness || 3}px`,
-                  boxShadow: `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
-                }
-              : undefined
-          }
-        >
+          <Avatar
+            className="attendance-profile-card__avatar"
+            style={{
+              width: '100%',
+              height: '100%',
+              ...(!isTeacher && levelColor
+                ? {
+                    borderColor: levelColor,
+                    borderWidth: `${avatarBorderThickness || 4}px`,
+                    boxShadow: `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
+                  }
+                : {}),
+            }}
+          >
           <AvatarImage src={photo} alt={name} className="object-cover" />
           <AvatarFallback className="attendance-profile-card__avatar-fallback">
             {name?.[0]?.toUpperCase() || '?'}
