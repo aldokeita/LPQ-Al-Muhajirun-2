@@ -2,16 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import useAdminBodyClass from '@/hooks/useAdminBodyClass';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import GuruDashboard from '@/components/dashboard/GuruDashboard';
 import SantriDashboard from '@/components/dashboard/SantriDashboard';
 import PentashihDashboard from '@/components/dashboard/PentashihDashboard';
+import SideRays from '@/components/reactbits/SideRays/SideRays';
 import { supabase } from '@/lib/customSupabaseClient';
 import '@/styles/admin-dashboard.css';
 
 const DashboardPage = () => {
   const { role, user } = useAuth();
+  const { isDark } = useTheme();
   const [santriProfile, setSantriProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
@@ -112,8 +115,28 @@ const DashboardPage = () => {
         <meta name="description" content="Dashboard sistem manajemen LPQ Al-Muhajirun" />
       </Helmet>
 
-      <div className="lpq-admin-surface min-h-screen py-8">
-        {renderDashboard()}
+      <div className="lpq-admin-surface min-h-screen py-8 relative overflow-hidden">
+        {/* Subtle animated ray background — dark mode only */}
+        {isDark && (
+          <div className="pointer-events-none absolute inset-0" style={{ opacity: 0.18 }}>
+            <SideRays
+              speed={1.5}
+              rayColor1="#06b6d4"
+              rayColor2="#8b5cf6"
+              intensity={1.2}
+              spread={2.5}
+              origin="top-right"
+              tilt={5}
+              saturation={1.2}
+              blend={0.6}
+              falloff={1.8}
+              opacity={1.0}
+            />
+          </div>
+        )}
+        <div className="relative z-10">
+          {renderDashboard()}
+        </div>
       </div>
     </>
   );
