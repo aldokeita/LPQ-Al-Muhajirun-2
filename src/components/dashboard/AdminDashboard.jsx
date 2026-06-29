@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library } from 'lucide-react';
 import SantriManagement from './admin/SantriManagement';
 import SantriDewasaManagement from './admin/SantriDewasaManagement';
@@ -142,8 +142,7 @@ const AdminDashboard = () => {
 
   // Tab definitions with group property for AdminModuleNav
   const adminTabs = [
-    { value: 'santri', label: 'Santri TPQ', icon: Users, group: 'data' },
-    { value: 'santri-dewasa', label: 'Santri Dewasa', icon: Briefcase, group: 'data' },
+    { value: 'santri', label: 'Data Santri', icon: Users, group: 'data' },
     { value: 'guru', label: 'Data Guru', icon: BookUser, group: 'data' },
     { value: 'kelas', label: 'Manajemen Kelas', icon: BookOpen, group: 'akademik' },
     { value: 'rekap-absensi', label: 'Rekap Santri', icon: CalendarCheck, group: 'akademik' },
@@ -165,8 +164,8 @@ const AdminDashboard = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
 
-      {/* Global Search Section — z-20 below navbar z-50 */}
-      <div className="mb-6 relative z-20">
+      {/* Global Search Section — below navbar */}
+      <div className="mb-6">
         <GlobalSearch onNavigate={handleGlobalSearchNavigate} />
       </div>
 
@@ -272,8 +271,28 @@ const AdminDashboard = () => {
       {/* Tab Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6">
         <div>
-            <TabsContent value="santri"><SantriManagement /></TabsContent>
-            <TabsContent value="santri-dewasa"><SantriDewasaManagement /></TabsContent>
+            <TabsContent value="santri">
+              <Tabs defaultValue="tpq" className="w-full">
+                <div className="flex justify-center mb-6">
+                  <div className="admin-segmented-control">
+                    <TabsList className="bg-transparent p-0 h-auto gap-0.5">
+                      <TabsTrigger value="tpq" className="admin-segmented-control-item">
+                        <Users className="w-3.5 h-3.5"/> Santri TPQ
+                      </TabsTrigger>
+                      <TabsTrigger value="ptpt" className="admin-segmented-control-item">
+                        <Users className="w-3.5 h-3.5"/> Santri PTPT
+                      </TabsTrigger>
+                      <TabsTrigger value="dewasa" className="admin-segmented-control-item">
+                        <Briefcase className="w-3.5 h-3.5"/> Santri Dewasa
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                </div>
+                <TabsContent value="tpq" className="mt-0"><SantriManagement /></TabsContent>
+                <TabsContent value="ptpt" className="mt-0"><SantriManagement /></TabsContent>
+                <TabsContent value="dewasa" className="mt-0"><SantriDewasaManagement /></TabsContent>
+              </Tabs>
+            </TabsContent>
             <TabsContent value="kelas"><ClassManagement /></TabsContent>
             <TabsContent value="guru"><GuruManagement /></TabsContent>
             <TabsContent value="rekap-absensi"><AttendanceRecap /></TabsContent>

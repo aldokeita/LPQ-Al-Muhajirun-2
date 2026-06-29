@@ -104,7 +104,7 @@ const AdminStatCard = ({
           </p>
         </div>
         {Icon && (
-          <Icon className="admin-stat-card-icon w-8 h-8 md:w-10 md:h-10 flex-shrink-0 ml-3" />
+          <Icon className="admin-stat-card-icon" />
         )}
       </div>
     </Component>
