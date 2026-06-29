@@ -257,11 +257,15 @@
   position: sticky;
   top: 0;
   z-index: 30;
-  background-color: transparent;
+  background-color: hsl(var(--admin-bg));
   padding: 0.75rem 0;
   transition: background-color 0.3s ease;
   display: flex;
   justify-content: center;
+}
+
+.dark .admin-module-nav {
+  background-color: hsl(222 30% 4%);
 }
 
 .admin-module-nav > div {
@@ -424,7 +428,7 @@
   }
 }
 
-/* Premium decorative icon — large, partially overflowing right/bottom edge */
+/* Premium decorative icon — subtly clipped by card edge */
 .admin-stat-card-icon {
   color: hsl(var(--admin-accent) / 0.9);
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -458,7 +462,7 @@
 }
 
 .admin-stat-card:hover .admin-stat-card-icon {
-  opacity: 0.32;
+  opacity: 0.28;
   transform: scale(1.05);
 }
 
@@ -467,7 +471,7 @@
 }
 
 .admin-stat-card--accent:hover .admin-stat-card-icon {
-  opacity: 0.32;
+  opacity: 0.28;
 }
 
 .admin-stat-card--amber .admin-stat-card-icon {
@@ -475,7 +479,7 @@
 }
 
 .admin-stat-card--amber:hover .admin-stat-card-icon {
-  opacity: 0.32;
+  opacity: 0.28;
 }
 
 /* Accent variants for stat cards */
