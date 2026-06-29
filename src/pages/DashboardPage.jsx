@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import useAdminBodyClass from '@/hooks/useAdminBodyClass';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import GuruDashboard from '@/components/dashboard/GuruDashboard';
 import SantriDashboard from '@/components/dashboard/SantriDashboard';
@@ -13,6 +14,9 @@ const DashboardPage = () => {
   const { role, user } = useAuth();
   const [santriProfile, setSantriProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  // Add body class for admin portal dropdown scoping
+  useAdminBodyClass(role === 'admin' || role === 'guru' || role === 'pentashih');
 
   useEffect(() => {
       console.log('DashboardPage mounted, Context State:', { role, userId: user?.id });
