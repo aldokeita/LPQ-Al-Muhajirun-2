@@ -357,7 +357,7 @@ const AdultClassManagement = () => {
     ] = await Promise.all([
       supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').eq('kategori', 'Dewasa').order('sort_order', { ascending: true, nullsFirst: false }),
       supabase.from('guru').select('id, nama, foto_url, no_hp'),
-      supabase.from('santri').select('*, class:id_kelas(nama_kelas, sesi)').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
+      supabase.from('santri').select('*').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
       supabase.from('attendance').select('*').eq('attendance_date', today),
       supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
     ]);

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Calendar, Clock, CheckCircle2, XCircle, Plus, BookOpen, Trash2, Edit } from 'lucide-react';
+import { Search, Calendar, Clock, CheckCircle2, XCircle, Plus, BookOpen, Trash2, Edit, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useMMQAttendance } from '@/hooks/useMMQAttendance';
 import MMQScheduleForm from './MMQScheduleForm';

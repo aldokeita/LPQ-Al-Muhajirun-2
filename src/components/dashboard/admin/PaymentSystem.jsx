@@ -526,7 +526,7 @@ const PaymentSystem = () => {
                     <CardFooter className="flex-col gap-4 pt-6 pb-6 bg-white dark:bg-slate-950 border-t rounded-b-xl">
                         <div className="w-full flex justify-between items-center px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
                             <div className="flex items-center gap-3"><div className="p-2 bg-white dark:bg-slate-800 rounded-md shadow-sm"><Banknote className="w-5 h-5 text-green-600"/></div><div><p className="text-xs font-semibold text-muted-foreground uppercase">Total Tagihan</p><p className="text-xl font-black text-slate-800 dark:text-white">Rp {(totalCart * Math.max(1, selectedSantri.length)).toLocaleString('id-ID')}</p></div></div>
-                            <Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger className="w-[140px] border-green-200 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Tunai">Tunai</SelectItem><SelectItem value="Transfer">Transfer</SelectItem></SelectContent></Select>
+<Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Tunai">Tunai</SelectItem><SelectItem value="Transfer">Transfer</SelectItem></SelectContent></Select>
                         </div>
                         <Button onClick={handlePayment} className="w-full h-12 text-lg font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.99]" size="lg" disabled={cart.length === 0 || selectedSantri.length === 0}>Proses Pembayaran {selectedSantri.length > 1 && `(${selectedSantri.length} Santri)`}</Button>
                     </CardFooter>

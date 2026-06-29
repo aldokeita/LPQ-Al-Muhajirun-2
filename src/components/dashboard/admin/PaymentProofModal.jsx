@@ -219,9 +219,9 @@ Salam,
                         </div>
                     </div>
 
-                    <div className="p-4 bg-slate-50 flex justify-center gap-2 border-t flex-wrap">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/90 flex justify-center gap-2 border-t dark:border-slate-700 flex-wrap">
                         <Button variant="outline" size="sm" onClick={onClose}>Tutup</Button>
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={handleSendWhatsApp} disabled={isLoadingPayment}>
+                        <Button variant="outline" size="sm" className="text-green-600 dark:text-green-400 border-green-200 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={handleSendWhatsApp} disabled={isLoadingPayment}>
                             <MessageSquare className="mr-2 h-4 w-4"/> Kirim WA
                         </Button>
                         <Button size="sm" onClick={handleDownload} disabled={isGenerating || isLoadingPayment || !completePayment}>
