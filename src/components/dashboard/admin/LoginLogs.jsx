@@ -19,22 +19,21 @@ const LoginLogs = () => {
         setLoading(true);
         const currentPage = reset ? 0 : page;
 
-        let query = supabase
-            .from('login_logs')
-            .select('*')
-            // The policy "Allow admin to read non-admin login logs" handles the filtering on the backend
-            .order('created_at', { ascending: false })
-            .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
-        
-        if (searchTerm) {
-            query = query.or(`username_attempt.ilike.%${searchTerm}%,ip_address.ilike.%${searchTerm}%,role.ilike.%${searchTerm}%`);
-        }
+        try {
+            let query = supabase
+                .from('login_logs')
+                .select('id, username_attempt, ip_address, role, city, country, device, status, created_at')
+                .order('created_at', { ascending: false })
+                .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
+            
+            if (searchTerm) {
+                query = query.or(`username_attempt.ilike.%${searchTerm}%,ip_address.ilike.%${searchTerm}%`);
+            }
 
-        const { data, error } = await query;
-        
-        if (error) {
-            toast({ title: 'Gagal memuat log', description: error.message, variant: 'destructive' });
-        } else {
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            
             setLogs(prev => {
                 if (reset) return data;
                 const newItems = data.filter(d => !prev.some(p => p.id === d.id));
@@ -47,6 +46,8 @@ const LoginLogs = () => {
                 setHasMore(true);
                 if (!reset) setPage(currentPage + 1);
             }
+        } catch (err) {
+            toast({ title: 'Gagal memuat log', description: err.message, variant: 'destructive' });
         }
         setLoading(false);
     }, [page, searchTerm]);
