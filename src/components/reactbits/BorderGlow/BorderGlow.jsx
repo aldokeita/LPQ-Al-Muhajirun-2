@@ -65,6 +65,22 @@ const getElementCenter = (element) => {
   return [width / 2, height / 2];
 };
 
+const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+const easeInCubic = (x) => x * x * x;
+
+const animateValue = ({ start = 0, end = 100, duration = 1000, delay = 0, ease = easeOutCubic, onUpdate, onEnd }) => {
+  const t0 = performance.now() + delay;
+  const tick = () => {
+    const elapsed = performance.now() - t0;
+    if (elapsed < 0) { requestAnimationFrame(tick); return; }
+    const t = Math.min(elapsed / duration, 1);
+    onUpdate(start + (end - start) * ease(t));
+    if (t < 1) requestAnimationFrame(tick);
+    else if (onEnd) onEnd();
+  };
+  setTimeout(() => requestAnimationFrame(tick), delay);
+};
+
 const BorderGlow = ({
   children,
   color = 'emerald',
@@ -78,6 +94,7 @@ const BorderGlow = ({
   coneSpread = 18,
   colors,
   fillOpacity = 0.16,
+  animated = false,
 }) => {
   const cardRef = useRef(null);
   const preset = COLOR_PRESETS[color] || COLOR_PRESETS.emerald;
@@ -111,6 +128,30 @@ const BorderGlow = ({
   }, []);
 
   useEffect(() => resetPointerPosition, [resetPointerPosition]);
+
+  useEffect(() => {
+    if (!animated || !cardRef.current) return;
+    const card = cardRef.current;
+    const angleStart = 110;
+    const angleEnd = 465;
+    card.classList.add('rb-sweep-active');
+    card.style.setProperty('--rb-cursor-angle', `${angleStart}deg`);
+
+    animateValue({ duration: 500, onUpdate: (v) => card.style.setProperty('--rb-edge-proximity', v) });
+    animateValue({
+      ease: easeInCubic, duration: 1500, end: 50,
+      onUpdate: (v) => card.style.setProperty('--rb-cursor-angle', `${((angleEnd - angleStart) * (v / 100)) + angleStart}deg`),
+    });
+    animateValue({
+      ease: easeOutCubic, delay: 1500, duration: 2250, start: 50, end: 100,
+      onUpdate: (v) => card.style.setProperty('--rb-cursor-angle', `${((angleEnd - angleStart) * (v / 100)) + angleStart}deg`),
+    });
+    animateValue({
+      ease: easeInCubic, delay: 2500, duration: 1500, start: 100, end: 0,
+      onUpdate: (v) => card.style.setProperty('--rb-edge-proximity', v),
+      onEnd: () => card.classList.remove('rb-sweep-active'),
+    });
+  }, [animated]);
 
   return (
     <div

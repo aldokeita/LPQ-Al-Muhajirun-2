@@ -62,6 +62,8 @@ const InstitutionalValues = ({ content }) => {
                   glowIntensity={0.32}
                   fillOpacity={0.12}
                   coneSpread={16}
+                  animated
+                  backgroundColor="var(--home-card-bg)"
                 >
                   <Icon className="h-6 w-6" />
                   <h3>{item.title}</h3>
