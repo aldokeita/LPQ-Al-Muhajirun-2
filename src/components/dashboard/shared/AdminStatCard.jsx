@@ -74,38 +74,36 @@ const AdminStatCard = ({
       className={`admin-stat-card ${variantClass} ${clickableClass} ${className}`}
       {...extraProps}
     >
-      <div className="relative z-10 flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0 text-left" style={{ paddingRight: 'clamp(2rem, 30cqi, 4rem)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <p className="admin-stat-card-label">{label}</p>
-            {masked && onToggleMask && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleMask();
-                }}
-                className="transition-colors hover:opacity-80"
-                style={{ color: 'hsl(var(--admin-text-muted))' }}
-                aria-label={showMask ? 'Sembunyikan nilai' : 'Tampilkan nilai'}
-              >
-                {showMask ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-              </button>
-            )}
-          </div>
-          <p className="admin-stat-card-value">
-            {masked ? (
-              <MaskedValue value={value} show={showMask} prefix={prefix} />
-            ) : typeof value === 'number' ? (
-              value.toLocaleString('id-ID')
-            ) : (
-              value
-            )}
-          </p>
+      <div className="admin-stat-card-content">
+        <div className="flex items-center gap-2 mb-2">
+          <p className="admin-stat-card-label">{label}</p>
+          {masked && onToggleMask && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMask();
+              }}
+              className="transition-colors hover:opacity-80"
+              style={{ color: 'hsl(var(--admin-text-muted))' }}
+              aria-label={showMask ? 'Sembunyikan nilai' : 'Tampilkan nilai'}
+            >
+              {showMask ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            </button>
+          )}
         </div>
-        {Icon && (
-          <Icon className="admin-stat-card-icon" />
-        )}
+        <p className="admin-stat-card-value">
+          {masked ? (
+            <MaskedValue value={value} show={showMask} prefix={prefix} />
+          ) : typeof value === 'number' ? (
+            value.toLocaleString('id-ID')
+          ) : (
+            value
+          )}
+        </p>
       </div>
+      {Icon && (
+        <Icon className="admin-stat-card-icon" aria-hidden="true" />
+      )}
     </Component>
   );
 };

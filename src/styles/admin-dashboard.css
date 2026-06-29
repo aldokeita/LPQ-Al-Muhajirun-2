@@ -429,6 +429,12 @@
   }
 }
 
+/* Content layer — above icon, prevents text overlap */
+.admin-stat-card-content {
+  position: relative;
+  z-index: 2;
+}
+
 /* Premium decorative icon — subtly clipped by card edge */
 .admin-stat-card-icon {
   color: hsl(var(--admin-accent) / 0.9);
