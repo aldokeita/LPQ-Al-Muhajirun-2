@@ -75,7 +75,7 @@ const AdminStatCard = ({
       {...extraProps}
     >
       <div className="relative z-10 flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0 text-left">
+        <div className="flex-1 min-w-0 text-left" style={{ paddingRight: 'clamp(2rem, 30cqi, 4rem)' }}>
           <div className="flex items-center gap-2 mb-2">
             <p className="admin-stat-card-label">{label}</p>
             {masked && onToggleMask && (
