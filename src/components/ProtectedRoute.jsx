@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -7,6 +7,9 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading, profileLoading, role } = useAuth();
   const location = useLocation();
   const roleIsAllowed = !allowedRoles || allowedRoles.includes(role);
+  // Track whether initial authorization has been granted at least once.
+  // Once true, background profile refreshes must NOT unmount children.
+  const hasAuthorized = useRef(false);
 
   useEffect(() => {
     console.log('ProtectedRoute mounting/updating', { 
@@ -20,7 +23,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     });
   }, [user, loading, profileLoading, location, role, allowedRoles]);
 
-  if (loading || profileLoading) {
+  // Record first successful authorization
+  if (user && role && roleIsAllowed) {
+    hasAuthorized.current = true;
+  }
+
+  // Only show full-screen spinner during initial boot (loading=true).
+  // Background profile refreshes (profileLoading) must NOT unmount
+  // children — that would destroy form state the user is editing.
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -29,8 +40,20 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (!user) {
+    // Only redirect to login if we haven't previously authorized in this session.
+    // If we have, the user is just refreshing their profile in background.
+    if (hasAuthorized.current) {
+      // Keep current children mounted — do not flash to login mid-session.
+      return children;
+    }
     console.log('Unauthorized access attempt to', location.pathname, '- Redirecting to /login');
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  // While profile is loading in the background after initial auth,
+  // keep existing children mounted with their current role.
+  if (profileLoading && hasAuthorized.current) {
+    return children;
   }
 
   if (!roleIsAllowed) {

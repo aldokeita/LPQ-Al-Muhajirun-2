@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase, isSupabaseConfigured, supabaseConfigurationMessage } from '@/lib/customSupabaseClient';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,8 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
+  // Ref to track current user ID without stale closure issues in onAuthStateChange
+  const userIdRef = useRef(null);
 
   const clearAuthState = useCallback(() => {
     setSession(null);
@@ -22,6 +24,7 @@ export const AuthProvider = ({ children }) => {
     setProfile(null);
     setRole(null);
     setProfileLoading(false);
+    userIdRef.current = null;
   }, []);
 
   const loadUserProfile = useCallback(async (userId) => {
@@ -39,10 +42,12 @@ export const AuthProvider = ({ children }) => {
 
       setProfile(data);
       setRole(data.role);
+      userIdRef.current = userId;
       return { profile: data, error: null };
     } catch (error) {
       setProfile(null);
       setRole(null);
+      userIdRef.current = null;
       console.error('[AuthContext] Failed to load user profile:', error.message);
       return { profile: null, error };
     } finally {
@@ -113,9 +118,10 @@ export const AuthProvider = ({ children }) => {
         }
 
         // SIGNED_IN also fires on tab return when Supabase recovers the
-        // session. If we already have a valid session for the same user,
-        // skip the expensive profile re-fetch.
-        if (event === 'SIGNED_IN' && session?.user?.id === currentSession?.user?.id) {
+        // session. Use userIdRef (not stale closure) to compare the
+        // current logged-in user with the event user.
+        const incomingUserId = currentSession?.user?.id ?? null;
+        if (event === 'SIGNED_IN' && userIdRef.current && userIdRef.current === incomingUserId) {
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
           return;
