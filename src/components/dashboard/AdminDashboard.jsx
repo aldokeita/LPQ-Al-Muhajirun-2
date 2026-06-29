@@ -22,6 +22,7 @@ import MMQManagement from './admin/MMQManagement';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enableDeferredFeatures } from '@/lib/featureFlags';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import GlobalSearch from './shared/GlobalSearch';
@@ -44,6 +45,7 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("santri");
+  const [activeSantriSubTab, setActiveSantriSubTab] = useState("tpq");
   const [stats, setStats] = useState({
     totalSantri: 0,
     totalPemasukanBulanIni: 0,
@@ -141,9 +143,14 @@ const AdminDashboard = () => {
   };
 
   // Tab definitions with group property for AdminModuleNav
+  const santriSubTabs = [
+    { id: 'tpq', label: 'Santri TPQ', icon: GraduationCap },
+    { id: 'ptpt', label: 'Santri PTPT', icon: BookOpen },
+    { id: 'dewasa', label: 'Santri Dewasa', icon: Briefcase },
+  ];
+
   const adminTabs = [
     { value: 'santri', label: 'Data Santri', icon: Users, group: 'data' },
-    { value: 'santri-dewasa', label: 'Santri Dewasa', icon: Briefcase, group: 'data' },
     { value: 'guru', label: 'Data Guru', icon: BookUser, group: 'data' },
     { value: 'kelas', label: 'Manajemen Kelas', icon: BookOpen, group: 'akademik' },
     { value: 'rekap-absensi', label: 'Rekap Santri', icon: CalendarCheck, group: 'akademik' },
@@ -269,11 +276,46 @@ const AdminDashboard = () => {
         onTabChange={setActiveTab}
       />
 
+      {/* Santri Subcategory Segmented Control — visible only when Data Santri is active */}
+      {activeTab === 'santri' && (
+        <div className="flex justify-center mt-6">
+          <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+            {santriSubTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSantriSubTab(tab.id)}
+                className={`
+                  relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
+                  ${activeSantriSubTab === tab.id ? 'text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
+                `}
+              >
+                {activeSantriSubTab === tab.id && (
+                  <motion.div
+                    layoutId="santri-subcat-pill"
+                    className="absolute inset-0 bg-white dark:bg-slate-700 shadow-sm rounded-full"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tab Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6">
         <div>
-            <TabsContent value="santri"><SantriManagement /></TabsContent>
-            <TabsContent value="santri-dewasa"><SantriDewasaManagement /></TabsContent>
+            <TabsContent value="santri">
+              {activeSantriSubTab === 'dewasa' ? (
+                <SantriDewasaManagement />
+              ) : (
+                <SantriManagement subCategory={activeSantriSubTab} />
+              )}
+            </TabsContent>
             <TabsContent value="kelas"><ClassManagement /></TabsContent>
             <TabsContent value="guru"><GuruManagement /></TabsContent>
             <TabsContent value="rekap-absensi"><AttendanceRecap /></TabsContent>

@@ -259,18 +259,12 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
   );
 };
 
-const SantriManagement = () => {
+const SantriManagement = ({ subCategory = 'tpq' }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("tpq");
   const [santriList, setSantriList] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   
-  const subTabs = [
-      { id: 'tpq', label: 'Santri TPQ', icon: GraduationCap },
-      { id: 'ptpt', label: 'Santri PTPT', icon: BookOpen },
-  ];
-
   // Helper for Date Parsing (MM-DD-YYYY or Excel Number)
   const parseDateInput = (val) => {
     if (!val) return null;
@@ -318,7 +312,7 @@ const SantriManagement = () => {
     dataRows.forEach((row, idx) => {
         if (!row || row.length === 0 || row.every(c => !c)) return; 
 
-        const santri = { kategori: activeTab === 'ptpt' ? 'PTPT' : 'Anak', status: 'Aktif', points: 0 };
+        const santri = { kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak', status: 'Aktif', points: 0 };
         const rowName = row[0] || 'Baris Tidak Bernama';
         
         try {
@@ -425,15 +419,15 @@ const SantriManagement = () => {
     jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: 'Anak'
   });
 
-  useEffect(() => { 
-      loadData(activeTab); 
-  }, [activeTab]);
+  useEffect(() => {
+      loadData(subCategory);
+  }, [subCategory]);
 
   useEffect(() => {
       if (santriList.length > 0) calculateBirthdayCount();
   }, [santriList]);
 
-  const loadData = async (currentTab = activeTab) => {
+  const loadData = async (currentTab = subCategory) => {
     setIsLoadingData(true);
     setFetchError(null);
     try {
@@ -539,8 +533,8 @@ const SantriManagement = () => {
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `Data Santri ${activeTab.toUpperCase()}`);
-    XLSX.writeFile(workbook, `Data_Santri_${activeTab.toUpperCase()}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, `Data Santri ${subCategory.toUpperCase()}`);
+    XLSX.writeFile(workbook, `Data_Santri_${subCategory.toUpperCase()}.xlsx`);
   };
 
   const handlePhotoUpload = async (e) => {
@@ -595,7 +589,7 @@ const SantriManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalFormData = { ...formData, kategori: activeTab === 'ptpt' ? 'PTPT' : 'Anak' };
+    const finalFormData = { ...formData, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak' };
     finalFormData.nomor_induk_qiroati = normalizeNomorIndukQiroati(finalFormData.nomor_induk_qiroati);
     
     // Ensure we save the numeric equivalent for sesi to match backend constraints
@@ -695,7 +689,7 @@ const SantriManagement = () => {
       }
 
       toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
-      loadData(activeTab);
+      loadData(subCategory);
       setIsFormOpen(false);
       resetForm();
     } catch (error) {
@@ -769,7 +763,7 @@ const SantriManagement = () => {
           const { error } = await supabase.from('santri').update({ status: 'Nonaktif' }).in('id', idsToDelete);
           if (error) throw error;
 
-          loadData(activeTab);
+          loadData(subCategory);
           setSelectedSantri(new Set());
           toast({ title: "Berhasil!", description: "Akun santri terpilih berhasil dinonaktifkan" });
         } catch (error) {
@@ -814,7 +808,7 @@ const SantriManagement = () => {
           const { error } = await supabase.from('santri').update({ status }).in('id', idsToUpdate);
           if (error) throw error;
 
-          loadData(activeTab);
+          loadData(subCategory);
           setSelectedSantri(new Set());
           toast({ title: "Berhasil!", description: `Status santri terpilih berhasil diubah menjadi ${status}.` });
         } catch (error) {
@@ -857,7 +851,7 @@ const SantriManagement = () => {
     setFormData({
       nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
       nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: sessionOptions[0] || 'Pagi', rfid_tag: '',
-      jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: activeTab === 'ptpt' ? 'PTPT' : 'Anak'
+      jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
     });
     setEditingSantri(null);
   };
@@ -938,40 +932,13 @@ const SantriManagement = () => {
 
   return (
     <div className="bg-card p-6 rounded-2xl shadow-xl">
-      <div className="flex justify-center mb-6 mt-2">
-          <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
-              {subTabs.map((tab) => (
-                  <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`
-                          relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
-                          ${activeTab === tab.id ? 'text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
-                      `}
-                  >
-                      {activeTab === tab.id && (
-                          <motion.div
-                              layoutId="santri-subtab-pill"
-                              className="absolute inset-0 bg-white dark:bg-slate-700 shadow-sm rounded-full"
-                              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                          />
-                      )}
-                      <span className="relative z-10 flex items-center gap-2">
-                          <tab.icon className="w-4 h-4" />
-                          {tab.label}
-                      </span>
-                  </button>
-              ))}
-          </div>
-      </div>
-
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border pb-6">
           <div className="flex items-center gap-3">
              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
                 <Users className="w-8 h-8" />
              </div>
              <div>
-                <h2 className="text-2xl font-bold text-foreground">Manajemen Santri ({activeTab.toUpperCase()})</h2>
+                <h2 className="text-2xl font-bold text-foreground">Manajemen Santri ({subCategory.toUpperCase()})</h2>
                 <p className="text-muted-foreground text-sm">Kelola data santri, jilid, dan status aktif.</p>
              </div>
           </div>
@@ -1046,7 +1013,7 @@ const SantriManagement = () => {
       {fetchError && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-xl mb-4 flex items-center justify-between">
           <p className="font-medium">Gagal memuat data santri: <span className="font-normal">{fetchError}</span></p>
-          <Button variant="outline" size="sm" onClick={() => loadData(activeTab)}>Coba Lagi</Button>
+          <Button variant="outline" size="sm" onClick={() => loadData(subCategory)}>Coba Lagi</Button>
         </div>
       )}
 
@@ -1124,7 +1091,7 @@ const SantriManagement = () => {
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader><DialogTitle>{editingSantri ? `Edit Data Santri ${activeTab.toUpperCase()}` : `Tambah Santri ${activeTab.toUpperCase()} Baru`}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingSantri ? `Edit Data Santri ${subCategory.toUpperCase()}` : `Tambah Santri ${subCategory.toUpperCase()} Baru`}</DialogTitle></DialogHeader>
           
           <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
             <div className="space-y-6 overflow-y-auto flex-1 pr-2">
@@ -1228,7 +1195,7 @@ const SantriManagement = () => {
         </DialogContent>
       </Dialog>
 
-      <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={activeTab === 'ptpt' ? 'PTPT' : 'Anak'} />
+      <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} />
       
