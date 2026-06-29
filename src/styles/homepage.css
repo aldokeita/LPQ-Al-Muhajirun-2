@@ -1,14 +1,87 @@
+/* ========================================
+   HOME PAGE — LIGHT DEFAULT + DARK MODE
+   ======================================== */
+
+/* --- Light theme variables (default) --- */
 .home-page {
-  --home-ink: #e8e6e1;
+  --home-ink: #07111f;
+  --home-ink-muted: rgba(15, 23, 42, 0.68);
   --home-navy: #080d1a;
-  --home-cream: #0c1220;
-  --home-paper: #101828;
+  --home-cream: #f6f1e7;
+  --home-paper: #fffaf0;
   --home-emerald: #00eb9d;
   --home-cyan: #62dfff;
   --home-amber: #f0c35a;
+
+  --home-surface-a: #f6f1e7;
+  --home-surface-b: #ede6d6;
+  --home-heading-color: #07111f;
+  --home-text-color: rgba(15, 23, 42, 0.68);
+  --home-card-bg: rgba(255, 255, 255, 0.72);
+  --home-card-border: rgba(15, 23, 42, 0.09);
+  --home-card-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --home-card-surface: #fffaf0;
+  --home-icon-color: #047857;
+  --home-accent-text: #047857;
+  --home-quote-icon: #b7791f;
+  --home-image-bg: #e7decd;
+  --home-gallery-card-bg: #ddd2bf;
+  --home-gallery-shadow: 0 24px 70px rgba(15, 23, 42, 0.13);
+  --home-faq-bg: rgba(246, 241, 231, 0.86);
+  --home-empty-border: rgba(15, 23, 42, 0.16);
+  --home-empty-bg: rgba(255, 255, 255, 0.7);
+  --home-empty-color: rgba(15, 23, 42, 0.62);
+  --home-empty-title: #07111f;
+  --home-fade-color: var(--home-cream);
+  --home-kicker-border: rgba(15, 23, 42, 0.09);
+  --home-kicker-bg: rgba(255, 255, 255, 0.68);
+  --home-kicker-color: #047857;
+  --home-ctrl-border: rgba(15, 23, 42, 0.12);
+  --home-ctrl-bg: rgba(255, 255, 255, 0.78);
+  --home-ctrl-color: #0f172a;
+  --home-outline-bg: rgba(255, 255, 255, 0.8);
+  --home-mq-text-muted: rgba(15, 23, 42, 0.72);
+
   overflow: hidden;
   background: var(--home-cream);
   color: var(--home-ink);
+}
+
+/* --- Dark theme overrides --- */
+.dark .home-page {
+  --home-ink: #e8e6e1;
+  --home-ink-muted: rgba(226, 232, 240, 0.68);
+  --home-cream: #0c1220;
+  --home-paper: #101828;
+
+  --home-surface-a: #0a1628;
+  --home-surface-b: #0d1a2e;
+  --home-heading-color: #f1f5f9;
+  --home-text-color: rgba(226, 232, 240, 0.68);
+  --home-card-bg: rgba(255, 255, 255, 0.06);
+  --home-card-border: rgba(255, 255, 255, 0.08);
+  --home-card-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  --home-card-surface: rgba(255, 255, 255, 0.05);
+  --home-icon-color: #6ee7b7;
+  --home-accent-text: #6ee7b7;
+  --home-quote-icon: #f59e0b;
+  --home-image-bg: #1a2235;
+  --home-gallery-card-bg: #1a2235;
+  --home-gallery-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  --home-faq-bg: rgba(255, 255, 255, 0.05);
+  --home-empty-border: rgba(255, 255, 255, 0.12);
+  --home-empty-bg: rgba(255, 255, 255, 0.05);
+  --home-empty-color: rgba(226, 232, 240, 0.62);
+  --home-empty-title: #f1f5f9;
+  --home-fade-color: #0d1a2e;
+  --home-kicker-border: rgba(255, 255, 255, 0.1);
+  --home-kicker-bg: rgba(255, 255, 255, 0.06);
+  --home-kicker-color: #6ee7b7;
+  --home-ctrl-border: rgba(255, 255, 255, 0.12);
+  --home-ctrl-bg: rgba(255, 255, 255, 0.08);
+  --home-ctrl-color: #e2e8f0;
+  --home-outline-bg: rgba(255, 255, 255, 0.08);
+  --home-mq-text-muted: rgba(226, 232, 240, 0.72);
 }
 
 .home-container,
@@ -24,16 +97,17 @@
   align-items: start;
 }
 
+/* --- Section Kicker (badge) --- */
 .home-kicker {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   width: fit-content;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--home-kicker-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--home-kicker-bg);
   padding: 0.5rem 0.78rem;
-  color: #6ee7b7;
+  color: var(--home-kicker-color);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.16em;
@@ -46,6 +120,9 @@
   color: #bbf7d0;
 }
 
+/* ========================================
+   HERO — ALWAYS DARK
+   ======================================== */
 .home-hero {
   position: relative;
   isolation: isolate;
@@ -432,25 +509,18 @@
   background: var(--home-cyan);
 }
 
+/* ========================================
+   VALUES — THEME-AWARE
+   ======================================== */
 .home-values {
   padding: clamp(4.5rem, 8vw, 7rem) 0;
+  background: var(--home-cream);
+}
+
+.dark .home-values {
   background:
     radial-gradient(circle at 22% 22%, rgba(0, 235, 157, 0.06), transparent 32%),
     #0a1628;
-}
-
-.home-gallery {
-  padding: clamp(4.5rem, 8vw, 7rem) 0;
-  background:
-    radial-gradient(circle at 78% 18%, rgba(98, 223, 255, 0.05), transparent 28%),
-    #0d1a2e;
-}
-
-.home-trust {
-  padding: clamp(4.5rem, 8vw, 7rem) 0;
-  background:
-    radial-gradient(circle at 40% 80%, rgba(240, 195, 90, 0.04), transparent 30%),
-    #0b1424;
 }
 
 .home-values__intro h2,
@@ -462,7 +532,7 @@
   font-weight: 950;
   line-height: 0.96;
   letter-spacing: -0.05em;
-  color: #f1f5f9;
+  color: var(--home-heading-color);
 }
 
 .home-values__intro p,
@@ -470,7 +540,7 @@
 .home-final-cta p,
 .home-trust__panel > p {
   margin-top: 1.3rem;
-  color: rgba(226, 232, 240, 0.68);
+  color: var(--home-text-color);
   font-size: 1.05rem;
   line-height: 1.85;
 }
@@ -480,7 +550,7 @@
   min-height: 24rem;
   overflow: hidden;
   border-radius: 2rem;
-  background: #1a2235;
+  background: var(--home-image-bg);
 }
 
 .home-values__image img {
@@ -494,6 +564,10 @@
   display: grid;
   min-height: 24rem;
   place-items: center;
+  color: rgba(15, 23, 42, 0.52);
+}
+
+.dark .home-values__image span {
   color: rgba(226, 232, 240, 0.52);
 }
 
@@ -508,7 +582,7 @@
 }
 
 .home-value-card svg {
-  color: #6ee7b7;
+  color: var(--home-icon-color);
 }
 
 .home-value-card h3 {
@@ -516,15 +590,18 @@
   font-size: 1.35rem;
   font-weight: 950;
   letter-spacing: -0.03em;
-  color: #f1f5f9;
+  color: var(--home-heading-color);
 }
 
 .home-value-card p {
   margin-top: 0.65rem;
-  color: rgba(226, 232, 240, 0.66);
+  color: var(--home-text-color);
   line-height: 1.75;
 }
 
+/* ========================================
+   PROGRAMS — ALWAYS DARK
+   ======================================== */
 .home-programs {
   padding: clamp(4.5rem, 8vw, 7rem) 0;
   background:
@@ -553,6 +630,20 @@
   color: rgba(255, 255, 255, 0.68);
 }
 
+/* ========================================
+   GALLERY — THEME-AWARE
+   ======================================== */
+.home-gallery {
+  padding: clamp(4.5rem, 8vw, 7rem) 0;
+  background: var(--home-cream);
+}
+
+.dark .home-gallery {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(98, 223, 255, 0.05), transparent 28%),
+    #0d1a2e;
+}
+
 .home-gallery__head,
 .home-editorial__head {
   display: flex;
@@ -573,17 +664,17 @@
   height: 2.9rem;
   width: 2.9rem;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--home-ctrl-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
+  background: var(--home-ctrl-bg);
+  color: var(--home-ctrl-color);
 }
 
 .home-outline-button {
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #e2e8f0;
+  background: var(--home-outline-bg);
+  border-color: var(--home-ctrl-border);
+  color: var(--home-ctrl-color);
 }
 
 .home-gallery__wrap {
@@ -604,12 +695,12 @@
 
 .home-gallery__wrap::before {
   left: 0;
-  background: linear-gradient(90deg, #0d1a2e, transparent);
+  background: linear-gradient(90deg, var(--home-fade-color), transparent);
 }
 
 .home-gallery__wrap::after {
   right: 0;
-  background: linear-gradient(270deg, #0d1a2e, transparent);
+  background: linear-gradient(270deg, var(--home-fade-color), transparent);
 }
 
 .home-gallery__track {
@@ -632,8 +723,8 @@
   overflow: hidden;
   scroll-snap-align: start;
   border-radius: 2rem;
-  background: #1a2235;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  background: var(--home-gallery-card-bg);
+  box-shadow: var(--home-gallery-shadow);
 }
 
 .home-gallery__card img {
@@ -660,6 +751,9 @@
   backdrop-filter: blur(10px);
 }
 
+/* ========================================
+   EDITORIAL — ALWAYS DARK
+   ======================================== */
 .home-editorial {
   padding: clamp(4.5rem, 8vw, 7rem) 0;
   background: #070b16;
@@ -785,20 +879,34 @@
   align-self: center;
 }
 
+/* ========================================
+   TRUST / TESTIMONIALS / FAQ — THEME-AWARE
+   ======================================== */
+.home-trust {
+  padding: clamp(4.5rem, 8vw, 7rem) 0;
+  background: var(--home-cream);
+}
+
+.dark .home-trust {
+  background:
+    radial-gradient(circle at 40% 80%, rgba(240, 195, 90, 0.04), transparent 30%),
+    #0b1424;
+}
+
 .home-trust__panel {
   border-radius: 2rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--home-card-bg);
+  border: 1px solid var(--home-card-border);
   padding: clamp(1.2rem, 3vw, 2rem);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--home-card-shadow);
 }
 
 .home-faq {
   border-radius: 2rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--home-card-bg);
+  border: 1px solid var(--home-card-border);
   padding: clamp(1.2rem, 3vw, 2rem);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--home-card-shadow);
 }
 
 .home-testimonials {
@@ -809,24 +917,24 @@
 
 .home-testimonials blockquote {
   border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--home-card-surface);
+  border: 1px solid var(--home-card-border);
   padding: 1rem;
 }
 
 .home-testimonials svg {
-  color: #f59e0b;
+  color: var(--home-quote-icon);
 }
 
 .home-testimonials p {
   margin-top: 0.8rem;
-  color: rgba(226, 232, 240, 0.72);
+  color: var(--home-mq-text-muted);
   line-height: 1.75;
 }
 
 .home-testimonials footer {
   margin-top: 0.9rem;
-  color: #6ee7b7;
+  color: var(--home-accent-text);
   font-size: 0.85rem;
   font-weight: 900;
 }
@@ -839,8 +947,8 @@
 
 .home-faq details {
   border-radius: 1.25rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--home-faq-bg);
+  border: 1px solid var(--home-card-border);
   padding: 1rem;
 }
 
@@ -851,13 +959,16 @@
   justify-content: space-between;
   gap: 1rem;
   font-weight: 900;
-  color: #f1f5f9;
+  color: var(--home-heading-color);
 }
 
 .home-faq summary::-webkit-details-marker { display: none; }
 .home-faq details[open] summary svg { rotate: 90deg; }
-.home-faq p { margin-top: 0.8rem; color: rgba(226, 232, 240, 0.68); line-height: 1.75; }
+.home-faq p { margin-top: 0.8rem; color: var(--home-text-color); line-height: 1.75; }
 
+/* ========================================
+   FINAL CTA — ALWAYS DARK
+   ======================================== */
 .home-final-cta {
   position: relative;
   isolation: isolate;
@@ -936,19 +1047,22 @@
   font-weight: 950;
 }
 
+/* ========================================
+   EMPTY / LOADING / ERROR STATES
+   ======================================== */
 .home-empty-state,
 .home-loading-panel,
 .home-error-panel {
-  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border: 1px dashed var(--home-empty-border);
   border-radius: 2rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--home-empty-bg);
   padding: 2rem;
   text-align: center;
-  color: rgba(226, 232, 240, 0.62);
+  color: var(--home-empty-color);
 }
 
 .home-empty-state p {
-  color: #f1f5f9;
+  color: var(--home-empty-title);
   font-weight: 950;
 }
 
@@ -960,7 +1074,7 @@
 
 .home-empty-state.is-dark,
 .home-loading-panel,
-.home-error-panel {
+.home-home-error-panel {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.68);
@@ -968,6 +1082,9 @@
 
 .home-muted-dark { color: rgba(255, 255, 255, 0.62); }
 
+/* ========================================
+   RESPONSIVE
+   ======================================== */
 @media (max-width: 1024px) {
   .home-hero__inner,
   .home-section-grid,
