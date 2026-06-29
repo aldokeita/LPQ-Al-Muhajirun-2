@@ -1,9 +1,9 @@
-
+﻿
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, History, UserPlus, Users, Check, BarChart2, GripVertical, FileSpreadsheet, Phone, Eye, ArrowRight, Clock, Settings, Filter, ListOrdered } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, History, UserPlus, Users, Check, BarChart2, GripVertical, FileSpreadsheet, Phone, Eye, ArrowRight, Clock, Settings, Filter, ListOrdered, Briefcase } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,7 +49,7 @@ const DraggableSessionItem = ({ name, time, index, moveSession, onDelete, onUpda
         collect: (monitor) => ({ isDragging: monitor.isDragging() }),
     });
     drag(drop(ref));
-    
+
     return (
         <div ref={ref} data-handler-id={handlerId} className={`flex items-center gap-2 p-2 rounded-lg border bg-slate-50 dark:bg-slate-800 mb-2 ${isDragging ? 'opacity-50' : 'opacity-100'}`}>
             <div className="cursor-grab text-muted-foreground"><GripVertical className="w-4 h-4"/></div>
@@ -96,7 +96,7 @@ const DraggableClassOrderItem = ({ classItem, index, moveClassOrder }) => {
                 <GripVertical className="w-5 h-5 text-muted-foreground" />
                 <div>
                     <p className="font-semibold text-sm">{classItem.nama_kelas}</p>
-                    <p className="text-xs text-muted-foreground">{classItem.guru?.nama || 'Tanpa Guru'} • {classItem.sesi}</p>
+                    <p className="text-xs text-muted-foreground">{classItem.guru?.nama || 'Tanpa Guru'} â€¢ {classItem.sesi}</p>
                 </div>
             </div>
         </div>
@@ -135,11 +135,11 @@ const ReorderClassesModal = ({ isOpen, onClose, classes, onSave }) => {
                 </DialogHeader>
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar my-4">
                     {orderedClasses.map((cls, index) => (
-                        <DraggableClassOrderItem 
-                            key={cls.id} 
-                            index={index} 
-                            classItem={cls} 
-                            moveClassOrder={moveClassOrder} 
+                        <DraggableClassOrderItem
+                            key={cls.id}
+                            index={index}
+                            classItem={cls}
+                            moveClassOrder={moveClassOrder}
                         />
                     ))}
                 </div>
@@ -163,11 +163,11 @@ const SessionConfigDialog = ({ open, onOpenChange, config, onSave }) => {
             setLocalSessions(Object.entries(config).map(([name, time]) => ({ name, time })));
         }
     }, [config, open]);
-    
+
     const handleUpdateSession = (name, newTime) => {
         setLocalSessions(prev => prev.map(s => s.name === name ? { ...s, time: newTime } : s));
     };
-    
+
     const handleDeleteSession = (name) => {
         setLocalSessions(prev => prev.filter(s => s.name !== name));
     };
@@ -202,11 +202,11 @@ const SessionConfigDialog = ({ open, onOpenChange, config, onSave }) => {
                 <div className="space-y-4 py-4">
                     <div className="space-y-1 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                          {localSessions.map((session, index) => (
-                             <DraggableSessionItem 
-                                key={session.name} 
+                             <DraggableSessionItem
+                                key={session.name}
                                 index={index}
-                                name={session.name} 
-                                time={session.time} 
+                                name={session.name}
+                                time={session.time}
                                 moveSession={moveSession}
                                 onUpdate={handleUpdateSession}
                                 onDelete={handleDeleteSession}
@@ -300,11 +300,11 @@ DroppableColumn.displayName = 'DroppableColumn';
 const ClassCard = ({ classItem, index, children, onDropSantri, onEdit, onDelete, onShowDetails, onShowPerformance, santriCount }) => {
   const ref = useRef(null);
   const [{ handlerId }, drop] = useDrop({ accept: ItemTypes.CLASS, collect(monitor) { return { handlerId: monitor.getHandlerId() }; }, hover(item, monitor) { }, });
-  
-  let capacityColor = 'text-blue-600 dark:text-emerald-400'; let borderColor = 'border-blue-500 dark:border-emerald-500'; 
-  if (santriCount > 15) { capacityColor = 'text-red-600 dark:text-red-400'; borderColor = 'border-red-500'; } 
+
+  let capacityColor = 'text-blue-600 dark:text-emerald-400'; let borderColor = 'border-blue-500 dark:border-emerald-500';
+  if (santriCount > 15) { capacityColor = 'text-red-600 dark:text-red-400'; borderColor = 'border-red-500'; }
   else if (santriCount >= 11) { capacityColor = 'text-yellow-600 dark:text-yellow-400'; borderColor = 'border-yellow-500'; }
-  
+
   drop(ref);
   const waLink = classItem.guru?.no_hp ? `https://wa.me/${classItem.guru.no_hp.replace(/\D/g, '').replace(/^0/, '62')}` : null;
   return (
@@ -347,7 +347,7 @@ const AdultClassManagement = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
 
   const fetchAllData = useCallback(async () => {
-    const today = new Date().toLocaleDateString('en-CA'); 
+    const today = new Date().toLocaleDateString('en-CA');
     const [
       { data: classData, error: classError },
       { data: guruData, error: guruError },
@@ -413,9 +413,9 @@ const AdultClassManagement = () => {
           setSessionTimes(newSessionTimes);
           const newSessionKeys = newLocalSessions.map(s => s.name);
           setSessionFilters(newSessionKeys);
-          
+
           setFormData(prev => ({
-              ...prev, 
+              ...prev,
               sesi: newSessionKeys.includes(prev.sesi) ? prev.sesi : (newSessionKeys[0] || '')
           }));
 
@@ -427,8 +427,8 @@ const AdultClassManagement = () => {
   };
 
   const saveReorderedClasses = async (orderedClasses) => {
-      setClasses(orderedClasses); 
-      
+      setClasses(orderedClasses);
+
       const updates = orderedClasses.map((cls, index) => ({
           id: cls.id,
           order: index + 1,
@@ -439,7 +439,7 @@ const AdultClassManagement = () => {
       const { error } = await supabase.from('classes').upsert(updates);
       if (error) {
           toast({ title: 'Gagal', description: error.message, variant: 'destructive' });
-          fetchAllData(); 
+          fetchAllData();
       } else {
           toast({ title: 'Berhasil', description: 'Urutan kelas diperbarui.' });
       }
@@ -474,10 +474,10 @@ const AdultClassManagement = () => {
     if (newSession) updates.sesi_mengaji = newSession;
     setSantriList(prev => prev.map(s => s.id === santriId ? { ...s, ...updates } : s));
     const { error } = await supabase.from('santri').update(updates).eq('id', santriId);
-    if (error) { toast({ title: 'Gagal', variant: 'destructive' }); fetchAllData(); } 
+    if (error) { toast({ title: 'Gagal', variant: 'destructive' }); fetchAllData(); }
     else { logMutation(santriId, fromClassId, toClassId, currentJilid); toast({ title: 'Berhasil' }); }
   };
-  
+
   const initiateJilidChange = (santri, direction) => {
       const currentIndex = jilidOptions.indexOf(santri.jilid);
       if (direction === 'up') {
@@ -517,7 +517,7 @@ const AdultClassManagement = () => {
           title: 'Hapus Riwayat',
           description: 'Apakah Anda yakin ingin menghapus riwayat ini? Tindakan ini tidak dapat dibatalkan.',
           onConfirm: async () => {
-              await supabase.from('class_mutations').delete().eq('id', id); 
+              await supabase.from('class_mutations').delete().eq('id', id);
               setMutationHistory(prev => prev.filter(m => m.id !== id));
           }
       });
@@ -527,9 +527,9 @@ const AdultClassManagement = () => {
     const grouped = {};
     Object.keys(sessionTimes).forEach(key => grouped[key] = []);
 
-    classes.forEach(c => { 
+    classes.forEach(c => {
         if (!grouped[c.sesi]) grouped[c.sesi] = [];
-        grouped[c.sesi].push(c); 
+        grouped[c.sesi].push(c);
     });
     // Order based on object keys (config order)
     Object.keys(grouped).forEach(key => grouped[key].sort((a,b) => a.order - b.order));
@@ -542,7 +542,7 @@ const AdultClassManagement = () => {
     sortedSantri.forEach(s => { if (s.id_kelas && grouped[s.id_kelas]) grouped[s.id_kelas].push(s); });
     return grouped;
   }, [classes, santriList]);
-  
+
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !s.id_kelas && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
 
@@ -563,21 +563,21 @@ const AdultClassManagement = () => {
   const handleShowDetails = (classItem) => { setSelectedClass(classItem); setIsDetailOpen(true); };
   const handleShowPerformance = (classItem) => { setSelectedClass(classItem); setIsPerformanceOpen(true); };
   const handleViewSantriDetails = (santri) => { setSelectedSantri(santri); setIsSantriDetailOpen(true); };
-  const resetForm = () => { 
+  const resetForm = () => {
       const sessions = Object.keys(sessionTimes);
-      setFormData({ nama_kelas: '', sesi: sessions[0] || '', id_guru: null, notes: '', kategori: 'Dewasa' }); 
-      setEditingClass(null); 
+      setFormData({ nama_kelas: '', sesi: sessions[0] || '', id_guru: null, notes: '', kategori: 'Dewasa' });
+      setEditingClass(null);
   };
   const handleAdd = () => { resetForm(); setIsFormOpen(true); };
   const handleEdit = (item) => { setEditingClass(item); setFormData({ ...item }); setIsFormOpen(true); };
-  
-  const confirmDeleteClass = (id) => { 
+
+  const confirmDeleteClass = (id) => {
       setConfirmDialog({
           isOpen: true,
           title: 'Hapus Kelas',
           description: 'Apakah Anda yakin ingin menghapus kelas ini? Santri di dalamnya akan dikeluarkan dari kelas.',
           onConfirm: async () => {
-              await supabase.from('classes').delete().eq('id', id); 
+              await supabase.from('classes').delete().eq('id', id);
               fetchAllData();
           }
       });
@@ -589,63 +589,59 @@ const AdultClassManagement = () => {
   return (
       <div className="space-y-6">
         {/* Modern Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border pb-6">
+        <div className="admin-panel-header">
           <div className="flex items-center gap-3">
-             <div>
-                <h2 className="text-2xl font-bold text-foreground">Manajemen Kelas Dewasa</h2>
-                <p className="text-muted-foreground text-sm">Khusus untuk santri kategori dewasa.</p>
+             <div className="admin-panel-header-icon">
+                <Briefcase />
+             </div>
+             <div className="admin-panel-header-text">
+                <h2>Manajemen Kelas Dewasa</h2>
+                <p>Khusus untuk santri kategori dewasa.</p>
              </div>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
-                <Button variant="ghost" size="sm" onClick={handleExportToExcel} className="h-8 px-2 hover:bg-background shadow-none">
-                    <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600"/> Export
-                </Button>
-                <Button variant="ghost" size="sm" onClick={showHistory} className="h-8 px-2 hover:bg-background shadow-none">
-                    <History className="w-4 h-4 mr-2 text-purple-600"/> Riwayat
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setIsConfigOpen(true)} className="h-8 px-2 hover:bg-background shadow-none">
-                        <Settings className="w-4 h-4 mr-2 text-slate-600"/> Config Sesi
-                </Button>
+
+          <div className="admin-panel-header-actions">
+            <div className="admin-action-cluster">
+                <button onClick={handleExportToExcel} className="admin-action-cluster-btn">
+                    <FileSpreadsheet className="w-3.5 h-3.5"/> Export
+                </button>
+                <button onClick={showHistory} className="admin-action-cluster-btn">
+                    <History className="w-3.5 h-3.5"/> Riwayat
+                </button>
+                <button onClick={() => setIsConfigOpen(true)} className="admin-action-cluster-btn">
+                        <Settings className="w-3.5 h-3.5"/> Config Sesi
+                </button>
             </div>
-            <Button onClick={() => setIsReorderOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white shadow-md">
-                <ListOrdered className="w-4 h-4 mr-2"/> Atur Urutan
-            </Button>
-            <Button onClick={handleAdd} className="bg-primary hover:bg-primary/90 shadow-md">
-                <Plus className="w-4 h-4 mr-2"/> Tambah Kelas
-            </Button>
+            <button onClick={() => setIsReorderOpen(true)} className="admin-panel-primary-btn" style={{ backgroundColor: 'hsl(var(--admin-accent-amber))' }}>
+                <ListOrdered className="w-4 h-4"/> Atur Urutan
+            </button>
+            <button onClick={handleAdd} className="admin-panel-primary-btn">
+                <Plus className="w-4 h-4"/> Tambah Kelas
+            </button>
           </div>
         </div>
 
-        {/* Unified Search and Filter Bar */}
-        <Card className="bg-slate-50 dark:bg-slate-900/50 border-none shadow-sm">
-            <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
-                 <div className="relative flex-grow w-full md:w-auto">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input 
-                        placeholder="Cari santri..." 
-                        value={santriSearch} 
-                        onChange={e => setSantriSearch(e.target.value)} 
-                        className="pl-9 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-                    />
-                 </div>
-                 <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                    <Filter className="w-4 h-4 text-muted-foreground hidden md:block"/>
-                    {Object.keys(sessionTimes).map(session => (
-                        <Button 
-                            key={session} 
-                            variant={sessionFilters.includes(session) ? 'default' : 'outline'} 
-                            size="sm" 
-                            onClick={() => toggleSessionFilter(session)}
-                            className={sessionFilters.includes(session) ? "bg-indigo-600 hover:bg-indigo-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 border-transparent text-white hover:text-white" : "bg-white dark:bg-slate-950"}
-                        >
-                            {session} <span className="ml-1 opacity-70 text-[10px]">({sessionTimes[session]})</span>
-                        </Button>
-                    ))}
-                 </div>
-            </CardContent>
-        </Card>
+        <div className="admin-filter-bar">
+            <div className="admin-search-input">
+                <Search />
+                <Input
+                    placeholder="Cari santri..."
+                    value={santriSearch}
+                    onChange={e => setSantriSearch(e.target.value)}
+                />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+                {Object.keys(sessionTimes).map(session => (
+                    <button
+                        key={session}
+                        onClick={() => toggleSessionFilter(session)}
+                        className={sessionFilters.includes(session) ? "admin-segmented-control-item active" : "admin-segmented-control-item"}
+                    >
+                        {session} <span className="ml-1 opacity-70 text-[10px]">({sessionTimes[session]})</span>
+                    </button>
+                ))}
+            </div>
+        </div>
 
         {/* Unassigned Santri */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -663,16 +659,16 @@ const AdultClassManagement = () => {
                  <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-lg px-3 py-1">{session}</Badge>
                  <span className="text-muted-foreground font-medium flex items-center gap-1"><Clock className="w-4 h-4"/> {sessionTimes[session]}</span>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{classesBySession[session].map((classItem) => (
                 <ClassCard key={classItem.id} index={classes.findIndex(c => c.id === classItem.id)} classItem={classItem} onDropSantri={handleDropSantri} onEdit={handleEdit} onDelete={confirmDeleteClass} onShowDetails={handleShowPerformance} onShowPerformance={handleShowPerformance} santriCount={(santriByClass[classItem.id] || []).length}>
                   {(santriByClass[classItem.id] || []).map((santri, santriIndex) => (
-                    <DraggableSantri 
+                    <DraggableSantri
                         key={santri.id}
-                        santri={santri} 
-                        index={santriIndex} 
-                        moveSantri={moveSantri} 
-                        hasAttended={attendanceById.has(santri.id)} 
+                        santri={santri}
+                        index={santriIndex}
+                        moveSantri={moveSantri}
+                        hasAttended={attendanceById.has(santri.id)}
                         onViewDetails={handleViewSantriDetails}
                         onJilidUp={() => initiateJilidChange(santri, 'up')}
                         onJilidDown={() => initiateJilidChange(santri, 'down')}
@@ -697,14 +693,14 @@ const AdultClassManagement = () => {
                 <SelectContent>{Object.keys(sessionTimes).map(s => <SelectItem key={s} value={s}>{s} ({sessionTimes[s]})</SelectItem>)}</SelectContent>
             </Select>
             </div><div><label>Guru</label><Select value={formData.id_guru || 'none'} onValueChange={val => setFormData({ ...formData, id_guru: val === 'none' ? null : val })}><SelectTrigger><SelectValue placeholder="Pilih Guru"/></SelectTrigger><SelectContent><SelectItem value="none">Tidak ada</SelectItem>{guruList.map(g => <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>)}</SelectContent></Select></div></div><div><label>Catatan</label><Textarea value={formData.notes || ''} onChange={e => setFormData({ ...formData, notes: e.target.value })}/></div><DialogFooter><Button type="submit">Simpan</Button></DialogFooter></form></DialogContent></Dialog>
-        
-        <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}><DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>Riwayat Mutasi Santri</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2 my-4"><div className="relative flex-grow"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/><Input placeholder="Cari nama santri..." value={historyFilters.search} onChange={e => setHistoryFilters({...historyFilters, search: e.target.value})} className="pl-9"/></div><Input type="date" value={historyFilters.date} onChange={e => setHistoryFilters({...historyFilters, date: e.target.value})} className="w-auto"/></div><div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">{filteredHistory.map(m => (<div key={m.id} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative hover:shadow-md transition-all"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div className="flex items-start gap-4"><Avatar className="h-14 w-14 border-2 border-white shadow-md"><AvatarImage src={m.santri?.foto_url} /><AvatarFallback className="text-lg font-bold bg-slate-200">{m.santri?.nama_lengkap?.[0]}</AvatarFallback></Avatar><div><h4 className="font-bold text-lg text-primary">{m.santri?.nama_lengkap || 'Santri Dihapus'}</h4><div className="text-xs text-muted-foreground mt-1">{m.from_jilid && m.to_jilid ? `${m.from_jilid} ➔ ${m.to_jilid}` : 'Perubahan Kelas'}</div></div></div><div className="flex items-center gap-3 flex-1 justify-center md:px-8"><div className="flex flex-col items-end min-w-[120px]"><p className="font-bold text-sm">{m.from_class?.nama_kelas || 'Luar Kelas'}</p></div><ArrowRight className="text-muted-foreground w-5 h-5" /><div className="flex flex-col items-start min-w-[120px]"><p className="font-bold text-sm">{m.to_class?.nama_kelas || 'Luar Kelas'}</p></div></div><div><Button variant="ghost" size="icon" onClick={() => confirmDeleteHistory(m.id)} className="text-red-500 hover:bg-red-50 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4"/></Button></div></div></div>))}</div></DialogContent></Dialog>
-        
+
+        <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}><DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>Riwayat Mutasi Santri</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2 my-4"><div className="relative flex-grow"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/><Input placeholder="Cari nama santri..." value={historyFilters.search} onChange={e => setHistoryFilters({...historyFilters, search: e.target.value})} className="pl-9"/></div><Input type="date" value={historyFilters.date} onChange={e => setHistoryFilters({...historyFilters, date: e.target.value})} className="w-auto"/></div><div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">{filteredHistory.map(m => (<div key={m.id} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative hover:shadow-md transition-all"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div className="flex items-start gap-4"><Avatar className="h-14 w-14 border-2 border-white shadow-md"><AvatarImage src={m.santri?.foto_url} /><AvatarFallback className="text-lg font-bold bg-slate-200">{m.santri?.nama_lengkap?.[0]}</AvatarFallback></Avatar><div><h4 className="font-bold text-lg text-primary">{m.santri?.nama_lengkap || 'Santri Dihapus'}</h4><div className="text-xs text-muted-foreground mt-1">{m.from_jilid && m.to_jilid ? `${m.from_jilid} âž” ${m.to_jilid}` : 'Perubahan Kelas'}</div></div></div><div className="flex items-center gap-3 flex-1 justify-center md:px-8"><div className="flex flex-col items-end min-w-[120px]"><p className="font-bold text-sm">{m.from_class?.nama_kelas || 'Luar Kelas'}</p></div><ArrowRight className="text-muted-foreground w-5 h-5" /><div className="flex flex-col items-start min-w-[120px]"><p className="font-bold text-sm">{m.to_class?.nama_kelas || 'Luar Kelas'}</p></div></div><div><Button variant="ghost" size="icon" onClick={() => confirmDeleteHistory(m.id)} className="text-red-500 hover:bg-red-50 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4"/></Button></div></div></div>))}</div></DialogContent></Dialog>
+
         <SantriDetailModal santri={selectedSantri} isOpen={isSantriDetailOpen} onOpenChange={setIsSantriDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
         <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Dewasa" />
         <ClassPerformanceModal isOpen={isPerformanceOpen} onClose={() => setIsPerformanceOpen(false)} classItem={selectedClass} />
         <ReorderClassesModal isOpen={isReorderOpen} onClose={() => setIsReorderOpen(false)} classes={classes} onSave={saveReorderedClasses} />
-        
+
         <SessionConfigDialog open={isConfigOpen} onOpenChange={setIsConfigOpen} config={sessionTimes} onSave={handleSaveConfig} />
         <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} />
       </div>

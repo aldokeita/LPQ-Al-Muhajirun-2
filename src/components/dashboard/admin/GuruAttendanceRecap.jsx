@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,7 +23,7 @@ const defaultSessionTimes = {
   'Pagi': '08:00',
   'Siang': '14:00',
   'Sore': '16:00',
-  'Malam': '18:30', 
+  'Malam': '18:30',
 };
 
 const GuruAttendanceRecap = ({ isReadOnly = false }) => {
@@ -38,27 +38,27 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedGuruDetail, setSelectedGuruDetail] = useState(null);
     const [holidays, setHolidays] = useState(new Set());
-    
+
     // Admin Edit Session State
     const [isSessionEditOpen, setIsSessionEditOpen] = useState(false);
     const [sessionEditGuru, setSessionEditGuru] = useState(null);
-    const [tempSessions, setTempSessions] = useState([]); 
-    const [availableSessionsForGuru, setAvailableSessionsForGuru] = useState([]); 
-    const [overriddenSessions, setOverriddenSessions] = useState({}); 
+    const [tempSessions, setTempSessions] = useState([]);
+    const [availableSessionsForGuru, setAvailableSessionsForGuru] = useState([]);
+    const [overriddenSessions, setOverriddenSessions] = useState({});
 
     // Advanced Edit Modal State (replaces simple confirmation dialog)
     const [editModal, setEditModal] = useState({ isOpen: false, data: null });
     const [editTime, setEditTime] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     const canEdit = !isReadOnly && role === 'admin';
 
     const fetchData = async () => {
         setIsLoading(true);
-        
+
         let attQuery = supabase.from('attendance').select('*').eq('role', 'guru');
         let guruQuery = supabase.from('guru').select('id, nama, foto_url, no_hp');
-        const classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori'); 
+        const classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori');
         const overridesQuery = supabase.from('website_content').select('content').eq('key', 'guru_session_overrides').maybeSingle();
 
         if (role === 'guru' && user) {
@@ -79,16 +79,16 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             setAttendanceData(att);
             setGurus(guruList);
             setClasses(classList);
-            
+
             if (overrides?.content) {
                 setOverriddenSessions(overrides.content);
             }
-            
+
             const years = [...new Set(att.map(a => new Date(a.attendance_date).getFullYear()))].sort((a,b) => b-a);
             const currentYear = new Date().getFullYear();
             if (!years.includes(currentYear)) years.unshift(currentYear);
             setAvailableYears(years);
-            
+
             if (calendarData) {
                 setHolidays(new Set(calendarData.map(c => c.date)));
             }
@@ -98,16 +98,16 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedYear]); 
+    }, [selectedYear]);
 
     const handleSaveAttendance = async () => {
         if (!editModal.data) return;
         setIsSubmitting(true);
-        
+
         const { guruId, dateStr, sesi, record } = editModal.data;
         const sessionStart = `${dateStr}T${defaultSessionTimes[sesi] || '08:00'}:00`;
         const checkInTs = editTime ? `${dateStr}T${editTime}` : null;
-        
+
         let newStatus = 'Tidak Hadir';
         if (checkInTs) {
              newStatus = determineAttendanceStatus(checkInTs, sessionStart);
@@ -147,9 +147,9 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         const guruClasses = classes.filter(c => c.id_guru === guru.id);
         const derivedSessions = [...new Set(guruClasses.map(c => c.sesi).filter(s => s))];
         const existingOverride = overriddenSessions[guru.id];
-        
+
         setSessionEditGuru(guru);
-        setAvailableSessionsForGuru(derivedSessions); 
+        setAvailableSessionsForGuru(derivedSessions);
         setTempSessions(existingOverride || derivedSessions);
         setIsSessionEditOpen(true);
     };
@@ -157,7 +157,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     const saveSessionOverride = async () => {
         if (!sessionEditGuru) return;
         const newOverrides = { ...overriddenSessions, [sessionEditGuru.id]: tempSessions };
-        
+
         const { error } = await supabase.from('website_content').upsert(
             { key: 'guru_session_overrides', content: newOverrides },
             { onConflict: 'key' }
@@ -173,7 +173,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     };
 
     const toggleSession = (sesi) => {
-        setTempSessions(prev => 
+        setTempSessions(prev =>
             prev.includes(sesi) ? prev.filter(s => s !== sesi) : [...prev, sesi]
         );
     };
@@ -183,12 +183,12 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         const activeDays = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         for(let d=1; d<=daysInMonth; d++) {
             const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const date = new Date(selectedYear, selectedMonth, d);
-            const dayOfWeek = date.getDay(); 
-            
+            const dayOfWeek = date.getDay();
+
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const isHoliday = holidays.has(dateStr);
 
@@ -202,23 +202,23 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
         const processedData = filteredGurus.map(guru => {
             let assignedSessions = [];
-            
+
             if (overriddenSessions[guru.id]) {
                 assignedSessions = overriddenSessions[guru.id];
             } else {
                 const guruClasses = classes.filter(c => c.id_guru === guru.id);
                 assignedSessions = [...new Set(guruClasses.map(c => c.sesi).filter(s => s))];
             }
-            
+
             assignedSessions.sort();
-            
-            if (assignedSessions.length === 0) return null; 
+
+            if (assignedSessions.length === 0) return null;
 
             const pastActiveDaysCount = activeDays.filter(d => d.isPast).length;
             let totalSessionsExpected = pastActiveDaysCount * assignedSessions.length;
             let totalSessionsAttended = 0;
             let sessionBreakdown = {};
-            
+
             assignedSessions.forEach(s => sessionBreakdown[s] = 0);
 
             let dailyDetails = {};
@@ -226,17 +226,17 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             activeDays.forEach(({ day, isPast }) => {
                 const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 dailyDetails[day] = {};
-                
+
                 assignedSessions.forEach(sesi => {
-                    const attendanceRecord = attendanceData.find(a => 
-                        a.user_id === guru.id && 
-                        a.attendance_date === dateStr && 
+                    const attendanceRecord = attendanceData.find(a =>
+                        a.user_id === guru.id &&
+                        a.attendance_date === dateStr &&
                         a.sesi === sesi
                     );
-                    
+
                     let computedRecordStatus = 'Tidak Hadir';
                     const sessionStartTs = `${dateStr}T${defaultSessionTimes[sesi] || '08:00'}:00`;
-                    
+
                     if (attendanceRecord) {
                         if (attendanceRecord.check_in_timestamp) {
                             computedRecordStatus = determineAttendanceStatus(attendanceRecord.check_in_timestamp, sessionStartTs);
@@ -244,7 +244,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                             computedRecordStatus = attendanceRecord.status;
                         }
                     }
-                    
+
                     dailyDetails[day][sesi] = {
                         isPresent: !!attendanceRecord,
                         id: attendanceRecord?.id || null,
@@ -253,8 +253,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                         dateStr: dateStr,
                         isPast: isPast
                     };
-                    
-                    if(attendanceRecord && isPast) { 
+
+                    if(attendanceRecord && isPast) {
                         totalSessionsAttended++;
                         sessionBreakdown[sesi] = (sessionBreakdown[sesi] || 0) + 1;
                     }
@@ -270,7 +270,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                 totalSessionsAttended,
                 percentage,
                 dailyDetails,
-                activeDays: activeDays.map(d => d.day), 
+                activeDays: activeDays.map(d => d.day),
                 sessionBreakdown
             };
         }).filter(Boolean);
@@ -327,8 +327,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     const isReadOnlyMode = editModal.data?.readOnly;
     const sessionStartTs = editModal.data ? `${editModal.data.dateStr}T${defaultSessionTimes[editModal.data.sesi] || '08:00'}:00` : null;
     const checkInTs = editTime && editModal.data ? `${editModal.data.dateStr}T${editTime}` : null;
-    const computedStatusForModal = isReadOnlyMode 
-        ? (editModal.data?.computedStatus || 'Tidak Hadir') 
+    const computedStatusForModal = isReadOnlyMode
+        ? (editModal.data?.computedStatus || 'Tidak Hadir')
         : (checkInTs ? determineAttendanceStatus(checkInTs, sessionStartTs) : 'Tidak Hadir');
     const timeDiff = calculateTimeDifference(checkInTs || editModal.data?.record?.check_in_timestamp, sessionStartTs);
 
@@ -345,24 +345,34 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
             <TabsContent value="rekap_absensi">
                 <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6">
-                     <div className="flex flex-wrap justify-between items-center gap-4">
-                        <h2 className="text-2xl font-bold text-accent-foreground flex items-center gap-2">Rekap Absensi Guru Per Sesi</h2>
-                        <div className="flex flex-wrap gap-2">
-                            <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{availableYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select>
-                            <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}</SelectContent></Select>
-                            <Button onClick={fetchData} variant="outline" size="icon" title="Refresh Data"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}/></Button>
-                            <Button onClick={handleExport} className="bg-green-600 hover:bg-green-700 text-white"><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
+                     <div className="admin-panel-header">
+                        <div className="flex items-center gap-3">
+                            <div className="admin-panel-header-icon"><UserCheck /></div>
+                            <div className="admin-panel-header-text">
+                                <h2>Rekap Absensi Guru Per Sesi</h2>
+                                <p>Pantau kehadiran guru per bulan dan sesi.</p>
+                            </div>
+                        </div>
+                        <div className="admin-panel-header-actions">
+                            <button onClick={handleExport} className="admin-panel-primary-btn"><Download className="w-4 h-4"/> Export Excel</button>
                         </div>
                     </div>
 
-                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/><Input placeholder="Cari guru..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9"/></div>
+                    <div className="admin-filter-bar">
+                        <div className="admin-search-input"><Search /><Input placeholder="Cari guru..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                        <div className="flex items-center gap-2">
+                            <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{availableYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select>
+                            <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}</SelectContent></Select>
+                            <Button onClick={fetchData} variant="outline" size="icon" title="Refresh Data"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}/></Button>
+                        </div>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {recapData.map(guru => (
                             <div key={guru.id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border p-4 hover:shadow-md transition-all flex flex-col relative group">
                                 {canEdit && (
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleEditSessions(guru); }} 
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleEditSessions(guru); }}
                                         className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                         title="Edit Sesi Manual"
                                     >
@@ -378,7 +388,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="space-y-2 mb-4 flex-grow">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Kehadiran Sesi</span>
@@ -397,7 +407,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                         </div>
                                     ))}
                                 </div>
-                                
+
                                 <Button variant="outline" className="w-full mt-auto" onClick={() => setSelectedGuruDetail(guru)}>
                                     <Eye className="w-4 h-4 mr-2"/> Lihat Detail & Edit
                                 </Button>
@@ -411,8 +421,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                             <DialogHeader>
                                 <DialogTitle className="flex items-center justify-between">
                                     <span>Detail Absensi: {selectedGuruDetail?.nama}</span>
-                                    {canEdit ? 
-                                        <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-600 border-blue-200"><Unlock className="w-3 h-3 mr-1"/> Mode Edit Aktif</Badge> : 
+                                    {canEdit ?
+                                        <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-600 border-blue-200"><Unlock className="w-3 h-3 mr-1"/> Mode Edit Aktif</Badge> :
                                         <Badge variant="outline" className="ml-2 bg-slate-50 text-slate-500 border-slate-200"><Lock className="w-3 h-3 mr-1"/> Read Only</Badge>
                                     }
                                 </DialogTitle>
@@ -428,7 +438,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                                 <div className="space-y-1">
                                                     {selectedGuruDetail.assignedSessions.map(sesi => {
                                                         const detail = selectedGuruDetail.dailyDetails[day][sesi];
-                                                        
+
                                                         if (!detail.isPast) {
                                                             return (
                                                                 <div key={sesi} className="text-xs px-1 py-1 rounded bg-slate-100 text-slate-400 dark:bg-slate-800 border border-slate-200">
@@ -441,7 +451,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                                         let icon = <XCircle className="w-3 h-3 text-red-500" />;
                                                         let bgClass = "bg-red-100 text-red-700 dark:bg-red-900/30 border-red-200";
                                                         let label = 'Tidak Hadir';
-                                                        
+
                                                         if (statusStr.includes('hadir') || statusStr === 'on_time') {
                                                             icon = <CheckCircle2 className="w-3 h-3 text-green-500" />;
                                                             bgClass = "bg-green-100 text-green-700 dark:bg-green-900/30 border-green-200";
@@ -453,8 +463,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                                         }
 
                                                         return (
-                                                            <div 
-                                                                key={sesi} 
+                                                            <div
+                                                                key={sesi}
                                                                 onClick={() => {
                                                                     if (detail.isPast) {
                                                                         setEditModal({
@@ -469,7 +479,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                                                                 readOnly: !canEdit
                                                                             }
                                                                         });
-                                                                        
+
                                                                         if (detail.record?.check_in_time) {
                                                                             setEditTime(detail.record.check_in_time);
                                                                         } else if (!detail.record && canEdit) {
@@ -522,7 +532,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                         </p>
                                     </div>
                                 </div>
-                                
+
                                 {isReadOnlyMode ? (
                                     <>
                                         <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
@@ -535,7 +545,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                             </div>
                                         </div>
                                         <div className={`p-4 rounded-xl border flex items-center justify-between
-                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' : 
+                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' :
                                               computedStatusForModal === 'Hadir' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                                             <div className="flex items-center gap-2">
                                                 {computedStatusForModal === 'Terlambat' ? <Clock className="w-5 h-5" /> : computedStatusForModal === 'Hadir' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
@@ -550,17 +560,17 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                     <>
                                         <div className="space-y-2 border-t pt-4">
                                             <label className="text-sm font-medium">Edit Waktu Hadir</label>
-                                            <Input 
-                                                type="time" 
-                                                step="1" 
-                                                value={editTime} 
-                                                onChange={(e) => setEditTime(e.target.value)} 
+                                            <Input
+                                                type="time"
+                                                step="1"
+                                                value={editTime}
+                                                onChange={(e) => setEditTime(e.target.value)}
                                                 className="font-mono"
                                             />
                                             <p className="text-xs text-muted-foreground">Kosongkan untuk merubah status menjadi Tidak Hadir.</p>
                                         </div>
                                         <div className={`p-4 rounded-xl border flex items-center gap-2
-                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' : 
+                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' :
                                               computedStatusForModal === 'Hadir' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                                             {computedStatusForModal === 'Terlambat' ? <Clock className="w-5 h-5" /> : computedStatusForModal === 'Hadir' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                                             <div>
@@ -576,8 +586,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                     {isReadOnlyMode ? 'Tutup' : 'Batal'}
                                 </Button>
                                 {!isReadOnlyMode && (
-                                    <Button 
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white" 
+                                    <Button
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                         onClick={handleSaveAttendance}
                                         disabled={isSubmitting}
                                     >
@@ -619,7 +629,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                     </Dialog>
                 </div>
             </TabsContent>
-            
+
             <TabsContent value="kinerja_guru">
                 <GuruPerformanceSummary />
             </TabsContent>

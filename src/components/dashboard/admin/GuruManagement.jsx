@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -31,7 +31,7 @@ const GuruManagement = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
-  
+
   // Birthday Notification
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
@@ -54,8 +54,8 @@ const GuruManagement = () => {
     }
   }, []);
 
-  useEffect(() => { 
-      fetchGuru(); 
+  useEffect(() => {
+      fetchGuru();
   }, [fetchGuru]);
 
   const calculateBirthdayCount = useCallback(() => {
@@ -84,19 +84,19 @@ const GuruManagement = () => {
   };
 
   const handleAdd = () => { resetForm(); setIsDialogOpen(true); };
-  
-  const handleEdit = (guru) => { 
-    setEditingGuru(guru); 
+
+  const handleEdit = (guru) => {
+    setEditingGuru(guru);
     setFormData({
-        ...guru, 
-        password: guru.password || '', 
-        roles: guru.roles || [], 
+        ...guru,
+        password: guru.password || '',
+        roles: guru.roles || [],
         jenis_kelamin: guru.jenis_kelamin || 'Laki-laki',
         status_guru: guru.status_guru || 'Non-Syahadah',
         nomor_induk_qiroati: guru.nomor_induk_qiroati || '',
         tanggal_lahir: guru.tanggal_lahir || ''
-    }); 
-    setIsDialogOpen(true); 
+    });
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (guruToDelete) => {
@@ -115,13 +115,13 @@ const GuruManagement = () => {
             toast({ title: "Gagal Hapus User Login", description: edgeError?.message || data?.error?.message || 'Akun gagal dinonaktifkan.', variant: "destructive" });
             return;
           }
-          
+
           const { error: profileError } = await supabase.from('guru').update({ status: 'inactive' }).eq('id', guruToDelete.id);
           if (profileError) {
               console.error("Database Delete Error:", profileError);
               throw new Error(profileError.message);
           }
-          
+
           toast({ title: "Berhasil!", description: "Akun guru/pentashih telah dinonaktifkan." });
           fetchGuru();
       } catch (err) {
@@ -135,13 +135,13 @@ const GuruManagement = () => {
     try {
         toast({ title: "Memproses Backup", description: "Sedang menyiapkan data untuk diekspor..." });
         console.log("Starting Backup to Excel for Guru...");
-        
+
         const { data: allGuru, error } = await supabase.from('guru').select('*').order('nama');
         if (error) {
             console.error("Backup DB Fetch Error:", error);
             throw new Error(error.message);
         }
-        
+
         if (!allGuru || allGuru.length === 0) {
             toast({ title: "Data Kosong", description: "Tidak ada data guru untuk diekspor.", variant: "destructive" });
             return;
@@ -164,17 +164,17 @@ const GuruManagement = () => {
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wscols = [
-            {wch: 5}, {wch: 30}, {wch: 25}, {wch: 15}, {wch: 40}, {wch: 20}, 
+            {wch: 5}, {wch: 30}, {wch: 25}, {wch: 15}, {wch: 40}, {wch: 20},
             {wch: 15}, {wch: 20}, {wch: 25}, {wch: 20}, {wch: 15}, {wch: 15},
         ];
         ws['!cols'] = wscols;
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Data Guru");
-        
+
         const dateStr = new Date().toISOString().split('T')[0];
         XLSX.writeFile(wb, `Data_Guru_${dateStr}.xlsx`);
-        
+
         toast({ title: "Backup Berhasil", description: "File Excel berhasil diunduh." });
     } catch (err) {
         console.error("Backup error:", err);
@@ -205,9 +205,9 @@ const GuruManagement = () => {
             URL.revokeObjectURL(objectUrl);
             return;
         }
-        
+
         setIsUploading(true);
-        
+
         try {
           if (!editingGuru?.id) {
               throw new Error("Avatar memakai path berdasarkan UUID akun. Simpan data guru terlebih dahulu sebelum upload foto.");
@@ -215,7 +215,7 @@ const GuruManagement = () => {
           const ownerType = formData.roles?.includes('Pentashih') ? 'pentashih' : 'guru';
           const { signedUrl } = await uploadAvatar({ ownerType, ownerId: editingGuru.id, file });
           const finalUrl = signedUrl || formData.foto_url || '';
-          
+
           setFormData(prev => ({...prev, foto_url: finalUrl }));
           setPreviewImage(finalUrl);
 
@@ -230,10 +230,10 @@ const GuruManagement = () => {
               toast({ title: "Upload Berhasil", description: "Foto siap disimpan bersama data guru baru." });
           }
 
-        } catch (error) { 
+        } catch (error) {
             toast({ title: 'Upload Gagal', description: getStorageErrorMessage(error), variant: 'destructive' });
-        } finally { 
-            setIsUploading(false); 
+        } finally {
+            setIsUploading(false);
             URL.revokeObjectURL(objectUrl);
         }
     };
@@ -284,7 +284,7 @@ const GuruManagement = () => {
         setIsSubmitting(false);
         return;
     }
-    
+
     try {
         if (!editingGuru) {
           const { data, error } = await supabase.functions.invoke('manage-user', {
@@ -301,22 +301,22 @@ const GuruManagement = () => {
           }
           userId = data.data.user_id;
         }
-        
-        if (!userId) { 
+
+        if (!userId) {
             throw new Error("ID Pengguna tidak valid setelah operasi otentikasi.");
         }
-        
+
         const dataToSubmit = { ...pickGuruProfileFields(formData, operationalRole), id: userId };
-        
+
         const { error: profileError } = await supabase.from('guru').upsert(dataToSubmit);
-        
+
         if (profileError) {
             console.error("Database Upsert Error:", profileError);
             throw new Error(profileError.message);
         }
-        
-        toast({ title: "Berhasil!", description: "Data guru berhasil disimpan." }); 
-        setIsDialogOpen(false); 
+
+        toast({ title: "Berhasil!", description: "Data guru berhasil disimpan." });
+        setIsDialogOpen(false);
         fetchGuru();
     } catch (err) {
         console.error("Full handleSubmit Error:", err);
@@ -328,7 +328,7 @@ const GuruManagement = () => {
 
   const handleInputChange = (e) => setFormData(prev => ({ ...prev, [e.target.id]: e.target.value }));
   const handleCheckboxChange = (checked) => setFormData(prev => ({ ...prev, is_notulen: checked }));
-  
+
   const handleRoleChange = (role, checked) => {
       setFormData(prev => {
           const currentRoles = prev.roles || [];
@@ -344,120 +344,132 @@ const GuruManagement = () => {
             (guru.email && guru.email.toLowerCase().includes(filters.search.toLowerCase())) ||
             (guru.rfid_tag && guru.rfid_tag.includes(filters.search)) ||
             (guru.nomor_induk_qiroati && guru.nomor_induk_qiroati.includes(filters.search));
-            
+
         const notulenMatch = filters.isNotulen === 'all' || (filters.isNotulen === 'yes' && guru.is_notulen) || (filters.isNotulen === 'no' && !guru.is_notulen);
         const rfidMatch = filters.rfidStatus === 'all' || (filters.rfidStatus === 'assigned' && guru.rfid_tag) || (filters.rfidStatus === 'unassigned' && !guru.rfid_tag);
-        
+
         return searchMatch && notulenMatch && rfidMatch;
     });
   }, [guruList, filters]);
 
   return (
-    <div className="bg-card p-6 rounded-2xl shadow-xl">
-      {/* Modern Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-border pb-6">
-        <div className="flex items-center gap-3">
-             <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
-                <UserCheck className="w-8 h-8" />
+    <div>
+      <div className="admin-panel-header">
+          <div className="flex items-center gap-3">
+             <div className="admin-panel-header-icon">
+                <UserCheck />
              </div>
-             <div>
-                <h2 className="text-2xl font-bold text-foreground">Manajemen Data Guru</h2>
-                <p className="text-muted-foreground text-sm">Kelola data pengajar, staff, dan akses login.</p>
+             <div className="admin-panel-header-text">
+                <h2>Manajemen Data Guru</h2>
+                <p>Kelola data pengajar, staff, dan akses login.</p>
              </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-            <div className="relative mr-2">
-                <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-pink-200 hover:bg-pink-50 text-pink-500">
-                    <Cake className="w-5 h-5" />
-                    {birthdayCount > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">
-                            {birthdayCount}
-                        </span>
-                    )}
-                </Button>
-            </div>
+          </div>
 
-            <Button onClick={handleBackupToExcel} variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 shadow-sm" title="Backup data guru ke Excel">
-                <Download className="w-4 h-4 mr-2" /> Backup ke Excel
-            </Button>
-            <Button onClick={handleAdd} className="bg-primary hover:bg-primary/90 shadow-md"><Plus className="w-4 h-4 mr-2" /> Tambah Guru</Button>
-        </div>
+          <div className="admin-panel-header-actions">
+            <button
+                onClick={() => setIsBirthdayModalOpen(true)}
+                className="admin-action-cluster-btn relative"
+                style={{ border: '1px solid hsl(330 80% 85%)', color: 'hsl(330 60% 55%)' }}
+            >
+                <Cake className="w-4 h-4" />
+                {birthdayCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full shadow-sm animate-bounce leading-none">
+                        {birthdayCount}
+                    </span>
+                )}
+            </button>
+
+            <div className="admin-action-cluster">
+                 <button onClick={handleBackupToExcel} className="admin-action-cluster-btn" title="Backup data guru ke Excel">
+                    <Download className="w-3.5 h-3.5"/> Export
+                 </button>
+            </div>
+            <button onClick={handleAdd} className="admin-panel-primary-btn">
+                <Plus className="w-4 h-4"/> Tambah Guru
+            </button>
+          </div>
       </div>
 
-       <Card className="bg-slate-50 dark:bg-slate-900/50 border-none shadow-sm mb-6">
-            <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
-                 <div className="relative flex-grow w-full md:w-auto">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input 
-                        placeholder="Cari nama, email, RFID, atau No. Induk..." 
-                        value={filters.search} 
-                        onChange={e => setFilters(f => ({...f, search: e.target.value}))} 
-                        className="pl-9 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-                    />
-                 </div>
-                 <div className="grid grid-cols-2 gap-2 w-full md:w-auto min-w-[400px]">
-                    <Select value={filters.isNotulen} onValueChange={val => setFilters(f => ({...f, isNotulen: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="Status Notulen" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua</SelectItem><SelectItem value="yes">Notulen</SelectItem><SelectItem value="no">Bukan Notulen</SelectItem></SelectContent>
-                    </Select>
-                    <Select value={filters.rfidStatus} onValueChange={val => setFilters(f => ({...f, rfidStatus: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="Status RFID" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua</SelectItem><SelectItem value="assigned">Ada RFID</SelectItem><SelectItem value="unassigned">Tanpa RFID</SelectItem></SelectContent>
-                    </Select>
-                 </div>
-            </CardContent>
-        </Card>
+       <div className="admin-filter-bar">
+            <div className="admin-search-input">
+                <Search />
+                <Input
+                    placeholder="Cari nama, email, RFID, atau No. Induk..."
+                    value={filters.search}
+                    onChange={e => setFilters(f => ({...f, search: e.target.value}))}
+                />
+            </div>
+            <div className="admin-filter-selects">
+                <Select value={filters.isNotulen} onValueChange={val => setFilters(f => ({...f, isNotulen: val}))}>
+                    <SelectTrigger><SelectValue placeholder="Notulen" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua</SelectItem><SelectItem value="yes">Notulen</SelectItem><SelectItem value="no">Bukan Notulen</SelectItem></SelectContent>
+                </Select>
+                <Select value={filters.rfidStatus} onValueChange={val => setFilters(f => ({...f, rfidStatus: val}))}>
+                    <SelectTrigger><SelectValue placeholder="RFID" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua RFID</SelectItem><SelectItem value="assigned">Ada RFID</SelectItem><SelectItem value="unassigned">Tanpa RFID</SelectItem></SelectContent>
+                </Select>
+            </div>
+       </div>
 
-      <div className="overflow-auto max-h-[60vh] border rounded-lg">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-card/95 backdrop-blur-sm z-10"><tr className="border-b">
-              <th className="py-3 px-4 text-left">No.</th>
-              <th className="py-3 px-4 text-left">Nama</th>
-              <th className="py-3 px-4 text-left">No. Induk</th>
-              <th className="py-3 px-4 text-left">Status Guru</th>
-              <th className="py-3 px-4 text-left">Role</th>
-              <th className="py-3 px-4 text-left">Kontak</th>
-              <th className="py-3 px-4 text-left">RFID</th>
-              <th className="py-3 px-4 text-left">Aksi</th>
-          </tr></thead>
-          <tbody>{filteredGuru.map((guru, index) => (
-            <tr key={guru.id} className="border-b hover:bg-accent/50 transition-colors">
-                <td className="py-2 px-4 text-muted-foreground">{index + 1}</td>
-                <td className="py-2 px-4">
-                    <div className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setPreviewImage(guru.foto_url)}>
-                            <AvatarImage src={guru.foto_url} />
-                            <AvatarFallback>{guru.nama.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{guru.nama}</span>
-                    </div>
-                </td>
-                <td className="py-2 px-4">{guru.nomor_induk_qiroati || '-'}</td>
-                <td className="py-2 px-4">
-                    <Badge variant={guru.status_guru === 'Syahadah' ? 'default' : 'secondary'} className={guru.status_guru === 'Syahadah' ? 'bg-green-600 hover:bg-green-700' : ''}>
-                        {guru.status_guru || 'Non-Syahadah'}
-                    </Badge>
-                </td>
-                <td className="py-2 px-4">
-                    <div className="flex flex-wrap gap-1">
-                        {(guru.roles && guru.roles.length > 0) ? guru.roles.map(role => <Badge key={role} variant="outline" className="text-xs">{role}</Badge>) : <span className="text-muted-foreground">-</span>}
-                    </div>
-                </td>
-                <td className="py-2 px-4"><div className="flex flex-col"><span className="text-xs">{guru.email}</span><span className="text-xs text-muted-foreground">{guru.no_hp}</span></div></td>
-                <td className="py-2 px-4">{guru.rfid_tag || 'N/A'}</td>
-                <td className="py-2 px-4"><div className="flex space-x-2"><Button onClick={() => handleEdit(guru)} size="sm" variant="outline"><Edit className="w-4 h-4" /></Button><Button onClick={() => handleDelete(guru)} size="sm" variant="destructive" disabled={!enableEdgeFunctions} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : undefined}><Trash2 className="w-4 h-4" /></Button></div></td>
+      <div className="admin-table-shell">
+        <div className="admin-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th className="p-3 text-left w-12 text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>No.</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>Nama</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>No. Induk</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>Status Guru</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>Role</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>Kontak</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>RFID</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>Aksi</th>
             </tr>
-          ))}</tbody>
+          </thead>
+          <tbody>
+            {filteredGuru.map((guru, index) => (
+              <tr key={guru.id} className="group">
+                <td className="p-3 font-mono text-xs" style={{ color: 'hsl(var(--admin-text-muted))' }}>{index + 1}</td>
+                <td className="p-3">
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border cursor-pointer hover:scale-105 transition-transform" style={{ borderColor: 'hsl(var(--admin-border))' }} onClick={() => setPreviewImage(guru.foto_url)}>
+                            <AvatarImage src={guru.foto_url} /><AvatarFallback style={{ backgroundColor: 'hsl(var(--admin-accent-soft))', color: 'hsl(var(--admin-accent))' }} className="text-xs font-bold">{guru.nama.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{guru.nama}</span>
+                    </div>
+                </td>
+                <td className="p-3 text-xs font-mono" style={{ color: 'hsl(var(--admin-text-secondary))' }}>{guru.nomor_induk_qiroati || '-'}</td>
+                <td className="p-3">
+                    <span className={guru.status_guru === 'Syahadah' ? 'admin-status-badge admin-status-badge--success' : 'admin-status-badge admin-status-badge--neutral'}>
+                        {guru.status_guru || 'Non-Syahadah'}
+                    </span>
+                </td>
+                <td className="p-3">
+                    <div className="flex flex-wrap gap-1">
+                        {(guru.roles && guru.roles.length > 0) ? guru.roles.map(role => <span key={role} className="admin-status-badge admin-status-badge--info">{role}</span>) : <span style={{ color: 'hsl(var(--admin-text-muted))' }}>-</span>}
+                    </div>
+                </td>
+                <td className="p-3"><div className="flex flex-col"><span className="text-xs" style={{ color: 'hsl(var(--admin-text-primary))' }}>{guru.email}</span><span className="text-xs" style={{ color: 'hsl(var(--admin-text-muted))' }}>{guru.no_hp}</span></div></td>
+                <td className="p-3 text-xs font-mono" style={{ color: 'hsl(var(--admin-text-muted))' }}>{guru.rfid_tag || '-'}</td>
+                <td className="p-3"><div className="flex gap-1"><Button onClick={() => handleEdit(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" style={{ color: 'hsl(var(--admin-text-muted))' }}><Edit className="w-4 h-4" /></Button><Button onClick={() => handleDelete(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50" disabled={!enableEdgeFunctions} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : undefined}><Trash2 className="w-4 h-4" /></Button></div></td>
+            </tr>
+          ))}
+          </tbody>
         </table>
-        {filteredGuru.length === 0 && <p className="text-center text-muted-foreground p-8">Tidak ada data guru yang cocok.</p>}
+        {filteredGuru.length === 0 && (
+            <div className="admin-table-empty">
+                <Search />
+                <p>Tidak ada data guru yang cocok.</p>
+            </div>
+        )}
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editingGuru ? 'Edit Data Guru' : 'Tambah Guru Baru'}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
-              
+
               <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
                   <Avatar className="w-28 h-28 border-4 border-white dark:border-slate-800 shadow-lg cursor-pointer hover:opacity-80 transition-opacity" onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
                       <AvatarImage src={formData.foto_url} /><AvatarFallback><Upload /></AvatarFallback>
@@ -480,11 +492,11 @@ const GuruManagement = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                  <div className="col-span-full font-semibold text-lg border-b pb-2 text-primary">Informasi Pribadi</div>
-                 
+
                  <div className="space-y-1.5"><label htmlFor="nama" className="text-xs font-medium uppercase text-muted-foreground">Nama Lengkap</label><Input id="nama" value={formData.nama || ''} onChange={handleInputChange} required /></div>
                  <div className="space-y-1.5"><label htmlFor="nomor_induk_qiroati" className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><CreditCard className="w-3 h-3"/> No. Induk Qiroati</label><Input id="nomor_induk_qiroati" value={formData.nomor_induk_qiroati || ''} onChange={handleInputChange} placeholder="Contoh: 123456789" /></div>
                  <div className="space-y-1.5"><label htmlFor="jabatan" className="text-xs font-medium uppercase text-muted-foreground">Jabatan Utama (Display)</label><Input id="jabatan" value={formData.jabatan || ''} onChange={handleInputChange} /></div>
-                 
+
                  <div className="space-y-1.5"><label htmlFor="no_hp" className="text-xs font-medium uppercase text-muted-foreground">No. HP</label><Input id="no_hp" value={formData.no_hp || ''} onChange={handleInputChange} /></div>
                  <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label>
                     <Select value={formData.jenis_kelamin} onValueChange={val => setFormData(prev => ({...prev, jenis_kelamin: val}))}>
@@ -492,7 +504,7 @@ const GuruManagement = () => {
                         <SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent>
                     </Select>
                  </div>
-                 
+
                  <div className="space-y-1.5"><label htmlFor="tanggal_lahir" className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3"/> Tanggal Lahir</label><Input id="tanggal_lahir" type="date" value={formData.tanggal_lahir || ''} onChange={handleInputChange} /></div>
 
                  <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Status Sertifikasi</label>
@@ -503,18 +515,18 @@ const GuruManagement = () => {
                  </div>
 
                  <div className="col-span-full space-y-1.5"><label htmlFor="alamat" className="text-xs font-medium uppercase text-muted-foreground">Alamat</label><Textarea id="alamat" value={formData.alamat || ''} onChange={handleInputChange} /></div>
-                 
+
                  <div className="col-span-full font-semibold text-lg border-b pb-2 mt-2 text-primary">Akses & Sistem</div>
-                 
+
                  <div className="space-y-1.5"><label htmlFor="email" className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3"/> Email (Login)</label><Input id="email" type="email" value={formData.email || ''} onChange={handleInputChange} required/></div>
                  <div className="space-y-1.5 relative">
                   <label htmlFor="password" className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Key className="w-3 h-3"/> Password</label>
                   <div className="relative">
-                      <Input 
-                        id="password" 
-                        type={showPassword ? "text" : "password"} 
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder={editingGuru ? "Kosongkan jika tidak ganti" : "Wajib diisi"}
-                        value={formData.password || ''} 
+                        value={formData.password || ''}
                         onChange={handleInputChange}
                       />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
@@ -523,10 +535,10 @@ const GuruManagement = () => {
                     Syarat: Min 6 karakter, 1 huruf besar, 1 huruf kecil, 1 angka, 1 simbol.
                   </p>
                 </div>
-                
+
                 <div className="space-y-1.5"><label htmlFor="rfid_tag" className="text-xs font-medium uppercase text-muted-foreground">RFID Tag</label><Input id="rfid_tag" value={formData.rfid_tag || ''} onChange={handleInputChange} /></div>
               </div>
-              
+
               <div className="border p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50">
                   <label className="text-sm font-semibold mb-3 block uppercase text-muted-foreground">Roles / Jabatan (Fungsional)</label>
                   <div className="flex flex-wrap gap-4">
@@ -551,9 +563,9 @@ const GuruManagement = () => {
         <DialogContent className="max-w-xl p-0 overflow-hidden bg-transparent border-none shadow-none">
             <div className="relative w-full h-[80vh] flex items-center justify-center">
                 <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
+                <Button
+                    variant="ghost"
+                    size="icon"
                     className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full"
                     onClick={() => setPreviewImage(null)}
                 >

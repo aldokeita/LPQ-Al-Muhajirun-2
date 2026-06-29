@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -367,7 +367,7 @@ const AttendanceRecap = () => {
         return "bg-red-50 text-red-500 font-bold border-red-200";
     };
 
-    if (isLoading) return <div className="bg-card p-6 rounded-2xl shadow-xl flex items-center justify-center h-48"><RefreshCw className="w-8 h-8 animate-spin text-primary mr-3"/> Memuat rekap absensi...</div>;
+    if (isLoading) return <div className="admin-table-loading" style={{ position: 'relative', minHeight: '12rem', borderRadius: '0.75rem', border: '1px solid hsl(var(--admin-border))', backgroundColor: 'hsl(var(--admin-surface))' }}><div className="admin-table-loading-spinner"></div><p>Memuat rekap absensi...</p></div>;
 
     const subTabs = [
         { id: 'tpq', label: 'Rekap Absensi Santri TPQ', icon: Users },
@@ -376,20 +376,35 @@ const AttendanceRecap = () => {
 
     return (
         <>
-        <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6 border border-slate-100 dark:border-slate-800">
-            <div className="flex flex-wrap justify-between items-center gap-4">
-                <h2 className="text-2xl font-bold text-accent-foreground flex items-center gap-2"><Calendar className="w-7 h-7 text-primary"/>Rekap Absensi Digital</h2>
-                <div className="flex flex-wrap gap-2">
+        <div className="space-y-6">
+            <div className="admin-panel-header">
+                <div className="flex items-center gap-3">
+                    <div className="admin-panel-header-icon">
+                        <Calendar />
+                    </div>
+                    <div className="admin-panel-header-text">
+                        <h2>Rekap Absensi Digital</h2>
+                        <p>Pantau kehadiran santri per bulan dan sesi.</p>
+                    </div>
+                </div>
+                <div className="admin-panel-header-actions">
+                    <button onClick={handleExport} className="admin-panel-primary-btn" style={{ backgroundColor: 'hsl(var(--admin-accent))' }}>
+                        <Download className="w-4 h-4"/> Export Excel
+                    </button>
+                </div>
+            </div>
+
+            <div className="admin-filter-bar">
+                <div className="flex items-center gap-2 flex-wrap">
                     <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{availableYears.map(year => <SelectItem key={year} value={year.toString()}>{year}</SelectItem>)}</SelectContent></Select>
                     <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((month, index) => <SelectItem key={month} value={index.toString()}>{month}</SelectItem>)}</SelectContent></Select>
                     <Select value={selectedClass} onValueChange={setSelectedClass}><SelectTrigger className="w-[180px]"><SelectValue placeholder="Semua Kelas" /></SelectTrigger><SelectContent><SelectItem value="all">{role === 'guru' ? 'Semua Kelas Saya' : 'Semua Kelas'}</SelectItem>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.nama_kelas}</SelectItem>)}</SelectContent></Select>
                     <Button onClick={fetchAllData} variant="outline" size="icon" title="Refresh Data"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}/></Button>
-                    <Button onClick={handleExport} className="bg-green-600 hover:bg-green-700 text-white"><Download className="w-4 h-4 mr-2" /> Export Excel</Button>
                 </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
-                <h3 className="text-lg font-semibold flex items-center gap-2 mb-6"><BarChart className="w-5 h-5 text-primary"/>Statistik Kehadiran Harian ({months[selectedMonth]} {selectedYear})</h3>
+            <div className="admin-form-section">
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-4" style={{ color: 'hsl(var(--admin-text-primary))' }}><BarChart className="w-5 h-5" style={{ color: 'hsl(var(--admin-accent))' }}/>Statistik Kehadiran Harian ({months[selectedMonth]} {selectedYear})</h3>
                 <div className="h-72 w-full">
                     <ResponsiveContainer>
                         <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>

@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -22,7 +22,7 @@ import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessio
 import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
 
 const jilidOptions = [
-    'Pra TK A', 'Pra TK B', 'Pra TK C', 
+    'Pra TK A', 'Pra TK B', 'Pra TK C',
     'Jilid 1A', 'Jilid 1B', 'Jilid 1C',
     'Jilid 2A', 'Jilid 2B',
     'Jilid 3A', 'Jilid 3B',
@@ -47,7 +47,7 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Dewasa' }) => 
 
   const downloadTemplate = () => {
     const headers = [
-      "Nama Lengkap", "Username (Panggilan)", "Password", "Jilid", "Tempat Lahir", "Tgl Lahir (YYYY-MM-DD)", 
+      "Nama Lengkap", "Username (Panggilan)", "Password", "Jilid", "Tempat Lahir", "Tgl Lahir (YYYY-MM-DD)",
       "Jenis Kelamin (L/P)", "Alamat", "Sesi", "Tgl Masuk (YYYY-MM-DD)", "No HP WA"
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
@@ -107,7 +107,7 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Dewasa' }) => 
           <DialogTitle>Import Data Santri Dewasa Massal</DialogTitle>
           <DialogDescription>Pilih metode import data.</DialogDescription>
         </DialogHeader>
-        
+
         <div className="flex gap-4 mb-4 border-b">
             <Button variant={activeTab === 'excel' ? 'default' : 'ghost'} onClick={() => setActiveTab('excel')} className="rounded-b-none">File Excel/CSV</Button>
             <Button variant={activeTab === 'text' ? 'default' : 'ghost'} onClick={() => setActiveTab('text')} className="rounded-b-none">Copy-Paste Teks</Button>
@@ -130,8 +130,8 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Dewasa' }) => 
         ) : (
             <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">Format: Nama Lengkap | Username | Password | Jilid | ... (Tab Separated)</p>
-                <Textarea 
-                    placeholder="Paste data dari Excel di sini..." 
+                <Textarea
+                    placeholder="Paste data dari Excel di sini..."
                     className="min-h-[300px] font-mono text-xs"
                     value={textData}
                     onChange={e => setTextData(e.target.value)}
@@ -159,7 +159,7 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
           <DialogTitle>Laporan Validasi Data</DialogTitle>
           <DialogDescription>Tinjau data sebelum disimpan ke database.</DialogDescription>
         </DialogHeader>
-        
+
         <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="p-4 bg-green-50 rounded-lg border border-green-100">
                 <p className="text-sm text-green-600 font-medium">Data Valid</p>
@@ -226,7 +226,7 @@ const SantriDewasaManagement = () => {
   const [santriList, setSantriList] = useState([]);
   const [classesList, setClassesList] = useState([]);
   const [sessionOptions, setSessionOptions] = useState([]);
-  
+
   const [filters, setFilters] = useState({ search: '', sesi: 'all', jilid: 'all', rfid: 'all' });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
@@ -240,7 +240,7 @@ const SantriDewasaManagement = () => {
   const photoInputRef = React.useRef(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [previewImage, setPreviewImage] = useState(null);
-  
+
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', email: '', password: '', sesi_mengaji: '', rfid_tag: '',
@@ -284,7 +284,7 @@ const SantriDewasaManagement = () => {
           const dewasaClasses = (classesRes.data || []).filter(c => c.kategori && c.kategori.toLowerCase() === 'dewasa');
           setClassesList(dewasaClasses);
       }
-      
+
       const mappedSessions = getAllSessions().map(s => s.name);
       setSessionOptions(mappedSessions);
       setFormData(prev => ({...prev, sesi_mengaji: mappedSessions[0] || ''}));
@@ -296,7 +296,7 @@ const SantriDewasaManagement = () => {
       setIsLoadingData(false);
     }
   };
-  
+
   const classGuruMap = useMemo(() => {
     return classesList.reduce((acc, cls) => {
       acc[cls.id] = cls.guru?.nama || 'Belum ada guru';
@@ -308,7 +308,7 @@ const SantriDewasaManagement = () => {
   const handleDataProcessing = (rawData, isExcel) => {
     const headerRow = rawData[0];
     const dataRows = rawData.slice(1);
-    
+
     const mapHeader = (h) => {
         const lower = String(h).toLowerCase().trim();
         if (lower.includes('lengkap') || lower === 'nama') return 'nama_lengkap';
@@ -329,8 +329,8 @@ const SantriDewasaManagement = () => {
     const errors = [];
 
     dataRows.forEach((row, idx) => {
-        if (!row || row.length === 0 || row.every(c => !c)) return; 
-        
+        if (!row || row.length === 0 || row.every(c => !c)) return;
+
         const santri = { kategori: 'Dewasa', status: 'Aktif', points: 0 };
         let hasName = false;
 
@@ -340,7 +340,7 @@ const SantriDewasaManagement = () => {
                 let val = row[colIdx];
                 if (field === 'tanggal_lahir' || field === 'tanggal_pendaftaran') {
                     if (val && typeof val === 'number') {
-                        const date = new Date((val - (25567 + 2)) * 86400 * 1000); 
+                        const date = new Date((val - (25567 + 2)) * 86400 * 1000);
                         val = date.toISOString().split('T')[0];
                     }
                 }
@@ -356,17 +356,17 @@ const SantriDewasaManagement = () => {
             errors.push({ row: idx + 2, name: 'Unknown', reason: 'Nama Lengkap kosong' });
             return;
         }
-        
+
         if (!santri.nama_panggilan) {
              errors.push({ row: idx + 2, name: santri.nama_lengkap, reason: 'Username kosong' });
              return;
         }
-        
+
         if (!santri.password) {
              errors.push({ row: idx + 2, name: santri.nama_lengkap, reason: 'Password kosong' });
              return;
         }
-        
+
         validData.push(santri);
     });
 
@@ -389,10 +389,10 @@ const SantriDewasaManagement = () => {
 
   const handleDownloadData = () => {
     const dataToExport = santriList.map(s => ({
-        'Nama Lengkap': s.nama_lengkap, 'Username': s.nama_panggilan, 'Jilid': s.jilid, 
-        'Tempat Lahir': s.tempat_lahir, 'Tanggal Lahir': s.tanggal_lahir, 'Jenis Kelamin': s.jenis_kelamin, 
-        'Alamat': s.alamat, 'Sesi': getSessionName(s.sesi_mengaji), 'Tanggal Masuk': s.tanggal_pendaftaran, 
-        'No. HP': s.no_hp_ortu, 
+        'Nama Lengkap': s.nama_lengkap, 'Username': s.nama_panggilan, 'Jilid': s.jilid,
+        'Tempat Lahir': s.tempat_lahir, 'Tanggal Lahir': s.tanggal_lahir, 'Jenis Kelamin': s.jenis_kelamin,
+        'Alamat': s.alamat, 'Sesi': getSessionName(s.sesi_mengaji), 'Tanggal Masuk': s.tanggal_pendaftaran,
+        'No. HP': s.no_hp_ortu,
         'Status': s.status, 'RFID': s.rfid_tag
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -429,13 +429,13 @@ const SantriDewasaManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalFormData = { ...formData, kategori: 'Dewasa', points: 0 }; 
-    
+    const finalFormData = { ...formData, kategori: 'Dewasa', points: 0 };
+
     if (!finalFormData.nama_panggilan) {
         toast({ title: "Gagal", description: "Username (Nama Panggilan) wajib diisi.", variant: "destructive" });
         return;
     }
-    
+
     if (!editingSantri && !finalFormData.password) {
         toast({ title: "Gagal", description: "Password wajib diisi untuk santri baru.", variant: "destructive" });
         return;
@@ -459,7 +459,7 @@ const SantriDewasaManagement = () => {
       result = await supabase.from('santri').insert(finalFormData);
       toast({ title: "Berhasil!", description: "Santri dewasa berhasil ditambahkan" });
     }
-    
+
     if (result.error) toast({ title: "Gagal!", description: result.error.message, variant: "destructive" });
     else {
       loadData();
@@ -470,10 +470,10 @@ const SantriDewasaManagement = () => {
 
   const handleEdit = (santri) => {
     setEditingSantri(santri);
-    setFormData({...santri, points: 0, sesi_mengaji: getSessionName(santri.sesi_mengaji)}); 
+    setFormData({...santri, points: 0, sesi_mengaji: getSessionName(santri.sesi_mengaji)});
     setIsFormOpen(true);
   };
-  
+
   const handleDelete = async () => {
     if (selectedSantri.size === 0) return;
 
@@ -505,10 +505,10 @@ const SantriDewasaManagement = () => {
     setIsLoadingData(false);
 
     if (hasReferences) {
-        toast({ 
-            title: "Gagal Menghapus", 
-            description: `Tidak bisa menghapus santri karena masih ada data yang terhubung. Hapus data di tabel berikut terlebih dahulu: ${errorTables.join(', ')}.`, 
-            variant: "destructive" 
+        toast({
+            title: "Gagal Menghapus",
+            description: `Tidak bisa menghapus santri karena masih ada data yang terhubung. Hapus data di tabel berikut terlebih dahulu: ${errorTables.join(', ')}.`,
+            variant: "destructive"
         });
         return;
     }
@@ -531,7 +531,7 @@ const SantriDewasaManagement = () => {
 
   const handleMigration = async () => {
       if (!editingSantri) return;
-      
+
       setConfirmDialog({
           isOpen: true,
           title: 'Migrasi ke TPQ',
@@ -540,7 +540,7 @@ const SantriDewasaManagement = () => {
               const { error } = await supabase.from('santri')
                   .update({ kategori: 'Anak', id_kelas: null, order_in_class: null })
                   .eq('id', editingSantri.id);
-              
+
               if (error) {
                   toast({ title: "Gagal", description: error.message, variant: "destructive" });
               } else {
@@ -558,7 +558,7 @@ const SantriDewasaManagement = () => {
     else newSelection.add(id);
     setSelectedSantri(newSelection);
   };
-  
+
   const toggleSelectAll = (isChecked) => {
     if (isChecked) setSelectedSantri(new Set(sortedAndFilteredSantri.map(s => s.id)));
     else setSelectedSantri(new Set());
@@ -578,15 +578,15 @@ const SantriDewasaManagement = () => {
     if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
     setSortConfig({ key, direction });
   };
-  
+
   const sortedAndFilteredSantri = useMemo(() => {
     let sortableItems = [...santriList];
     if (filters.sesi !== 'all') sortableItems = sortableItems.filter(s => getSessionName(s.sesi_mengaji) === filters.sesi);
     if (filters.jilid !== 'all') sortableItems = sortableItems.filter(s => s.jilid === filters.jilid);
     if (filters.search) {
       const lowercasedFilter = filters.search.toLowerCase();
-      sortableItems = sortableItems.filter(s => 
-        s.nama_lengkap.toLowerCase().includes(lowercasedFilter) || 
+      sortableItems = sortableItems.filter(s =>
+        s.nama_lengkap.toLowerCase().includes(lowercasedFilter) ||
         (s.nama_panggilan && s.nama_panggilan.toLowerCase().includes(lowercasedFilter)) ||
         (s.no_hp_ortu && s.no_hp_ortu.toLowerCase().includes(lowercasedFilter))
       );
@@ -601,105 +601,116 @@ const SantriDewasaManagement = () => {
   }, [santriList, filters, sortConfig]);
 
   return (
-    <div className="bg-card p-6 rounded-2xl shadow-xl space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border pb-6">
-        <div className="flex items-center gap-3">
-             <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
-                <Briefcase className="w-8 h-8" />
+    <div>
+      <div className="admin-panel-header">
+          <div className="flex items-center gap-3">
+             <div className="admin-panel-header-icon">
+                <Briefcase />
              </div>
-             <div>
-                <h2 className="text-2xl font-bold text-foreground">Manajemen Santri Dewasa</h2>
-                <p className="text-muted-foreground text-sm">Kelola data santri, jilid, dan sesi khusus dewasa.</p>
+             <div className="admin-panel-header-text">
+                <h2>Manajemen Santri Dewasa</h2>
+                <p>Kelola data santri, jilid, dan sesi khusus dewasa.</p>
              </div>
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          {selectedSantri.size > 0 && (
-            <Button variant="destructive" onClick={handleDelete}><Trash2 className="w-4 h-4 mr-2" /> Hapus ({selectedSantri.size})</Button>
-          )}
-          <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
-             <Button onClick={() => setIsBulkUploadOpen(true)} variant="ghost" size="sm" className="h-8 px-2 hover:bg-background shadow-none hover:scale-105 transition-transform"><Upload className="w-4 h-4 mr-2 text-blue-600"/> Import</Button>
-             <Button onClick={handleDownloadData} variant="ghost" size="sm" className="h-8 px-2 hover:bg-background shadow-none hover:scale-105 transition-transform"><Download className="w-4 h-4 mr-2 text-green-600"/> Export Data</Button>
           </div>
-          <Button onClick={() => { resetForm(); setIsFormOpen(true); }} className="hover:scale-105 transition-transform bg-primary"><Plus className="w-4 h-4 mr-2" />Tambah Santri</Button>
-        </div>
+
+          <div className="admin-panel-header-actions">
+            {selectedSantri.size > 0 && (
+                <div className="admin-bulk-bar">
+                    <button onClick={handleDelete} className="admin-bulk-btn admin-bulk-btn--delete">
+                        <Trash2 className="w-3.5 h-3.5"/> Hapus ({selectedSantri.size})
+                    </button>
+                </div>
+            )}
+            <div className="admin-action-cluster">
+                 <button onClick={() => setIsBulkUploadOpen(true)} className="admin-action-cluster-btn">
+                    <Upload className="w-3.5 h-3.5"/> Import
+                 </button>
+                 <button onClick={handleDownloadData} className="admin-action-cluster-btn">
+                    <Download className="w-3.5 h-3.5"/> Export
+                 </button>
+            </div>
+            <button onClick={() => { resetForm(); setIsFormOpen(true); }} className="admin-panel-primary-btn">
+                <Plus className="w-4 h-4"/> Tambah Santri
+            </button>
+          </div>
       </div>
 
-       <Card className="bg-slate-50 dark:bg-slate-900/50 border-none shadow-sm mb-6">
-            <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
-                 <div className="relative flex-grow w-full md:w-auto">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                    <Input 
-                        placeholder="Cari nama, username, no hp..." 
-                        value={filters.search} 
-                        onChange={e => setFilters(f => ({...f, search: e.target.value}))} 
-                        className="pl-9 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-                    />
-                 </div>
-                 <div className="grid grid-cols-2 gap-2 w-full md:w-auto min-w-[300px]">
-                    <Select value={filters.sesi} onValueChange={val => setFilters(f => ({...f, sesi: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="Sesi" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
-                        <SelectTrigger className="bg-white dark:bg-slate-950"><SelectValue placeholder="Jilid" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Semua Jilid</SelectItem>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
-                    </Select>
-                 </div>
-            </CardContent>
-        </Card>
+       <div className="admin-filter-bar">
+            <div className="admin-search-input">
+                <Search />
+                <Input
+                    placeholder="Cari nama, username, no hp..."
+                    value={filters.search}
+                    onChange={e => setFilters(f => ({...f, search: e.target.value}))}
+                />
+            </div>
+            <div className="admin-filter-selects">
+                <Select value={filters.sesi} onValueChange={val => setFilters(f => ({...f, sesi: val}))}>
+                    <SelectTrigger><SelectValue placeholder="Sesi" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
+                    <SelectTrigger><SelectValue placeholder="Jilid" /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua Jilid</SelectItem>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                </Select>
+            </div>
+       </div>
 
-      <div className="overflow-auto max-h-[65vh] border rounded-lg shadow-sm relative">
+      <div className="admin-table-shell">
         {isLoadingData && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-                <p className="text-muted-foreground font-medium">Memuat data santri dewasa...</p>
+            <div className="admin-table-loading">
+                <div className="admin-table-loading-spinner"></div>
+                <p>Sedang memproses data...</p>
             </div>
         )}
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-card/95 backdrop-blur-sm z-10">
-            <tr className="border-b bg-muted/30">
-              <th className="p-3"><Checkbox onCheckedChange={toggleSelectAll} checked={sortedAndFilteredSantri.length > 0 && selectedSantri.size === sortedAndFilteredSantri.length} /></th>
-              <th className="p-3 text-left w-12 font-semibold text-xs text-muted-foreground uppercase">No.</th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase cursor-pointer hover:text-foreground" onClick={() => requestSort('nama_lengkap')}><div className="flex items-center">Nama <ArrowUpDown className="ml-2 h-3 w-3" /></div></th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase cursor-pointer hover:text-foreground" onClick={() => requestSort('nama_panggilan')}><div className="flex items-center">Username <ArrowUpDown className="ml-2 h-3 w-3" /></div></th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase cursor-pointer hover:text-foreground" onClick={() => requestSort('no_hp_ortu')}><div className="flex items-center">No. HP <ArrowUpDown className="ml-2 h-3 w-3" /></div></th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase cursor-pointer hover:text-foreground" onClick={() => requestSort('rfid_tag')}><div className="flex items-center">Token RFID <ArrowUpDown className="ml-2 h-3 w-3" /></div></th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase cursor-pointer hover:text-foreground" onClick={() => requestSort('sesi_mengaji')}><div className="flex items-center">Sesi <ArrowUpDown className="ml-2 h-3 w-3" /></div></th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase cursor-pointer hover:text-foreground" onClick={() => requestSort('jilid')}><div className="flex items-center">Jilid <ArrowUpDown className="ml-2 h-3 w-3" /></div></th>
-              <th className="p-3 text-left font-semibold text-xs text-muted-foreground uppercase">Aksi</th>
+        <div className="admin-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th className="p-3 w-10"><Checkbox onCheckedChange={toggleSelectAll} checked={sortedAndFilteredSantri.length > 0 && selectedSantri.size === sortedAndFilteredSantri.length} /></th>
+              <th className="p-3 text-left w-12 text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>No.</th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--admin-text-muted))' }} onClick={() => requestSort('nama_lengkap')}><div className="flex items-center">Nama <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--admin-text-muted))' }} onClick={() => requestSort('nama_panggilan')}><div className="flex items-center">Username <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--admin-text-muted))' }} onClick={() => requestSort('no_hp_ortu')}><div className="flex items-center">No. HP <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--admin-text-muted))' }} onClick={() => requestSort('rfid_tag')}><div className="flex items-center">Token RFID <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--admin-text-muted))' }} onClick={() => requestSort('sesi_mengaji')}><div className="flex items-center">Sesi <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--admin-text-muted))' }} onClick={() => requestSort('jilid')}><div className="flex items-center">Jilid <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(var(--admin-text-muted))' }}>Aksi</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-slate-950 divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody>
             {sortedAndFilteredSantri.map((santri, index) => (
-              <tr key={santri.id} className="border-b hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors group">
+              <tr key={santri.id} className="group">
                 <td className="p-3"><Checkbox onCheckedChange={() => toggleSelect(santri.id)} checked={selectedSantri.has(santri.id)} /></td>
-                <td className="p-3 text-muted-foreground text-xs">{index + 1}</td>
-                <td className="p-3 font-medium flex items-center gap-3">
-                    <Avatar className="h-9 w-9 border cursor-pointer hover:scale-105 transition-transform" onClick={() => setPreviewImage(santri.foto_url)}>
-                        <AvatarImage src={santri.foto_url} /><AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-bold">{santri.nama_lengkap.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <div className="font-medium text-foreground">{santri.nama_lengkap}</div>
-                        <div className="text-xs text-muted-foreground font-mono">{santri.nama_panggilan}</div>
+                <td className="p-3 font-mono text-xs" style={{ color: 'hsl(var(--admin-text-muted))' }}>{index + 1}</td>
+                <td className="p-3">
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border cursor-pointer hover:scale-105 transition-transform" style={{ borderColor: 'hsl(var(--admin-border))' }} onClick={() => setPreviewImage(santri.foto_url)}>
+                            <AvatarImage src={santri.foto_url} /><AvatarFallback style={{ backgroundColor: 'hsl(var(--admin-accent-soft))', color: 'hsl(var(--admin-accent))' }} className="text-xs font-bold">{santri.nama_lengkap.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <div className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{santri.nama_lengkap}</div>
+                            <div className="text-xs font-mono" style={{ color: 'hsl(var(--admin-text-muted))' }}>{santri.nama_panggilan}</div>
+                        </div>
                     </div>
                 </td>
-                <td className="p-3 font-mono text-xs">{santri.nama_panggilan || '-'}</td>
-                <td className="p-3 text-xs">{santri.no_hp_ortu || '-'}</td>
-                <td className="p-3 text-xs font-mono text-muted-foreground">{santri.rfid_tag || '-'}</td>
-                <td className="p-3"><span className="text-xs font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">{getSessionName(santri.sesi_mengaji)}</span></td>
-                <td className="p-3"><Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">{santri.jilid}</Badge></td>
-                <td className="p-3"><Button onClick={() => handleEdit(santri)} size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 rounded-full"><Edit className="w-4 h-4" /></Button></td>
+                <td className="p-3 font-mono text-xs" style={{ color: 'hsl(var(--admin-text-secondary))' }}>{santri.nama_panggilan || '-'}</td>
+                <td className="p-3 text-xs" style={{ color: 'hsl(var(--admin-text-secondary))' }}>{santri.no_hp_ortu || '-'}</td>
+                <td className="p-3 text-xs font-mono" style={{ color: 'hsl(var(--admin-text-muted))' }}>{santri.rfid_tag || '-'}</td>
+                <td className="p-3"><span className="text-xs font-medium px-2 py-1 rounded-md" style={{ backgroundColor: 'hsl(var(--admin-surface-sunken))', color: 'hsl(var(--admin-text-secondary))' }}>{getSessionName(santri.sesi_mengaji)}</span></td>
+                <td className="p-3"><span className="admin-status-badge admin-status-badge--info">{santri.jilid}</span></td>
+                <td className="p-3"><Button onClick={() => handleEdit(santri)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" style={{ color: 'hsl(var(--admin-text-muted))' }}><Edit className="w-4 h-4" /></Button></td>
               </tr>
             ))}
           </tbody>
         </table>
         {!isLoadingData && sortedAndFilteredSantri.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground opacity-50">
-                <Search className="w-12 h-12 mb-2 opacity-20"/>
+            <div className="admin-table-empty">
+                <Search />
                 <p>Tidak ada data santri ditemukan.</p>
             </div>
         )}
+        </div>
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -761,7 +772,7 @@ const SantriDewasaManagement = () => {
                     </Card>
                 </TabsContent>
             </Tabs>
-            
+
             <DialogFooter className="pt-4 flex justify-between sm:justify-between w-full">
                 {editingSantri && (
                     <Button type="button" variant="outline" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200" onClick={handleMigration}>
@@ -776,15 +787,15 @@ const SantriDewasaManagement = () => {
           </form>
         </DialogContent>
       </Dialog>
-      
+
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category="Dewasa" />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
-      <ConfirmationDialog 
-        isOpen={confirmDialog.isOpen} 
-        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} 
-        onConfirm={confirmDialog.onConfirm} 
-        title={confirmDialog.title} 
-        description={confirmDialog.description} 
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
       />
 
       {/* Image Preview Dialog */}
@@ -792,9 +803,9 @@ const SantriDewasaManagement = () => {
         <DialogContent className="max-w-xl p-0 overflow-hidden bg-transparent border-none shadow-none">
             <div className="relative w-full h-[80vh] flex items-center justify-center">
                 <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
+                <Button
+                    variant="ghost"
+                    size="icon"
                     className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full"
                     onClick={() => setPreviewImage(null)}
                 >
