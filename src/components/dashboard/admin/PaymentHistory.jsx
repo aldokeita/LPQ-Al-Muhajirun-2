@@ -207,7 +207,7 @@ const PaymentHistory = () => {
 
             <div className="admin-table-shell">
                 <div className="admin-table-scroll" style={{maxHeight:"60vh"}}><table>
-                    <thead className="">
+                    <thead>
                         <tr>
                             <th className="p-3 text-left w-12">
                                 <Checkbox
@@ -293,6 +293,7 @@ const PaymentHistory = () => {
                         </AnimatePresence>
                     </tbody>
                 </table>
+</div>
             </div>
 
             <DeleteConfirmationDialog 
