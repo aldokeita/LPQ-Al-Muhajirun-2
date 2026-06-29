@@ -117,23 +117,23 @@ const DashboardPage = () => {
 
       <div className="lpq-admin-surface min-h-screen py-8 relative">
         {renderDashboard()}
-        {/* Atmospheric ray overlay — dark mode only.
-            Rendered above content so it's never blocked by opaque cards.
-            Ultra-low opacity keeps it ambient, not distracting. */}
+        {/* Animated ray overlay — dark mode only.
+            Fixed position with pointer-events-none so it never blocks interaction.
+            Semi-transparent overlay visible above cards and panels. */}
         {isDark && (
           <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 50 }}>
             <SideRays
               speed={1.2}
               rayColor1="#06b6d4"
               rayColor2="#8b5cf6"
-              intensity={1.0}
+              intensity={2.0}
               spread={2.5}
               origin="top-right"
               tilt={5}
-              saturation={1.3}
+              saturation={1.5}
               blend={0.6}
-              falloff={1.8}
-              opacity={0.12}
+              falloff={1.4}
+              opacity={0.45}
             />
           </div>
         )}

@@ -67,6 +67,11 @@
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Dark mode: make surface transparent so SideRays animated background shows through */
+.dark .lpq-admin-surface {
+  background-color: transparent;
+}
+
 /* ============================================================
    PORTAL DROPDOWN OVERRIDES — Covers all portal-rendered menus
    These selectors target portal content that escapes .lpq-admin-surface
