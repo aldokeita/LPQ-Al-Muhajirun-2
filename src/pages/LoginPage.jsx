@@ -86,8 +86,7 @@ const LoginPage = () => {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const { signInWithUsername, user, loading } = useAuth();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const { toast } = useToast();
   const prefersReducedMotion = useReducedMotion();
