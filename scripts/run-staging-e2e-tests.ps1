@@ -444,7 +444,7 @@ function Initialize-Context {
   $script:AnonHeaders = New-AnonHeaders
   $script:ServiceHeaders = New-BackendHeaders -Key $script:SecretKey -KeyKind $script:SecretKeyKind
 
-  $script:AdminSession = SignInWithPassword -Email "staging-test-admin@example.invalid" -Password $script:DummyPassword
+  $script:AdminSession = SignInWithPassword -Email "admin@lqalfathmaulana.id" -Password $script:DummyPassword
   $script:GuruSession = SignInWithPassword -Email "staging-test-guru@example.invalid" -Password $script:DummyPassword
   $script:PentashihSession = SignInWithPassword -Email "staging-test-pentashih@example.invalid" -Password $script:DummyPassword
   $script:SantriLogin = SignInSantri -NomorInduk "STGTEST001" -Password $script:DummyPassword

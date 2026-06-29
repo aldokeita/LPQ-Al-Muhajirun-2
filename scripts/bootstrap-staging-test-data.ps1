@@ -235,8 +235,8 @@ function Get-AuthUserByEmail {
 function Ensure-AdminUser {
   $spec = @{
     id = "20000000-0000-0000-0000-000000000001"
-    email = "staging-test-admin@example.invalid"
-    name = "Staging Test Admin"
+    email = "admin@lqalfathmaulana.id"
+    name = "Admin LPQ Al-Muhajirun"
   }
 
   $found = Get-AuthUserByEmail -Email $spec.email
@@ -546,7 +546,7 @@ try {
   )
 
   Write-Host "Staging bootstrap completed."
-  Write-Host "Admin email: staging-test-admin@example.invalid"
+  Write-Host "Admin email: admin@lqalfathmaulana.id"
   Write-Host "Guru email: staging-test-guru@example.invalid"
   Write-Host "Pentashih email: staging-test-pentashih@example.invalid"
   Write-Host "Santri nomor induk: STGTEST001"
