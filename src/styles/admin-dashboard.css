@@ -67,9 +67,20 @@
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark mode: make surface transparent so SideRays animated background shows through */
+/* Dark mode: transparent surface so SideRays animated background is visible */
 .dark .lpq-admin-surface {
   background-color: transparent;
+}
+
+/* Override the global green body and bg-background in admin context */
+.dark body.lpq-admin-context {
+  background-color: hsl(222 30% 8%) !important;
+}
+
+.dark body.lpq-admin-context .bg-background,
+.dark body.lpq-admin-context .bg-background,
+.dark body.lpq-admin-context > #root > div {
+  background-color: transparent !important;
 }
 
 /* ============================================================

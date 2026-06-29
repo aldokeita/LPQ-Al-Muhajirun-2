@@ -116,12 +116,10 @@ const DashboardPage = () => {
       </Helmet>
 
       <div className="lpq-admin-surface min-h-screen py-8 relative">
-        {renderDashboard()}
-        {/* Animated ray overlay — dark mode only.
-            Fixed position with pointer-events-none so it never blocks interaction.
-            Semi-transparent overlay visible above cards and panels. */}
+        {/* SideRays — dark mode only, behind content. Surface is transparent
+            so rays show through the gaps between cards and panels. */}
         {isDark && (
-          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 50 }}>
+          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
             <SideRays
               speed={1.2}
               rayColor1="#06b6d4"
@@ -133,10 +131,13 @@ const DashboardPage = () => {
               saturation={1.5}
               blend={0.6}
               falloff={1.4}
-              opacity={0.45}
+              opacity={0.5}
             />
           </div>
         )}
+        <div className="relative" style={{ zIndex: 1 }}>
+          {renderDashboard()}
+        </div>
       </div>
     </>
   );
