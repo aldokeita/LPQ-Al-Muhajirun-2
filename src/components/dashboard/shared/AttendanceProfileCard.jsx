@@ -148,9 +148,14 @@ const AttendanceProfileCard = ({
 
       {/* Name — primary hierarchy, centered */}
       <h2
-        className="attendance-profile-card__name"
+        className={`attendance-profile-card__name ${pointAccent ? 'attendance-profile-card__name--level' : ''}`}
         style={
-          !isTeacher && textGradient && textColor
+          pointAccent
+            ? {
+                '--attendance-name-color': pointAccent.color,
+                '--attendance-name-glow': pointAccent.glow,
+              }
+            : !isTeacher && textGradient && textColor
             ? { color: textColor }
             : undefined
         }

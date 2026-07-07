@@ -585,7 +585,7 @@ const DigitalAttendancePage = () => {
              ]);
              setLastScan({
                 ...successData,
-                message: 'Santri sudah tercatat hadir pada sesi ini. Waktu hadir pertama tetap dipakai.',
+                message: `Selamat, kamu udah berhasil melakukan absensi pada sesi ${sesiUser || 'belajar'} ini.`,
                 time: existingAttendance.check_in_time,
                 status: existingAttendance.status,
                 levelInfo,
@@ -649,7 +649,7 @@ const DigitalAttendancePage = () => {
               streak++;
               guruStats = { hours: hoursTaught, streak, session: sesiUser };
           }
-          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, monthlyStats, hafalanCount, adultStats, guruStats });
+          setLastScan({ ...successData, message: userRole === 'santri' ? `Selamat, kamu udah berhasil melakukan absensi pada sesi ${sesiUser || 'belajar'} ini.` : `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, monthlyStats, hafalanCount, adultStats, guruStats });
         }
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };
