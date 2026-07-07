@@ -33,6 +33,7 @@ const AttendanceProfileCard = ({
   rfid,
   levelInfo,
   monthlyStats,
+  hafalanCount,
   jabatan,
   guruStats,
   quote,
@@ -52,6 +53,7 @@ const AttendanceProfileCard = ({
   } = levelInfo || {};
 
   const pointAccent = !isTeacher ? getPointAccent(points) : null;
+  const pointLevel = !isTeacher ? getPointLevel(points) : null;
   const statusConfig = getStatusConfig(status);
   const cardStyle = pointAccent
     ? {
@@ -65,7 +67,6 @@ const AttendanceProfileCard = ({
         backgroundColor: 'rgba(255, 255, 255, 0.92)',
         borderColor: pointAccent.color,
         color: pointAccent.color,
-        boxShadow: `0 0 16px ${pointAccent.glow}`,
       }
     : {
         backgroundColor: `${statusConfig.color}14`,
@@ -210,6 +211,12 @@ const AttendanceProfileCard = ({
             {points !== undefined && points !== null && (
               <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} pointAccent={pointAccent} amber />
             )}
+            {pointLevel && (
+              <DetailItem icon={<Crown className="w-4 h-4" />} label="Level" value={pointLevel} pointAccent={pointAccent} />
+            )}
+            {hafalanCount !== undefined && hafalanCount !== null && (
+              <DetailItem icon={<Book className="w-4 h-4" />} label="Hafalan" value={hafalanCount} pointAccent={pointAccent} />
+            )}
             {monthlyStats && (
               <DetailItem icon={<CheckCircle className="w-4 h-4" />} label="Kehadiran" value={monthlyStats.present ?? 0} pointAccent={pointAccent} />
             )}
@@ -258,7 +265,6 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
         ? {
             borderColor: pointAccent.color,
             backgroundColor: 'rgba(255, 255, 255, 0.92)',
-            boxShadow: `0 0 14px ${pointAccent.glow}`,
           }
         : amber
         ? { borderColor: 'var(--att-amber-border)', backgroundColor: 'var(--att-amber-bg)' }
@@ -321,6 +327,14 @@ function getPointAccent(points = 0) {
     soft: 'rgba(239, 68, 68, 0.16)',
     glow: 'rgba(239, 68, 68, 0.55)',
   };
+}
+
+function getPointLevel(points = 0) {
+  const safePoints = Number(points) || 0;
+  if (safePoints <= 20) return 'Santri Biasa';
+  if (safePoints <= 50) return 'Santri Rajin';
+  if (safePoints <= 80) return 'Santri Super';
+  return 'Santri Legend';
 }
 
 /* --- Status Config --- */

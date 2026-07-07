@@ -112,25 +112,69 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
     if (!santriId) return { present: 0, absent: 0 };
 
     const { start, end } = getCurrentMonthDateRange();
-    const { data, error } = await supabase
+    const now = new Date();
+    const selectedYear = now.getFullYear();
+    const selectedMonth = now.getMonth();
+    const today = new Date(selectedYear, selectedMonth, now.getDate());
+    const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const endInclusive = new Date(selectedYear, selectedMonth, lastDay).toLocaleDateString('en-CA');
+
+    const [attendanceResult, holidayResult] = await Promise.all([
+      supabase
         .from('attendance')
-        .select('status')
+        .select('attendance_date')
         .eq('user_id', santriId)
         .gte('attendance_date', start)
-        .lt('attendance_date', end);
+        .lt('attendance_date', end),
+      supabase
+        .from('academic_calendar')
+        .select('date')
+        .eq('is_holiday', true)
+        .gte('date', start)
+        .lte('date', endInclusive),
+    ]);
 
-    if (error) {
+    if (attendanceResult.error || holidayResult.error) {
         return { present: 0, absent: 0 };
     }
 
-    return (data || []).reduce((summary, row) => {
-        if (['Hadir', 'Tepat Waktu', 'Terlambat'].includes(row.status)) {
-            summary.present += 1;
-        } else if (['Tidak Hadir', 'Alpha', 'Izin', 'Sakit'].includes(row.status)) {
-            summary.absent += 1;
+    const holidaySet = new Set((holidayResult.data || []).map(item => item.date));
+    const activeDaysUntilToday = [];
+
+    for (let day = 1; day <= lastDay; day++) {
+        const date = new Date(selectedYear, selectedMonth, day);
+        const dateStr = date.toLocaleDateString('en-CA');
+        const dayOfWeek = new Date(Date.UTC(selectedYear, selectedMonth, day)).getUTCDay();
+        const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+        const isPastOrToday = date <= today;
+
+        if (isWeekday && isPastOrToday && !holidaySet.has(dateStr)) {
+            activeDaysUntilToday.push(dateStr);
         }
-        return summary;
-    }, { present: 0, absent: 0 });
+    }
+
+    const presentDateSet = new Set(
+        (attendanceResult.data || [])
+            .map(row => String(row.attendance_date || '').split('T')[0])
+            .filter(Boolean)
+    );
+    const present = activeDaysUntilToday.filter(date => presentDateSet.has(date)).length;
+    const absent = Math.max(activeDaysUntilToday.length - present, 0);
+
+    return { present, absent };
+};
+
+const getSantriHafalanCount = async (santriId) => {
+    if (!santriId) return 0;
+
+    const { count, error } = await supabase
+        .from('hafalan_progress')
+        .select('id', { count: 'exact', head: true })
+        .eq('santri_id', santriId)
+        .eq('status', 'lulus');
+
+    if (error) return 0;
+    return count || 0;
 };
 
 // --- Business logic (unchanged) ---
@@ -535,14 +579,18 @@ const DigitalAttendancePage = () => {
           }
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
-             const monthlyStats = await getSantriMonthlyAttendanceStats(user.id);
+             const [monthlyStats, hafalanCount] = await Promise.all([
+                 getSantriMonthlyAttendanceStats(user.id),
+                 getSantriHafalanCount(user.id),
+             ]);
              setLastScan({
                 ...successData,
                 message: 'Santri sudah tercatat hadir pada sesi ini. Waktu hadir pertama tetap dipakai.',
                 time: existingAttendance.check_in_time,
                 status: existingAttendance.status,
                 levelInfo,
-                monthlyStats
+                monthlyStats,
+                hafalanCount
              });
              return;
           }
@@ -574,7 +622,12 @@ const DigitalAttendancePage = () => {
           let newPoints = user.points || 0;
           if (userRole === 'santri' && !isAdult) { await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 }); newPoints += 1; }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
-          const monthlyStats = userRole === 'santri' ? await getSantriMonthlyAttendanceStats(user.id) : undefined;
+          const [monthlyStats, hafalanCount] = userRole === 'santri'
+            ? await Promise.all([
+                getSantriMonthlyAttendanceStats(user.id),
+                getSantriHafalanCount(user.id),
+              ])
+            : [undefined, undefined];
           let adultStats = null;
           if (isAdult) {
               const { count: daysCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
@@ -596,7 +649,7 @@ const DigitalAttendancePage = () => {
               streak++;
               guruStats = { hours: hoursTaught, streak, session: sesiUser };
           }
-          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, monthlyStats, adultStats, guruStats });
+          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, monthlyStats, hafalanCount, adultStats, guruStats });
         }
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };
@@ -849,6 +902,7 @@ const DigitalAttendancePage = () => {
             jilid={scan.jilid}
             points={scan.points}
             monthlyStats={scan.monthlyStats}
+            hafalanCount={scan.hafalanCount}
             message={scan.message}
             quote={scan.quote}
             showSuccessBadge
@@ -871,6 +925,7 @@ const DigitalAttendancePage = () => {
             points={scan.points}
             levelInfo={scan.levelInfo}
             monthlyStats={scan.monthlyStats}
+            hafalanCount={scan.hafalanCount}
             message={scan.message}
             quote={scan.quote}
             showSuccessBadge
