@@ -50,14 +50,35 @@ const AttendanceProfileCard = ({
     textGradient,
   } = levelInfo || {};
 
+  const pointAccent = !isTeacher ? getPointAccent(points) : null;
   const statusConfig = getStatusConfig(status);
+  const cardStyle = pointAccent
+    ? {
+        '--attendance-profile-accent': pointAccent.color,
+        '--attendance-profile-accent-soft': pointAccent.soft,
+        '--attendance-profile-accent-glow': pointAccent.glow,
+      }
+    : undefined;
+  const studentStatusStyle = pointAccent
+    ? {
+        backgroundColor: pointAccent.soft,
+        borderColor: pointAccent.color,
+        color: pointAccent.color,
+        boxShadow: `0 0 18px ${pointAccent.glow}`,
+      }
+    : {
+        backgroundColor: `${statusConfig.color}14`,
+        borderColor: `${statusConfig.color}30`,
+        color: statusConfig.color,
+      };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="attendance-profile-card"
+      className={`attendance-profile-card ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
+      style={cardStyle}
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
     >
@@ -70,9 +91,11 @@ const AttendanceProfileCard = ({
               height: '100%',
               ...(!isTeacher && levelColor
                 ? {
-                    borderColor: levelColor,
+                    borderColor: pointAccent?.color || levelColor,
                     borderWidth: `${avatarBorderThickness || 4}px`,
-                    boxShadow: `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
+                    boxShadow: pointAccent
+                      ? `0 0 28px ${pointAccent.glow}, 0 8px 28px rgba(0,0,0,0.10)`
+                      : `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
                   }
                 : {}),
             }}
@@ -101,7 +124,7 @@ const AttendanceProfileCard = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
             className="attendance-profile-card__level-badge"
-            style={{ borderColor: levelColor || 'var(--att-accent)' }}
+            style={{ borderColor: pointAccent?.color || levelColor || 'var(--att-accent)' }}
           >
             <span
               className={enableGradient ? 'gradient-text' : ''}
@@ -146,11 +169,7 @@ const AttendanceProfileCard = ({
         <div className="attendance-profile-card__status-row">
           <div
             className="attendance-profile-card__status-chip"
-            style={{
-              backgroundColor: `${statusConfig.color}14`,
-              borderColor: `${statusConfig.color}30`,
-              color: statusConfig.color,
-            }}
+            style={studentStatusStyle}
           >
             {statusConfig.icon}
             <span className="font-semibold">{statusConfig.label}</span>
@@ -185,10 +204,10 @@ const AttendanceProfileCard = ({
         ) : (
           <>
             {jilid && (
-              <DetailItem icon={<BookOpen className="w-4 h-4" />} label="Jilid" value={jilid} accent />
+              <DetailItem icon={<BookOpen className="w-4 h-4" />} label="Jilid" value={jilid} pointAccent={pointAccent} accent />
             )}
             {points !== undefined && points !== null && (
-              <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} amber />
+              <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} pointAccent={pointAccent} amber />
             )}
             {kelas && (
               <DetailItem icon={<Users className="w-4 h-4" />} label="Kelas" value={kelas} />
@@ -224,11 +243,17 @@ const AttendanceProfileCard = ({
 };
 
 /* --- Detail Item --- */
-const DetailItem = ({ icon, label, value, accent, amber, mono }) => (
+const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) => (
   <div
     className="attendance-profile-card__detail-item"
     style={
-      amber
+      pointAccent
+        ? {
+            borderColor: pointAccent.color,
+            backgroundColor: pointAccent.soft,
+            boxShadow: `0 0 16px ${pointAccent.glow}`,
+          }
+        : amber
         ? { borderColor: 'var(--att-amber-border)', backgroundColor: 'var(--att-amber-bg)' }
         : accent
           ? { borderColor: 'var(--att-accent-border)', backgroundColor: 'var(--att-accent-bg)' }
@@ -238,7 +263,9 @@ const DetailItem = ({ icon, label, value, accent, amber, mono }) => (
     <div
       className="attendance-profile-card__detail-icon"
       style={
-        amber
+        pointAccent
+          ? { color: pointAccent.color }
+          : amber
           ? { color: 'var(--att-amber)' }
           : accent
             ? { color: 'var(--att-accent)' }
@@ -251,13 +278,43 @@ const DetailItem = ({ icon, label, value, accent, amber, mono }) => (
       <span className="attendance-profile-card__detail-label">{label}</span>
       <span
         className={`attendance-profile-card__detail-value ${mono ? 'font-mono' : ''}`}
-        style={amber ? { color: 'var(--att-amber)' } : undefined}
+        style={pointAccent ? { color: pointAccent.color } : amber ? { color: 'var(--att-amber)' } : undefined}
       >
         {value}
       </span>
     </div>
   </div>
 );
+
+function getPointAccent(points = 0) {
+  const safePoints = Number(points) || 0;
+  if (safePoints <= 20) {
+    return {
+      color: '#22c55e',
+      soft: 'rgba(34, 197, 94, 0.14)',
+      glow: 'rgba(34, 197, 94, 0.5)',
+    };
+  }
+  if (safePoints <= 50) {
+    return {
+      color: '#2563eb',
+      soft: 'rgba(37, 99, 235, 0.14)',
+      glow: 'rgba(37, 99, 235, 0.5)',
+    };
+  }
+  if (safePoints <= 80) {
+    return {
+      color: '#f97316',
+      soft: 'rgba(249, 115, 22, 0.16)',
+      glow: 'rgba(249, 115, 22, 0.55)',
+    };
+  }
+  return {
+    color: '#ef4444',
+    soft: 'rgba(239, 68, 68, 0.16)',
+    glow: 'rgba(239, 68, 68, 0.55)',
+  };
+}
 
 /* --- Status Config --- */
 function getStatusConfig(status) {

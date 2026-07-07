@@ -2351,14 +2351,20 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: hsl(var(--att-text-muted));
   pointer-events: none;
   z-index: 2;
+  flex-shrink: 0;
 }
 
 .attendance-scan-area__input {
   width: 100%;
-  padding: 1rem 3rem 1rem 3rem;
+  padding: 1rem 3.35rem 1rem 3.65rem;
   border-radius: var(--att-radius);
   border: 1px solid hsl(var(--att-border));
   background-color: hsl(var(--att-surface));
@@ -2644,6 +2650,41 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   flex-direction: column;
   align-items: center;
   text-align: center;
+}
+
+.attendance-profile-card--point-glow {
+  border-color: var(--attendance-profile-accent);
+  box-shadow:
+    0 0 0 1px var(--attendance-profile-accent-soft),
+    0 0 34px var(--attendance-profile-accent-glow),
+    0 18px 60px hsl(var(--att-shadow-color) / 0.16);
+}
+
+.attendance-profile-card--point-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid var(--attendance-profile-accent);
+  opacity: 0.72;
+  pointer-events: none;
+  animation: attendance-point-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes attendance-point-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 16px var(--attendance-profile-accent-glow);
+  }
+  50% {
+    box-shadow: 0 0 42px var(--attendance-profile-accent-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendance-profile-card--point-glow::before {
+    animation: none;
+  }
 }
 
 @media (min-width: 768px) {
