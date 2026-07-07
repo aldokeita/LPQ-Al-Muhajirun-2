@@ -32,6 +32,7 @@ const AttendanceProfileCard = ({
   sesi,
   rfid,
   levelInfo,
+  monthlyStats,
   jabatan,
   guruStats,
   quote,
@@ -61,10 +62,10 @@ const AttendanceProfileCard = ({
     : undefined;
   const studentStatusStyle = pointAccent
     ? {
-        backgroundColor: pointAccent.soft,
+        backgroundColor: 'rgba(255, 255, 255, 0.92)',
         borderColor: pointAccent.color,
         color: pointAccent.color,
-        boxShadow: `0 0 18px ${pointAccent.glow}`,
+        boxShadow: `0 0 16px ${pointAccent.glow}`,
       }
     : {
         backgroundColor: `${statusConfig.color}14`,
@@ -209,6 +210,12 @@ const AttendanceProfileCard = ({
             {points !== undefined && points !== null && (
               <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} pointAccent={pointAccent} amber />
             )}
+            {monthlyStats && (
+              <DetailItem icon={<CheckCircle className="w-4 h-4" />} label="Kehadiran" value={monthlyStats.present ?? 0} pointAccent={pointAccent} />
+            )}
+            {monthlyStats && (
+              <DetailItem icon={<Clock className="w-4 h-4" />} label="Tidak Hadir" value={monthlyStats.absent ?? 0} pointAccent={pointAccent} />
+            )}
             {kelas && (
               <DetailItem icon={<Users className="w-4 h-4" />} label="Kelas" value={kelas} />
             )}
@@ -250,8 +257,8 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
       pointAccent
         ? {
             borderColor: pointAccent.color,
-            backgroundColor: pointAccent.soft,
-            boxShadow: `0 0 16px ${pointAccent.glow}`,
+            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+            boxShadow: `0 0 14px ${pointAccent.glow}`,
           }
         : amber
         ? { borderColor: 'var(--att-amber-border)', backgroundColor: 'var(--att-amber-bg)' }

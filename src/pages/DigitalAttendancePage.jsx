@@ -98,6 +98,41 @@ const adultQuotes = [
     "Membaca Al-Qur'an dengan terbata-bata pun mendapat dua pahala."
 ];
 
+const getCurrentMonthDateRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return {
+        start: firstDay.toLocaleDateString('en-CA'),
+        end: nextMonth.toLocaleDateString('en-CA'),
+    };
+};
+
+const getSantriMonthlyAttendanceStats = async (santriId) => {
+    if (!santriId) return { present: 0, absent: 0 };
+
+    const { start, end } = getCurrentMonthDateRange();
+    const { data, error } = await supabase
+        .from('attendance')
+        .select('status')
+        .eq('user_id', santriId)
+        .gte('attendance_date', start)
+        .lt('attendance_date', end);
+
+    if (error) {
+        return { present: 0, absent: 0 };
+    }
+
+    return (data || []).reduce((summary, row) => {
+        if (['Hadir', 'Tepat Waktu', 'Terlambat'].includes(row.status)) {
+            summary.present += 1;
+        } else if (['Tidak Hadir', 'Alpha', 'Izin', 'Sakit'].includes(row.status)) {
+            summary.absent += 1;
+        }
+        return summary;
+    }, { present: 0, absent: 0 });
+};
+
 // --- Business logic (unchanged) ---
 const canCheckIn = (sesi, userRole, isPentashih = false) => {
     if (isPentashih) return { can: true, message: '' };
@@ -500,12 +535,14 @@ const DigitalAttendancePage = () => {
           }
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
+             const monthlyStats = await getSantriMonthlyAttendanceStats(user.id);
              setLastScan({
                 ...successData,
                 message: 'Santri sudah tercatat hadir pada sesi ini. Waktu hadir pertama tetap dipakai.',
                 time: existingAttendance.check_in_time,
                 status: existingAttendance.status,
-                levelInfo
+                levelInfo,
+                monthlyStats
              });
              return;
           }
@@ -537,6 +574,7 @@ const DigitalAttendancePage = () => {
           let newPoints = user.points || 0;
           if (userRole === 'santri' && !isAdult) { await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 }); newPoints += 1; }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
+          const monthlyStats = userRole === 'santri' ? await getSantriMonthlyAttendanceStats(user.id) : undefined;
           let adultStats = null;
           if (isAdult) {
               const { count: daysCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
@@ -558,7 +596,7 @@ const DigitalAttendancePage = () => {
               streak++;
               guruStats = { hours: hoursTaught, streak, session: sesiUser };
           }
-          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, adultStats, guruStats });
+          setLastScan({ ...successData, message: `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, monthlyStats, adultStats, guruStats });
         }
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };
@@ -809,6 +847,8 @@ const DigitalAttendancePage = () => {
             status={scan.status || 'Hadir'}
             time={scan.time}
             jilid={scan.jilid}
+            points={scan.points}
+            monthlyStats={scan.monthlyStats}
             message={scan.message}
             quote={scan.quote}
             showSuccessBadge
@@ -830,6 +870,7 @@ const DigitalAttendancePage = () => {
             jilid={scan.jilid}
             points={scan.points}
             levelInfo={scan.levelInfo}
+            monthlyStats={scan.monthlyStats}
             message={scan.message}
             quote={scan.quote}
             showSuccessBadge
