@@ -88,7 +88,7 @@ const PentashihDashboard = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-black uppercase text-purple-700 dark:text-purple-400 tracking-wide">Dashboard Pentashih</h1>
-          <p className="text-muted-foreground">Kelas dan santri sesuai assignment pentashih.</p>
+          <p className="text-muted-foreground">Akses seluruh kelas dan detail santri LPQ.</p>
         </div>
         <div className="px-3 py-1 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-sm">
           <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -105,7 +105,7 @@ const PentashihDashboard = () => {
               </div>
               <div>
                 <p className="text-3xl font-black text-slate-800 dark:text-slate-100">{stats.santri}</p>
-                <p className="text-sm text-muted-foreground uppercase font-bold tracking-wider">Santri Dalam Assignment</p>
+                <p className="text-sm text-muted-foreground uppercase font-bold tracking-wider">Seluruh Santri</p>
               </div>
             </CardContent>
           </Card>
@@ -116,7 +116,7 @@ const PentashihDashboard = () => {
               </div>
               <div>
                 <p className="text-3xl font-black text-slate-800 dark:text-slate-100">{stats.classes}</p>
-                <p className="text-sm text-muted-foreground uppercase font-bold tracking-wider">Kelas Ditugaskan</p>
+                <p className="text-sm text-muted-foreground uppercase font-bold tracking-wider">Seluruh Kelas</p>
               </div>
             </CardContent>
           </Card>
@@ -152,7 +152,7 @@ const PentashihDashboard = () => {
       <div className="space-y-5">
         {isLoading && (
           <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">Memuat assignment pentashih...</CardContent>
+            <CardContent className="p-8 text-center text-muted-foreground">Memuat seluruh data kelas...</CardContent>
           </Card>
         )}
 
@@ -160,8 +160,8 @@ const PentashihDashboard = () => {
           <Card className="border-dashed">
             <CardContent className="p-10 text-center">
               <UserCheck className="w-12 h-12 mx-auto text-purple-400 mb-3" />
-              <h2 className="text-xl font-bold text-foreground mb-1">Belum Ada Assignment</h2>
-              <p className="text-muted-foreground">Admin belum menugaskan kelas untuk akun pentashih ini.</p>
+              <h2 className="text-xl font-bold text-foreground mb-1">Belum Ada Kelas</h2>
+              <p className="text-muted-foreground">Belum ada kelas aktif yang dapat ditampilkan.</p>
             </CardContent>
           </Card>
         )}
