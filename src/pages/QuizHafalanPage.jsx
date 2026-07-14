@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ const QuizHafalanPage = () => {
   const { isDark, toggleTheme } = useTheme();
   
   // State
-  const [rfidTag, setRfidTag] = useState('');
   const [gameState, setGameState] = useState('idle'); // idle, confirm_santri, spinning, question, result
   const [currentSantri, setCurrentSantri] = useState(null);
   const [validationGuru, setValidationGuru] = useState(null);
@@ -36,8 +35,10 @@ const QuizHafalanPage = () => {
   const [spinningText, setSpinningText] = useState("MENGACAK SOAL..."); 
   const [resultType, setResultType] = useState('guru'); // 'guru' (points) or 'self' (no points)
   
-  const [showManualInput, setShowManualInput] = useState(false);
-  const [manualRfid, setManualRfid] = useState('');
+  const [santriList, setSantriList] = useState([]);
+  const [selectedSantriId, setSelectedSantriId] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [isRosterLoading, setIsRosterLoading] = useState(true);
 
   // Settings State
   const [flattenedItems, setFlattenedItems] = useState([]);
@@ -47,7 +48,6 @@ const QuizHafalanPage = () => {
   const [pinInput, setPinInput] = useState('');
   const [adminPin, setAdminPin] = useState('1234');
   
-  const inputRef = useRef(null);
   const isPracticeMode = role === 'santri';
 
   // Load Config from hafalan_items table
@@ -103,6 +103,16 @@ const QuizHafalanPage = () => {
             }
         });
         setFlattenedItems(allItems);
+
+        const { data: santriData, error: santriError } = await supabase
+          .from('santri')
+          .select('id, nama_lengkap, nama_panggilan, foto_url, jilid, points, status')
+          .order('nama_lengkap', { ascending: true });
+
+        if (!santriError) {
+          setSantriList((santriData || []).filter((santri) => santri.status !== 'inactive'));
+        }
+        setIsRosterLoading(false);
     };
     loadConfig();
   }, []);
@@ -123,20 +133,6 @@ const QuizHafalanPage = () => {
           setGameState('confirm_santri');
       }
   }, [isPracticeMode, user]);
-
-  // Focus Management
-  useEffect(() => {
-    const focusInput = () => {
-        if (!showManualInput && !showSettings && !isPracticeMode) inputRef.current?.focus();
-    }
-    focusInput();
-    const interval = setInterval(focusInput, 500);
-    window.addEventListener('click', focusInput);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('click', focusInput);
-    };
-  }, [showManualInput, showSettings, isPracticeMode]);
 
   useEffect(() => {
     if (width && height) {
@@ -166,69 +162,19 @@ const QuizHafalanPage = () => {
     return { label: 'Level S', color: 'text-purple-600', border: 'border-purple-500' };
   };
 
-  const processLogic = async (tag) => {
-    if (isPracticeMode) return;
-    
-    setIsLoading(true);
-    try {
-      if (gameState === 'idle' || gameState === 'result') {
-        const { data: santri } = await supabase.from('santri').select('*').eq('rfid_tag', tag).maybeSingle();
-        if (santri) {
-          setCurrentSantri(santri);
-          setGameState('confirm_santri');
-        } else {
-          toast({ title: "Kartu Tidak Dikenal", description: "Silahkan scan kartu santri yang terdaftar.", variant: "destructive" });
-        }
-      } else if (gameState === 'confirm_santri') {
-        if (currentSantri && tag === currentSantri.rfid_tag) {
-           spinWheel();
-        } else {
-           const { data: santri } = await supabase.from('santri').select('*').eq('rfid_tag', tag).maybeSingle();
-           if (santri) {
-             setCurrentSantri(santri); 
-             toast({ title: "Ganti Pemain", description: `Selamat datang, ${santri.nama_panggilan}!` });
-           } else {
-             toast({ title: "Konfirmasi Gagal", description: "Tap kartu santri yang sama untuk memutar.", variant: "destructive" });
-           }
-        }
-      } else if (gameState === 'question') {
-        // Determine if it's a Guru or the Santri themselves
-        const { data: guru } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
-        
-        if (guru) {
-           // Guru Validation -> Earn Points
-           validateAnswer(guru);
-        } else if (currentSantri && tag === currentSantri.rfid_tag) {
-           // Santri Self Validation -> No Points
-           selfValidate();
-        } else {
-           // Check if it's another santri just in case
-           toast({ title: "Kartu Tidak Sesuai", description: "Tap kartu Guru (untuk poin) atau kartu Santri sendiri (tanpa poin).", variant: "warning" });
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Error", description: "Terjadi kesalahan sistem.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const filteredSantri = santriList.filter((santri) => {
+    const query = studentSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [santri.nama_lengkap, santri.nama_panggilan, santri.jilid]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
 
-  const handleRfidSubmit = async (e) => {
-    e.preventDefault();
-    if (!rfidTag.trim() || isLoading || showSettings) return;
-    const tag = rfidTag.trim();
-    setRfidTag('');
-    await processLogic(tag);
-  };
-  
-  const handleManualSubmit = async (e) => {
-      e.preventDefault();
-      if (!manualRfid.trim() || isLoading) return;
-      const tag = manualRfid.trim();
-      setManualRfid('');
-      setShowManualInput(false);
-      await processLogic(tag);
+  const selectSantriForQuiz = () => {
+    const selected = santriList.find((santri) => String(santri.id) === String(selectedSantriId));
+    if (!selected) return;
+    setCurrentSantri(selected);
+    setGameState('confirm_santri');
   };
 
   const spinWheel = () => {
@@ -288,13 +234,26 @@ const QuizHafalanPage = () => {
     setValidationGuru(guru);
     setResultType('guru');
     setGameState('result');
-    try {
-      const newPoints = (currentSantri.points || 0) + 1;
-      await supabase.rpc('increment_santri_points', { p_santri_id: currentSantri.id, p_amount: 1 });
-      setCurrentSantri(prev => ({ ...prev, points: newPoints }));
-    } catch (error) {
-      toast({ title: "Gagal Update Poin", description: error.message, variant: "destructive" });
+
+    const newPoints = (currentSantri.points || 0) + 1;
+    const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+      p_santri_id: currentSantri.id,
+      p_amount: 1
+    });
+
+    if (rpcError) {
+      const { error: fallbackError } = await supabase
+        .from('santri')
+        .update({ points: newPoints })
+        .eq('id', currentSantri.id);
+
+      if (fallbackError) {
+        toast({ title: "Gagal Update Poin", description: fallbackError.message, variant: "destructive" });
+        return;
+      }
     }
+
+    setCurrentSantri(prev => ({ ...prev, points: newPoints }));
   };
 
   const selfValidate = () => {
@@ -318,6 +277,8 @@ const QuizHafalanPage = () => {
         setSelectedQuestion(null);
         setValidationGuru(null);
         setResultType('guru');
+        setSelectedSantriId('');
+        setStudentSearch('');
     }
   };
 
@@ -399,8 +360,6 @@ const QuizHafalanPage = () => {
               <div className="flex items-center gap-2">
                  <Button variant="outline" size="icon" onClick={() => setOrientation(prev => prev === 'landscape' ? 'portrait' : 'landscape')} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}>{orientation === 'landscape' ? <Monitor className="w-4 h-4"/> : <Smartphone className="w-4 h-4"/>}</Button>
                  <Button variant="outline" size="icon" onClick={toggleTheme} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}>{isDark ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-slate-600" />}</Button>
-                 <Button variant="outline" size="icon" onClick={() => setShowManualInput(true)} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}><Keyboard className="w-4 h-4" /></Button>
-                 <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}><Settings className="w-4 h-4" /></Button>
               </div>
           )}
       </div>
@@ -433,23 +392,63 @@ const QuizHafalanPage = () => {
          <div className={`flex-1 flex flex-col items-center justify-center w-full max-w-4xl min-h-[400px]`}>
              <AnimatePresence mode="wait">
                 {gameState === 'idle' && (
-                    <motion.div key="idle" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} className="text-center space-y-6">
-                        <div className="relative w-48 h-48 mx-auto flex items-center justify-center"><div className={`absolute inset-0 border-4 ${isDark ? 'border-white/20' : 'border-slate-300'} rounded-full animate-ping opacity-20`}></div><div className="absolute inset-0 border-4 border-purple-500 rounded-full animate-pulse shadow-[0_0_50px_rgba(168,85,247,0.5)]"></div><ScanLine className={`w-20 h-20 ${isDark ? 'text-white' : 'text-slate-800'} animate-pulse`} /></div>
-                        <div><h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-2">SCAN KARTU SANTRI</h2><p className={`${isDark ? 'text-white/60' : 'text-slate-500'} text-lg`}>Silahkan tap kartu untuk memulai quiz.</p></div>
-                    </motion.div>
+                  <motion.div
+                    key="idle"
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.94, opacity: 0 }}
+                    className="w-full max-w-xl text-center space-y-6"
+                  >
+                    <div className="relative w-40 h-40 mx-auto flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/35 to-cyan-500/35 blur-2xl animate-pulse"></div>
+                      <Gamepad2 className={`relative w-20 h-20 ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                    </div>
+                    <div>
+                      <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-400 to-cyan-400 mb-2">PILIH SANTRI</h2>
+                      <p className={`${isDark ? 'text-white/60' : 'text-slate-500'} text-lg`}>Guru memilih pemain langsung dari kelas.</p>
+                    </div>
+                    <div className={`rounded-3xl p-5 md:p-6 backdrop-blur-xl ${isDark ? 'bg-white/8 shadow-[0_18px_50px_rgba(0,0,0,0.35)]' : 'bg-white/75 shadow-[0_18px_50px_rgba(71,85,105,0.16)]'}`}>
+                      <Input
+                        value={studentSearch}
+                        onChange={(event) => setStudentSearch(event.target.value)}
+                        placeholder="Cari nama, panggilan, atau jilid..."
+                        className={`mb-3 h-12 ${isDark ? 'bg-slate-900/70 border-white/10 text-white' : 'bg-white/90'}`}
+                      />
+                      <select
+                        value={selectedSantriId}
+                        onChange={(event) => setSelectedSantriId(event.target.value)}
+                        className={`w-full h-12 rounded-xl px-4 text-sm font-semibold outline-none ${isDark ? 'bg-slate-900/80 text-white' : 'bg-white text-slate-800'}`}
+                        disabled={isRosterLoading}
+                      >
+                        <option value="">{isRosterLoading ? 'Memuat santri...' : 'Pilih santri'}</option>
+                        {filteredSantri.map((santri) => (
+                          <option key={santri.id} value={santri.id}>
+                            {santri.nama_lengkap}{santri.jilid ? ` — ${santri.jilid}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        size="lg"
+                        onClick={selectSantriForQuiz}
+                        disabled={!selectedSantriId}
+                        className="mt-4 w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-cyan-600 text-white font-black shadow-lg shadow-purple-500/25"
+                      >
+                        <Gamepad2 className="w-5 h-5 mr-2" /> Pilih dan Lanjut
+                      </Button>
+                    </div>
+                  </motion.div>
                 )}
                 {gameState === 'confirm_santri' && (
                     <motion.div key="confirm" initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="text-center space-y-8">
                         <HelpCircle className="w-24 h-24 text-yellow-400 mx-auto animate-bounce" />
                         <div>
                             <h2 className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>Siap untuk Tantangan?</h2>
-                            {isPracticeMode ? (
-                                <Button onClick={spinWheel} size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xl px-8 py-6 rounded-full animate-pulse">PUTAR SEKARANG!</Button>
-                            ) : (
-                                <p className={`text-xl ${isDark ? 'text-white/80' : 'text-slate-600'}`}>Tap kartu <span className="font-bold text-yellow-400">{currentSantri.nama_panggilan}</span> sekali lagi untuk memutar Gacha!</p>
-                            )}
+                            <Button onClick={spinWheel} size="lg" className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-slate-950 font-black text-xl px-8 py-6 rounded-full shadow-lg shadow-orange-500/25 animate-pulse">
+                              PUTAR SEKARANG!
+                            </Button>
                         </div>
-                        {!isPracticeMode && <div className="flex justify-center gap-2 text-sm opacity-50"><Smartphone className="w-4 h-4" /> Tempel kartu pada reader</div>}
+                        {!isPracticeMode && <div className="flex justify-center gap-2 text-sm opacity-55"><UserCheck className="w-4 h-4" /> Guru mengendalikan permainan dari perangkat ini</div>}
                     </motion.div>
                 )}
                 {gameState === 'spinning' && (
@@ -471,32 +470,42 @@ const QuizHafalanPage = () => {
                                     isPracticeMode ? (
                                         <Button onClick={() => setGameState('result')} className="w-full bg-green-600 hover:bg-green-500 text-white">Saya Sudah Hafal</Button>
                                     ) : (
-                                        <div className={`${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-slate-100 border-slate-200'} rounded-xl p-6 border animate-pulse`}>
-                                            <div className="flex flex-col gap-4 items-center">
-                                                <p className="text-yellow-500 font-bold flex items-center justify-center gap-2 text-xl"><Search className="w-6 h-6" /> MENUNGGU VALIDASI</p>
-                                                <div className="grid grid-cols-2 gap-4 w-full">
-                                                    <div className={`p-3 rounded-lg border ${isDark ? 'border-white/20 bg-white/5' : 'border-slate-300 bg-slate-50'} flex flex-col items-center`}>
-                                                        <UserCheck className="w-8 h-8 mb-2 text-blue-400"/>
-                                                        <p className="text-xs font-bold uppercase">TAP KARTU SANTRI</p>
-                                                        <p className="text-[10px] opacity-70">Tanpa Poin (Latihan)</p>
-                                                    </div>
-                                                    <div className={`p-3 rounded-lg border ${isDark ? 'border-white/20 bg-white/5' : 'border-slate-300 bg-slate-50'} flex flex-col items-center`}>
-                                                        <CheckCircle className="w-8 h-8 mb-2 text-green-400"/>
-                                                        <p className="text-xs font-bold uppercase">TAP KARTU GURU</p>
-                                                        <p className="text-[10px] opacity-70">Dapat Poin (Resmi)</p>
-                                                    </div>
-                                                </div>
+                                        <div className={`${isDark ? 'bg-slate-900/55' : 'bg-slate-100'} rounded-2xl p-6`}>
+                                          <div className="flex flex-col gap-4 items-center">
+                                            <p className="text-yellow-500 font-bold flex items-center justify-center gap-2 text-xl"><Search className="w-6 h-6" /> VALIDASI GURU</p>
+                                            <p className={`text-sm ${isDark ? 'text-white/65' : 'text-slate-500'}`}>Nilai jawaban santri secara langsung.</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={selfValidate}
+                                                className={`h-14 rounded-xl font-bold ${isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-700'}`}
+                                              >
+                                                <RotateCcw className="w-5 h-5 mr-2" /> Belum Tepat
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                onClick={() => validateAnswer({ nama: user?.nama || user?.nama_lengkap || 'Guru' })}
+                                                className="h-14 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black shadow-lg shadow-emerald-500/25"
+                                              >
+                                                <CheckCircle className="w-5 h-5 mr-2" /> Jawaban Benar +1
+                                              </Button>
                                             </div>
+                                          </div>
                                         </div>
                                     )
                                 )}
                                 {gameState === 'result' && (
                                     <div className="space-y-4">
-                                        <div className="flex justify-center"><CheckCircle className="w-20 h-20 text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.8)]" /></div>
+                                        <div className="flex justify-center">
+                                          {resultType === 'guru'
+                                            ? <CheckCircle className="w-20 h-20 text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.55)]" />
+                                            : <HelpCircle className="w-20 h-20 text-amber-400" />}
+                                        </div>
                                         <div>
-                                            <h3 className="text-2xl font-bold text-green-500">JAWABAN BENAR!</h3>
+                                            <h3 className={`text-2xl font-bold ${resultType === 'guru' ? 'text-green-500' : 'text-amber-400'}`}>{resultType === 'guru' ? 'JAWABAN BENAR!' : 'COBA LAGI!'}</h3>
                                             {!isPracticeMode && resultType === 'guru' && <p className={`${isDark ? 'text-white/70' : 'text-slate-600'} text-sm`}>Divalidasi oleh: {validationGuru?.nama}</p>}
-                                            {!isPracticeMode && resultType === 'self' && <p className={`${isDark ? 'text-white/70' : 'text-slate-600'} text-sm`}>Validasi Mandiri oleh Santri</p>}
+                                            {!isPracticeMode && resultType === 'self' && <p className={`${isDark ? 'text-white/70' : 'text-slate-600'} text-sm`}>Belum mendapat poin</p>}
                                         </div>
                                         <Button onClick={isPracticeMode ? practiceNext : resetGame} className={`mt-4 w-full ${isDark ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-900'}`}><RotateCcw className="w-4 h-4 mr-2"/> {isPracticeMode ? 'Lanjut Latihan' : 'Lanjut / Reset'}</Button>
                                     </div>
@@ -509,43 +518,6 @@ const QuizHafalanPage = () => {
          </div>
       </div>
 
-      {/* Settings Dialog - ONLY FOR ADMIN/TEACHER ACCESS (Not Practice Mode) */}
-      {!isPracticeMode && (
-          <Dialog open={showSettings} onOpenChange={setShowSettings}>
-              <DialogContent className={`${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900'} max-w-sm`}>
-                  <DialogHeader>
-                      <DialogTitle>Akses Pengaturan</DialogTitle>
-                      <DialogDescription className={isDark ? 'text-slate-400' : 'text-slate-500'}>Masukkan PIN untuk mengakses konfigurasi.</DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4">
-                      <Label>PIN Admin</Label>
-                      <Input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className={isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-slate-300 text-slate-900"} autoFocus/>
-                      <Button onClick={handleSettingsAuth} className="w-full">Verifikasi</Button>
-                  </div>
-              </DialogContent>
-          </Dialog>
-      )}
-
-      {/* Input Handling (Hidden) - Disabled in practice mode */}
-      {!isPracticeMode && (
-          <form onSubmit={handleRfidSubmit} className="absolute opacity-0 pointer-events-none">
-              <Input ref={inputRef} value={rfidTag} onChange={e => setRfidTag(e.target.value)} autoFocus autoComplete="off" />
-          </form>
-      )}
-      
-      {/* Manual Input - Disabled in practice mode */}
-      {!isPracticeMode && (
-          <Dialog open={showManualInput} onOpenChange={setShowManualInput}>
-              <DialogContent className={`${isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-white text-slate-900'}`}>
-                  <DialogHeader><DialogTitle>Input Manual</DialogTitle></DialogHeader>
-                  <form onSubmit={handleManualSubmit} className="space-y-4">
-                      <Input placeholder="Masukkan ID/RFID Tag..." value={manualRfid} onChange={e => setManualRfid(e.target.value)} autoFocus className={isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-300 text-slate-900"}/>
-                      <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white">Proses</Button>
-                  </form>
-              </DialogContent>
-          </Dialog>
-      )}
     </div>
     </>
   );
