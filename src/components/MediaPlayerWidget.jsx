@@ -53,7 +53,7 @@ const MediaPlayerWidget = () => {
                     {/* Top Row: Track Info, Settings & Crossfade */}
                     <div className="flex items-center justify-between w-full gap-3">
                         <div className="flex items-center gap-3 overflow-hidden flex-1">
-                            <div className={cn("media-player-glass__art w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500", isPlaying ? "bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 scale-105" : "bg-slate-100 dark:bg-slate-800")}>
+                            <div className={cn("media-player-glass__art w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500", isPlaying ? "media-player-glass__art--playing scale-105" : "")}>
                                 {isPlaying ? (
                                     <div className="flex items-end gap-0.5 h-4 pb-1">
                                         {[1,2,3].map(i => (
