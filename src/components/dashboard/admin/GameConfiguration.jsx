@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, Lock, X, RefreshCw, BarChart2, User, UserCheck } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, Lock, X, RefreshCw, BarChart2, User, UserCheck, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
