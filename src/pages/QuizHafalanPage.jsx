@@ -87,6 +87,10 @@ const QuizHafalanPage = () => {
             ];
         }
 
+        categories = categories.filter((category) =>
+            String(category.label || '').trim().toLowerCase() !== 'staging test'
+        );
+
         const canonicalLabels = {
             doa: 'Doa Harian',
             'doa harian': 'Doa Harian',
@@ -182,7 +186,7 @@ const QuizHafalanPage = () => {
 
   useEffect(() => {
     if (gameState !== 'wheel_stopped') return undefined;
-    const revealTimer = setTimeout(() => setGameState('question'), 1700);
+    const revealTimer = setTimeout(() => setGameState('question'), 5000);
     return () => clearTimeout(revealTimer);
   }, [gameState]);
 
