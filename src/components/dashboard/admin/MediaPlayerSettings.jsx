@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Upload, Music, Settings as SettingsIcon, Save } from 'lucide-react';
+import { Trash2, Upload, Music, Settings as SettingsIcon } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import { motion } from 'framer-motion';
+
+const MEDIA_SETTINGS_TABS = [
+    { id: 'playlist', label: 'Playlist & Upload', icon: Music },
+    { id: 'settings', label: 'Pengaturan Player', icon: SettingsIcon },
+];
 
 const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('playlist');
@@ -137,10 +143,34 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                     </DialogHeader>
                     
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-                        <TabsList className="media-settings-glass__tabs grid w-full grid-cols-2">
-                            <TabsTrigger value="playlist">Playlist & Upload</TabsTrigger>
-                            <TabsTrigger value="settings">Pengaturan Player</TabsTrigger>
-                        </TabsList>
+                        <div className="media-settings-glass__tabs" role="tablist" aria-label="Pengaturan media player">
+                            {MEDIA_SETTINGS_TABS.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        className={`media-settings-glass__tab ${isActive ? 'is-active' : ''}`}
+                                        onClick={() => setActiveTab(tab.id)}
+                                    >
+                                        {isActive && (
+                                            <motion.span
+                                                layoutId="media-settings-active-pill"
+                                                className="media-settings-glass__tab-pill"
+                                                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                                            />
+                                        )}
+                                        <span className="media-settings-glass__tab-label">
+                                            <Icon className="w-4 h-4" />
+                                            {tab.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                         
                         <TabsContent value="playlist" className="flex-1 overflow-hidden flex flex-col space-y-4 pt-4">
                             <Card className="media-settings-glass__panel shrink-0">
