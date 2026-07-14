@@ -118,6 +118,46 @@ const BackupRestoreManagement = () => {
         return backup;
     };
 
+    const upsertChunkWithSchemaCleanup = async (tableName, rows) => {
+        let sanitizedRows = rows.map((row) => ({ ...row }));
+        const removedColumns = [];
+
+        for (let attempt = 0; attempt < 24; attempt += 1) {
+            const { error } = await supabase
+                .from(tableName)
+                .upsert(sanitizedRows, { onConflict: 'id' });
+
+            if (!error) return removedColumns;
+
+            const missingColumnMatch = String(error.message || '').match(
+                /Could not find the '([^']+)' column of '([^']+)' in the schema cache/i
+            );
+            const missingColumn = missingColumnMatch?.[1];
+            const errorTable = missingColumnMatch?.[2];
+
+            if (!missingColumn || errorTable !== tableName) {
+                throw new Error(`${tableName}: ${error.message}`);
+            }
+
+            const columnExistsInPayload = sanitizedRows.some((row) =>
+                Object.prototype.hasOwnProperty.call(row, missingColumn)
+            );
+            if (!columnExistsInPayload) {
+                throw new Error(`${tableName}: ${error.message}`);
+            }
+
+            sanitizedRows = sanitizedRows.map((row) => {
+                const cleanedRow = { ...row };
+                delete cleanedRow[missingColumn];
+                return cleanedRow;
+            });
+            removedColumns.push(missingColumn);
+            console.warn(`Restore mengabaikan kolom legacy ${tableName}.${missingColumn}`);
+        }
+
+        throw new Error(`${tableName}: terlalu banyak kolom legacy yang tidak dikenali.`);
+    };
+
     const restoreDirectly = async (payload) => {
         const allowedPayload = BACKUP_TABLES
             .filter((tableName) => Array.isArray(payload?.[tableName]))
@@ -128,21 +168,24 @@ const BackupRestoreManagement = () => {
         }
 
         let restoredRows = 0;
+        const removedLegacyColumns = new Set();
         for (const { tableName, rows } of allowedPayload) {
             if (rows.length === 0) continue;
             setProgress(`Memulihkan ${tableName} (${rows.length} baris)...`);
 
             for (let index = 0; index < rows.length; index += RESTORE_CHUNK_SIZE) {
                 const chunk = rows.slice(index, index + RESTORE_CHUNK_SIZE);
-                const { error } = await supabase
-                    .from(tableName)
-                    .upsert(chunk, { onConflict: 'id' });
-                if (error) throw new Error(`${tableName}: ${error.message}`);
+                const removedColumns = await upsertChunkWithSchemaCleanup(tableName, chunk);
+                removedColumns.forEach((column) => removedLegacyColumns.add(`${tableName}.${column}`));
                 restoredRows += chunk.length;
             }
         }
 
-        return { restoredRows, restoredTables: allowedPayload.length };
+        return {
+            restoredRows,
+            restoredTables: allowedPayload.length,
+            removedLegacyColumns: [...removedLegacyColumns],
+        };
     };
 
     // Initiate Backup with Password Check
@@ -369,9 +412,12 @@ const BackupRestoreManagement = () => {
 
             if (!restoreResult) restoreResult = await restoreDirectly(restoreData);
 
+            const legacyCleanup = restoreResult.removedLegacyColumns?.length
+                ? ` Kolom legacy dilewati: ${restoreResult.removedLegacyColumns.join(', ')}.`
+                : '';
             toast({
                 title: 'Restore Berhasil',
-                description: `${restoreResult.restoredRows ?? 'Data'} baris berhasil dipulihkan.`,
+                description: `${restoreResult.restoredRows ?? 'Data'} baris berhasil dipulihkan.${legacyCleanup}`,
                 className: 'bg-green-50 dark:bg-green-900 border-green-200',
             });
             
