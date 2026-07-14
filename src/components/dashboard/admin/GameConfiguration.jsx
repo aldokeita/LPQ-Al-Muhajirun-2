@@ -341,7 +341,7 @@ const createDefaultLevelConfig = () => ({
 });
 
 const normalizeLevel = (level, fallbackColor = '#3b82f6') => {
-    const color = level.accentColor || level.color || fallbackColor;
+    const color = level.color || level.accentColor || fallbackColor;
     return {
         ...level,
         color,
