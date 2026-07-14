@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,27 +9,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 const GatchaGamePage = () => {
   const navigate = useNavigate();
   const {
     isDark,
     toggleTheme
   } = useTheme();
-  const [rfidTag, setRfidTag] = useState('');
-  const inputRef = useRef(null);
-  const [showManualInput, setShowManualInput] = useState(false);
-  const [manualRfid, setManualRfid] = useState('');
   const [orientation, setOrientation] = useState('landscape');
+  const [santriList, setSantriList] = useState([]);
+  const [selectedSantriId, setSelectedSantriId] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [isRosterLoading, setIsRosterLoading] = useState(true);
 
   // Game States
-  // IDLE -> SCAN_SANTRI -> WAIT_VALIDATION (Guru gives verbal q) -> SCAN_GURU -> REWARD_SPIN -> REWARD_SHOW
+  // IDLE -> pilih santri -> WAIT_VALIDATION -> validasi guru -> REWARD_SPIN -> REWARD_SHOW
   const [gameState, setGameState] = useState('IDLE');
   const [currentPlayer, setCurrentPlayer] = useState(null);
-  const [validatingGuru, setValidatingGuru] = useState(null);
   const [activeReward, setActiveReward] = useState(null);
-  const [pendingInterrupt, setPendingInterrupt] = useState(null);
-  const [interruptionTimer, setInterruptionTimer] = useState(null);
   const [config, setConfig] = useState({
     challenges: [],
     rewards: []
@@ -60,22 +56,22 @@ const GatchaGamePage = () => {
         });
       }
     };
-    loadConfig();
-  }, []);
+    const loadRoster = async () => {
+      setIsRosterLoading(true);
+      const { data, error } = await supabase
+        .from('santri')
+        .select('id, nama_lengkap, nama_panggilan, foto_url, jilid, points, status')
+        .order('nama_lengkap', { ascending: true });
 
-  // Focus handling
-  useEffect(() => {
-    const focusInput = () => {
-      if (!showManualInput) inputRef.current?.focus();
+      if (!error) {
+        setSantriList((data || []).filter((santri) => santri.status !== 'inactive'));
+      }
+      setIsRosterLoading(false);
     };
-    focusInput();
-    const interval = setInterval(focusInput, 1000);
-    window.addEventListener('click', focusInput);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('click', focusInput);
-    };
-  }, [showManualInput]);
+
+    loadConfig();
+    loadRoster();
+  }, []);
 
   // Timer for resetting game if abandoned
   useEffect(() => {
@@ -90,12 +86,9 @@ const GatchaGamePage = () => {
   const resetGame = () => {
     setGameState('IDLE');
     setCurrentPlayer(null);
-    setValidatingGuru(null);
     setActiveReward(null);
-    setPendingInterrupt(null);
-    setRfidTag('');
-    setManualRfid('');
-    setShowManualInput(false);
+    setSelectedSantriId('');
+    setStudentSearch('');
   };
   const pickRandom = items => {
     if (!items || items.length === 0) return null;
@@ -111,94 +104,46 @@ const GatchaGamePage = () => {
     }
     return items[Math.floor(Math.random() * items.length)];
   };
-  const handleRfidInput = async e => {
-    if (e) e.preventDefault();
-    const tag = rfidTag.trim();
-    if (!tag) return;
-    setRfidTag('');
-    processGameLogic(tag);
-  };
-  const handleManualSubmit = e => {
-    e.preventDefault();
-    if (!manualRfid.trim()) return;
-    processGameLogic(manualRfid.trim());
-    setShowManualInput(false);
-    setManualRfid('');
-  };
-  const processGameLogic = tag => {
-    // --- INTERRUPTION LOGIC ---
-    if (gameState !== 'IDLE' && gameState !== 'REWARD_SHOW' && currentPlayer && tag !== currentPlayer.rfid_tag) {
-      // Check if it's a guru first (Guru validation is part of normal flow)
-      if (gameState === 'WAIT_VALIDATION') {
-        // Pass to Guru validation logic
-        processGuruValidation(tag).then(isGuru => {
-          if (!isGuru) handleInterruption(tag);
-        });
-        return;
-      } else {
-        handleInterruption(tag);
-        return;
-      }
-    }
+  const filteredSantri = santriList.filter((santri) => {
+    const query = studentSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [santri.nama_lengkap, santri.nama_panggilan, santri.jilid]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
 
-    // --- NORMAL FLOW ---
-    if (gameState === 'IDLE') {
-      processNewPlayer(tag);
-    } else if (gameState === 'WAIT_VALIDATION') {
-      processGuruValidation(tag);
-    } else if (gameState === 'REWARD_WAIT_TAP') {
-      // Legacy state, kept just in case, but we likely skip this now
-      if (currentPlayer && tag === currentPlayer.rfid_tag) {
-        processRewardSpin();
-      }
-    }
+  const startSelectedPlayer = () => {
+    const selected = santriList.find((santri) => String(santri.id) === String(selectedSantriId));
+    if (!selected) return;
+    setCurrentPlayer(selected);
+    setGameState('WAIT_VALIDATION');
   };
-  const handleInterruption = tag => {
-    if (pendingInterrupt === tag) {
-      resetGame();
-      setTimeout(() => processNewPlayer(tag), 200);
-    } else {
-      setPendingInterrupt(tag);
-      if (interruptionTimer) clearTimeout(interruptionTimer);
-      const timer = setTimeout(() => setPendingInterrupt(null), 5000);
-      setInterruptionTimer(timer);
-    }
-  };
-  const processNewPlayer = async tag => {
-    const {
-      data: santri
-    } = await supabase.from('santri').select('*').eq('rfid_tag', tag).maybeSingle();
-    if (santri) {
-      setCurrentPlayer(santri);
-      // Immediately go to Validation/Question state (Skipping random challenge)
-      setGameState('WAIT_VALIDATION');
-    }
-  };
-  const processGuruValidation = async tag => {
-    const {
-      data: guru
-    } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
-    if (guru) {
-      setValidatingGuru(guru);
-      // Directly trigger reward spin after Guru validation
-      processRewardSpin();
-      return true;
-    }
-    return false;
-  };
+
   const processRewardSpin = async () => {
     setGameState('REWARD_SPIN');
     setTimeout(async () => {
       const reward = pickRandom(config.rewards);
+      if (!reward) {
+        setGameState('IDLE');
+        return;
+      }
+
       setActiveReward(reward);
       if (reward.type === 'points' && currentPlayer) {
-        await supabase.rpc('increment_santri_points', {
+        const amount = Number.parseInt(reward.value, 10) || 0;
+        const nextPoints = (currentPlayer.points || 0) + amount;
+        const { error: rpcError } = await supabase.rpc('increment_santri_points', {
           p_santri_id: currentPlayer.id,
-          p_amount: parseInt(reward.value)
+          p_amount: amount
         });
+
+        if (rpcError) {
+          await supabase.from('santri').update({ points: nextPoints }).eq('id', currentPlayer.id);
+        }
+
         setCurrentPlayer(prev => ({
           ...prev,
-          points: (prev.points || 0) + parseInt(reward.value)
+          points: nextPoints
         }));
       }
       setGameState('REWARD_SHOW');
@@ -235,9 +180,6 @@ const GatchaGamePage = () => {
                          <Button variant="outline" size="icon" onClick={toggleTheme} className={`${isDark ? 'border-white/20 hover:bg-white/10 text-white' : 'bg-white'}`}>
                              {isDark ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
                          </Button>
-                         <Button variant="outline" size="icon" onClick={() => setShowManualInput(true)} className={`${isDark ? 'border-white/20 hover:bg-white/10 text-white' : 'bg-white'}`}>
-                             <Keyboard className="w-5 h-5" />
-                         </Button>
                     </div>
                 </div>
 
@@ -245,36 +187,52 @@ const GatchaGamePage = () => {
                 <div className={`flex-1 flex flex-col items-center justify-center relative z-10 p-4 ${orientation === 'portrait' ? 'py-10' : ''}`}>
                     <AnimatePresence mode="wait">
                         {/* IDLE STATE */}
-                        {gameState === 'IDLE' && <motion.div key="idle" initial={{
-            opacity: 0,
-            scale: 0.9
-          }} animate={{
-            opacity: 1,
-            scale: 1
-          }} exit={{
-            opacity: 0,
-            scale: 1.1
-          }} className="text-center space-y-8">
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 blur-3xl opacity-30 rounded-full animate-pulse"></div>
-                                    <Gamepad2 className={`w-32 h-32 md:w-48 md:h-48 mx-auto drop-shadow-[0_0_15px_rgba(255,215,0,0.5)] ${isDark ? 'text-white' : 'text-slate-800'}`} />
-                                </div>
-                                <div>
-                                    <h1 className={`text-4xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b mb-4 font-serif ${isDark ? 'from-white to-slate-400' : 'from-slate-800 to-slate-500'}`}>GACHA TIME!</h1>
-                                    <p className="text-xl text-blue-400 font-mono animate-pulse">TAP KARTU SANTRI UNTUK MULAI</p>
-                                </div>
-                                
-                                {pendingInterrupt && <motion.div initial={{
-              y: 20,
-              opacity: 0
-            }} animate={{
-              y: 0,
-              opacity: 1
-            }} className="bg-red-500/80 backdrop-blur-md p-4 rounded-xl border border-red-400 max-w-md mx-auto mt-8 text-white">
-                                        <p className="font-bold text-lg">⚠️ Kartu Berbeda Terdeteksi!</p>
-                                        <p className="text-sm">Tap sekali lagi untuk konfirmasi ganti pemain.</p>
-                                    </motion.div>}
-                            </motion.div>}
+                        {gameState === 'IDLE' && <motion.div
+                          key="idle"
+                          initial={{ opacity: 0, scale: 0.94 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 1.04 }}
+                          className="w-full max-w-xl text-center space-y-6"
+                        >
+                          <div className="relative">
+                            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-fuchsia-500 blur-3xl opacity-25 rounded-full animate-pulse"></div>
+                            <Gamepad2 className={`relative w-28 h-28 md:w-36 md:h-36 mx-auto drop-shadow-[0_0_18px_rgba(245,158,11,0.45)] ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                          </div>
+                          <div>
+                            <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-fuchsia-500 to-violet-500 mb-3">GACHA TIME!</h1>
+                            <p className={`text-base md:text-lg ${isDark ? 'text-white/65' : 'text-slate-600'}`}>Pilih santri yang akan bermain.</p>
+                          </div>
+                          <div className={`rounded-3xl p-5 md:p-6 backdrop-blur-xl ${isDark ? 'bg-white/8 shadow-[0_18px_50px_rgba(0,0,0,0.35)]' : 'bg-white/70 shadow-[0_18px_50px_rgba(71,85,105,0.16)]'}`}>
+                            <Input
+                              value={studentSearch}
+                              onChange={(event) => setStudentSearch(event.target.value)}
+                              placeholder="Cari nama, panggilan, atau jilid..."
+                              className={`mb-3 h-12 ${isDark ? 'bg-slate-900/70 border-white/10 text-white' : 'bg-white/90'}`}
+                            />
+                            <select
+                              value={selectedSantriId}
+                              onChange={(event) => setSelectedSantriId(event.target.value)}
+                              className={`w-full h-12 rounded-xl px-4 text-sm font-semibold outline-none ${isDark ? 'bg-slate-900/80 text-white' : 'bg-white text-slate-800'}`}
+                              disabled={isRosterLoading}
+                            >
+                              <option value="">{isRosterLoading ? 'Memuat santri...' : 'Pilih santri'}</option>
+                              {filteredSantri.map((santri) => (
+                                <option key={santri.id} value={santri.id}>
+                                  {santri.nama_lengkap}{santri.jilid ? ` — ${santri.jilid}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              type="button"
+                              size="lg"
+                              onClick={startSelectedPlayer}
+                              disabled={!selectedSantriId}
+                              className="mt-4 w-full h-12 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 text-white font-black shadow-lg shadow-violet-500/25"
+                            >
+                              <Sparkles className="w-5 h-5 mr-2" /> Mulai Tantangan
+                            </Button>
+                          </div>
+                        </motion.div>}
 
                         {/* WAIT VALIDATION (Guru Asking Question) */}
                         {gameState === 'WAIT_VALIDATION' && currentPlayer && <motion.div key="wait_validation" initial={{
@@ -305,11 +263,19 @@ const GatchaGamePage = () => {
                                     </div>
                                 </div>
 
-                                <div className={`mt-8 p-6 rounded-2xl border ${isDark ? 'bg-blue-900/30 border-blue-500/30' : 'bg-blue-50 border-blue-200'}`}>
-                                    <div className="flex flex-col items-center gap-2">
-                                        <UserCheck className="w-8 h-8 text-green-500" />
-                                        <p className="text-lg font-bold text-green-500">Guru: Tap kartu untuk validasi & beri hadiah!</p>
-                                    </div>
+                                <div className={`mt-8 p-6 rounded-2xl ${isDark ? 'bg-blue-900/25' : 'bg-blue-50'}`}>
+                                  <div className="flex flex-col items-center gap-4">
+                                    <UserCheck className="w-9 h-9 text-green-500" />
+                                    <p className={`text-base font-semibold ${isDark ? 'text-white/75' : 'text-slate-600'}`}>Guru menilai jawaban secara langsung.</p>
+                                    <Button
+                                      type="button"
+                                      size="lg"
+                                      onClick={processRewardSpin}
+                                      className="w-full max-w-md rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black shadow-lg shadow-emerald-500/25"
+                                    >
+                                      <CheckCircle2 className="w-5 h-5 mr-2" /> Jawaban Benar — Putar Hadiah
+                                    </Button>
+                                  </div>
                                 </div>
                             </motion.div>}
 
@@ -379,39 +345,8 @@ const GatchaGamePage = () => {
                             </motion.div>}
                     </AnimatePresence>
 
-                    {/* Pending Interrupt Popup */}
-                    {pendingInterrupt && gameState !== 'IDLE' && <motion.div initial={{
-          y: 50,
-          opacity: 0
-        }} animate={{
-          y: 0,
-          opacity: 1
-        }} className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-full shadow-2xl z-50 flex items-center gap-4 border-4 border-white">
-                            <AlertCircle className="w-8 h-8 animate-pulse" />
-                            <div>
-                                <p className="font-black text-lg uppercase">Ingin Ganti Pemain?</p>
-                                <p className="text-sm opacity-90">Tap kartu sekali lagi untuk reset & mulai baru.</p>
-                            </div>
-                        </motion.div>}
-
-                    {/* Manual Input Dialog */}
-                    <Dialog open={showManualInput} onOpenChange={setShowManualInput}>
-                        <DialogContent className={`${isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-white'}`}>
-                            <DialogHeader>
-                                <DialogTitle>Input Manual</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={handleManualSubmit} className="space-y-4">
-                                <Input placeholder="Masukkan ID/RFID Tag..." value={manualRfid} onChange={e => setManualRfid(e.target.value)} autoFocus />
-                                <Button type="submit" className="w-full">Proses</Button>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
                 </div>
 
-                {/* Hidden Input for Card Reader */}
-                <form onSubmit={handleRfidInput} className="absolute opacity-0 pointer-events-none">
-                    <Input ref={inputRef} value={rfidTag} onChange={e => setRfidTag(e.target.value)} autoFocus autoComplete="off" />
-                </form>
             </div>
         </>;
 };
