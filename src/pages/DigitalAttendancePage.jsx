@@ -240,6 +240,21 @@ const DigitalAttendancePage = () => {
           if (data?.content) setLevelConfig(data.content);
       };
       fetchConfig();
+
+      const levelConfigChannel = supabase
+        .channel('digital-attendance-level-config')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'website_content', filter: 'key=eq.level_config' },
+          (payload) => {
+            if (payload.new?.content) setLevelConfig(payload.new.content);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(levelConfigChannel);
+      };
   }, []);
 
   const getLevelInfo = (points = 0, gender) => {
