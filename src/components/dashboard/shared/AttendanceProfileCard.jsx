@@ -59,13 +59,16 @@ const AttendanceProfileCard = ({
       : levelColor
         ? `linear-gradient(135deg, ${levelColor}, color-mix(in srgb, ${levelColor} 58%, white))`
         : 'linear-gradient(135deg, #047857, #34d399)';
-  const cardStyle = pointAccent
-    ? {
-        '--attendance-profile-accent': pointAccent.color,
-        '--attendance-profile-accent-soft': pointAccent.soft,
-        '--attendance-profile-accent-glow': pointAccent.glow,
-      }
-    : undefined;
+  const visualAccent = pointAccent || {
+    color: '#169b62',
+    soft: 'rgba(22, 155, 98, 0.12)',
+    glow: 'rgba(22, 155, 98, 0.26)',
+  };
+  const cardStyle = {
+    '--attendance-profile-accent': visualAccent.color,
+    '--attendance-profile-accent-soft': visualAccent.soft,
+    '--attendance-profile-accent-glow': visualAccent.glow,
+  };
   const studentStatusStyle = pointAccent
     ? {
         backgroundColor: 'rgba(255, 255, 255, 0.92)',
@@ -83,7 +86,7 @@ const AttendanceProfileCard = ({
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={`attendance-profile-card ${!isTeacher ? 'attendance-profile-card--soft-clay' : ''} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
+      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
       style={cardStyle}
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
@@ -220,16 +223,12 @@ const AttendanceProfileCard = ({
 
       {/* Message */}
       {displayMessage && (
-        isTeacher ? (
-          <p className="attendance-profile-card__message">{displayMessage}</p>
-        ) : (
-          <div className="attendance-profile-card__message">
-            <span className="attendance-profile-card__message-icon" aria-hidden="true">
-              <CheckCircle className="w-4 h-4" />
-            </span>
-            <p>{displayMessage}</p>
-          </div>
-        )
+        <div className="attendance-profile-card__message">
+          <span className="attendance-profile-card__message-icon" aria-hidden="true">
+            <CheckCircle className="w-4 h-4" />
+          </span>
+          <p>{displayMessage}</p>
+        </div>
       )}
 
       {/* Quote */}
