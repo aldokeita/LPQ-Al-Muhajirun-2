@@ -240,7 +240,7 @@ const AttendanceProfileCard = ({
           transition={{ delay: 0.5 }}
           className="attendance-profile-card__quote"
         >
-          <p>{isTeacher ? <>&ldquo;{quote}&rdquo;</> : quote}</p>
+          <p>&ldquo;{quote}&rdquo;</p>
         </motion.div>
       )}
     </motion.div>
