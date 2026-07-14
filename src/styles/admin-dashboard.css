@@ -4958,6 +4958,11 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   transform: scale(0.985);
 }
 
+.media-settings-glass__tab:focus-visible {
+  outline: 2px solid rgb(14 165 233 / 0.72);
+  outline-offset: 2px;
+}
+
 .media-settings-glass__tab.is-active {
   color: #fff;
 }
