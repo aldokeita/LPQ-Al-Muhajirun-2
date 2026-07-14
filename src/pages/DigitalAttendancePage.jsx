@@ -388,7 +388,12 @@ const DigitalAttendancePage = () => {
 
         // Check MMQ Schedule if it's a Guru
         if (guruData) {
-            user = guruData; userRole = 'guru';
+            const foto_url = await resolveAvatarUrl({
+                ownerType: 'guru',
+                ownerId: guruData.id,
+                fallbackUrl: guruData.foto_url,
+            });
+            user = { ...guruData, foto_url }; userRole = 'guru';
             const todayDay = todayDate.getDay();
             const { data: mmqSchedule } = await supabase.from('mmq_schedule')
                 .select('*')
