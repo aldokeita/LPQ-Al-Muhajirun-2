@@ -20,7 +20,7 @@ import SalaryCalculation from './admin/SalaryCalculation';
 import BackupRestoreManagement from './admin/BackupRestoreManagement';
 import MMQManagement from './admin/MMQManagement';
 import { supabase } from '@/lib/customSupabaseClient';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
+import { enableDeferredFeatures, enableGameFeatures } from '@/lib/featureFlags';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -167,7 +167,11 @@ const AdminDashboard = () => {
     { value: 'game-config', label: 'Konfigurasi Game', icon: Settings, group: 'sistem' },
     { value: 'backup', label: 'Backup & Restore', icon: Database, group: 'sistem' },
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
-  ].filter(tab => enableDeferredFeatures || !['game-config', 'backup'].includes(tab.value));
+  ].filter(tab => {
+    if (tab.value === 'game-config') return enableGameFeatures;
+    if (tab.value === 'backup') return enableDeferredFeatures;
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 pt-20">
@@ -188,7 +192,7 @@ const AdminDashboard = () => {
         >
           <Tv className="w-4 h-4"/> TV Display Mode
         </Button>
-        {enableDeferredFeatures && (
+        {enableGameFeatures && (
           <>
             <Button
               onClick={() => navigate('/gatcha-game')}
