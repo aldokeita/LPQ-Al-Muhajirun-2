@@ -45,11 +45,15 @@ const AttendanceProfileCard = ({
 
   const {
     color: levelColor,
+    cardBorderThickness,
     avatarBorderThickness,
   } = levelInfo || {};
 
-  const pointAccent = !isTeacher ? getPointAccent(points) : null;
-  const pointLevel = !isTeacher ? getPointLevel(points) : null;
+  const configuredAccent = !isTeacher && levelColor ? getConfiguredAccent(levelColor) : null;
+  const pointAccent = !isTeacher ? (configuredAccent || getPointAccent(points)) : null;
+  const pointLevel = !isTeacher ? (levelInfo?.label || getPointLevel(points)) : null;
+  const cardDepth = clampDepth(cardBorderThickness, 8);
+  const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
   const displayMessage = formatAttendanceMessage(message);
   const nameGradient = pointAccent
@@ -72,6 +76,10 @@ const AttendanceProfileCard = ({
     '--attendance-profile-gradient-end': visualAccent.gradientEnd,
     '--attendance-profile-accent-soft': visualAccent.soft,
     '--attendance-profile-accent-glow': visualAccent.glow,
+    '--attendance-card-shadow-y': `${Math.max(10, cardDepth * 2)}px`,
+    '--attendance-card-shadow-blur': `${Math.max(26, cardDepth * 5)}px`,
+    '--attendance-avatar-shadow-y': `${Math.max(7, avatarDepth * 2)}px`,
+    '--attendance-avatar-shadow-blur': `${Math.max(18, avatarDepth * 5)}px`,
   };
   const studentStatusStyle = pointAccent
     ? {
@@ -102,15 +110,6 @@ const AttendanceProfileCard = ({
             style={{
               width: '100%',
               height: '100%',
-              ...(!isTeacher && levelColor
-                ? {
-                    borderColor: pointAccent?.color || levelColor,
-                    borderWidth: `${avatarBorderThickness || 4}px`,
-                    boxShadow: pointAccent
-                      ? `0 0 28px ${pointAccent.glow}, 0 8px 28px rgba(0,0,0,0.10)`
-                      : `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
-                  }
-                : {}),
             }}
           >
           <AvatarImage src={photo} alt={name} className="object-cover" />
@@ -289,6 +288,22 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
     </div>
   </div>
 );
+
+function clampDepth(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(16, Math.max(0, parsed));
+}
+
+function getConfiguredAccent(color) {
+  return {
+    color,
+    gradientStart: `color-mix(in srgb, ${color} 72%, #111827)`,
+    gradientEnd: `color-mix(in srgb, ${color} 62%, white)`,
+    soft: `color-mix(in srgb, ${color} 14%, transparent)`,
+    glow: `color-mix(in srgb, ${color} 32%, transparent)`,
+  };
+}
 
 function getPointAccent(points = 0) {
   const safePoints = Number(points) || 0;
