@@ -20,7 +20,7 @@ import SalaryCalculation from './admin/SalaryCalculation';
 import BackupRestoreManagement from './admin/BackupRestoreManagement';
 import MMQManagement from './admin/MMQManagement';
 import { supabase } from '@/lib/customSupabaseClient';
-import { enableDeferredFeatures, enableGameFeatures } from '@/lib/featureFlags';
+import { enableBackupRestore, enableGameFeatures } from '@/lib/featureFlags';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -169,7 +169,7 @@ const AdminDashboard = () => {
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
   ].filter(tab => {
     if (tab.value === 'game-config') return enableGameFeatures;
-    if (tab.value === 'backup') return enableDeferredFeatures;
+    if (tab.value === 'backup') return enableBackupRestore;
     return true;
   });
 
@@ -289,21 +289,21 @@ const AdminDashboard = () => {
       {/* Santri Subcategory Segmented Control — visible only when Data Santri is active */}
       {activeTab === 'santri' && (
         <div className="flex justify-center mt-6">
-          <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+          <div className="admin-glass-tab-list inline-flex p-1 rounded-full gap-1">
             {santriSubTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveSantriSubTab(tab.id)}
                 className={`
-                  relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
-                  ${activeSantriSubTab === tab.id ? 'text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
+                  admin-glass-tab-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
+                  ${activeSantriSubTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                 `}
               >
                 {activeSantriSubTab === tab.id && (
                   <motion.div
                     layoutId="santri-subcat-pill"
-                    className="absolute inset-0 bg-white dark:bg-slate-700 shadow-sm rounded-full"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    className="admin-glass-tab-indicator"
+                    transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
