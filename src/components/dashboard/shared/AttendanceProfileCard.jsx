@@ -51,6 +51,7 @@ const AttendanceProfileCard = ({
   const pointAccent = !isTeacher ? getPointAccent(points) : null;
   const pointLevel = !isTeacher ? getPointLevel(points) : null;
   const statusConfig = getStatusConfig(status);
+  const displayMessage = formatAttendanceMessage(message);
   const nameGradient = pointAccent
     ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
     : isTeacher
@@ -82,7 +83,7 @@ const AttendanceProfileCard = ({
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={`attendance-profile-card ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
+      className={`attendance-profile-card ${!isTeacher ? 'attendance-profile-card--soft-clay' : ''} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
       style={cardStyle}
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
@@ -218,8 +219,13 @@ const AttendanceProfileCard = ({
       </div>
 
       {/* Message */}
-      {message && (
-        <p className="attendance-profile-card__message">{message}</p>
+      {displayMessage && (
+        <div className="attendance-profile-card__message">
+          <span className="attendance-profile-card__message-icon" aria-hidden="true">
+            <CheckCircle className="w-4 h-4" />
+          </span>
+          <p>{displayMessage}</p>
+        </div>
       )}
 
       {/* Quote */}
@@ -344,6 +350,14 @@ function getStatusConfig(status) {
     default:
       return { label: status || 'Unknown', color: 'var(--att-text-muted)', icon: <Clock className="w-4 h-4" /> };
   }
+}
+
+function formatAttendanceMessage(message) {
+  if (!message) return message;
+
+  return String(message)
+    .replace(/\bpada\s+sesi\s*3\b/gi, 'pada Sesi Sore')
+    .replace(/\bsesi\s*3\b/gi, 'Sesi Sore');
 }
 
 export default AttendanceProfileCard;
