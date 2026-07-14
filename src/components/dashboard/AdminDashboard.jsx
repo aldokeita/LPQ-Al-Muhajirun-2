@@ -164,7 +164,7 @@ const AdminDashboard = () => {
     { value: 'expense', label: 'Pengeluaran', icon: TrendingDown, group: 'keuangan' },
     { value: 'content', label: 'Konten', icon: FileText, group: 'konten' },
     { value: 'tv-settings', label: 'Pengaturan TV', icon: Tv, group: 'konten' },
-    { value: 'game-config', label: 'Konfigurasi Game', icon: Settings, group: 'sistem' },
+    { value: 'game-config', label: 'Konfigurasi Game', icon: Settings, group: 'konten' },
     { value: 'backup', label: 'Backup & Restore', icon: Database, group: 'sistem' },
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
   ].filter(tab => {
@@ -248,12 +248,13 @@ const AdminDashboard = () => {
               label="Santri Aktif"
               value={stats.totalSantri}
               icon={Users}
+              variant="students"
             />
             <AdminStatCard
               label="Pemasukan"
               value={stats.totalPemasukanBulanIni}
               icon={DollarSign}
-              variant="accent"
+              variant="income"
               masked
               showMask={showIncome}
               onToggleMask={() => setShowIncome(!showIncome)}
@@ -262,7 +263,7 @@ const AdminDashboard = () => {
               label="Pengeluaran"
               value={stats.totalPengeluaranBulanIni}
               icon={TrendingDown}
-              variant="amber"
+              variant="expense"
               masked
               showMask={showExpense}
               onToggleMask={() => setShowExpense(!showExpense)}
@@ -271,6 +272,7 @@ const AdminDashboard = () => {
               label="MODE KIOSK"
               value="Absensi Digital"
               icon={Fingerprint}
+              variant="kiosk"
               onClick={() => navigate('/absensi-digital')}
             />
           </>
