@@ -6,13 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { Trophy, CheckCircle, RotateCcw, Users, Smartphone, Monitor, Gamepad2, Sparkles, ArrowLeft, HelpCircle, Search, ScanLine, Keyboard, Settings, Sun, Moon, UserCheck } from 'lucide-react';
+import { Trophy, CheckCircle, RotateCcw, Users, Smartphone, Monitor, Gamepad2, Sparkles, ArrowLeft, HelpCircle, Search, Sun, Moon, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { Helmet } from 'react-helmet';
 import useWindowSize from '@/hooks/useWindowSize';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -40,26 +38,30 @@ const QuizHafalanPage = () => {
   const [studentSearch, setStudentSearch] = useState('');
   const [isRosterLoading, setIsRosterLoading] = useState(true);
 
-  // Settings State
+  // Wheel content
   const [flattenedItems, setFlattenedItems] = useState([]);
   const [displayItems, setDisplayItems] = useState([]); // Items currently shown on wheel (subset)
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [adminPin, setAdminPin] = useState('1234');
   
   const isPracticeMode = role === 'santri';
 
   // Load Config from hafalan_items table
   useEffect(() => {
     const loadConfig = async () => {
-        // Fetch from the correct hafalan_items table
-        const { data: itemsData, error } = await supabase.from('hafalan_items').select('*');
-        const categoriesMap = {};
-        const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b' };
+        const [{ data: configData }, { data: itemsData }] = await Promise.all([
+            supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle(),
+            supabase.from('hafalan_items').select('*')
+        ]);
 
-        if (itemsData && itemsData.length > 0) {
-            itemsData.forEach(item => {
+        const savedCategories = configData?.content?.categories;
+        let categories = Array.isArray(savedCategories) && savedCategories.length > 0
+            ? savedCategories
+            : [];
+
+        if (categories.length === 0 && itemsData?.length) {
+            const categoriesMap = {};
+            const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b' };
+
+            itemsData.forEach((item) => {
                 if (!categoriesMap[item.category]) {
                     categoriesMap[item.category] = {
                         id: item.category,
@@ -70,23 +72,15 @@ const QuizHafalanPage = () => {
                 }
                 categoriesMap[item.category].items.push(item.item_name);
             });
+            categories = Object.values(categoriesMap);
         }
-        
-        let categories = Object.values(categoriesMap);
-        
-        // Fallback to static data if DB is empty
+
         if (categories.length === 0) {
             categories = [
                 { id: 1, label: 'Doa', color: '#3b82f6', items: doaHarian },
                 { id: 2, label: 'Surat', color: '#a855f7', items: suratPendek },
                 { id: 3, label: 'Sholat', color: '#f59e0b', items: bacaanShalat }
             ];
-        }
-
-        // Fetch pin from config if exists
-        const { data: configData } = await supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle();
-        if (configData?.content) {
-            setAdminPin(configData.content.adminPin || '1234');
         }
 
         // Flatten items
@@ -280,16 +274,6 @@ const QuizHafalanPage = () => {
         setSelectedSantriId('');
         setStudentSearch('');
     }
-  };
-
-  const handleSettingsAuth = () => {
-      if (pinInput === adminPin || pinInput === 'admin') {
-          toast({ title: "Akses Ditolak", description: "Konfigurasi game kini dipusatkan di Dashboard Admin.", variant: "warning" });
-          setPinInput('');
-          setShowSettings(false);
-      } else {
-          toast({ title: "Akses Ditolak", description: "PIN Salah.", variant: "destructive" });
-      }
   };
 
   const WheelComponent = () => {
