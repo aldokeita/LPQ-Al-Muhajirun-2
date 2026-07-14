@@ -24,7 +24,7 @@ const QuizHafalanPage = () => {
   const { isDark, toggleTheme } = useTheme();
   
   // State
-  const [gameState, setGameState] = useState('idle'); // idle, confirm_santri, spinning, question, result
+  const [gameState, setGameState] = useState('idle'); // idle, confirm_santri, spinning, wheel_stopped, question, result
   const [currentSantri, setCurrentSantri] = useState(null);
   const [validationGuru, setValidationGuru] = useState(null);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
@@ -86,6 +86,23 @@ const QuizHafalanPage = () => {
                 { id: 3, label: 'Sholat', color: '#f59e0b', items: bacaanShalat }
             ];
         }
+
+        const canonicalLabels = {
+            doa: 'Doa Harian',
+            'doa harian': 'Doa Harian',
+            surat: 'Surat Pendek',
+            'surat pendek': 'Surat Pendek',
+            sholat: 'Bacaan Shalat',
+            shalat: 'Bacaan Shalat',
+            'bacaan sholat': 'Bacaan Shalat',
+            'bacaan shalat': 'Bacaan Shalat'
+        };
+        categories = categories.map((category, index) => ({
+            ...category,
+            id: category.id ?? `category-${index + 1}`,
+            label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
+            items: Array.isArray(category.items) ? category.items : []
+        }));
 
         setQuizCategories(categories);
         setSelectedCategoryIds(categories.map((category) => String(category.id)));
@@ -155,6 +172,12 @@ const QuizHafalanPage = () => {
       }
       return () => clearInterval(interval);
   }, [gameState, displayItems]);
+
+  useEffect(() => {
+    if (gameState !== 'wheel_stopped') return undefined;
+    const revealTimer = setTimeout(() => setGameState('question'), 1700);
+    return () => clearTimeout(revealTimer);
+  }, [gameState]);
 
 
   const calculateLevel = (points) => {
@@ -238,8 +261,8 @@ const QuizHafalanPage = () => {
     });
 
     setTimeout(() => {
-      setGameState('question');
-    }, 6400);
+      setGameState('wheel_stopped');
+    }, 6250);
   };
 
   const validateAnswer = async (guru) => {
@@ -306,7 +329,7 @@ const QuizHafalanPage = () => {
         : 'conic-gradient(#334155 0deg 360deg)';
 
       return (
-        <div className="quiz-wheel-stage">
+        <div className={`quiz-wheel-stage ${gameState === 'wheel_stopped' ? 'quiz-wheel-stage--stopped' : ''}`}>
           <div className="quiz-wheel-pointer" aria-hidden="true">
             <div />
           </div>
@@ -314,8 +337,14 @@ const QuizHafalanPage = () => {
           <motion.div
             className="quiz-wheel"
             style={{ background: wheelGradient, '--quiz-segment-size': `${segmentSize}deg` }}
-            animate={{ rotate: wheelRotation }}
-            transition={{ duration: 6.2, ease: [0.12, 0.72, 0.16, 1] }}
+            animate={{
+              rotate: wheelRotation,
+              scale: gameState === 'wheel_stopped' ? [1, 1.018, 1] : 1,
+            }}
+            transition={{
+              rotate: { duration: 6.2, ease: [0.12, 0.72, 0.16, 1] },
+              scale: { duration: 0.72, ease: 'easeOut' },
+            }}
           >
             <div className="quiz-wheel__rings" aria-hidden="true" />
             {displayItems.map((item, index) => {
@@ -341,6 +370,17 @@ const QuizHafalanPage = () => {
               <Sparkles className="w-8 h-8 text-yellow-300" />
             </div>
           </motion.div>
+
+          {gameState === 'wheel_stopped' && (
+            <motion.div
+              className="quiz-wheel-stop-badge"
+              initial={{ opacity: 0, scale: 0.72, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            >
+              <CheckCircle className="w-5 h-5" /> Roda Berhenti
+            </motion.div>
+          )}
         </div>
       );
   };
@@ -495,11 +535,11 @@ const QuizHafalanPage = () => {
                         {!isPracticeMode && <div className="flex justify-center gap-2 text-sm opacity-55"><UserCheck className="w-4 h-4" /> Guru mengendalikan permainan dari perangkat ini</div>}
                     </motion.div>
                 )}
-                {gameState === 'spinning' && (
-                    <motion.div key="spinning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+                {(gameState === 'spinning' || gameState === 'wheel_stopped') && (
+                    <motion.div key="wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
                         <WheelComponent />
                         <h2 className={`text-3xl md:text-4xl font-black mt-4 ${isDark ? 'text-white' : 'text-slate-900'} animate-pulse tracking-widest text-center px-4 leading-tight drop-shadow-md min-h-[3rem]`}>
-                             {spinningText}
+                             {gameState === 'wheel_stopped' ? 'SOAL TERPILIH — SIAP DITAMPILKAN' : spinningText}
                         </h2>
                     </motion.div>
                 )}
