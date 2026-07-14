@@ -130,20 +130,20 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-                    <DialogHeader>
+                <DialogContent className="media-settings-glass max-w-2xl max-h-[90vh] flex flex-col">
+                    <DialogHeader className="media-settings-glass__header">
                         <DialogTitle>Pengaturan Media Player</DialogTitle>
                         <DialogDescription>Kelola playlist dan pengaturan pemutar musik.</DialogDescription>
                     </DialogHeader>
                     
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="media-settings-glass__tabs grid w-full grid-cols-2">
                             <TabsTrigger value="playlist">Playlist & Upload</TabsTrigger>
                             <TabsTrigger value="settings">Pengaturan Player</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="playlist" className="flex-1 overflow-hidden flex flex-col space-y-4 pt-4">
-                            <Card className="shrink-0">
+                            <Card className="media-settings-glass__panel shrink-0">
                                 <CardContent className="pt-6 space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
@@ -167,7 +167,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                                 </CardContent>
                             </Card>
 
-                            <div className="flex-1 min-h-[200px] border rounded-md relative overflow-hidden">
+                            <div className="media-settings-glass__playlist flex-1 min-h-[200px] rounded-2xl relative overflow-hidden">
                                  <ScrollArea className="h-full w-full p-4">
                                     {playlist.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
@@ -177,7 +177,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                                     ) : (
                                         <div className="space-y-2">
                                             {playlist.map((track) => (
-                                                <div key={track.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border hover:border-blue-300 transition-colors">
+                                                <div key={track.id} className="media-settings-glass__track flex items-center justify-between p-3 rounded-xl transition-all">
                                                     <div className="flex items-center gap-3 overflow-hidden">
                                                         <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
                                                             <Music className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -199,7 +199,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                         </TabsContent>
                         
                         <TabsContent value="settings" className="pt-4 space-y-4">
-                            <Card>
+                            <Card className="media-settings-glass__panel">
                                 <CardContent className="pt-6 space-y-6">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
@@ -224,7 +224,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                                     </div>
                                 </CardContent>
                             </Card>
-                            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 text-sm text-yellow-800 dark:text-yellow-200">
+                            <div className="media-settings-glass__note p-4 rounded-xl text-sm">
                                 Catatan: Pengaturan di atas disimpan di browser ini (Local Storage). Untuk pengaturan global, fitur sedang dalam pengembangan.
                             </div>
                         </TabsContent>
