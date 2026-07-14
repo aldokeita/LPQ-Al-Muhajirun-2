@@ -34,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import MediaPlayerWidget from '@/components/MediaPlayerWidget';
 import { buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference, getJakartaTimeString } from '@/utils/AttendanceStatusLogic';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
+import { enableGameFeatures } from '@/lib/featureFlags';
 import {
   buildSantriAttendancePayload,
   getAttendanceErrorMessage,
@@ -244,42 +244,57 @@ const DigitalAttendancePage = () => {
 
   const getLevelInfo = (points = 0, gender) => {
       const defaultInfo = {
-          label: 'Level C',
-          color: '#4CAF50',
-          badgeIcon: <Book className="w-8 h-8 text-[#4CAF50]" />,
-          enableGradient: false,
+          label: 'Santri Biasa',
+          color: '#22c55e',
+          badgeIcon: <Book className="w-8 h-8 text-[#22c55e]" />,
+          enableGradient: true,
           cardBgColor: '#ffffff',
-          textColor: '#333333',
+          textColor: '#22c55e',
           cardBorderThickness: 8,
           avatarBorderThickness: 4,
-          textGradient: false
+          textGradient: true
       };
 
       if (!levelConfig) return defaultInfo;
-      const levels = gender === 'Perempuan' ? levelConfig.female : levelConfig.male;
+
+      const normalizedGender = String(gender || '').toLowerCase();
+      const genderKey = normalizedGender.includes('perempuan') ||
+        normalizedGender.includes('putri') ||
+        normalizedGender === 'p'
+        ? 'female'
+        : 'male';
+      const levels = levelConfig[genderKey];
 
       if (!Array.isArray(levels) || levels.length === 0) return defaultInfo;
 
-      const matchedLevel = levels.find(l => points >= (l.min || 0) && points <= (l.max || 9999)) || levels[0];
+      const safePoints = Number(points) || 0;
+      const matchedLevel = levels.find((level) => {
+          const min = Number(level.min ?? 0);
+          const max = Number(level.max ?? 999999);
+          return safePoints >= min && safePoints <= max;
+      }) || levels[0];
+
       if (!matchedLevel) return defaultInfo;
 
-      let icon = <Book className="w-8 h-8" style={{ color: matchedLevel.color }} />;
-      if ((matchedLevel.name || '').toLowerCase().includes('mahir') || (matchedLevel.name || '').toLowerCase().includes('s')) {
-          icon = <Crown className="w-10 h-10 animate-bounce drop-shadow-md" style={{ color: matchedLevel.color }} />;
-      } else if ((matchedLevel.name || '').toLowerCase().includes('menengah') || (matchedLevel.name || '').toLowerCase().includes('a')) {
-          icon = <Globe2 className="w-10 h-10 animate-pulse" style={{ color: matchedLevel.color }} />;
+      const accentColor = matchedLevel.accentColor || matchedLevel.color || defaultInfo.color;
+      let icon = <Book className="w-8 h-8" style={{ color: accentColor }} />;
+      const levelName = String(matchedLevel.name || '').toLowerCase();
+      if (levelName.includes('mahir') || levelName.includes('legend') || levelName.includes('s')) {
+          icon = <Crown className="w-10 h-10" style={{ color: accentColor }} />;
+      } else if (levelName.includes('menengah') || levelName.includes('super') || levelName.includes('a')) {
+          icon = <Globe2 className="w-10 h-10" style={{ color: accentColor }} />;
       }
 
       return {
-          label: matchedLevel.name,
-          color: matchedLevel.color,
+          label: matchedLevel.name || defaultInfo.label,
+          color: accentColor,
           badgeIcon: icon,
-          enableGradient: matchedLevel.enableGradient,
-          cardBgColor: matchedLevel.cardBgColor || '#ffffff',
-          textColor: matchedLevel.textColor || '#333333',
-          cardBorderThickness: matchedLevel.cardBorderThickness || 8,
-          avatarBorderThickness: matchedLevel.avatarBorderThickness || 4,
-          textGradient: matchedLevel.textGradient || false
+          enableGradient: true,
+          cardBgColor: '#ffffff',
+          textColor: accentColor,
+          cardBorderThickness: matchedLevel.cardDepth ?? matchedLevel.cardBorderThickness ?? 8,
+          avatarBorderThickness: matchedLevel.avatarDepth ?? matchedLevel.avatarBorderThickness ?? 4,
+          textGradient: true
       };
   };
 
@@ -958,24 +973,45 @@ const DigitalAttendancePage = () => {
             </button>
           </div>
           <div className="attendance-header__right">
-            {enableDeferredFeatures && (
+            {enableGameFeatures && (
               <>
-                <button className="attendance-header__icon-btn" onClick={() => navigate('/top-score')} title="Top Score" aria-label="Top Score" style={{ color: 'hsl(var(--att-amber))' }}>
-                  <Trophy className="w-4 h-4" />
+                <button
+                  className="attendance-header__action-btn attendance-header__action-btn--gatcha"
+                  onClick={() => navigate('/gatcha-game')}
+                  title="Play Gatcha"
+                  aria-label="Play Gatcha"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>Gatcha</span>
                 </button>
-                <button className="attendance-header__icon-btn" onClick={() => navigate('/random-name')} title="Acak Nama" aria-label="Acak Nama">
+                <button
+                  className="attendance-header__action-btn attendance-header__action-btn--quiz"
+                  onClick={() => navigate('/quiz-hafalan')}
+                  title="Play Quiz"
+                  aria-label="Play Quiz"
+                >
+                  <Library className="w-4 h-4" />
+                  <span>Quiz</span>
+                </button>
+                <button
+                  className="attendance-header__action-btn attendance-header__action-btn--random"
+                  onClick={() => navigate('/random-name')}
+                  title="Acak Nama"
+                  aria-label="Acak Nama"
+                >
                   <Dices className="w-4 h-4" />
-                </button>
-                <button className="attendance-header__icon-btn" onClick={() => navigate('/gatcha-game')} title="Gatcha Game" aria-label="Gatcha Game">
-                  <Gamepad2 className="w-4 h-4" />
-                </button>
-                <button className="attendance-header__icon-btn" onClick={() => navigate('/quiz-hafalan')} title="Quiz Mode" aria-label="Quiz Mode">
-                  <Gamepad2 className="w-4 h-4" />
+                  <span>Acak Nama</span>
                 </button>
               </>
             )}
-            <button className="attendance-header__icon-btn" onClick={() => navigate('/tv-display-mode')} title="TV Display" aria-label="TV Display Mode">
+            <button
+              className="attendance-header__action-btn attendance-header__action-btn--tv"
+              onClick={() => navigate('/tv-display-mode')}
+              title="TV Display Mode"
+              aria-label="TV Display Mode"
+            >
               <Tv className="w-4 h-4" />
+              <span>TV Display</span>
             </button>
             <button className="attendance-header__icon-btn" onClick={toggleTheme} title={isDark ? 'Mode Terang' : 'Mode Gelap'} aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}>
               {isDark ? <Sun className="w-4 h-4" style={{ color: 'hsl(var(--att-amber))' }} /> : <Moon className="w-4 h-4" />}
