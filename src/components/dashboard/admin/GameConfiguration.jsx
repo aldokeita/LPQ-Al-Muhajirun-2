@@ -224,7 +224,28 @@ const QuizSettings = () => {
             const { data } = await supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle();
             if (data?.content) {
                 const loadedCats = data.content.categories || (Array.isArray(data.content) ? data.content : []);
-                setQuizConfig(loadedCats.length === 0 ? defaultQuizData : loadedCats);
+                const canonicalLabels = {
+                    doa: 'Doa Harian',
+                    'doa harian': 'Doa Harian',
+                    surat: 'Surat Pendek',
+                    'surat pendek': 'Surat Pendek',
+                    sholat: 'Bacaan Shalat',
+                    shalat: 'Bacaan Shalat',
+                    'bacaan sholat': 'Bacaan Shalat',
+                    'bacaan shalat': 'Bacaan Shalat'
+                };
+                const normalizedCategories = loadedCats.map((category, index) => ({
+                    ...category,
+                    id: category.id ?? `category-${index + 1}`,
+                    label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
+                    items: Array.isArray(category.items) ? category.items : []
+                }));
+                const requiredCategories = defaultQuizData.filter((required) =>
+                    !normalizedCategories.some((category) => category.label === required.label)
+                );
+                setQuizConfig(normalizedCategories.length === 0
+                    ? defaultQuizData
+                    : [...normalizedCategories, ...requiredCategories]);
             } else {
                 setQuizConfig(defaultQuizData);
             }
@@ -428,7 +449,7 @@ const LevelSettings = () => {
         }));
     };
 
-    const LevelList = ({ gender, levels }) => (
+    const renderLevelList = (gender, levels) => (
         <div className="space-y-4">
             <div className="game-level-note">
                 <Sparkles className="w-5 h-5" />
@@ -538,10 +559,10 @@ const LevelSettings = () => {
                     <TabsTrigger value="female"><UserCheck className="w-4 h-4 mr-2"/> Santri Putri</TabsTrigger>
                 </TabsList>
                 <TabsContent value="male" className="mt-5">
-                    <LevelList gender="male" levels={levelConfig.male} />
+                    {renderLevelList('male', levelConfig.male)}
                 </TabsContent>
                 <TabsContent value="female" className="mt-5">
-                    <LevelList gender="female" levels={levelConfig.female} />
+                    {renderLevelList('female', levelConfig.female)}
                 </TabsContent>
             </Tabs>
         </div>
