@@ -18,8 +18,8 @@ import ClassPerformanceModal from './ClassPerformanceModal';
 import * as XLSX from 'xlsx';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import AdultClassManagement from './AdultClassManagement';
 import { motion } from 'framer-motion';
+import AdultClassManagement from './AdultClassManagement';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 
@@ -963,8 +963,17 @@ const ClassManagementWrapper = ({ userRole = 'admin' }) => {
                         onClick={() => setActiveTab(tab.id)}
                         className={`admin-segmented-control-item ${activeTab === tab.id ? 'active' : ''}`}
                     >
-                        <tab.icon className="w-4 h-4" />
-                        {tab.label}
+                        {activeTab === tab.id && (
+                            <motion.span
+                                layoutId="class-management-active-pill"
+                                className="admin-segmented-control-indicator"
+                                transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
+                            />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2">
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
+                        </span>
                     </button>
                 ))}
             </div>
