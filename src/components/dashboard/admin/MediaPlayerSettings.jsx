@@ -18,7 +18,17 @@ const MEDIA_SETTINGS_TABS = [
     { id: 'settings', label: 'Pengaturan Player', icon: SettingsIcon },
 ];
 
-const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
+const MediaPlayerSettings = ({
+    isOpen,
+    onOpenChange,
+    onUpdate,
+    isShuffle,
+    isLoop,
+    isCrossfade,
+    onToggleShuffle,
+    onToggleLoop,
+    onToggleCrossfade,
+}) => {
     const [activeTab, setActiveTab] = useState('playlist');
     const [uploading, setUploading] = useState(false);
     const [playlist, setPlaylist] = useState([]);
@@ -236,26 +246,26 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                                             <Label className="text-base">Shuffle Default</Label>
                                             <p className="text-sm text-muted-foreground">Aktifkan mode acak secara default saat player dimuat.</p>
                                         </div>
-                                        <Switch checked={localStorage.getItem('mp_shuffle') === 'true'} onCheckedChange={(v) => { localStorage.setItem('mp_shuffle', v); toast({ title: "Disimpan", description: "Pengaturan shuffle diperbarui." }); }} />
+                                        <Switch checked={Boolean(isShuffle)} onCheckedChange={(checked) => { if (checked !== isShuffle) onToggleShuffle?.(); toast({ title: "Shuffle diperbarui", description: checked ? "Urutan lagu akan diacak." : "Playlist kembali berurutan." }); }} />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <Label className="text-base">Loop Default</Label>
                                             <p className="text-sm text-muted-foreground">Ulangi playlist secara otomatis.</p>
                                         </div>
-                                        <Switch checked={localStorage.getItem('mp_loop') === 'true'} onCheckedChange={(v) => { localStorage.setItem('mp_loop', v); toast({ title: "Disimpan", description: "Pengaturan loop diperbarui." }); }} />
+                                        <Switch checked={Boolean(isLoop)} onCheckedChange={(checked) => { if (checked !== isLoop) onToggleLoop?.(); toast({ title: "Loop diperbarui", description: checked ? "Playlist akan diputar berulang." : "Playlist berhenti di lagu terakhir." }); }} />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <Label className="text-base">Crossfade</Label>
                                             <p className="text-sm text-muted-foreground">Transisi halus antar lagu (efek fade-out/fade-in).</p>
                                         </div>
-                                        <Switch checked={localStorage.getItem('mp_crossfade') === 'true'} onCheckedChange={(v) => { localStorage.setItem('mp_crossfade', v); toast({ title: "Disimpan", description: "Pengaturan crossfade diperbarui." }); }} />
+                                        <Switch checked={Boolean(isCrossfade)} onCheckedChange={(checked) => { if (checked !== isCrossfade) onToggleCrossfade?.(); toast({ title: "Crossfade diperbarui", description: checked ? "Transisi antar lagu dibuat lebih halus." : "Transisi lagu kembali langsung." }); }} />
                                     </div>
                                 </CardContent>
                             </Card>
                             <div className="media-settings-glass__note p-4 rounded-xl text-sm">
-                                Catatan: Pengaturan di atas disimpan di browser ini (Local Storage). Untuk pengaturan global, fitur sedang dalam pengembangan.
+                                Pengaturan aktif langsung pada Media Player dan tersimpan untuk browser perangkat ini.
                             </div>
                         </TabsContent>
                     </Tabs>
