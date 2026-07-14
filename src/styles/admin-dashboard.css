@@ -4745,6 +4745,287 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 /* ============================================================
+   ATTENDANCE CLOCK, SCANNER & FULL GLASS MEDIA PLAYER
+   ============================================================ */
+
+.attendance-clock__time {
+  color: transparent;
+  background:
+    linear-gradient(
+      110deg,
+      #0f172a 0%,
+      #0f766e 20%,
+      #0891b2 40%,
+      #4f46e5 60%,
+      #7c3aed 78%,
+      #0f172a 100%
+    );
+  background-size: 280% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: attendanceClockGradient 6.5s ease-in-out infinite;
+  filter: drop-shadow(0 5px 14px rgb(8 145 178 / 0.12));
+  text-shadow: none;
+}
+
+.dark .attendance-clock__time {
+  color: transparent;
+  background:
+    linear-gradient(
+      110deg,
+      #67e8f9 0%,
+      #34d399 22%,
+      #60a5fa 44%,
+      #c084fc 66%,
+      #22d3ee 84%,
+      #67e8f9 100%
+    );
+  background-size: 280% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 5px 16px rgb(34 211 238 / 0.2));
+  text-shadow: none;
+}
+
+@keyframes attendanceClockGradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.attendance-scan-area .attendance-scan-area__input {
+  padding-left: 4.25rem !important;
+  padding-right: 3.5rem !important;
+  text-indent: 0 !important;
+}
+
+.media-player-glass {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgb(255 255 255 / 0.72);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(56 189 248 / 0.17), transparent 36%),
+    radial-gradient(circle at 88% 100%, rgb(99 102 241 / 0.14), transparent 38%),
+    rgb(255 255 255 / 0.38);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.82),
+    inset -1px -1px 0 rgb(148 163 184 / 0.12),
+    0 18px 42px -24px rgb(15 23 42 / 0.32);
+  -webkit-backdrop-filter: blur(26px) saturate(1.35);
+  backdrop-filter: blur(26px) saturate(1.35);
+}
+
+.media-player-glass::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(118deg, rgb(255 255 255 / 0.4), transparent 34% 70%, rgb(255 255 255 / 0.2));
+  pointer-events: none;
+}
+
+.media-player-glass__title {
+  color: hsl(222 28% 16%);
+}
+
+.media-player-glass__artist,
+.media-player-glass__progress {
+  color: hsl(215 16% 43%);
+}
+
+.media-player-glass__art {
+  border: 1px solid rgb(255 255 255 / 0.62);
+  background: rgb(255 255 255 / 0.42) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.78),
+    0 8px 18px -12px rgb(37 99 235 / 0.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.media-player-glass__control {
+  border: 1px solid rgb(255 255 255 / 0.55);
+  color: hsl(215 22% 39%) !important;
+  background: rgb(255 255 255 / 0.24) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.68),
+    0 6px 14px -10px rgb(15 23 42 / 0.36);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.media-player-glass__control:hover {
+  color: hsl(221 83% 53%) !important;
+  background: rgb(255 255 255 / 0.58) !important;
+  box-shadow:
+    inset 2px 2px 5px rgb(148 163 184 / 0.14),
+    inset -2px -2px 5px rgb(255 255 255 / 0.72);
+}
+
+.media-player-glass__play {
+  border: 1px solid rgb(191 219 254 / 0.68);
+  background: rgb(37 99 235 / 0.82) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.42),
+    0 13px 26px -13px rgb(37 99 235 / 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.media-player-glass__play:hover {
+  background: rgb(29 78 216 / 0.9) !important;
+  transform: translateY(-1px) scale(1.04);
+}
+
+.media-player-glass__slider [role="slider"] {
+  border-color: rgb(255 255 255 / 0.78);
+  background: rgb(37 99 235 / 0.92);
+  box-shadow: 0 4px 10px -5px rgb(37 99 235 / 0.7);
+}
+
+.media-settings-glass {
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.7) !important;
+  border-radius: 1.75rem !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(56 189 248 / 0.19), transparent 35%),
+    radial-gradient(circle at 100% 100%, rgb(139 92 246 / 0.16), transparent 38%),
+    rgb(255 255 255 / 0.56) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.88),
+    0 30px 80px -34px rgb(15 23 42 / 0.48) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(1.4) !important;
+  backdrop-filter: blur(34px) saturate(1.4) !important;
+}
+
+.media-settings-glass__header {
+  padding: 0.2rem 0.2rem 0.55rem;
+}
+
+.media-settings-glass__tabs {
+  padding: 0.35rem;
+  border: 1px solid rgb(255 255 255 / 0.56);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.26);
+  box-shadow:
+    inset 2px 2px 7px rgb(148 163 184 / 0.12),
+    inset -2px -2px 7px rgb(255 255 255 / 0.58);
+}
+
+.media-settings-glass__tabs [data-state="active"] {
+  color: #fff;
+  background: rgb(37 99 235 / 0.78);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.42),
+    0 8px 18px -12px rgb(37 99 235 / 0.7);
+}
+
+.media-settings-glass__panel,
+.media-settings-glass__playlist {
+  border: 1px solid rgb(255 255 255 / 0.62) !important;
+  background: rgb(255 255 255 / 0.3) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.72),
+    0 16px 30px -24px rgb(15 23 42 / 0.3);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.media-settings-glass input {
+  border-color: rgb(255 255 255 / 0.7) !important;
+  background: rgb(255 255 255 / 0.4) !important;
+  box-shadow: inset 2px 2px 6px rgb(148 163 184 / 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.media-settings-glass__track {
+  border: 1px solid rgb(255 255 255 / 0.58);
+  background: rgb(255 255 255 / 0.32);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.66),
+    0 8px 18px -15px rgb(15 23 42 / 0.32);
+}
+
+.media-settings-glass__track:hover {
+  background: rgb(255 255 255 / 0.52);
+  transform: translateY(-1px);
+}
+
+.media-settings-glass__note {
+  border: 1px solid rgb(253 230 138 / 0.62);
+  color: hsl(32 75% 30%);
+  background: rgb(254 243 199 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.62);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.dark .media-player-glass {
+  border-color: rgb(255 255 255 / 0.12);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(34 211 238 / 0.13), transparent 36%),
+    radial-gradient(circle at 88% 100%, rgb(139 92 246 / 0.12), transparent 38%),
+    rgb(15 23 42 / 0.48);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.08),
+    0 20px 44px -24px rgb(0 0 0 / 0.6);
+}
+
+.dark .media-player-glass__title {
+  color: hsl(210 40% 96%);
+}
+
+.dark .media-player-glass__artist,
+.dark .media-player-glass__progress {
+  color: hsl(215 20% 68%);
+}
+
+.dark .media-player-glass__art,
+.dark .media-player-glass__control {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.055) !important;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.dark .media-settings-glass {
+  border-color: rgb(255 255 255 / 0.12) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(34 211 238 / 0.12), transparent 35%),
+    radial-gradient(circle at 100% 100%, rgb(139 92 246 / 0.12), transparent 38%),
+    rgb(15 23 42 / 0.68) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.07),
+    0 30px 80px -34px rgb(0 0 0 / 0.72) !important;
+}
+
+.dark .media-settings-glass__tabs,
+.dark .media-settings-glass__panel,
+.dark .media-settings-glass__playlist,
+.dark .media-settings-glass__track,
+.dark .media-settings-glass input {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background: rgb(255 255 255 / 0.055) !important;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.055);
+}
+
+.dark .media-settings-glass__track:hover {
+  background: rgb(255 255 255 / 0.09) !important;
+}
+
+.dark .media-settings-glass__note {
+  border-color: rgb(251 191 36 / 0.24);
+  color: hsl(48 96% 75%);
+  background: rgb(120 53 15 / 0.22);
+}
+
+/* ============================================================
    ATTENDANCE — Reduced Motion
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
