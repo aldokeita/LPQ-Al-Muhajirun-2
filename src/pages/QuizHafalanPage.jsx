@@ -219,7 +219,7 @@ const QuizHafalanPage = () => {
       .map((item) => ({ item, order: Math.random() }))
       .sort((a, b) => a.order - b.order)
       .map(({ item }) => item);
-    const itemsForWheel = shuffledItems.slice(0, Math.min(12, shuffledItems.length));
+    const itemsForWheel = shuffledItems;
     const winnerIndex = Math.floor(Math.random() * itemsForWheel.length);
     const winner = itemsForWheel[winnerIndex];
 
@@ -247,7 +247,7 @@ const QuizHafalanPage = () => {
     setResultType('guru');
     setGameState('result');
 
-    const newPoints = (currentSantri.points || 0) + 1;
+    const newPoints = (Number(currentSantri.points) || 0) + 1;
     const { error: rpcError } = await supabase.rpc('increment_santri_points', {
       p_santri_id: currentSantri.id,
       p_amount: 1
@@ -313,7 +313,7 @@ const QuizHafalanPage = () => {
 
           <motion.div
             className="quiz-wheel"
-            style={{ background: wheelGradient }}
+            style={{ background: wheelGradient, '--quiz-segment-size': `${segmentSize}deg` }}
             animate={{ rotate: wheelRotation }}
             transition={{ duration: 6.2, ease: [0.12, 0.72, 0.16, 1] }}
           >
@@ -326,7 +326,13 @@ const QuizHafalanPage = () => {
                   className="quiz-wheel__label"
                   style={{ transform: `rotate(${angle - 90}deg) translateX(18%)` }}
                 >
-                  <span>{item.text}</span>
+                  <span
+                    style={{
+                      '--quiz-label-size': `${Math.max(0.4, Math.min(0.78, 9 / Math.max(itemCount, 1)))}rem`,
+                    }}
+                  >
+                    {item.text}
+                  </span>
                 </div>
               );
             })}
