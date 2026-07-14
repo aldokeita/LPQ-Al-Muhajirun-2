@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useTheme } from '@/contexts/ThemeContext';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 const GatchaGamePage = () => {
   const navigate = useNavigate();
   const {
@@ -19,6 +20,7 @@ const GatchaGamePage = () => {
   const [selectedSantriId, setSelectedSantriId] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [isRosterLoading, setIsRosterLoading] = useState(true);
+  const [isPlayerLoading, setIsPlayerLoading] = useState(false);
 
   // Game States
   // IDLE -> pilih santri -> WAIT_VALIDATION -> validasi guru -> REWARD_SPIN -> REWARD_SHOW
@@ -60,7 +62,7 @@ const GatchaGamePage = () => {
       setIsRosterLoading(true);
       const { data, error } = await supabase
         .from('santri')
-        .select('id, nama_lengkap, nama_panggilan, foto_url, jilid, points, status')
+        .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
         .order('nama_lengkap', { ascending: true });
 
       if (!error) {
@@ -113,12 +115,21 @@ const GatchaGamePage = () => {
       .some((value) => String(value).toLowerCase().includes(query));
   });
 
-  const startSelectedPlayer = () => {
+  const startSelectedPlayer = async () => {
     const selected = santriList.find((santri) => String(santri.id) === String(selectedSantriId));
     if (!selected) return;
-    setCurrentPlayer(selected);
+
+    setIsPlayerLoading(true);
+    const foto_url = await resolveAvatarUrl({
+      ownerType: 'santri',
+      ownerId: selected.id,
+      avatarPath: selected.avatar_path,
+      fallbackUrl: selected.foto_url,
+    });
+    setCurrentPlayer({ ...selected, foto_url });
     setActiveChallenge(pickRandom(config.challenges));
     setGameState('WAIT_VALIDATION');
+    setIsPlayerLoading(false);
   };
 
   const processRewardSpin = async () => {
@@ -228,10 +239,10 @@ const GatchaGamePage = () => {
                               type="button"
                               size="lg"
                               onClick={startSelectedPlayer}
-                              disabled={!selectedSantriId}
+                              disabled={!selectedSantriId || isPlayerLoading}
                               className="mt-4 w-full h-12 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 text-white font-black shadow-lg shadow-violet-500/25"
                             >
-                              <Sparkles className="w-5 h-5 mr-2" /> Mulai Tantangan
+                              <Sparkles className="w-5 h-5 mr-2" /> {isPlayerLoading ? 'Menyiapkan Pemain...' : 'Mulai Tantangan'}
                             </Button>
                           </div>
                         </motion.div>}
@@ -248,7 +259,7 @@ const GatchaGamePage = () => {
                                 
                                 <div className="flex justify-center mb-6">
                                     <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
-                                        <AvatarImage src={currentPlayer?.foto_url} />
+                                        <AvatarImage src={currentPlayer?.foto_url} loading="eager" fetchPriority="high" decoding="async" />
                                         <AvatarFallback>{currentPlayer?.nama_lengkap?.[0]}</AvatarFallback>
                                     </Avatar>
                                 </div>
@@ -326,7 +337,7 @@ const GatchaGamePage = () => {
                                     <div className="relative inline-block mb-8">
                                         <div className="absolute inset-0 bg-yellow-500 blur-2xl opacity-50 rounded-full"></div>
                                         <Avatar className="w-40 h-40 border-[6px] border-white shadow-2xl relative z-10">
-                                            <AvatarImage src={currentPlayer?.foto_url} />
+                                            <AvatarImage src={currentPlayer?.foto_url} loading="eager" fetchPriority="high" decoding="async" />
                                             <AvatarFallback>{currentPlayer?.nama_panggilan?.[0]}</AvatarFallback>
                                         </Avatar>
                                         <div className="absolute -bottom-4 -right-4 bg-white text-orange-600 p-2 rounded-full border-4 border-orange-600 z-20 shadow-lg">
