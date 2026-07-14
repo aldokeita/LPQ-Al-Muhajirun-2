@@ -60,9 +60,8 @@ const AdminStatCard = ({
   onClick,
   className = '',
 }) => {
-  const variantClass = variant === 'accent' ? 'admin-stat-card--accent'
-    : variant === 'amber' ? 'admin-stat-card--amber'
-    : '';
+  const supportedVariants = new Set(['students', 'income', 'expense', 'kiosk']);
+  const variantClass = supportedVariants.has(variant) ? `admin-stat-card--${variant}` : '';
   
   const clickableClass = onClick ? 'admin-stat-card--clickable' : '';
 
