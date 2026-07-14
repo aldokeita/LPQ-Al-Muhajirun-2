@@ -3370,22 +3370,38 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 .attendance-profile-card--student .attendance-profile-card__time-chip span {
   color: transparent;
   background-image: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--attendance-profile-accent) 72%, #253440),
-    color-mix(in srgb, var(--attendance-profile-accent) 55%, white),
+    100deg,
+    var(--attendance-profile-gradient-start),
+    var(--attendance-profile-gradient-end),
+    #ffffff,
     var(--attendance-profile-accent),
-    color-mix(in srgb, var(--attendance-profile-accent) 72%, #253440)
+    var(--attendance-profile-gradient-start)
   );
-  background-size: 240% 100%;
+  background-size: 320% 100%;
   background-position: 0% 50%;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: attendance-time-theme-gradient 3.2s ease-in-out infinite;
+  animation: attendance-time-theme-gradient 2.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px var(--attendance-profile-accent-soft));
 }
 
 .attendance-profile-card--student .attendance-profile-card__time-chip svg {
   color: var(--attendance-profile-accent);
+  animation: attendance-time-icon-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes attendance-time-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    filter: brightness(0.94);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(1.12);
+  }
 }
 
 @keyframes attendance-time-theme-gradient {
@@ -3671,6 +3687,102 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .attendance-profile-card--student .attendance-profile-card__detail-item {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ============================================================
+   DARK GLASS INTENSITY BALANCE — Student profile
+   ============================================================ */
+
+.dark .attendance-profile-card--white-glass.attendance-profile-card--student,
+.dark .attendance-profile-card--white-glass.attendance-profile-card--student.attendance-profile-card--point-glow {
+  background:
+    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.08), transparent 27%),
+    radial-gradient(circle at 88% 92%, var(--attendance-profile-accent-soft), transparent 42%),
+    linear-gradient(145deg, rgba(18, 27, 35, 0.88), rgba(31, 42, 51, 0.72));
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.1),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.2),
+    0 0 18px color-mix(in srgb, var(--attendance-profile-accent-glow) 34%, transparent),
+    0 18px 38px rgba(0, 0, 0, 0.42) !important;
+}
+
+.dark .attendance-profile-card--student::before {
+  filter: blur(52px) brightness(0.48) saturate(0.8);
+}
+
+.dark .attendance-profile-card--student::after {
+  filter: brightness(0.42);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__avatar-wrap {
+  background:
+    radial-gradient(circle at 16% 12%, rgba(255, 255, 255, 0.1), transparent 32%),
+    linear-gradient(145deg, rgba(39, 51, 61, 0.74), rgba(17, 25, 32, 0.64));
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.1),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.18),
+    0 0 12px color-mix(in srgb, var(--attendance-profile-accent-glow) 28%, transparent),
+    0 12px 25px rgba(0, 0, 0, 0.36);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__avatar {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 9px 20px rgba(0, 0, 0, 0.36) !important;
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__avatar-wrap::after {
+  filter: brightness(0.5);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__status-chip,
+.dark .attendance-profile-card--student .attendance-profile-card__time-chip,
+.dark .attendance-profile-card--student .attendance-profile-card__detail-item,
+.dark .attendance-profile-card--student .attendance-profile-card__quote {
+  background:
+    linear-gradient(145deg, rgba(50, 63, 73, 0.56), rgba(18, 27, 34, 0.5)) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.08),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.18),
+    0 7px 16px rgba(0, 0, 0, 0.28);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__detail-item {
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.07),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.2),
+    0 0 8px color-mix(in srgb, var(--attendance-profile-accent-glow) 20%, transparent),
+    0 7px 16px rgba(0, 0, 0, 0.3);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__quote {
+  box-shadow:
+    inset 3px 3px 9px rgba(0, 0, 0, 0.18),
+    inset -2px -2px 7px rgba(255, 255, 255, 0.05),
+    0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__message,
+.dark .attendance-profile-card--student .attendance-profile-card__quote p {
+  color: #d3dce3;
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__detail-label {
+  color: #9aa8b3;
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__success-badge {
+  filter: saturate(0.82) brightness(0.88);
+}
+
+.dark .attendance-profile-card--student .attendance-profile-card__time-chip span {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--attendance-profile-accent) 22%, transparent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendance-profile-card--student .attendance-profile-card__time-chip svg {
+    animation: none;
   }
 }
 
