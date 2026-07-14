@@ -219,7 +219,7 @@ const QuizHafalanPage = () => {
       .map((item) => ({ item, order: Math.random() }))
       .sort((a, b) => a.order - b.order)
       .map(({ item }) => item);
-    const itemsForWheel = shuffledItems;
+    const itemsForWheel = shuffledItems.slice(0, Math.min(12, shuffledItems.length));
     const winnerIndex = Math.floor(Math.random() * itemsForWheel.length);
     const winner = itemsForWheel[winnerIndex];
 
@@ -464,7 +464,11 @@ const QuizHafalanPage = () => {
                             );
                           })}
                         </div>
-                        {eligibleItems.length === 0 && <p className="mt-2 text-xs font-semibold text-rose-500">Pilih minimal satu kategori.</p>}
+                        {eligibleItems.length === 0
+                          ? <p className="mt-2 text-xs font-semibold text-rose-500">Pilih minimal satu kategori.</p>
+                          : <p className={`mt-2 text-xs ${isDark ? 'text-white/45' : 'text-slate-500'}`}>
+                              {eligibleItems.length} soal aktif · maksimal 12 kandidat acak ditampilkan setiap putaran agar tetap terbaca.
+                            </p>}
                       </div>
 
                       <Button
