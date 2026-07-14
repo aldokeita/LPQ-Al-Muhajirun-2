@@ -104,6 +104,13 @@ const QuizHafalanPage = () => {
             items: Array.isArray(category.items) ? category.items : []
         }));
 
+        const requiredCategories = [
+            { id: 'doa-harian', label: 'Doa Harian', color: '#3b82f6', items: doaHarian },
+            { id: 'surat-pendek', label: 'Surat Pendek', color: '#a855f7', items: suratPendek },
+            { id: 'bacaan-shalat', label: 'Bacaan Shalat', color: '#f59e0b', items: bacaanShalat }
+        ].filter((required) => !categories.some((category) => category.label === required.label));
+        categories = [...categories, ...requiredCategories];
+
         setQuizCategories(categories);
         setSelectedCategoryIds(categories.map((category) => String(category.id)));
 
@@ -374,8 +381,8 @@ const QuizHafalanPage = () => {
           {gameState === 'wheel_stopped' && (
             <motion.div
               className="quiz-wheel-stop-badge"
-              initial={{ opacity: 0, scale: 0.72, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.72, y: 8, x: '-50%' }}
+              animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
               transition={{ type: 'spring', stiffness: 260, damping: 18 }}
             >
               <CheckCircle className="w-5 h-5" /> Roda Berhenti
