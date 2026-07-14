@@ -4849,6 +4849,14 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   backdrop-filter: blur(12px);
 }
 
+.media-player-glass__art--playing {
+  border-color: rgb(191 219 254 / 0.62);
+  background: rgb(37 99 235 / 0.78) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.42),
+    0 10px 20px -12px rgb(37 99 235 / 0.7);
+}
+
 .media-player-glass__control {
   border: 1px solid rgb(255 255 255 / 0.55);
   color: hsl(215 22% 39%) !important;
