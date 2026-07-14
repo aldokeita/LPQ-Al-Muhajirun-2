@@ -14,6 +14,7 @@ export const useMediaPlayer = () => {
     const [volume, setVolume] = useState(1);
     const [settingsId, setSettingsId] = useState(null);
     const audioRef = useRef(new Audio());
+    const handleNextTrackRef = useRef(null);
 
     // Fetch Playlist
     const fetchPlaylist = useCallback(async () => {
@@ -77,7 +78,7 @@ export const useMediaPlayer = () => {
         };
 
         const handleEnded = () => {
-            handleNextTrack(true);
+            handleNextTrackRef.current?.(true);
         };
 
         audio.addEventListener('timeupdate', updateProgress);
@@ -193,6 +194,8 @@ export const useMediaPlayer = () => {
         
         if (!isPlaying) setIsPlaying(true);
     };
+
+    handleNextTrackRef.current = handleNextTrack;
 
     const previous = () => {
         if (playlist.length === 0) return;
