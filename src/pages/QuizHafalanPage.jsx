@@ -30,6 +30,7 @@ const QuizHafalanPage = () => {
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [stopCountdown, setStopCountdown] = useState(10);
+  const [roundDeadline, setRoundDeadline] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [orientation, setOrientation] = useState('landscape');
   const [spinningText, setSpinningText] = useState("MENGACAK SOAL..."); 
@@ -186,19 +187,25 @@ const QuizHafalanPage = () => {
   }, [gameState, displayItems]);
 
   useEffect(() => {
-    if (gameState !== 'wheel_stopped') return undefined;
+    if (!roundDeadline) return undefined;
 
-    setStopCountdown(10);
-    const countdownTimer = setInterval(() => {
-      setStopCountdown((previous) => Math.max(0, previous - 1));
-    }, 1000);
-    const revealTimer = setTimeout(() => setGameState('question'), 10000);
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((roundDeadline - Date.now()) / 1000));
+      setStopCountdown(remaining);
+    };
+
+    updateCountdown();
+    const countdownTimer = setInterval(updateCountdown, 200);
+    const revealTimer = setTimeout(() => {
+      setGameState('question');
+      setRoundDeadline(null);
+    }, Math.max(0, roundDeadline - Date.now()));
 
     return () => {
       clearInterval(countdownTimer);
       clearTimeout(revealTimer);
     };
-  }, [gameState]);
+  }, [roundDeadline]);
 
 
   const calculateLevel = (points) => {
@@ -269,6 +276,8 @@ const QuizHafalanPage = () => {
 
     setDisplayItems(itemsForWheel);
     setSelectedQuestion(winner);
+    setStopCountdown(10);
+    setRoundDeadline(Date.now() + 10000);
     setGameState('spinning');
 
     const segmentSize = 360 / itemsForWheel.length;
@@ -278,12 +287,12 @@ const QuizHafalanPage = () => {
     setWheelRotation((previousRotation) => {
       const normalizedCurrent = ((previousRotation % 360) + 360) % 360;
       const correction = (targetAngle - normalizedCurrent + 360) % 360;
-      return previousRotation + (360 * 8) + correction;
+      return previousRotation + (360 * 5) + correction;
     });
 
     setTimeout(() => {
       setGameState('wheel_stopped');
-    }, 7850);
+    }, 4750);
   };
 
   const validateAnswer = async (guru) => {
@@ -366,7 +375,7 @@ const QuizHafalanPage = () => {
               scale: gameState === 'wheel_stopped' ? [1, 1.018, 1] : 1,
             }}
             transition={{
-              rotate: { duration: 7.8, ease: [0.1, 0.76, 0.14, 1] },
+              rotate: { duration: 4.7, ease: [0.12, 0.72, 0.22, 1] },
               scale: { duration: 0.72, ease: 'easeOut' },
             }}
           >
@@ -397,12 +406,23 @@ const QuizHafalanPage = () => {
 
           {gameState === 'wheel_stopped' && (
             <motion.div
+              className="quiz-wheel-lock-ring"
+              initial={{ opacity: 0, scale: 0.72 }}
+              animate={{ opacity: [0, 1, 0.35], scale: [0.72, 1.08, 1] }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              aria-hidden="true"
+            />
+          )}
+
+          {(gameState === 'spinning' || gameState === 'wheel_stopped') && (
+            <motion.div
               className="quiz-wheel-stop-badge"
               initial={{ opacity: 0, scale: 0.72, y: 8, x: '-50%' }}
               animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
               transition={{ type: 'spring', stiffness: 260, damping: 18 }}
             >
-              <CheckCircle className="w-5 h-5" /> Soal tampil dalam {stopCountdown} detik
+              <CheckCircle className="w-5 h-5" />
+              {gameState === 'wheel_stopped' ? 'Soal terkunci' : 'Mengacak soal'} · {stopCountdown} detik
             </motion.div>
           )}
         </div>
@@ -563,7 +583,7 @@ const QuizHafalanPage = () => {
                     <motion.div key="wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
                         <WheelComponent />
                         <h2 className={`text-3xl md:text-4xl font-black mt-4 ${isDark ? 'text-white' : 'text-slate-900'} animate-pulse tracking-widest text-center px-4 leading-tight drop-shadow-md min-h-[3rem]`}>
-                             {gameState === 'wheel_stopped' ? `RODA BERHENTI — ${stopCountdown} DETIK` : spinningText}
+                             {gameState === 'wheel_stopped' ? `SOAL TERKUNCI — ${stopCountdown} DETIK` : `${spinningText} — ${stopCountdown} DETIK`}
                         </h2>
                     </motion.div>
                 )}
