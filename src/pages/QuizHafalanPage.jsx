@@ -29,6 +29,7 @@ const QuizHafalanPage = () => {
   const [validationGuru, setValidationGuru] = useState(null);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [wheelRotation, setWheelRotation] = useState(0);
+  const [stopCountdown, setStopCountdown] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [orientation, setOrientation] = useState('landscape');
   const [spinningText, setSpinningText] = useState("MENGACAK SOAL..."); 
@@ -186,8 +187,17 @@ const QuizHafalanPage = () => {
 
   useEffect(() => {
     if (gameState !== 'wheel_stopped') return undefined;
-    const revealTimer = setTimeout(() => setGameState('question'), 5000);
-    return () => clearTimeout(revealTimer);
+
+    setStopCountdown(10);
+    const countdownTimer = setInterval(() => {
+      setStopCountdown((previous) => Math.max(0, previous - 1));
+    }, 1000);
+    const revealTimer = setTimeout(() => setGameState('question'), 10000);
+
+    return () => {
+      clearInterval(countdownTimer);
+      clearTimeout(revealTimer);
+    };
   }, [gameState]);
 
 
@@ -268,12 +278,12 @@ const QuizHafalanPage = () => {
     setWheelRotation((previousRotation) => {
       const normalizedCurrent = ((previousRotation % 360) + 360) % 360;
       const correction = (targetAngle - normalizedCurrent + 360) % 360;
-      return previousRotation + (360 * 6) + correction;
+      return previousRotation + (360 * 8) + correction;
     });
 
     setTimeout(() => {
       setGameState('wheel_stopped');
-    }, 6250);
+    }, 7850);
   };
 
   const validateAnswer = async (guru) => {
@@ -335,7 +345,10 @@ const QuizHafalanPage = () => {
         ? `conic-gradient(${displayItems.map((item, index) => {
             const start = index * segmentSize;
             const end = (index + 1) * segmentSize;
-            return `${item.color} ${start}deg ${end}deg`;
+            const segmentColor = index % 2 === 0
+              ? item.color
+              : `color-mix(in srgb, ${item.color} 78%, #0f172a)`;
+            return `${segmentColor} ${start}deg ${end}deg`;
           }).join(', ')})`
         : 'conic-gradient(#334155 0deg 360deg)';
 
@@ -353,7 +366,7 @@ const QuizHafalanPage = () => {
               scale: gameState === 'wheel_stopped' ? [1, 1.018, 1] : 1,
             }}
             transition={{
-              rotate: { duration: 6.2, ease: [0.12, 0.72, 0.16, 1] },
+              rotate: { duration: 7.8, ease: [0.1, 0.76, 0.14, 1] },
               scale: { duration: 0.72, ease: 'easeOut' },
             }}
           >
@@ -389,7 +402,7 @@ const QuizHafalanPage = () => {
               animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
               transition={{ type: 'spring', stiffness: 260, damping: 18 }}
             >
-              <CheckCircle className="w-5 h-5" /> Roda Berhenti
+              <CheckCircle className="w-5 h-5" /> Soal tampil dalam {stopCountdown} detik
             </motion.div>
           )}
         </div>
@@ -550,7 +563,7 @@ const QuizHafalanPage = () => {
                     <motion.div key="wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
                         <WheelComponent />
                         <h2 className={`text-3xl md:text-4xl font-black mt-4 ${isDark ? 'text-white' : 'text-slate-900'} animate-pulse tracking-widest text-center px-4 leading-tight drop-shadow-md min-h-[3rem]`}>
-                             {gameState === 'wheel_stopped' ? 'SOAL TERPILIH — SIAP DITAMPILKAN' : spinningText}
+                             {gameState === 'wheel_stopped' ? `RODA BERHENTI — ${stopCountdown} DETIK` : spinningText}
                         </h2>
                     </motion.div>
                 )}
