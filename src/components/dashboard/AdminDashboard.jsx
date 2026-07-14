@@ -186,32 +186,36 @@ const AdminDashboard = () => {
         title="Dashboard Administrator"
         subtitle="Kelola seluruh sistem LPQ Al-Muhajirun"
       >
-        <Button
+        <button
+          type="button"
           onClick={() => navigate('/tv-display-mode')}
-          className="admin-btn-action admin-btn-action--amber"
+          className="attendance-header__action-btn attendance-header__action-btn--tv"
         >
-          <Tv className="w-4 h-4"/> TV Display Mode
-        </Button>
+          <Tv className="w-4 h-4"/><span>TV Display</span>
+        </button>
         {enableGameFeatures && (
           <>
-            <Button
+            <button
+              type="button"
               onClick={() => navigate('/gatcha-game')}
-              className="admin-btn-action admin-btn-action--emerald"
+              className="attendance-header__action-btn attendance-header__action-btn--gatcha"
             >
-              <Gamepad2 className="w-4 h-4"/> Play Gatcha
-            </Button>
-            <Button
+              <Gamepad2 className="w-4 h-4"/><span>Play Gatcha</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/quiz-hafalan')}
-              className="admin-btn-action admin-btn-action--cyan"
+              className="attendance-header__action-btn attendance-header__action-btn--quiz"
             >
-              <Gamepad2 className="w-4 h-4"/> Play Quiz
-            </Button>
-            <Button
+              <Library className="w-4 h-4"/><span>Play Quiz</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/random-name')}
-              className="admin-btn-action admin-btn-action--emerald"
+              className="attendance-header__action-btn attendance-header__action-btn--random"
             >
-              <Shuffle className="w-4 h-4"/> Acak Nama
-            </Button>
+              <Shuffle className="w-4 h-4"/><span>Acak Nama</span>
+            </button>
           </>
         )}
       </AdminPageHeader>
