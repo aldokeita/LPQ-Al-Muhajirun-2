@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, Lock, X, RefreshCw, BarChart2, User, UserCheck, Sparkles } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
@@ -208,7 +208,6 @@ const GatchaSettings = () => {
 
 const QuizSettings = () => {
     const [isLoading, setIsLoading] = useState(false);
-    const [adminPin, setAdminPin] = useState('1234');
     const [quizConfig, setQuizConfig] = useState([]);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
@@ -226,7 +225,6 @@ const QuizSettings = () => {
             if (data?.content) {
                 const loadedCats = data.content.categories || (Array.isArray(data.content) ? data.content : []);
                 setQuizConfig(loadedCats.length === 0 ? defaultQuizData : loadedCats);
-                if (data.content.adminPin) setAdminPin(data.content.adminPin);
             } else {
                 setQuizConfig(defaultQuizData);
             }
@@ -237,7 +235,7 @@ const QuizSettings = () => {
 
     const saveQuizConfig = async () => {
         setIsLoading(true);
-        const payload = { categories: quizConfig, adminPin: adminPin };
+        const payload = { categories: quizConfig };
         const { error } = await supabase.from('website_content').upsert({ key: 'quiz_hafalan_config', content: payload }, { onConflict: 'key' });
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Konfigurasi Quiz disimpan." });
@@ -269,17 +267,14 @@ const QuizSettings = () => {
 
     return (
         <div className="game-config-panel game-config-panel--quiz space-y-6">
-            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border">
-                <div className="flex items-center gap-4">
-                    <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-full text-yellow-600 dark:text-yellow-400"><Lock className="w-5 h-5"/></div>
-                    <div>
-                        <Label>PIN Akses Pengaturan (di Halaman Game)</Label>
-                        <Input type="text" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} className="w-32 mt-1 font-mono tracking-widest"/>
-                    </div>
+            <div className="game-config-section-heading">
+                <div>
+                    <h3 className="text-lg font-black flex items-center gap-2"><Sparkles className="w-5 h-5 text-cyan-500" /> Bank Soal Quiz Hafalan</h3>
+                    <p className="text-sm text-muted-foreground">Kategori dan soal di sini langsung digunakan roda quiz; guru memilih serta menilai santri tanpa RFID.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={resetToDefaults}><RefreshCw className="w-4 h-4 mr-2"/> Reset</Button>
-                    <Button onClick={saveQuizConfig} disabled={isLoading}><Save className="w-4 h-4 mr-2"/> Simpan Semua Konfigurasi</Button>
+                    <Button onClick={saveQuizConfig} disabled={isLoading} className="game-config-save"><Save className="w-4 h-4 mr-2"/> Simpan Quiz</Button>
                 </div>
             </div>
 
