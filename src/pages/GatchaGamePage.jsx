@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Gamepad2, Star, Sparkles, Crown, UserCheck, Gift, AlertCircle, RefreshCw, CheckCircle2, Keyboard, Monitor, Smartphone, Sun, Moon, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Gamepad2, Star, Sparkles, Crown, UserCheck, Gift, RefreshCw, CheckCircle2, Monitor, Smartphone, Sun, Moon, MessageCircle } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
@@ -26,6 +25,7 @@ const GatchaGamePage = () => {
   const [gameState, setGameState] = useState('IDLE');
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [activeReward, setActiveReward] = useState(null);
+  const [activeChallenge, setActiveChallenge] = useState(null);
   const [config, setConfig] = useState({
     challenges: [],
     rewards: []
@@ -87,6 +87,7 @@ const GatchaGamePage = () => {
     setGameState('IDLE');
     setCurrentPlayer(null);
     setActiveReward(null);
+    setActiveChallenge(null);
     setSelectedSantriId('');
     setStudentSearch('');
   };
@@ -116,6 +117,7 @@ const GatchaGamePage = () => {
     const selected = santriList.find((santri) => String(santri.id) === String(selectedSantriId));
     if (!selected) return;
     setCurrentPlayer(selected);
+    setActiveChallenge(pickRandom(config.challenges));
     setGameState('WAIT_VALIDATION');
   };
 
@@ -131,7 +133,7 @@ const GatchaGamePage = () => {
       setActiveReward(reward);
       if (reward.type === 'points' && currentPlayer) {
         const amount = Number.parseInt(reward.value, 10) || 0;
-        const nextPoints = (currentPlayer.points || 0) + amount;
+        const nextPoints = (Number(currentPlayer.points) || 0) + amount;
         const { error: rpcError } = await supabase.rpc('increment_santri_points', {
           p_santri_id: currentPlayer.id,
           p_amount: amount
@@ -257,9 +259,14 @@ const GatchaGamePage = () => {
                                     <div className="flex flex-col items-center gap-4">
                                         <MessageCircle className="w-16 h-16 text-yellow-500 animate-bounce" />
                                         <p className={`text-xl md:text-3xl font-black leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                                            Dengarkan pertanyaan dari Guru...
+                                            {activeChallenge?.text || activeChallenge?.label || 'Jawab tantangan dari Guru'}
                                         </p>
-                                        <p className="text-sm opacity-70">Jawab dengan lantang dan benar!</p>
+                                        {activeChallenge?.difficulty && (
+                                          <span className="rounded-full bg-yellow-400/15 px-3 py-1 text-xs font-black uppercase tracking-widest text-yellow-500">
+                                            Level {activeChallenge.difficulty}
+                                          </span>
+                                        )}
+                                        <p className="text-sm opacity-70">Dengarkan arahan guru, lalu jawab dengan lantang dan benar!</p>
                                     </div>
                                 </div>
 
