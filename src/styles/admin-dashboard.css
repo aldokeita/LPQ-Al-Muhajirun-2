@@ -5211,3 +5211,155 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     transition: none !important;
   }
 }
+
+
+/* ============================================================
+   ADMIN GLASS TABS — shared spring pill surfaces
+   ============================================================ */
+
+.admin-module-nav > div,
+.admin-glass-tab-list,
+.admin-segmented-control {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.42)) !important;
+  border: 1px solid rgb(255 255 255 / 0.72) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.92),
+    inset -1px -1px 0 rgb(148 163 184 / 0.08),
+    0 14px 34px rgb(15 23 42 / 0.09) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+}
+
+.dark .admin-module-nav > div,
+.dark .admin-glass-tab-list,
+.dark .admin-segmented-control {
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.035)) !important;
+  border-color: rgb(255 255 255 / 0.11) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.1),
+    inset -1px -1px 0 rgb(0 0 0 / 0.14),
+    0 16px 38px rgb(0 0 0 / 0.28) !important;
+}
+
+.admin-nav-pill,
+.admin-glass-tab-button,
+.admin-segmented-control-item {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: transparent !important;
+  transition:
+    color 180ms ease,
+    transform 220ms ease,
+    border-color 180ms ease;
+}
+
+.admin-nav-pill:hover,
+.admin-glass-tab-button:hover,
+.admin-segmented-control-item:hover {
+  transform: translateY(-1px);
+  border-color: rgb(255 255 255 / 0.58);
+  background: rgb(255 255 255 / 0.22) !important;
+}
+
+.dark .admin-nav-pill:hover,
+.dark .admin-glass-tab-button:hover,
+.dark .admin-segmented-control-item:hover {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.05) !important;
+}
+
+.admin-nav-pill.active,
+.admin-segmented-control-item.active,
+.admin-segmented-control-item[data-state="active"] {
+  color: hsl(var(--admin-accent));
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.dark .admin-nav-pill.active,
+.dark .admin-segmented-control-item.active,
+.dark .admin-segmented-control-item[data-state="active"] {
+  color: rgb(255 255 255 / 0.96);
+}
+
+.admin-nav-pill-indicator,
+.admin-glass-tab-indicator,
+.admin-segmented-control-indicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  border: 1px solid rgb(255 255 255 / 0.82);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.58));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.96),
+    0 7px 18px hsl(var(--admin-glow) / 0.14);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  pointer-events: none;
+}
+
+.dark .admin-nav-pill-indicator,
+.dark .admin-glass-tab-indicator,
+.dark .admin-segmented-control-indicator {
+  border-color: rgb(255 255 255 / 0.13);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.07));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.12),
+    0 9px 22px rgb(0 0 0 / 0.26);
+}
+
+.admin-bulk-import-surface {
+  border: 1px solid rgb(255 255 255 / 0.72);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.76), rgb(248 250 252 / 0.48));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.95),
+    0 18px 42px rgb(15 23 42 / 0.09);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.dark .admin-bulk-import-surface {
+  border-color: rgb(255 255 255 / 0.1);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.075), rgb(15 23 42 / 0.38));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.08),
+    0 20px 46px rgb(0 0 0 / 0.28);
+}
+
+.admin-bulk-import-textarea {
+  resize: vertical;
+  tab-size: 4;
+  background: rgb(255 255 255 / 0.62);
+  border-color: rgb(148 163 184 / 0.22);
+  box-shadow:
+    inset 2px 2px 8px rgb(15 23 42 / 0.06),
+    inset -1px -1px 0 rgb(255 255 255 / 0.82);
+}
+
+.dark .admin-bulk-import-textarea {
+  background: rgb(2 6 23 / 0.34);
+  border-color: rgb(255 255 255 / 0.09);
+  box-shadow:
+    inset 2px 2px 9px rgb(0 0 0 / 0.3),
+    inset -1px -1px 0 rgb(255 255 255 / 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-pill,
+  .admin-glass-tab-button,
+  .admin-segmented-control-item {
+    transition: none !important;
+  }
+}
