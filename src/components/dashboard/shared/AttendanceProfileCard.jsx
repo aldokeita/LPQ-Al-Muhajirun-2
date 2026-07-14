@@ -97,7 +97,7 @@ const AttendanceProfileCard = ({
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
       className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
       style={cardStyle}
       role="region"
@@ -112,7 +112,7 @@ const AttendanceProfileCard = ({
               height: '100%',
             }}
           >
-          <AvatarImage src={photo} alt={name} className="object-cover" />
+          <AvatarImage src={photo} alt={name} loading="eager" fetchPriority="high" decoding="async" className="object-cover" />
           <AvatarFallback className="attendance-profile-card__avatar-fallback">
             {name?.[0]?.toUpperCase() || '?'}
           </AvatarFallback>
