@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Logo LPQ Al-Muhajirun</title>
+  <desc id="desc">Lambang hijau LPQ Al-Muhajirun dengan Al-Qur'an terbuka dan kubah masjid.</desc>
+  <defs>
+    <linearGradient id="green" x1="24" y1="18" x2="136" y2="142" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34d399"/>
+      <stop offset=".48" stop-color="#15803d"/>
+      <stop offset="1" stop-color="#14532d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="56" y1="45" x2="108" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fde68a"/>
+      <stop offset="1" stop-color="#d4a72c"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#064e3b" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <circle cx="80" cy="80" r="72" fill="#f8fffb"/>
+  <circle cx="80" cy="80" r="67" fill="url(#green)" filter="url(#shadow)"/>
+  <circle cx="80" cy="80" r="57" fill="none" stroke="#ecfdf5" stroke-opacity=".42" stroke-width="2"/>
+  <path d="M49 72c5-22 17-34 31-42 14 8 26 20 31 42" fill="none" stroke="url(#gold)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M80 28v-8m-5 4h10" stroke="#f8dc78" stroke-width="4" stroke-linecap="round"/>
+  <path d="M42 79c13-6 25-5 38 4v38c-12-9-25-11-38-5V79Z" fill="#fff" fill-opacity=".96" stroke="#d4a72c" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M118 79c-13-6-25-5-38 4v38c12-9 25-11 38-5V79Z" fill="#fff" fill-opacity=".96" stroke="#d4a72c" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M80 84v36" stroke="#d4a72c" stroke-width="3" stroke-linecap="round"/>
+  <path d="M50 91c8-2 15-1 22 3m-22 9c8-2 15-1 22 3m38-15c-8-2-15-1-22 3m22 9c-8-2-15-1-22 3" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round" opacity=".72"/>
+  <text x="80" y="142" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="13" font-weight="800" letter-spacing="2">LPQ</text>
+</svg>
