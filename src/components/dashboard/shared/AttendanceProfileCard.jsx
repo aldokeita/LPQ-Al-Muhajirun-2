@@ -358,7 +358,12 @@ function getStatusConfig(status) {
 function formatAttendanceMessage(message) {
   if (!message) return message;
 
-  return String(message)
+  const normalizedMessage = String(message);
+  if (/berhasil\s+melakukan\s+absensi/i.test(normalizedMessage)) {
+    return 'Absensi Sesi Sore berhasil.';
+  }
+
+  return normalizedMessage
     .replace(/\bpada\s+sesi\s*3\b/gi, 'pada Sesi Sore')
     .replace(/\bsesi\s*3\b/gi, 'Sesi Sore');
 }
