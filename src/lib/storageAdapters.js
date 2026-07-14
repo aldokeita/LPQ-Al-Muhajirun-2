@@ -5,6 +5,8 @@ const AVATAR_BUCKET = 'avatars';
 const WEBSITE_ASSETS_BUCKET = 'website-assets';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_WEBSITE_ASSET_SIZE = 20 * 1024 * 1024;
+const AVATAR_URL_CACHE_TTL = 45 * 60 * 1000;
+const avatarUrlCache = new Map();
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const WEBSITE_ASSET_TYPES = new Set([...IMAGE_TYPES, 'application/pdf']);
 
@@ -192,10 +194,35 @@ export const deleteAvatar = async ({ ownerType, ownerId }) => {
   return { path };
 };
 
+export const preloadAvatarUrl = (url) => {
+  if (!url || typeof Image === 'undefined') return url || '';
+  const image = new Image();
+  image.decoding = 'async';
+  image.fetchPriority = 'high';
+  image.src = url;
+  return url;
+};
+
 export const resolveAvatarUrl = async ({ ownerType, ownerId, avatarPath, fallbackUrl }) => {
   const path = avatarPath || (ownerId ? getAvatarPath({ ownerType, ownerId }) : null);
+  const cacheKey = path ? `${AVATAR_BUCKET}:${path}` : null;
+  const cached = cacheKey ? avatarUrlCache.get(cacheKey) : null;
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return preloadAvatarUrl(cached.url);
+  }
+
   const signedUrl = await createSignedAvatarUrl(path);
-  return signedUrl || fallbackUrl || '';
+  const resolvedUrl = signedUrl || fallbackUrl || '';
+
+  if (cacheKey && signedUrl) {
+    avatarUrlCache.set(cacheKey, {
+      url: signedUrl,
+      expiresAt: Date.now() + AVATAR_URL_CACHE_TTL,
+    });
+  }
+
+  return preloadAvatarUrl(resolvedUrl);
 };
 
 const fileExtensionFor = (file) => EXTENSION_BY_TYPE[file.type] || 'bin';
