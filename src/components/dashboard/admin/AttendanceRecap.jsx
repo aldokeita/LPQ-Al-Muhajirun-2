@@ -420,21 +420,21 @@ const AttendanceRecap = () => {
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="flex justify-center mb-6">
-                    <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full gap-1 shadow-inner border border-slate-200/50 dark:border-slate-700/50">
+                    <div className="admin-glass-tab-list inline-flex p-1.5 rounded-full gap-1">
                         {subTabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`
-                                    relative px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ease-out flex items-center gap-2
-                                    ${activeTab === tab.id ? 'text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
+                                    admin-glass-tab-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
+                                    ${activeTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                                 `}
                             >
                                 {activeTab === tab.id && (
                                     <motion.div
                                         layoutId="subtab-pill-recap"
-                                        className="absolute inset-0 bg-white dark:bg-slate-700 shadow-sm rounded-full"
-                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                        className="admin-glass-tab-indicator"
+                                        transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
                                     />
                                 )}
                                 <span className="relative z-10 flex items-center gap-2">
