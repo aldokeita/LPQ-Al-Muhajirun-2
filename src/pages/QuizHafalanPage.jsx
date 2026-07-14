@@ -14,6 +14,7 @@ import useWindowSize from '@/hooks/useWindowSize';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { useTheme } from '@/contexts/ThemeContext';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 
 const QuizHafalanPage = () => {
   const navigate = useNavigate();
@@ -41,6 +42,9 @@ const QuizHafalanPage = () => {
   // Wheel content
   const [flattenedItems, setFlattenedItems] = useState([]);
   const [displayItems, setDisplayItems] = useState([]); // Items currently shown on wheel (subset)
+  const [quizCategories, setQuizCategories] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [isPlayerLoading, setIsPlayerLoading] = useState(false);
   
   const isPracticeMode = role === 'santri';
 
@@ -83,6 +87,9 @@ const QuizHafalanPage = () => {
             ];
         }
 
+        setQuizCategories(categories);
+        setSelectedCategoryIds(categories.map((category) => String(category.id)));
+
         // Flatten items
         const allItems = [];
         categories.forEach(cat => {
@@ -91,6 +98,7 @@ const QuizHafalanPage = () => {
                     allItems.push({
                         text: item,
                         category: cat.label,
+                        categoryId: String(cat.id),
                         color: cat.color
                     });
                 });
@@ -100,7 +108,7 @@ const QuizHafalanPage = () => {
 
         const { data: santriData, error: santriError } = await supabase
           .from('santri')
-          .select('id, nama_lengkap, nama_panggilan, foto_url, jilid, points, status')
+          .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
           .order('nama_lengkap', { ascending: true });
 
         if (!santriError) {
@@ -137,16 +145,16 @@ const QuizHafalanPage = () => {
   // Effect for shuffling text during spin
   useEffect(() => {
       let interval;
-      if (gameState === 'spinning' && flattenedItems.length > 0) {
+      if (gameState === 'spinning' && displayItems.length > 0) {
           interval = setInterval(() => {
-              const randomItem = flattenedItems[Math.floor(Math.random() * flattenedItems.length)];
+              const randomItem = displayItems[Math.floor(Math.random() * displayItems.length)];
               setSpinningText(randomItem.text);
           }, 100);
       } else {
           setSpinningText("MENGACAK SOAL...");
       }
       return () => clearInterval(interval);
-  }, [gameState, flattenedItems]);
+  }, [gameState, displayItems]);
 
 
   const calculateLevel = (points) => {
@@ -164,64 +172,74 @@ const QuizHafalanPage = () => {
       .some((value) => String(value).toLowerCase().includes(query));
   });
 
-  const selectSantriForQuiz = () => {
+  const eligibleItems = useMemo(() => {
+    if (selectedCategoryIds.length === 0) return [];
+    const selectedIds = new Set(selectedCategoryIds.map(String));
+    return flattenedItems.filter((item) => selectedIds.has(String(item.categoryId)));
+  }, [flattenedItems, selectedCategoryIds]);
+
+  const allCategoriesSelected = quizCategories.length > 0 && selectedCategoryIds.length === quizCategories.length;
+
+  const toggleCategory = (categoryId) => {
+    const normalizedId = String(categoryId);
+    setSelectedCategoryIds((previous) => previous.includes(normalizedId)
+      ? previous.filter((id) => id !== normalizedId)
+      : [...previous, normalizedId]);
+  };
+
+  const toggleAllCategories = () => {
+    setSelectedCategoryIds(allCategoriesSelected
+      ? []
+      : quizCategories.map((category) => String(category.id)));
+  };
+
+  const selectSantriForQuiz = async () => {
     const selected = santriList.find((santri) => String(santri.id) === String(selectedSantriId));
-    if (!selected) return;
-    setCurrentSantri(selected);
+    if (!selected || eligibleItems.length === 0) return;
+
+    setIsPlayerLoading(true);
+    const foto_url = await resolveAvatarUrl({
+      ownerType: 'santri',
+      ownerId: selected.id,
+      avatarPath: selected.avatar_path,
+      fallbackUrl: selected.foto_url,
+    });
+    setCurrentSantri({ ...selected, foto_url });
     setGameState('confirm_santri');
+    setIsPlayerLoading(false);
   };
 
   const spinWheel = () => {
-    if (flattenedItems.length === 0) {
-        toast({ title: "Error", description: "Belum ada data konten kuis.", variant: "destructive" });
+    if (eligibleItems.length === 0) {
+        toast({ title: "Pilih Kategori", description: "Pilih minimal satu kategori soal sebelum memutar roda.", variant: "destructive" });
         return;
     }
 
-    setGameState('spinning');
-    
-    // Select winner first
-    const winnerIndex = Math.floor(Math.random() * flattenedItems.length);
-    const winner = flattenedItems[winnerIndex];
-    setSelectedQuestion(winner);
+    const shuffledItems = [...eligibleItems]
+      .map((item) => ({ item, order: Math.random() }))
+      .sort((a, b) => a.order - b.order)
+      .map(({ item }) => item);
+    const itemsForWheel = shuffledItems.slice(0, Math.min(12, shuffledItems.length));
+    const winnerIndex = Math.floor(Math.random() * itemsForWheel.length);
+    const winner = itemsForWheel[winnerIndex];
 
-    // Prepare display items for wheel (limit to 24 for visual clarity + ensure winner is included)
-    let itemsForWheel = [];
-    if (flattenedItems.length <= 24) {
-        itemsForWheel = [...flattenedItems];
-    } else {
-        // Pick 23 random distinct items
-        const pool = flattenedItems.filter((_, idx) => idx !== winnerIndex);
-        const randomSubset = [];
-        const usedIndices = new Set();
-        while (randomSubset.length < 23 && pool.length > 0) {
-            const rand = Math.floor(Math.random() * pool.length);
-            if(!usedIndices.has(rand)) {
-                randomSubset.push(pool[rand]);
-                usedIndices.add(rand);
-            }
-        }
-        // Insert winner at random position
-        const insertPos = Math.floor(Math.random() * (randomSubset.length + 1));
-        randomSubset.splice(insertPos, 0, winner);
-        itemsForWheel = randomSubset;
-    }
     setDisplayItems(itemsForWheel);
+    setSelectedQuestion(winner);
+    setGameState('spinning');
 
-    // Find index of winner in the *displayed* items to calculate rotation
-    const visualWinnerIndex = itemsForWheel.indexOf(winner);
-    
     const segmentSize = 360 / itemsForWheel.length;
-    const targetRotation = -((visualWinnerIndex * segmentSize) + (segmentSize / 2)); 
-    
-    const extraSpins = 360 * 10; // Longer spin
-    const finalRotation = wheelRotation + extraSpins + targetRotation - (wheelRotation % 360); 
-    const jitter = (Math.random() * 10) - 5; 
-    
-    setWheelRotation(finalRotation + jitter);
+    const winnerCenter = (winnerIndex * segmentSize) + (segmentSize / 2);
+    const targetAngle = (360 - winnerCenter) % 360;
+
+    setWheelRotation((previousRotation) => {
+      const normalizedCurrent = ((previousRotation % 360) + 360) % 360;
+      const correction = (targetAngle - normalizedCurrent + 360) % 360;
+      return previousRotation + (360 * 6) + correction;
+    });
 
     setTimeout(() => {
       setGameState('question');
-    }, 8000); // 8s spin duration
+    }, 6400);
   };
 
   const validateAnswer = async (guru) => {
@@ -278,46 +296,43 @@ const QuizHafalanPage = () => {
 
   const WheelComponent = () => {
       const itemCount = displayItems.length;
+      const segmentSize = itemCount > 0 ? 360 / itemCount : 360;
+      const wheelGradient = itemCount > 0
+        ? `conic-gradient(${displayItems.map((item, index) => {
+            const start = index * segmentSize;
+            const end = (index + 1) * segmentSize;
+            return `${item.color} ${start}deg ${end}deg`;
+          }).join(', ')})`
+        : 'conic-gradient(#334155 0deg 360deg)';
+
       return (
-        <div className="relative w-[350px] h-[350px] md:w-[600px] md:h-[600px] mx-auto my-8">
-          {/* Pointer */}
-          <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-20 filter drop-shadow-lg">
-            <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-yellow-500"></div>
+        <div className="quiz-wheel-stage">
+          <div className="quiz-wheel-pointer" aria-hidden="true">
+            <div />
           </div>
-          
-          <motion.div 
-            className="w-full h-full rounded-full border-[12px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative bg-slate-900"
+
+          <motion.div
+            className="quiz-wheel"
+            style={{ background: wheelGradient }}
             animate={{ rotate: wheelRotation }}
-            transition={{ duration: 8, ease: [0.1, 0, 0.1, 1] }} // Cubic-bezier for realistic deceleration
+            transition={{ duration: 6.2, ease: [0.12, 0.72, 0.16, 1] }}
           >
-            {displayItems.map((item, i) => {
-                const rotate = (i * 360) / itemCount;
-                const skew = 90 - (360 / itemCount);
-                return (
-                    <div 
-                        key={i}
-                        className="absolute top-0 right-0 w-[50%] h-[50%] origin-bottom-left border-l border-white/10"
-                        style={{ 
-                            transform: `rotate(${rotate}deg) skewY(-${skew}deg)`,
-                            background: i % 2 === 0 ? item.color : `${item.color}dd` // Slight variation
-                        }}
-                    >
-                        <div 
-                            className="absolute text-white font-bold uppercase tracking-wider drop-shadow-md text-[10px] md:text-sm text-right w-[180px] md:w-[280px] top-[40%] left-[-100%] origin-center truncate px-2"
-                            style={{ 
-                                transform: `skewY(${skew}deg) rotate(${360/itemCount/2}deg) translate(10%, -50%)`
-                            }}
-                        >
-                           {item.text}
-                        </div>
-                    </div>
-                )
+            <div className="quiz-wheel__rings" aria-hidden="true" />
+            {displayItems.map((item, index) => {
+              const angle = (index * segmentSize) + (segmentSize / 2);
+              return (
+                <div
+                  key={`${item.categoryId}-${item.text}-${index}`}
+                  className="quiz-wheel__label"
+                  style={{ transform: `rotate(${angle - 90}deg) translateX(18%)` }}
+                >
+                  <span>{item.text}</span>
+                </div>
+              );
             })}
-            {/* Center Cap */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.8)] flex items-center justify-center z-10 border-4 border-slate-600">
-              <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center">
-                 <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />
-              </div>
+
+            <div className="quiz-wheel__hub">
+              <Sparkles className="w-8 h-8 text-yellow-300" />
             </div>
           </motion.div>
         </div>
@@ -354,7 +369,7 @@ const QuizHafalanPage = () => {
                 <motion.div key="profile" initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -50, opacity: 0 }} className={`flex flex-col items-center ${orientation === 'landscape' ? 'w-1/3' : 'w-full max-w-md'}`}>
                     <Card className={`w-full p-6 backdrop-blur-xl border-2 shadow-2xl relative overflow-hidden ${isDark ? 'bg-white/10 border-white/20' : 'bg-white/80 border-slate-200'} ${calculateLevel(currentSantri.points).border}`}>
                          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer"></div>
-                         <Avatar className="w-32 h-32 mx-auto border-4 border-white shadow-xl mb-4"><AvatarImage src={currentSantri.foto_url} className="object-cover"/><AvatarFallback className="text-4xl text-slate-800 font-bold">{currentSantri.nama_lengkap?.[0]}</AvatarFallback></Avatar>
+                         <Avatar className="w-32 h-32 mx-auto border-4 border-white shadow-xl mb-4"><AvatarImage src={currentSantri.foto_url} loading="eager" fetchPriority="high" decoding="async" className="object-cover"/><AvatarFallback className="text-4xl text-slate-800 font-bold">{currentSantri.nama_lengkap?.[0]}</AvatarFallback></Avatar>
                          <h2 className={`text-2xl font-bold mb-1 truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{currentSantri.nama_lengkap}</h2>
                          <p className={`${isDark ? 'text-white/70' : 'text-slate-500'} mb-4 font-mono`}>{currentSantri.jilid}</p>
                          <div className={`${isDark ? 'bg-slate-900/50 border-white/10' : 'bg-slate-100 border-slate-200'} rounded-xl p-4 flex justify-around items-center border`}>
@@ -411,14 +426,49 @@ const QuizHafalanPage = () => {
                           </option>
                         ))}
                       </select>
+
+                      <div className="mt-4 text-left">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className={`text-xs font-black uppercase tracking-[0.16em] ${isDark ? 'text-white/60' : 'text-slate-500'}`}>Kategori Soal</p>
+                          <button
+                            type="button"
+                            onClick={toggleAllCategories}
+                            className={`text-xs font-bold ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}
+                          >
+                            {allCategoriesSelected ? 'Kosongkan' : 'Pilih Semua'}
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {quizCategories.map((category) => {
+                            const isSelected = selectedCategoryIds.includes(String(category.id));
+                            return (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() => toggleCategory(category.id)}
+                                className={`quiz-category-chip ${isSelected ? 'quiz-category-chip--selected' : ''}`}
+                                style={{
+                                  '--quiz-category-color': category.color,
+                                  color: isSelected ? '#fff' : category.color,
+                                }}
+                              >
+                                <span className="quiz-category-chip__dot" />
+                                {category.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {eligibleItems.length === 0 && <p className="mt-2 text-xs font-semibold text-rose-500">Pilih minimal satu kategori.</p>}
+                      </div>
+
                       <Button
                         type="button"
                         size="lg"
                         onClick={selectSantriForQuiz}
-                        disabled={!selectedSantriId}
+                        disabled={!selectedSantriId || eligibleItems.length === 0 || isPlayerLoading}
                         className="mt-4 w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-cyan-600 text-white font-black shadow-lg shadow-purple-500/25"
                       >
-                        <Gamepad2 className="w-5 h-5 mr-2" /> Pilih dan Lanjut
+                        <Gamepad2 className="w-5 h-5 mr-2" /> {isPlayerLoading ? 'Menyiapkan Pemain...' : 'Pilih dan Lanjut'}
                       </Button>
                     </div>
                   </motion.div>
