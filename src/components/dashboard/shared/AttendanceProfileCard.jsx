@@ -147,9 +147,6 @@ const AttendanceProfileCard = ({
       {isTeacher && jabatan && (
         <p className="attendance-profile-card__subtitle">{jabatan}</p>
       )}
-      {!isTeacher && jilid && (
-        <p className="attendance-profile-card__subtitle">{jilid}</p>
-      )}
 
       {/* Status & Time */}
       {status && (
@@ -239,7 +236,7 @@ const AttendanceProfileCard = ({
           transition={{ delay: 0.5 }}
           className="attendance-profile-card__quote"
         >
-          <p>&ldquo;{quote}&rdquo;</p>
+          <p>{isTeacher ? <>&ldquo;{quote}&rdquo;</> : quote}</p>
         </motion.div>
       )}
     </motion.div>
