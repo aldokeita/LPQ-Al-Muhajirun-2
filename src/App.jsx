@@ -40,7 +40,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { verifyDatabaseSchema } from '@/utils/verifyDatabaseSchema';
 import { AlertTriangle, X } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
+import { enableDeferredFeatures, enableGameFeatures } from '@/lib/featureFlags';
 
 const RouteLogger = () => {
   const location = useLocation();
@@ -206,7 +206,7 @@ function App() {
               <Routes>
                 <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
                 <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><TvDisplayPage /></ProtectedRoute>} />
-                {enableDeferredFeatures ? (
+                {enableGameFeatures ? (
                   <>
                     <Route path="/quiz-hafalan" element={<ProtectedRoute><QuizHafalanPage /></ProtectedRoute>} />
                     <Route path="/gatcha-game" element={<ProtectedRoute><GatchaGamePage /></ProtectedRoute>} />
