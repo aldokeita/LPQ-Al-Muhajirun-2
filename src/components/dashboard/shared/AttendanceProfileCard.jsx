@@ -220,12 +220,16 @@ const AttendanceProfileCard = ({
 
       {/* Message */}
       {displayMessage && (
-        <div className="attendance-profile-card__message">
-          <span className="attendance-profile-card__message-icon" aria-hidden="true">
-            <CheckCircle className="w-4 h-4" />
-          </span>
-          <p>{displayMessage}</p>
-        </div>
+        isTeacher ? (
+          <p className="attendance-profile-card__message">{displayMessage}</p>
+        ) : (
+          <div className="attendance-profile-card__message">
+            <span className="attendance-profile-card__message-icon" aria-hidden="true">
+              <CheckCircle className="w-4 h-4" />
+            </span>
+            <p>{displayMessage}</p>
+          </div>
+        )
       )}
 
       {/* Quote */}
