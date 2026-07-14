@@ -44,17 +44,20 @@ const AttendanceProfileCard = ({
   const isTeacher = variant === 'teacher';
 
   const {
-    label: levelLabel,
     color: levelColor,
-    enableGradient,
-    textColor,
     avatarBorderThickness,
-    textGradient,
   } = levelInfo || {};
 
   const pointAccent = !isTeacher ? getPointAccent(points) : null;
   const pointLevel = !isTeacher ? getPointLevel(points) : null;
   const statusConfig = getStatusConfig(status);
+  const nameGradient = pointAccent
+    ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
+    : isTeacher
+      ? 'linear-gradient(135deg, #047857, #22c55e)'
+      : levelColor
+        ? `linear-gradient(135deg, ${levelColor}, color-mix(in srgb, ${levelColor} 58%, white))`
+        : 'linear-gradient(135deg, #047857, #34d399)';
   const cardStyle = pointAccent
     ? {
         '--attendance-profile-accent': pointAccent.color,
@@ -119,24 +122,6 @@ const AttendanceProfileCard = ({
           </motion.div>
         )}
 
-        {/* Level badge for students */}
-        {!isTeacher && levelLabel && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="attendance-profile-card__level-badge"
-            style={{ borderColor: pointAccent?.color || levelColor || 'var(--att-accent)' }}
-          >
-            <span
-              className={enableGradient ? 'gradient-text' : ''}
-              style={{ color: enableGradient ? undefined : levelColor || 'var(--att-accent)' }}
-            >
-              {levelLabel}
-            </span>
-          </motion.div>
-        )}
-
         {/* Role badge for teachers */}
         {isTeacher && (
           <div className="attendance-profile-card__role-badge">
@@ -148,17 +133,8 @@ const AttendanceProfileCard = ({
 
       {/* Name — primary hierarchy, centered */}
       <h2
-        className={`attendance-profile-card__name ${pointAccent ? 'attendance-profile-card__name--level' : ''}`}
-        style={
-          pointAccent
-            ? {
-                '--attendance-name-color': pointAccent.color,
-                '--attendance-name-glow': pointAccent.glow,
-              }
-            : !isTeacher && textGradient && textColor
-            ? { color: textColor }
-            : undefined
-        }
+        className="attendance-profile-card__name attendance-profile-card__name--gradient"
+        style={{ '--attendance-name-gradient': nameGradient }}
       >
         {name}
       </h2>
@@ -309,6 +285,8 @@ function getPointAccent(points = 0) {
   if (safePoints <= 20) {
     return {
       color: '#22c55e',
+      gradientStart: '#15803d',
+      gradientEnd: '#4ade80',
       soft: 'rgba(34, 197, 94, 0.14)',
       glow: 'rgba(34, 197, 94, 0.5)',
     };
@@ -316,6 +294,8 @@ function getPointAccent(points = 0) {
   if (safePoints <= 50) {
     return {
       color: '#2563eb',
+      gradientStart: '#1d4ed8',
+      gradientEnd: '#60a5fa',
       soft: 'rgba(37, 99, 235, 0.14)',
       glow: 'rgba(37, 99, 235, 0.5)',
     };
@@ -323,12 +303,16 @@ function getPointAccent(points = 0) {
   if (safePoints <= 80) {
     return {
       color: '#f97316',
+      gradientStart: '#c2410c',
+      gradientEnd: '#fb923c',
       soft: 'rgba(249, 115, 22, 0.16)',
       glow: 'rgba(249, 115, 22, 0.55)',
     };
   }
   return {
     color: '#ef4444',
+    gradientStart: '#b91c1c',
+    gradientEnd: '#fb7185',
     soft: 'rgba(239, 68, 68, 0.16)',
     glow: 'rgba(239, 68, 68, 0.55)',
   };
