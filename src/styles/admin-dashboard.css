@@ -3407,6 +3407,274 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 /* ============================================================
+   MODERN LEVEL GLASSMORPHISM — Student profile
+   Level identity is expressed through light, not borders.
+   ============================================================ */
+
+.attendance-profile-card--white-glass.attendance-profile-card--student,
+.attendance-profile-card--white-glass.attendance-profile-card--student.attendance-profile-card--point-glow {
+  background:
+    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.92), transparent 28%),
+    radial-gradient(circle at 88% 92%, var(--attendance-profile-accent-soft), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(238, 245, 249, 0.4));
+  border: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.92),
+    inset -1px -1px 0 rgba(103, 121, 135, 0.05),
+    0 0 38px var(--attendance-profile-accent-soft),
+    -13px -13px 30px rgba(255, 255, 255, 0.66),
+    16px 21px 44px rgba(40, 54, 66, 0.16) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(1.32);
+  backdrop-filter: blur(30px) saturate(1.32);
+}
+
+.attendance-profile-card--student::before {
+  inset: -18%;
+  border: 0;
+  border-radius: 42%;
+  background:
+    radial-gradient(circle at 25% 28%, var(--attendance-profile-gradient-end), transparent 24%),
+    radial-gradient(circle at 74% 66%, var(--attendance-profile-gradient-start), transparent 29%);
+  filter: blur(46px);
+  opacity: 0.18;
+  transform: translate3d(-2%, -1%, 0) scale(0.96);
+  animation: attendance-level-aura 8s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.attendance-profile-card--student::after {
+  inset: -42%;
+  border-radius: 0;
+  background: linear-gradient(
+    112deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.06) 44%,
+    rgba(255, 255, 255, 0.58) 50%,
+    rgba(255, 255, 255, 0.08) 56%,
+    transparent 62%
+  );
+  opacity: 0.56;
+  transform: translate3d(-58%, 0, 0) rotate(8deg);
+  animation: attendance-glass-sheen 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes attendance-level-aura {
+  0% {
+    opacity: 0.13;
+    transform: translate3d(-4%, -2%, 0) scale(0.94) rotate(-2deg);
+  }
+
+  50% {
+    opacity: 0.24;
+  }
+
+  100% {
+    opacity: 0.17;
+    transform: translate3d(5%, 3%, 0) scale(1.06) rotate(3deg);
+  }
+}
+
+@keyframes attendance-glass-sheen {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translate3d(-58%, 0, 0) rotate(8deg);
+  }
+
+  44% {
+    opacity: 0.52;
+  }
+
+  72%,
+  100% {
+    opacity: 0;
+    transform: translate3d(58%, 0, 0) rotate(8deg);
+  }
+}
+
+.attendance-profile-card--student .attendance-profile-card__avatar-wrap {
+  overflow: hidden;
+  border: 0 !important;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(255, 255, 255, 0.94), transparent 32%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.64), rgba(226, 235, 240, 0.35));
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.92),
+    inset -1px -1px 0 rgba(88, 105, 118, 0.05),
+    0 0 24px var(--attendance-profile-accent-soft),
+    -8px -8px 18px rgba(255, 255, 255, 0.72),
+    10px 13px 24px rgba(54, 70, 83, 0.16);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  backdrop-filter: blur(22px) saturate(1.2);
+}
+
+.attendance-profile-card--student .attendance-profile-card__avatar-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  z-index: 2;
+  border-radius: 0;
+  background: linear-gradient(
+    112deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.42) 49%,
+    transparent 58%
+  );
+  opacity: 0;
+  transform: translate3d(-58%, 0, 0) rotate(7deg);
+  animation: attendance-avatar-reflection 6.2s ease-in-out infinite 0.8s;
+  pointer-events: none;
+}
+
+@keyframes attendance-avatar-reflection {
+  0%,
+  24% {
+    opacity: 0;
+    transform: translate3d(-58%, 0, 0) rotate(7deg);
+  }
+
+  48% {
+    opacity: 0.32;
+  }
+
+  72%,
+  100% {
+    opacity: 0;
+    transform: translate3d(58%, 0, 0) rotate(7deg);
+  }
+}
+
+.attendance-profile-card--student .attendance-profile-card__success-badge {
+  z-index: 4;
+  animation: attendance-success-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes attendance-success-breathe {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.45),
+      0 7px 16px rgba(18, 121, 74, 0.28);
+  }
+
+  50% {
+    filter: brightness(1.08);
+    box-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.5),
+      0 9px 24px rgba(18, 121, 74, 0.4);
+  }
+}
+
+.attendance-profile-card--student .attendance-profile-card__name--gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--attendance-profile-gradient-start),
+    var(--attendance-profile-gradient-end),
+    var(--attendance-profile-accent),
+    var(--attendance-profile-gradient-start)
+  );
+  background-size: 260% 100%;
+  animation: attendance-name-level-shimmer 5s ease-in-out infinite;
+}
+
+@keyframes attendance-name-level-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.attendance-profile-card--student .attendance-profile-card__status-chip,
+.attendance-profile-card--student .attendance-profile-card__time-chip,
+.attendance-profile-card--student .attendance-profile-card__detail-item,
+.attendance-profile-card--student .attendance-profile-card__quote {
+  border: 0 !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.62), rgba(232, 240, 245, 0.36)) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+  backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.attendance-profile-card--student .attendance-profile-card__status-chip,
+.attendance-profile-card--student .attendance-profile-card__time-chip {
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 rgba(79, 95, 107, 0.04),
+    0 5px 13px rgba(55, 70, 82, 0.13);
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item {
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.92),
+    inset -1px -1px 0 rgba(79, 95, 107, 0.04),
+    0 0 14px var(--attendance-profile-accent-soft),
+    0 7px 16px rgba(55, 70, 82, 0.13);
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.98);
+  animation: attendance-glass-item-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item:nth-child(1) {
+  animation-delay: 0.08s;
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item:nth-child(4) {
+  animation-delay: 0.26s;
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item:nth-child(5) {
+  animation-delay: 0.32s;
+}
+
+.attendance-profile-card--student .attendance-profile-card__detail-item:nth-child(6) {
+  animation-delay: 0.38s;
+}
+
+@keyframes attendance-glass-item-rise {
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.attendance-profile-card--student .attendance-profile-card__quote {
+  box-shadow:
+    inset 3px 3px 9px rgba(65, 80, 92, 0.07),
+    inset -3px -3px 9px rgba(255, 255, 255, 0.78),
+    0 8px 20px rgba(55, 70, 82, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendance-profile-card--student::before,
+  .attendance-profile-card--student::after,
+  .attendance-profile-card--student .attendance-profile-card__avatar-wrap::after,
+  .attendance-profile-card--student .attendance-profile-card__success-badge,
+  .attendance-profile-card--student .attendance-profile-card__name--gradient,
+  .attendance-profile-card--student .attendance-profile-card__detail-item {
+    animation: none;
+  }
+
+  .attendance-profile-card--student .attendance-profile-card__detail-item {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================================
    ATTENDANCE STATS ROW — Guru / Adult stats grid
    ============================================================ */
 
