@@ -5033,7 +5033,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .attendance-status-processing__ring-outer,
   .attendance-header__system-dot,
   .attendance-status-processing__text,
-  .attendance-confirmation__prompt p {
+  .attendance-confirmation__prompt p,
+  .attendance-clock__time {
     animation: none !important;
   }
 
