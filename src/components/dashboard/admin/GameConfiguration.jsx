@@ -224,6 +224,9 @@ const QuizSettings = () => {
             const { data } = await supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle();
             if (data?.content) {
                 const loadedCats = data.content.categories || (Array.isArray(data.content) ? data.content : []);
+                const filteredCats = loadedCats.filter((category) =>
+                    String(category.label || '').trim().toLowerCase() !== 'staging test'
+                );
                 const canonicalLabels = {
                     doa: 'Doa Harian',
                     'doa harian': 'Doa Harian',
@@ -234,7 +237,7 @@ const QuizSettings = () => {
                     'bacaan sholat': 'Bacaan Shalat',
                     'bacaan shalat': 'Bacaan Shalat'
                 };
-                const normalizedCategories = loadedCats.map((category, index) => ({
+                const normalizedCategories = filteredCats.map((category, index) => ({
                     ...category,
                     id: category.id ?? `category-${index + 1}`,
                     label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
@@ -243,9 +246,20 @@ const QuizSettings = () => {
                 const requiredCategories = defaultQuizData.filter((required) =>
                     !normalizedCategories.some((category) => category.label === required.label)
                 );
-                setQuizConfig(normalizedCategories.length === 0
+                const nextCategories = normalizedCategories.length === 0
                     ? defaultQuizData
-                    : [...normalizedCategories, ...requiredCategories]);
+                    : [...normalizedCategories, ...requiredCategories];
+                setQuizConfig(nextCategories);
+
+                if (filteredCats.length !== loadedCats.length) {
+                    await supabase.from('website_content').upsert({
+                        key: 'quiz_hafalan_config',
+                        content: {
+                            ...(Array.isArray(data.content) ? {} : data.content),
+                            categories: nextCategories
+                        }
+                    }, { onConflict: 'key' });
+                }
             } else {
                 setQuizConfig(defaultQuizData);
             }
@@ -256,7 +270,11 @@ const QuizSettings = () => {
 
     const saveQuizConfig = async () => {
         setIsLoading(true);
-        const payload = { categories: quizConfig };
+        const payload = {
+            categories: quizConfig.filter((category) =>
+                String(category.label || '').trim().toLowerCase() !== 'staging test'
+            )
+        };
         const { error } = await supabase.from('website_content').upsert({ key: 'quiz_hafalan_config', content: payload }, { onConflict: 'key' });
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Konfigurasi Quiz disimpan." });
