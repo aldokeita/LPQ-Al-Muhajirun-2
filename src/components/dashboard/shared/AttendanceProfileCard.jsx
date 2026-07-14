@@ -61,11 +61,15 @@ const AttendanceProfileCard = ({
         : 'linear-gradient(135deg, #047857, #34d399)';
   const visualAccent = pointAccent || {
     color: '#169b62',
+    gradientStart: '#087443',
+    gradientEnd: '#4ade80',
     soft: 'rgba(22, 155, 98, 0.12)',
     glow: 'rgba(22, 155, 98, 0.26)',
   };
   const cardStyle = {
     '--attendance-profile-accent': visualAccent.color,
+    '--attendance-profile-gradient-start': visualAccent.gradientStart,
+    '--attendance-profile-gradient-end': visualAccent.gradientEnd,
     '--attendance-profile-accent-soft': visualAccent.soft,
     '--attendance-profile-accent-glow': visualAccent.glow,
   };
