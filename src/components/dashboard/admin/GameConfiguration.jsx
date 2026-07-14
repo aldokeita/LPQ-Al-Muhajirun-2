@@ -305,9 +305,14 @@ const QuizSettings = () => {
                                     </div>
                                     <div className="flex flex-wrap gap-2 mt-2">
                                         {cat.items.map((item, idx) => (
-                                            <div key={idx} className="bg-secondary px-3 py-1 rounded-full text-xs flex items-center gap-2">
-                                                {item}
-                                                <button onClick={() => removeItem(cat.id, idx)} className="hover:text-red-500"><X className="w-3 h-3"/></button>
+                                            <div
+                                                key={idx}
+                                                className="game-quiz-item-chip"
+                                                style={{ '--quiz-item-accent': cat.color }}
+                                            >
+                                                <span className="game-quiz-item-chip__dot" />
+                                                <span>{item}</span>
+                                                <button onClick={() => removeItem(cat.id, idx)} aria-label={`Hapus ${item}`}><X className="w-3 h-3"/></button>
                                             </div>
                                         ))}
                                         {cat.items.length === 0 && <span className="text-xs text-muted-foreground italic">Belum ada item</span>}
