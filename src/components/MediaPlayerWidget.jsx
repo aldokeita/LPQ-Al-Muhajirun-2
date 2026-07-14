@@ -157,7 +157,13 @@ const MediaPlayerWidget = () => {
              <MediaPlayerSettings 
                 isOpen={isSettingsOpen} 
                 onOpenChange={setIsSettingsOpen} 
-                onUpdate={refreshPlaylist} 
+                onUpdate={refreshPlaylist}
+                isShuffle={isShuffle}
+                isLoop={isLoop}
+                isCrossfade={isCrossfade}
+                onToggleShuffle={toggleShuffle}
+                onToggleLoop={toggleLoop}
+                onToggleCrossfade={toggleCrossfade}
             />
         </div>
     );
