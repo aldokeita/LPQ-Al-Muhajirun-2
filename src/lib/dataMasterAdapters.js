@@ -14,6 +14,12 @@ export const mapClassForLegacyUi = (classItem) => ({
 
 export const normalizeNomorIndukQiroati = (value) => String(value ?? '').trim();
 
+export const normalizeDefaultSppAmount = (value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : null;
+};
+
 export const pickSantriProfileFields = (input) => {
   const nomorInduk = normalizeNomorIndukQiroati(input.nomor_induk_qiroati);
 
@@ -43,6 +49,7 @@ export const pickSantriProfileFields = (input) => {
     berkas_kk: Boolean(input.berkas_kk),
     berkas_form: Boolean(input.berkas_form),
     link_qiroati: input.link_qiroati || null,
+    default_spp_amount: normalizeDefaultSppAmount(input.default_spp_amount),
     status: input.status || 'Aktif',
     points: Number(input.points) || 0,
     order_in_class: input.order_in_class ?? null,

@@ -102,7 +102,10 @@ with expected_migrations(version) as (
     ('20260624001700'),
     ('20260624001800'),
     ('20260624001900'),
-    ('20260624002000')
+    ('20260624002000'),
+    ('20260624002100'),
+    ('20260629000100'),
+    ('20260716000100')
 ),
 sensitive_tables(table_name) as (
   values
@@ -131,7 +134,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 20 and not exists (
+       (count(sm.version) = 23 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -274,6 +277,35 @@ select 'payments period unique index exists',
            and indexdef ilike '%deleted_at IS NULL%'
        )::text,
        'index=payments_active_santri_bulan_tahun_unique'
+
+union all
+select 'santri default spp column is constrained numeric',
+       (
+         exists (
+           select 1
+           from information_schema.columns
+           where table_schema = 'public'
+             and table_name = 'santri'
+             and column_name = 'default_spp_amount'
+             and data_type = 'numeric'
+         )
+         and exists (
+           select 1
+           from pg_constraint
+           where conname = 'santri_default_spp_amount_valid'
+             and conrelid = 'public.santri'::regclass
+         )
+       )::text,
+       'column=santri.default_spp_amount'
+
+union all
+select 'official hafalan curriculum installed',
+       (count(*) >= 103)::text,
+       'active_items=' || count(*)::text
+from public.hafalan_items
+where is_active
+  and category in ('Doa', 'Sholat', 'Surat')
+  and jilid in ('1', '2', '3', '4', '5', '6')
 ;
 '@
 
