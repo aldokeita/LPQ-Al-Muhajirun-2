@@ -21,7 +21,7 @@ import SantriPaymentHistory from '@/components/dashboard/santri/SantriPaymentHis
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
-import { createMurojaahSubmission, fetchHafalanItems, getAcademicErrorMessage, progressStatusToComplete } from '@/lib/academicAdapters';
+import { createMurojaahSubmission, fetchHafalanItems, getAcademicErrorMessage, groupHafalanItemsByJilid, progressStatusToComplete } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 
 /**
@@ -91,14 +91,7 @@ const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
       );
   });
 
-  const itemsByJilid = {
-      1: items.filter(i => !i.jilid || i.jilid === 1),
-      2: items.filter(i => i.jilid === 2),
-      3: items.filter(i => i.jilid === 3),
-      4: items.filter(i => i.jilid === 4),
-      5: items.filter(i => i.jilid === 5),
-      6: items.filter(i => i.jilid === 6),
-  };
+  const itemsByJilid = groupHafalanItemsByJilid(items);
 
   return (
     <Card className={cn("transition-all col-span-full", isAdult ? "bg-white/80 dark:bg-black/40 border-purple-500/30 backdrop-blur-sm text-gray-800 dark:text-white" : "bg-white dark:bg-[#112D4E] shadow-xl border-none")}>

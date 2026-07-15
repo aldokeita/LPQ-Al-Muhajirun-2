@@ -27,6 +27,7 @@ import {
   validatePaymentAmount,
 } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -196,19 +197,35 @@ const PaymentSystem = () => {
   const location = useLocation();
 
   useEffect(() => {
+    let active = true;
+
     const fetchSantri = async () => {
       const { data, error } = await supabase
         .from('santri')
-        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag, default_spp_amount')
+        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, default_spp_amount')
         .eq('status', 'Aktif')
         .order('nama_lengkap');
       if (error) toast({ title: "Error", description: "Gagal memuat data santri.", variant: "destructive" });
-      else setSantriList(data || []);
+      else {
+        const santriWithAvatars = await Promise.all((data || []).map(async (santri) => ({
+          ...santri,
+          foto_url: await resolveAvatarUrl({
+            ownerType: 'santri',
+            ownerId: santri.id,
+            avatarPath: santri.avatar_path,
+            fallbackUrl: santri.foto_url,
+          }),
+        })));
+        if (active) setSantriList(santriWithAvatars);
+      }
     };
     fetchSantri();
     if (rfidInputRef.current) {
         rfidInputRef.current.focus();
     }
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

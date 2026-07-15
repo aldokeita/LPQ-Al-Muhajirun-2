@@ -4,6 +4,19 @@ export const progressStatusToComplete = (status) => status === 'lulus';
 
 export const completeToProgressStatus = (complete) => (complete ? 'lulus' : 'proses');
 
+export const groupHafalanItemsByJilid = (items = []) => {
+    const groups = Object.fromEntries([1, 2, 3, 4, 5, 6].map((jilid) => [jilid, []]));
+
+    items.forEach((item) => {
+        const normalizedJilid = String(item?.jilid || '1')
+            .replace(/^jilid\s*/i, '')
+            .trim();
+        if (groups[normalizedJilid]) groups[normalizedJilid].push(item);
+    });
+
+    return groups;
+};
+
 export const getAcademicErrorMessage = (error) => {
     const message = String(error?.message || error || '');
     if (message.includes('row-level security') || error?.code === '42501') {
