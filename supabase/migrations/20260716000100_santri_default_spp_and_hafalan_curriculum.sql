@@ -125,3 +125,5 @@ where not exists (
     and existing.jilid is not distinct from source.jilid
     and lower(existing.item_name) = lower(source.item_name)
 );
+
+notify pgrst, 'reload schema';
