@@ -85,7 +85,7 @@ const LoginPage = () => {
   const [formError, setFormError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
 
-  const { signInWithUsername, user, loading } = useAuth();
+  const { signInWithUsername, user, role, loading, profileLoading } = useAuth();
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -96,10 +96,10 @@ const LoginPage = () => {
 
   /* --- Redirect if already authenticated --- */
   useEffect(() => {
-    if (user && !loading) {
+    if (user && role && !loading && !profileLoading) {
       navigate('/dashboard');
     }
-  }, [user, loading, navigate]);
+  }, [user, role, loading, profileLoading, navigate]);
 
   /* --- Fetch dynamic logo --- */
   useEffect(() => {
