@@ -105,7 +105,8 @@ with expected_migrations(version) as (
     ('20260624002000'),
     ('20260624002100'),
     ('20260629000100'),
-    ('20260716000100')
+    ('20260716000100'),
+    ('20260716000200')
 ),
 sensitive_tables(table_name) as (
   values
@@ -122,7 +123,10 @@ sensitive_tables(table_name) as (
     ('murojaah_submissions'),
     ('feedbacks'),
     ('notifications'),
-    ('santri_notes')
+    ('santri_notes'),
+    ('santri_character_scores'),
+    ('santri_character_strengths'),
+    ('santri_behavior_records')
 ),
 forbidden_payment_columns(column_name) as (
   values
@@ -134,7 +138,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 23 and not exists (
+       (count(sm.version) = 24 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -306,6 +310,38 @@ from public.hafalan_items
 where is_active
   and category in ('Doa', 'Sholat', 'Surat')
   and jilid in ('1', '2', '3', '4', '5', '6')
+
+union all
+select 'hafalan scoring is constrained and synchronized',
+       (
+         exists (
+           select 1 from information_schema.columns
+           where table_schema = 'public'
+             and table_name = 'hafalan_progress'
+             and column_name = 'score'
+             and data_type = 'smallint'
+             and is_nullable = 'NO'
+         )
+         and exists (
+           select 1 from pg_constraint
+           where conname = 'hafalan_progress_score_check'
+             and conrelid = 'public.hafalan_progress'::regclass
+         )
+         and exists (
+           select 1 from pg_trigger
+           where tgname = 'sync_hafalan_status_from_score'
+             and tgrelid = 'public.hafalan_progress'::regclass
+             and not tgisinternal
+         )
+       )::text,
+       'column=hafalan_progress.score range=1..4'
+
+union all
+select 'official character assessment indicators installed',
+       (count(*) = 15)::text,
+       'active_items=' || count(*)::text
+from public.character_assessment_items
+where is_active
 ;
 '@
 
@@ -575,6 +611,157 @@ where transaction_id like 'RUNNER-PERIOD-TEST-%';
   }
 }
 
+function Invoke-DevelopmentScoringTests {
+  $sql = @'
+begin;
+
+update public.hafalan_progress
+set score = 3
+where santri_id = '10000000-0000-0000-0000-000000000101'
+  and item_id = '50000000-0000-0000-0000-000000000001';
+
+select 'hafalan score below four remains in progress',
+       exists (
+         select 1 from public.hafalan_progress
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and item_id = '50000000-0000-0000-0000-000000000001'
+           and score = 3
+           and status = 'proses'
+       )::text,
+       'score=3 status=proses';
+
+update public.hafalan_progress
+set score = 4
+where santri_id = '10000000-0000-0000-0000-000000000101'
+  and item_id = '50000000-0000-0000-0000-000000000001';
+
+select 'hafalan score four is completed',
+       exists (
+         select 1 from public.hafalan_progress
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and item_id = '50000000-0000-0000-0000-000000000001'
+           and score = 4
+           and status = 'lulus'
+       )::text,
+       'score=4 status=lulus';
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+
+insert into public.santri_character_scores (santri_id, item_id, score, assessed_by, created_by, updated_by)
+values (
+  '10000000-0000-0000-0000-000000000101',
+  1,
+  4,
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002'
+)
+on conflict (santri_id, item_id) do update set score = excluded.score, updated_by = excluded.updated_by;
+
+insert into public.santri_character_strengths (santri_id, strength_key, selected_by)
+values (
+  '10000000-0000-0000-0000-000000000101',
+  'Disiplin',
+  '10000000-0000-0000-0000-000000000002'
+)
+on conflict (santri_id, strength_key) do update set selected_at = now();
+
+insert into public.santri_behavior_records (
+  santri_id, guru_id, incident_date, level, behavior, follow_up, teacher_note, created_by, updated_by
+)
+values (
+  '10000000-0000-0000-0000-000000000101',
+  '10000000-0000-0000-0000-000000000002',
+  current_date,
+  'Ringan',
+  'RUNNER-DEVELOPMENT-SCORING',
+  'Nasihat dan pengingat dari guru',
+  'Data dummy test lokal',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002'
+);
+
+select 'guru scores assigned santri character',
+       exists (
+         select 1 from public.santri_character_scores
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and item_id = 1
+           and score = 4
+       )::text,
+       'guru=A santri=A1 score=4';
+
+select 'guru assigns character strength',
+       exists (
+         select 1 from public.santri_character_strengths
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and strength_key = 'Disiplin'
+       )::text,
+       'strength=Disiplin';
+
+select 'guru records assigned santri behavior',
+       exists (
+         select 1 from public.santri_behavior_records
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and behavior = 'RUNNER-DEVELOPMENT-SCORING'
+       )::text,
+       'level=Ringan';
+
+do $$
+begin
+  begin
+    insert into public.santri_character_scores (santri_id, item_id, score, assessed_by)
+    values ('10000000-0000-0000-0000-000000000201', 1, 4, '10000000-0000-0000-0000-000000000002');
+    raise exception 'guru outside-scope character write was accepted';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$$;
+
+select 'guru outside class character write denied', 'true', 'rls=denied';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000101","role":"authenticated"}', true);
+
+select 'santri reads own character score',
+       (count(*) = 1)::text,
+       'own_rows=' || count(*)::text
+from public.santri_character_scores
+where santri_id = '10000000-0000-0000-0000-000000000101'
+  and item_id = 1;
+
+select 'santri cannot read behavior records',
+       (count(*) = 0)::text,
+       'visible_rows=' || count(*)::text
+from public.santri_behavior_records
+where santri_id = '10000000-0000-0000-0000-000000000101'
+  and behavior = 'RUNNER-DEVELOPMENT-SCORING';
+
+reset role;
+delete from public.santri_behavior_records where behavior = 'RUNNER-DEVELOPMENT-SCORING';
+delete from public.santri_character_strengths
+where santri_id = '10000000-0000-0000-0000-000000000101' and strength_key = 'Disiplin';
+delete from public.santri_character_scores
+where santri_id = '10000000-0000-0000-0000-000000000101' and item_id = 1;
+rollback;
+'@
+
+  $output = $sql | docker exec -i $DbContainer psql -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -F "|"
+  if ($LASTEXITCODE -ne 0) {
+    Add-TestResult "development scoring role matrix" $false "psql exited with $LASTEXITCODE"
+    return
+  }
+
+  foreach ($line in $output) {
+    if (-not $line) { continue }
+    $parts = $line -split "\|", 3
+    if ($parts.Count -lt 3) { continue }
+    Add-TestResult $parts[0] ($parts[1] -eq "true") $parts[2]
+  }
+}
+
 function Invoke-SmokeTests {
   $output = & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run-local-runtime-smoke-tests.ps1") -SupabaseUrl $SupabaseUrl 2>&1
   $exitCode = $LASTEXITCODE
@@ -619,6 +806,7 @@ try {
 
   Invoke-SchemaChecks
   Invoke-PaymentPeriodUniquenessTests
+  Invoke-DevelopmentScoringTests
   Invoke-SmokeTests
 
   Write-Host "SUMMARY passed=$script:Passed failed=$script:Failed"

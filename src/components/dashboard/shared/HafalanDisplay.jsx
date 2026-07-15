@@ -5,6 +5,7 @@ import HafalanItemDraggable from '@/components/dashboard/admin/HafalanItemDragga
 import { Check, Loader2, Circle, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import DevelopmentScoreSelector from '@/components/dashboard/shared/DevelopmentScoreSelector';
 
 const HafalanDisplay = ({ 
     jilid, 
@@ -13,6 +14,8 @@ const HafalanDisplay = ({
     onItemDrop, 
     onDeleteItem,
     progressData = null, // Optional: { [itemName]: boolean }
+    scoreData = null, // Optional: { [itemName]: 1 | 2 | 3 | 4 }
+    onScoreChange = null,
     isLoading = false,
     onItemClick = null, // New prop for click interaction
     isInteractive = false // Flag to enable click interactivity
@@ -31,7 +34,10 @@ const HafalanDisplay = ({
 
     const displayItems = items || [];
     // progressData is expected to be an object where keys are item names and values are booleans (hafal status)
-    const completedCount = progressData ? displayItems.filter(i => progressData[i.item_name]).length : 0;
+    const hasScoring = scoreData !== null;
+    const completedCount = hasScoring
+        ? displayItems.filter(i => Number(scoreData[i.item_name]) === 4).length
+        : progressData ? displayItems.filter(i => progressData[i.item_name]).length : 0;
     const totalCount = displayItems.length;
     const isCompleted = totalCount > 0 && completedCount === totalCount;
     
@@ -55,7 +61,7 @@ const HafalanDisplay = ({
                     <span className="font-bold text-sm">Jilid {jilid}</span>
                     {isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
                 </div>
-                {progressData ? (
+                {progressData || hasScoring ? (
                      <Badge variant={isCompleted ? "success" : "secondary"} className={cn("text-[10px] h-5 px-1.5", isCompleted && "bg-green-200 text-green-800 hover:bg-green-300")}>
                         {completedCount}/{totalCount}
                      </Badge>
@@ -69,10 +75,28 @@ const HafalanDisplay = ({
                     {displayItems.length > 0 ? (
                         displayItems.map(item => {
                             // Check if this item is marked as hafal in progressData
-                            const isHafal = progressData && progressData[item.item_name];
+                            const itemScore = hasScoring ? scoreData[item.item_name] : null;
+                            const isHafal = hasScoring ? Number(itemScore) === 4 : progressData && progressData[item.item_name];
                             return (
                                 <div key={item.id} className="relative group">
-                                    {progressData ? (
+                                    {hasScoring ? (
+                                        <div className={cn(
+                                            "grid gap-2 rounded-lg border p-2 text-sm transition-colors",
+                                            isHafal
+                                                ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/20"
+                                                : "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950"
+                                        )}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="min-w-0 flex-1 truncate font-medium" title={item.item_name}>{item.item_name}</span>
+                                                {isHafal && <CheckCircle2 className="h-4 w-4 flex-none text-emerald-600" aria-label="Hafalan tercapai" />}
+                                            </div>
+                                            <DevelopmentScoreSelector
+                                                value={itemScore}
+                                                onChange={onScoreChange ? (score) => onScoreChange(item, score) : undefined}
+                                                compact
+                                            />
+                                        </div>
+                                    ) : progressData ? (
                                         <div 
                                             onClick={() => canClick && onItemClick(item)}
                                             className={cn(

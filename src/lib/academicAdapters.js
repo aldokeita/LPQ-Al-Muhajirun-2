@@ -4,6 +4,46 @@ export const progressStatusToComplete = (status) => status === 'lulus';
 
 export const completeToProgressStatus = (complete) => (complete ? 'lulus' : 'proses');
 
+export const DEVELOPMENT_SCORE_OPTIONS = [
+    { score: 1, code: 'BB', label: 'Belum Berkembang', tone: 'slate' },
+    { score: 2, code: 'MB', label: 'Mulai Berkembang', tone: 'amber' },
+    { score: 3, code: 'BSH', label: 'Berkembang Sesuai Harapan', tone: 'sky' },
+    { score: 4, code: 'SB', label: 'Sangat Berkembang', tone: 'emerald' }
+];
+
+export const CHARACTER_STRENGTH_OPTIONS = [
+    'Disiplin',
+    'Jujur',
+    'Mandiri',
+    'Percaya Diri',
+    'Bertanggung Jawab',
+    'Sopan Santun',
+    'Peduli',
+    'Rajin Beribadah',
+    'Semangat Belajar',
+    "Gemar Membaca Al-Qur'an"
+];
+
+export const VIOLATION_LEVELS = {
+    Ringan: {
+        examples: 'Terlambat, lupa membawa buku, tidak memakai ID Card, atau bercanda saat belajar',
+        followUp: 'Nasihat dan pengingat dari guru'
+    },
+    Sedang: {
+        examples: 'Mengganggu teman berulang kali, tidak sopan kepada guru, atau tidak mengerjakan hafalan berulang',
+        followUp: 'Pembinaan, pencatatan, dan pemberitahuan kepada orang tua'
+    },
+    Berat: {
+        examples: 'Berkelahi, merusak fasilitas, membawa barang berbahaya, atau tindakan yang membahayakan',
+        followUp: 'Pertemuan dengan orang tua, pembinaan intensif, dan keputusan kepala LPQ'
+    }
+};
+
+export const getDevelopmentScoreMeta = (score) => (
+    DEVELOPMENT_SCORE_OPTIONS.find((item) => item.score === Number(score))
+    || DEVELOPMENT_SCORE_OPTIONS[0]
+);
+
 export const groupHafalanItemsByJilid = (items = []) => {
     const groups = Object.fromEntries([1, 2, 3, 4, 5, 6].map((jilid) => [jilid, []]));
 
@@ -30,6 +70,12 @@ export const getAcademicErrorMessage = (error) => {
     }
     if (message.includes('hafalan_progress_status_check')) {
         return 'Status hafalan tidak valid.';
+    }
+    if (message.includes('score_check')) {
+        return 'Skor perkembangan harus berada pada nilai 1 sampai 4.';
+    }
+    if (message.includes('santri_behavior_records_level_check')) {
+        return 'Tingkat pelanggaran tidak valid.';
     }
     if (message.includes('murojaah_submissions_status_check')) {
         return 'Status murojaah tidak valid.';
@@ -155,7 +201,7 @@ export const fetchClassesWithActiveSantriForTeacher = async (guruId) => {
 export const fetchHafalanProgress = async (santriIds = null) => {
     let query = supabase
         .from('hafalan_progress')
-        .select('id,santri_id,item_id,category,item_name,status,nilai,catatan,assessed_by,assessed_at,created_at,updated_at');
+        .select('id,santri_id,item_id,category,item_name,status,score,nilai,catatan,assessed_by,assessed_at,created_at,updated_at');
 
     if (Array.isArray(santriIds) && santriIds.length > 0) {
         query = query.in('santri_id', santriIds);
@@ -177,8 +223,23 @@ export const buildProgressMap = (progressRows) => {
     return map;
 };
 
-export const upsertHafalanProgress = async ({ santriId, item, complete, userId }) => {
+export const buildHafalanScoreMap = (progressRows) => {
+    const map = {};
+    (progressRows || []).forEach((row) => {
+        const key = row.item_id
+            ? `${row.santri_id}-${row.item_id}`
+            : `${row.santri_id}-${row.category}-${row.item_name}`;
+        map[key] = Number(row.score || (row.status === 'lulus' ? 4 : 1));
+    });
+    return map;
+};
+
+export const upsertHafalanProgress = async ({ santriId, item, score, userId }) => {
     const itemId = item?.id || null;
+    const normalizedScore = Number(score);
+    if (!Number.isInteger(normalizedScore) || normalizedScore < 1 || normalizedScore > 4) {
+        throw new Error('Skor hafalan harus berupa angka 1 sampai 4.');
+    }
     let query = supabase
         .from('hafalan_progress')
         .select('id')
@@ -198,7 +259,8 @@ export const upsertHafalanProgress = async ({ santriId, item, complete, userId }
         item_id: itemId,
         category: item.category,
         item_name: item.item_name,
-        status: completeToProgressStatus(complete),
+        score: normalizedScore,
+        status: normalizedScore === 4 ? 'lulus' : 'proses',
         assessed_by: userId || null,
         assessed_at: new Date().toISOString(),
         updated_by: userId || null
@@ -208,6 +270,113 @@ export const upsertHafalanProgress = async ({ santriId, item, complete, userId }
         ? await supabase.from('hafalan_progress').update(payload).eq('id', existing.id)
         : await supabase.from('hafalan_progress').insert({ ...payload, created_by: userId || null });
 
+    if (result.error) throw result.error;
+};
+
+export const fetchCharacterAssessmentItems = async () => {
+    const { data, error } = await supabase
+        .from('character_assessment_items')
+        .select('id,item_order,item_name,is_active')
+        .eq('is_active', true)
+        .order('item_order', { ascending: true });
+    if (error) throw error;
+    return data || [];
+};
+
+export const fetchSantriCharacterScores = async (santriId) => {
+    const { data, error } = await supabase
+        .from('santri_character_scores')
+        .select('id,santri_id,item_id,score,assessed_by,assessed_at,updated_at')
+        .eq('santri_id', santriId);
+    if (error) throw error;
+    return data || [];
+};
+
+export const upsertSantriCharacterScore = async ({ santriId, itemId, score, userId }) => {
+    const normalizedScore = Number(score);
+    if (!Number.isInteger(normalizedScore) || normalizedScore < 1 || normalizedScore > 4) {
+        throw new Error('Skor karakter harus berupa angka 1 sampai 4.');
+    }
+    const { data: existing, error: existingError } = await supabase
+        .from('santri_character_scores')
+        .select('id')
+        .eq('santri_id', santriId)
+        .eq('item_id', itemId)
+        .maybeSingle();
+    if (existingError) throw existingError;
+
+    const payload = {
+            santri_id: santriId,
+            item_id: itemId,
+            score: normalizedScore,
+            assessed_by: userId || null,
+            assessed_at: new Date().toISOString(),
+            updated_by: userId || null
+    };
+    const result = existing?.id
+        ? await supabase.from('santri_character_scores').update(payload).eq('id', existing.id)
+        : await supabase.from('santri_character_scores').insert({ ...payload, created_by: userId || null });
+    if (result.error) throw result.error;
+};
+
+export const fetchSantriCharacterStrengths = async (santriId) => {
+    const { data, error } = await supabase
+        .from('santri_character_strengths')
+        .select('santri_id,strength_key,selected_by,selected_at')
+        .eq('santri_id', santriId)
+        .order('selected_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+};
+
+export const setSantriCharacterStrength = async ({ santriId, strengthKey, selected, userId }) => {
+    const query = selected
+        ? supabase.from('santri_character_strengths').upsert({
+            santri_id: santriId,
+            strength_key: strengthKey,
+            selected_by: userId || null,
+            selected_at: new Date().toISOString()
+        }, { onConflict: 'santri_id,strength_key' })
+        : supabase.from('santri_character_strengths')
+            .delete()
+            .eq('santri_id', santriId)
+            .eq('strength_key', strengthKey);
+    const { error } = await query;
+    if (error) throw error;
+};
+
+export const fetchSantriBehaviorRecords = async (santriId) => {
+    const { data, error } = await supabase
+        .from('santri_behavior_records')
+        .select('id,santri_id,guru_id,incident_date,level,behavior,follow_up,teacher_note,created_at,updated_at,guru:guru_id(nama)')
+        .eq('santri_id', santriId)
+        .order('incident_date', { ascending: false })
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+};
+
+export const saveSantriBehaviorRecord = async ({ recordId, santriId, incidentDate, level, behavior, followUp, teacherNote, userId }) => {
+    const payload = {
+        incident_date: incidentDate,
+        level,
+        behavior: String(behavior || '').trim(),
+        follow_up: String(followUp || '').trim(),
+        teacher_note: String(teacherNote || '').trim() || null,
+        updated_by: userId || null
+    };
+    if (!payload.behavior || !payload.follow_up) {
+        throw new Error('Bentuk perilaku dan tindak lanjut wajib diisi.');
+    }
+
+    const result = recordId
+        ? await supabase.from('santri_behavior_records').update(payload).eq('id', recordId)
+        : await supabase.from('santri_behavior_records').insert({
+            ...payload,
+            santri_id: santriId,
+            guru_id: userId || null,
+            created_by: userId || null
+        });
     if (result.error) throw result.error;
 };
 

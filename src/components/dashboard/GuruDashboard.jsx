@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { enableDeferredFeatures } from '@/lib/featureFlags';
 import {
-  buildProgressMap,
+  buildHafalanScoreMap,
   fetchClassesWithActiveSantriForTeacher,
   fetchHafalanItems,
   fetchHafalanProgress,
@@ -239,7 +239,7 @@ const GuruDashboard = () => {
             }
 
             setHafalanItems(hafalanItemsData || []);
-            setHafalanProgress(buildProgressMap(progressData || []));
+            setHafalanProgress(buildHafalanScoreMap(progressData || []));
             setMurojaahSubmissions(submissionsData || []);
 
             if (santriBirthdaysRes.data || guruBirthdaysRes.data) {
@@ -282,7 +282,7 @@ const GuruDashboard = () => {
   };
   const openMurojaahModal = (submission) => { setIsManualMurojaahActive(false); setCurrentSubmission(submission); setFeedback(submission.feedback || ''); setIsMurojaahOpen(true); };
 
-  const handleHafalanToggle = async (item) => {
+  const handleHafalanScoreChange = async (item, score) => {
     if (!selectedSantri) return;
 
     if (!selectedSantri.id || !user?.id) {
@@ -293,18 +293,22 @@ const GuruDashboard = () => {
     const category = selectedHafalan.category;
     const itemName = item.item_name;
     const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${category}-${itemName}`;
-    const newStatus = !hafalanProgress[key];
+    const previousScore = hafalanProgress[key];
 
     // Optimistic Update
-    setHafalanProgress(prev => ({...prev, [key]: newStatus}));
+    setHafalanProgress(prev => ({...prev, [key]: score}));
 
     try {
-        await upsertHafalanProgress({ santriId: selectedSantri.id, item: { ...item, category, item_name: itemName }, complete: newStatus, userId: user.id });
+        await upsertHafalanProgress({ santriId: selectedSantri.id, item: { ...item, category, item_name: itemName }, score, userId: user.id });
 
-        toast({ title: newStatus ? "Hafalan Tercapai" : "Hafalan Dibatalkan", description: `Item "${itemName}" telah diperbarui.`, duration: 2000 });
+        toast({
+            title: score === 4 ? "Hafalan Tercapai" : "Skor Hafalan Tersimpan",
+            description: `Item "${itemName}" mendapat skor ${score}.`,
+            duration: 2000
+        });
     } catch (error) {
         toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
-        setHafalanProgress(prev => ({...prev, [key]: !newStatus})); // Revert optimistic update
+        setHafalanProgress(prev => ({...prev, [key]: previousScore}));
     }
   };
 
@@ -414,7 +418,7 @@ const GuruDashboard = () => {
       const data = {};
       selectedHafalan.items.forEach(item => {
           const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${selectedHafalan.category}-${item.item_name}`;
-          data[item.item_name] = !!hafalanProgress[key];
+          data[item.item_name] = hafalanProgress[key] || null;
       });
       return data;
   };
@@ -547,7 +551,7 @@ const GuruDashboard = () => {
         </div>
       </div>
       <SantriDetailModal santri={selectedSantri} isOpen={isDetailOpen} onOpenChange={setIsDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
-      {selectedSantri && (<Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}><DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>Progres Hafalan {selectedHafalan.category}</DialogTitle><DialogDescription>Santri: {selectedSantri.nama_lengkap} (Klik item untuk menandai hafalan)</DialogDescription></DialogHeader><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">{[1, 2, 3, 4, 5, 6].map(jilid => (<HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} progressData={currentProgressData} onItemClick={handleHafalanToggle} isInteractive={true} />))}</div></DialogContent></Dialog>)}
+      {selectedSantri && (<Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}><DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>Skor Hafalan {selectedHafalan.category}</DialogTitle><DialogDescription>Santri: {selectedSantri.nama_lengkap}. Berikan skor 1–4; hafalan ditandai tercapai otomatis pada skor 4.</DialogDescription></DialogHeader><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">{[1, 2, 3, 4, 5, 6].map(jilid => (<HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />))}</div></DialogContent></Dialog>)}
 
       <Dialog open={isMurojaahOpen} onOpenChange={setIsMurojaahOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">

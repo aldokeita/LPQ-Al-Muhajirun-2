@@ -20,6 +20,7 @@ import SantriAbsensiRecap from '@/components/dashboard/santri/SantriAbsensiRecap
 import SantriPaymentHistory from '@/components/dashboard/santri/SantriPaymentHistory';
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
+import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { createMurojaahSubmission, fetchHafalanItems, getAcademicErrorMessage, groupHafalanItemsByJilid, progressStatusToComplete } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
@@ -82,13 +83,14 @@ const getSessionStartTimestamp = (dateStr, sesiName) => {
 };
 
 const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
-  const progressData = {};
+  const scoreData = {};
   items.forEach(i => {
-      progressData[i.item_name] = hafalanData.some(h =>
-          (h.item_id === i.id || h.category === title) &&
-          h.item_name === i.item_name &&
-          progressStatusToComplete(h.status)
+      const progress = hafalanData.find(h =>
+          (h.item_id === i.id || h.category === title) && h.item_name === i.item_name
       );
+      scoreData[i.item_name] = progress
+          ? Number(progress.score || (progressStatusToComplete(progress.status) ? 4 : 1))
+          : null;
   });
 
   const itemsByJilid = groupHafalanItemsByJilid(items);
@@ -106,7 +108,7 @@ const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
                         jilid={jilid}
                         items={itemsByJilid[jilid]}
                         isDraggable={false}
-                        progressData={progressData}
+                        scoreData={scoreData}
                      />
                  ))}
              </div>
@@ -447,8 +449,9 @@ const SantriDashboard = ({ isAdult = false }) => {
                             </CardContent>
                          </Card>
                      </div>
-                </div>
-            </TabsContent>
+                 </div>
+                 <SantriDevelopmentProfile santriId={santriData.id} editable={false} />
+             </TabsContent>
 
             <TabsContent value="attendance">
                 <SantriAbsensiRecap />
