@@ -216,12 +216,12 @@ const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBeha
           {CHARACTER_STRENGTH_OPTIONS.map((strength) => {
             const selected = strengths.has(strength);
             return editable ? (
-              <label key={strength} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors', selected ? 'border-violet-300 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30' : 'hover:bg-muted/50')}>
+              <label key={strength} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors', selected ? 'border-violet-300 bg-violet-50 dark:border-violet-400/30 dark:bg-slate-900/70' : 'hover:bg-muted/50')}>
                 <Checkbox checked={selected} onCheckedChange={(checked) => handleStrengthChange(strength, Boolean(checked))} disabled={savingKey === `strength-${strength}`} />
                 <span className="text-sm font-medium">{strength}</span>
               </label>
             ) : selected ? (
-              <div key={strength} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-200">
+              <div key={strength} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 dark:border-violet-400/30 dark:bg-slate-900/70 dark:text-violet-200">
                 <CheckCircle2 className="h-4 w-4" />{strength}
               </div>
             ) : null;

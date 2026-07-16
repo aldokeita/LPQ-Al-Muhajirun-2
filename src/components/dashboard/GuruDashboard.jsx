@@ -25,7 +25,6 @@ import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNot
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
 import {
   buildHafalanScoreMap,
   fetchClassesWithActiveSantriForTeacher,
@@ -154,6 +153,7 @@ const GuruDashboard = () => {
   const [isHafalanOpen, setIsHafalanOpen] = useState(false);
   const [isMurojaahOpen, setIsMurojaahOpen] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState(null);
+  const [previewAvatar, setPreviewAvatar] = useState(null);
   const [selectedHafalan, setSelectedHafalan] = useState({ category: '', items: [] });
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
   const [currentSubmission, setCurrentSubmission] = useState(null);
@@ -187,6 +187,7 @@ const GuruDashboard = () => {
             const foto_url = await resolveAvatarUrl({
                 ownerType: 'guru',
                 ownerId: guru.id,
+                avatarPath: guru.avatar_path,
                 fallbackUrl: guru.foto_url,
             });
             setGuruData({ ...guru, foto_url });
@@ -208,7 +209,24 @@ const GuruDashboard = () => {
                 supabase.from('guru').select('tanggal_lahir')
             ]);
 
-            setMyClasses(classList);
+            const classListWithAvatars = await Promise.all(classList.map(async (kelas) => ({
+                ...kelas,
+                santri: await Promise.all((kelas.santri || []).map(async (santri) => {
+                    try {
+                        const resolvedAvatar = await resolveAvatarUrl({
+                            ownerType: 'santri',
+                            ownerId: santri.id,
+                            avatarPath: santri.avatar_path,
+                            fallbackUrl: santri.foto_url,
+                        });
+                        return { ...santri, foto_url: resolvedAvatar || santri.foto_url || '' };
+                    } catch {
+                        return santri;
+                    }
+                }))
+            })));
+
+            setMyClasses(classListWithAvatars);
 
             if (classList.length > 0) {
                 const classIds = classList.map(c => c.id);
@@ -425,7 +443,7 @@ const GuruDashboard = () => {
   const currentProgressData = getProgressData();
 
   return ( <>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 pb-8 pt-20 sm:px-6 lg:px-8">
         <BirthdayGreeting user={guruData} type="Guru" />
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground font-cinzel">Dashboard Guru</h1>
@@ -433,13 +451,9 @@ const GuruDashboard = () => {
                 <div className="relative mr-2">
                     <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-primary/20 hover:bg-primary/10 text-primary hover:text-primary/80 shadow-sm" title="Ulang Tahun Bulan Ini"><Cake className="w-5 h-5" />{birthdayCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">{birthdayCount}</span>}</Button>
                 </div>
-                {enableDeferredFeatures && (
-                  <>
-                    <Button onClick={() => navigate('/gatcha-game')} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md border-none"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
-                    <Button onClick={() => navigate('/quiz-hafalan')} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md border-none"><Gamepad2 className="w-4 h-4 mr-2"/> Play Quiz</Button>
-                    <Button onClick={() => navigate('/random-name')} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md border-none"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
-                  </>
-                )}
+                <Button onClick={() => navigate('/gatcha-game')} variant="outline" className="border-violet-300/70 bg-background/70 text-violet-700 shadow-sm hover:bg-violet-50 dark:border-violet-400/30 dark:bg-slate-950/65 dark:text-violet-200 dark:hover:bg-slate-800"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
+                <Button onClick={() => navigate('/quiz-hafalan')} variant="outline" className="border-cyan-300/70 bg-background/70 text-cyan-700 shadow-sm hover:bg-cyan-50 dark:border-cyan-400/30 dark:bg-slate-950/65 dark:text-cyan-200 dark:hover:bg-slate-800"><PlayCircle className="w-4 h-4 mr-2"/> Play Quiz</Button>
+                <Button onClick={() => navigate('/random-name')} variant="outline" className="border-amber-300/70 bg-background/70 text-amber-700 shadow-sm hover:bg-amber-50 dark:border-amber-400/30 dark:bg-slate-950/65 dark:text-amber-200 dark:hover:bg-slate-800"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
             </div>
         </div>
         {guruData && (
@@ -492,10 +506,17 @@ const GuruDashboard = () => {
                                             <tr key={santri.id} className="border-b border-border/50 last:border-0 hover:bg-secondary/5 transition-colors duration-200">
                                                 <td className="py-3 px-4 text-muted-foreground">{index + 1}</td>
                                                 <td className="py-3 px-4 flex items-center gap-3">
-                                                    <Avatar className="w-8 h-8">
-                                                        <AvatarImage src={santri.foto_url} />
-                                                        <AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreviewAvatar(santri)}
+                                                        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                                        aria-label={`Lihat foto ${santri.nama_lengkap}`}
+                                                    >
+                                                        <Avatar className="w-9 h-9 border border-border shadow-sm transition-transform hover:scale-105">
+                                                            <AvatarImage src={santri.foto_url} className="object-cover" />
+                                                            <AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                    </button>
                                                     <span className="font-medium text-foreground">{santri.nama_lengkap}</span>
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
@@ -550,6 +571,24 @@ const GuruDashboard = () => {
             ))}
         </div>
       </div>
+      <Dialog open={Boolean(previewAvatar)} onOpenChange={(open) => { if (!open) setPreviewAvatar(null); }}>
+        <DialogContent className="max-w-md overflow-hidden p-0">
+          <div className="aspect-square w-full bg-slate-100 dark:bg-slate-950">
+            {previewAvatar?.foto_url ? (
+              <img src={previewAvatar.foto_url} alt={`Foto ${previewAvatar.nama_lengkap}`} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+                <Avatar className="h-28 w-28"><AvatarFallback className="text-4xl">{previewAvatar?.nama_lengkap?.charAt(0)}</AvatarFallback></Avatar>
+                <p className="text-sm">Foto santri belum tersedia.</p>
+              </div>
+            )}
+          </div>
+          <DialogHeader className="px-6 pb-6">
+            <DialogTitle>{previewAvatar?.nama_lengkap}</DialogTitle>
+            <DialogDescription>Foto profil santri dari kelas yang Anda ampu.</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
       <SantriDetailModal santri={selectedSantri} isOpen={isDetailOpen} onOpenChange={setIsDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
       {selectedSantri && (<Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}><DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>Skor Hafalan {selectedHafalan.category}</DialogTitle><DialogDescription>Santri: {selectedSantri.nama_lengkap}. Berikan skor 1–4; hafalan ditandai tercapai otomatis pada skor 4.</DialogDescription></DialogHeader><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">{[1, 2, 3, 4, 5, 6].map(jilid => (<HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />))}</div></DialogContent></Dialog>)}
 
@@ -649,7 +688,7 @@ const GuruDashboard = () => {
                                     <Button onClick={handleSubmitFeedback} className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md"><Send className="w-4 h-4 mr-2"/> Simpan Penilaian</Button>
                                 </div>
                             ) : (
-                                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900 rounded-xl space-y-2">
+                                <div className="space-y-2 rounded-xl border border-green-100 bg-green-50 p-4 dark:border-emerald-400/25 dark:bg-slate-900/70">
                                     <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-bold"><CheckCircle2 className="w-5 h-5"/> Telah Dinilai</div>
                                     <p className="text-sm italic text-foreground/80">"{currentSubmission.feedback || 'Telah diverifikasi.'}"</p>
                                 </div>

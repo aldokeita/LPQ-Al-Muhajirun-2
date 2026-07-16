@@ -110,6 +110,15 @@
     --mmq-terlambat: 38 92% 40%;
     --mmq-tidak-hadir: 0 84% 50%;
   }
+
+  .dark .lpq-dialog-surface {
+    --background: 222 30% 7%;
+    --card: 222 24% 11%;
+    --secondary: 222 18% 16%;
+    --muted: 222 16% 17%;
+    --muted-foreground: 215 15% 67%;
+    --accent: 222 16% 18%;
+  }
 }
  
 @layer base {

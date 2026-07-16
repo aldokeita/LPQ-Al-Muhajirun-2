@@ -131,7 +131,7 @@ const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' 
             <p className="text-[10px] font-bold uppercase text-muted-foreground">Rata-rata</p>
             <p className="text-sm font-black text-foreground">{averageScore ? averageScore.toFixed(1) : '—'}<span className="text-[10px] text-muted-foreground"> / 4</span></p>
           </div>
-          <div className="min-w-[62px] rounded-md bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950/30">
+          <div className="min-w-[62px] rounded-md bg-emerald-50 px-2 py-1.5 dark:border dark:border-emerald-400/25 dark:bg-slate-900/70">
             <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Hafal</p>
             <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">{memorizedCount}</p>
           </div>
@@ -213,7 +213,7 @@ const MurojaahRecorder = ({ santriId, hafalanItems, onSubmissionSuccess, isAdult
 
 const ClassmatesList = ({ classmates, todayAttendance }) => {
     return (
-        <Card className="bg-white dark:bg-[#112D4E] shadow-xl border-none">
+        <Card className="bg-white dark:bg-slate-950/75 shadow-xl border-none dark:border dark:border-white/10">
             <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-t-lg">
                 <CardTitle className="flex items-center gap-2 text-[#112D4E] dark:text-white text-lg">
                     <Users className="w-5 h-5 text-blue-500" />
@@ -226,7 +226,7 @@ const ClassmatesList = ({ classmates, todayAttendance }) => {
                         const attendance = todayAttendance.find(a => a.user_id === friend.id);
                         const isPresent = !!attendance;
                         return (
-                            <div key={friend.id} className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-sm", isPresent ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700")}>
+                            <div key={friend.id} className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-sm", isPresent ? "bg-green-50 dark:bg-slate-900/75 border-green-200 dark:border-emerald-400/30" : "bg-gray-50 dark:bg-slate-900/60 border-gray-100 dark:border-white/10")}>
                                 <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
                                     <AvatarImage src={friend.foto_url} />
                                     <AvatarFallback>{friend.nama_lengkap.charAt(0)}</AvatarFallback>
@@ -457,7 +457,7 @@ const SantriDashboard = ({ isAdult = false }) => {
         <h1 className="text-3xl md:text-4xl font-bold text-[#112D4E] dark:text-white mb-8 flex items-center justify-between font-cinzel">
             Dashboard Santri
         </h1>
-        <section className="mb-8 overflow-hidden rounded-lg border border-slate-200/70 bg-gradient-to-br from-slate-950 via-[#123456] to-emerald-950 text-white shadow-xl dark:border-white/10">
+        <section className="mb-8 overflow-hidden rounded-lg border border-slate-200/70 bg-gradient-to-br from-slate-950 via-[#123456] to-slate-900 text-white shadow-xl dark:border-white/10">
           <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
             <div className="flex justify-center lg:justify-start">
               <div className="rounded-full border border-white/20 bg-white/10 p-1.5 shadow-lg backdrop-blur-sm">
@@ -497,7 +497,7 @@ const SantriDashboard = ({ isAdult = false }) => {
                 onClick={openMyAttendanceModal}
                 className={cn(
                   'flex min-h-10 items-center justify-center gap-3 rounded-md px-4 py-2 text-sm font-semibold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
-                  hasAttendedToday ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-slate-700 text-white hover:bg-slate-600'
+                  hasAttendedToday ? 'bg-emerald-500 text-white hover:bg-emerald-600 dark:border dark:border-emerald-400/40 dark:bg-slate-800 dark:hover:bg-slate-700' : 'bg-slate-700 text-white hover:bg-slate-600'
                 )}
               >
                 <AttendanceStatusIcon status={myStatus} className="pointer-events-none" />
@@ -511,7 +511,7 @@ const SantriDashboard = ({ isAdult = false }) => {
         </section>
         <Tabs defaultValue="overview" className="space-y-6">
             <div className="no-scrollbar overflow-x-auto pb-1">
-              <TabsList className="h-auto min-w-max rounded-lg bg-white p-1 shadow-sm dark:bg-[#112D4E]">
+              <TabsList className="h-auto min-w-max rounded-lg bg-white p-1 shadow-sm dark:border dark:border-white/10 dark:bg-slate-950/80">
                 <TabsTrigger value="overview" className="whitespace-nowrap">Ringkasan</TabsTrigger>
                 <TabsTrigger value="attendance" className="whitespace-nowrap">Rekap Absensi</TabsTrigger>
                 <TabsTrigger value="payments" className="whitespace-nowrap">Riwayat Pembayaran</TabsTrigger>
