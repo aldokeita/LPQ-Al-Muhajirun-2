@@ -174,15 +174,16 @@ const AdminDashboard = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 pt-20">
+    <main className="admin-command-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 pt-20">
 
       {/* Global Search Section — below navbar */}
-      <div className="mb-6">
+      <section className="admin-command-center__search mb-6" aria-label="Pencarian data LPQ">
         <GlobalSearch onNavigate={handleGlobalSearchNavigate} />
-      </div>
+      </section>
 
       {/* Page Header with Quick Actions */}
       <AdminPageHeader
+        eyebrow="Pusat Operasional"
         title="Dashboard Administrator"
         subtitle="Kelola seluruh sistem LPQ Al-Muhajirun"
       >
@@ -234,7 +235,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 relative z-10">
+      <section className="admin-command-center__stats grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 relative z-10" aria-label="Ringkasan operasional">
         {isLoading ? (
           <>
             <Skeleton className="h-28 rounded-xl admin-skeleton-shimmer" />
@@ -277,7 +278,7 @@ const AdminDashboard = () => {
             />
           </>
         )}
-      </div>
+      </section>
 
       {/* Module Navigation */}
       <AdminModuleNav
@@ -288,11 +289,13 @@ const AdminDashboard = () => {
 
       {/* Santri Subcategory Segmented Control — visible only when Data Santri is active */}
       {activeTab === 'santri' && (
-        <div className="flex justify-center mt-6">
-          <div className="admin-glass-tab-list inline-flex p-1 rounded-full gap-1">
+        <div className="admin-command-center__santri-filter flex justify-center mt-6">
+          <div className="admin-glass-tab-list inline-flex p-1 rounded-full gap-1" role="group" aria-label="Kategori santri">
             {santriSubTabs.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
+                aria-pressed={activeSantriSubTab === tab.id}
                 onClick={() => setActiveSantriSubTab(tab.id)}
                 className={`
                   admin-glass-tab-button lpq-shiny-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
@@ -317,8 +320,8 @@ const AdminDashboard = () => {
       )}
 
       {/* Tab Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6">
-        <div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="admin-command-center__workspace space-y-6 mt-6">
+        <div className="admin-command-center__workspace-inner">
             <TabsContent value="santri">
               {activeSantriSubTab === 'dewasa' ? (
                 <SantriDewasaManagement />
@@ -351,7 +354,7 @@ const AdminDashboard = () => {
         isOpen={isSantriModalOpen}
         onOpenChange={setIsSantriModalOpen}
       />
-    </div>
+    </main>
   );
 };
 

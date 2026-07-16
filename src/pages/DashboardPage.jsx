@@ -11,6 +11,7 @@ import PentashihDashboard from '@/components/dashboard/PentashihDashboard';
 import SideRays from '@/components/reactbits/SideRays/SideRays';
 import { supabase } from '@/lib/customSupabaseClient';
 import '@/styles/admin-dashboard.css';
+import '@/styles/admin-command-center.css';
 
 const DashboardPage = () => {
   const { role, user } = useAuth();
