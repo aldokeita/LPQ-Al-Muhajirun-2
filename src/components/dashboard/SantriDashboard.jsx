@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PlayCircle, Mic, Send, AlertCircle, Users, CheckCircle as CheckCircleFull, Star, Edit, Upload, Video, X } from 'lucide-react';
+import { BarChart3, BookOpen, CheckCircle as CheckCircleFull, Edit, Mic, PlayCircle, Send, Star, Upload, Users, Video } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
@@ -20,10 +19,20 @@ import SantriAbsensiRecap from '@/components/dashboard/santri/SantriAbsensiRecap
 import SantriPaymentHistory from '@/components/dashboard/santri/SantriPaymentHistory';
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
+import DashboardDisclosure from '@/components/dashboard/shared/DashboardDisclosure';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
-import { createMurojaahSubmission, fetchHafalanItems, getAcademicErrorMessage, groupHafalanItemsByJilid, progressStatusToComplete } from '@/lib/academicAdapters';
+import {
+  createMurojaahSubmission,
+  DEVELOPMENT_SCORE_OPTIONS,
+  fetchHafalanItems,
+  getAcademicErrorMessage,
+  getDevelopmentScoreMeta,
+  groupHafalanItemsByJilid,
+  progressStatusToComplete
+} from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
+import { getSessionName } from '@/utils/sessionMapping';
 
 /**
  * SANTRI AUTHENTICATION FLOW DOCUMENTATION:
@@ -77,16 +86,24 @@ const sessionTimes = {
 };
 
 const getSessionStartTimestamp = (dateStr, sesiName) => {
-    if (!sesiName || !sessionTimes[sesiName]) return null;
-    const { start } = sessionTimes[sesiName];
+    const normalizedSession = getSessionName(sesiName);
+    if (!normalizedSession || !sessionTimes[normalizedSession]) return null;
+    const { start } = sessionTimes[normalizedSession];
     return new Date(`${dateStr}T${start}:00`).toISOString();
 };
 
-const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
+const scoreToneClasses = {
+  slate: 'bg-slate-500',
+  amber: 'bg-amber-500',
+  sky: 'bg-sky-500',
+  emerald: 'bg-emerald-500'
+};
+
+const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' }) => {
   const scoreData = {};
   items.forEach(i => {
       const progress = hafalanData.find(h =>
-          (h.item_id === i.id || h.category === title) && h.item_name === i.item_name
+          h.item_id === i.id || (h.category === category && h.item_name === i.item_name)
       );
       scoreData[i.item_name] = progress
           ? Number(progress.score || (progressStatusToComplete(progress.status) ? 4 : 1))
@@ -94,26 +111,66 @@ const HafalanSection = ({ title, items, hafalanData, isAdult }) => {
   });
 
   const itemsByJilid = groupHafalanItemsByJilid(items);
+  const scoredValues = Object.values(scoreData).filter((score) => Number.isInteger(score) && score >= 1 && score <= 4);
+  const averageScore = scoredValues.length
+    ? scoredValues.reduce((total, score) => total + score, 0) / scoredValues.length
+    : 0;
+  const averageMeta = averageScore ? getDevelopmentScoreMeta(Math.round(averageScore)) : null;
+  const memorizedCount = Object.values(scoreData).filter((score) => Number(score) === 4).length;
+  const notMemorizedCount = Math.max(0, items.length - memorizedCount);
 
   return (
-    <Card className={cn("transition-all col-span-full", isAdult ? "bg-white/80 dark:bg-black/40 border-purple-500/30 backdrop-blur-sm text-gray-800 dark:text-white" : "bg-white dark:bg-[#112D4E] shadow-xl border-none")}>
-        <CardHeader>
-            <CardTitle className={cn("text-xl", isAdult ? "text-purple-700 dark:text-purple-300" : "text-[#3F72AF]")}>{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                 {[1,2,3,4,5,6].map(jilid => (
-                     <HafalanDisplay
-                        key={jilid}
-                        jilid={jilid}
-                        items={itemsByJilid[jilid]}
-                        isDraggable={false}
-                        scoreData={scoreData}
-                     />
-                 ))}
-             </div>
-        </CardContent>
-    </Card>
+    <DashboardDisclosure
+      title={title}
+      description={`Pantau skor dan capaian hafalan ${title.toLowerCase()} dari seluruh jilid.`}
+      icon={BookOpen}
+      tone={tone}
+      summary={(
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="min-w-[66px] rounded-md bg-muted/60 px-2 py-1.5">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Rata-rata</p>
+            <p className="text-sm font-black text-foreground">{averageScore ? averageScore.toFixed(1) : '—'}<span className="text-[10px] text-muted-foreground"> / 4</span></p>
+          </div>
+          <div className="min-w-[62px] rounded-md bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950/30">
+            <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Hafal</p>
+            <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">{memorizedCount}</p>
+          </div>
+          <div className="min-w-[72px] rounded-md bg-amber-50 px-2 py-1.5 dark:bg-amber-950/30">
+            <p className="text-[10px] font-bold uppercase text-amber-700 dark:text-amber-300">Belum</p>
+            <p className="text-sm font-black text-amber-700 dark:text-amber-300">{notMemorizedCount}</p>
+          </div>
+        </div>
+      )}
+    >
+      <div className="mb-5 grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        {DEVELOPMENT_SCORE_OPTIONS.map((option) => (
+          <div key={option.score} className="flex items-start gap-2.5">
+            <span className={cn('mt-1.5 h-2.5 w-2.5 flex-none rounded-full', scoreToneClasses[option.tone])} aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold text-foreground">{option.score} · {option.code}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{option.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p className="font-semibold text-foreground">Rincian per jilid</p>
+        <p className="text-muted-foreground">
+          {averageMeta ? `Capaian saat ini: ${averageMeta.code} · ${averageMeta.label}` : 'Belum ada skor dari guru'}
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {[1, 2, 3, 4, 5, 6].map((jilid) => (
+          <HafalanDisplay
+            key={jilid}
+            jilid={jilid}
+            items={itemsByJilid[jilid]}
+            isDraggable={false}
+            scoreData={scoreData}
+          />
+        ))}
+      </div>
+    </DashboardDisclosure>
   );
 };
 
@@ -123,7 +180,7 @@ const MurojaahRecorder = ({ santriId, hafalanItems, onSubmissionSuccess, isAdult
     const [isUploading, setIsUploading] = useState(false);
 
     const categories = [...new Set(hafalanItems.map(i => i.category))];
-    const filteredItems = hafalanItems.filter(i => i.category === selectedCategory).map(i => i.item_name);
+    const filteredItems = [...new Set(hafalanItems.filter(i => i.category === selectedCategory).map(i => i.item_name))];
 
     const handleSend = () => {
         if(!selectedItem) return;
@@ -282,8 +339,7 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
 };
 
 const SantriDashboard = ({ isAdult = false }) => {
-  const { user, role } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [santriData, setSantriData] = useState(null);
   const [hafalan, setHafalan] = useState([]);
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
@@ -376,9 +432,10 @@ const SantriDashboard = ({ isAdult = false }) => {
 
   const jilidVideos = videos.reduce((acc, video) => { const jilid = video.jilid || 'Lainnya'; if (!acc[jilid]) acc[jilid] = []; acc[jilid].push(video); return acc; }, {});
   const hasAttendedToday = dailyAttendance.includes(santriData.id);
+  const sessionName = getSessionName(santriData.sesi_mengaji || santriData.class?.sesi) || '-';
 
   const myStatus = myAttendanceRecord
-    ? determineAttendanceStatus(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), santriData.sesi_mengaji || santriData.class?.sesi))
+    ? determineAttendanceStatus(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName))
     : 'Tidak Hadir';
 
   const myAttendanceDetails = {
@@ -387,11 +444,11 @@ const SantriDashboard = ({ isAdult = false }) => {
       user_role: 'santri',
       status: myStatus,
       attendance_date: new Date().toLocaleDateString('en-CA'),
-      sesi: santriData.sesi_mengaji || santriData.class?.sesi,
+      sesi: sessionName,
       class_id: santriData.id_kelas,
       checkInTimestamp: myAttendanceRecord?.check_in_timestamp,
-      sessionStartTime: getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), santriData.sesi_mengaji || santriData.class?.sesi),
-      lateMinutes: myAttendanceRecord ? calculateTimeDifference(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), santriData.sesi_mengaji || santriData.class?.sesi)) : 0
+      sessionStartTime: getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName),
+      lateMinutes: myAttendanceRecord ? calculateTimeDifference(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName)) : 0
   };
 
   return (
@@ -400,57 +457,85 @@ const SantriDashboard = ({ isAdult = false }) => {
         <h1 className="text-3xl md:text-4xl font-bold text-[#112D4E] dark:text-white mb-8 flex items-center justify-between font-cinzel">
             Dashboard Santri
         </h1>
-        <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-[#112D4E] to-[#3F72AF] shadow-2xl text-white">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-400/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
-            <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8">
-                <div className="relative group"><div className="absolute -inset-1 rounded-full blur opacity-40 group-hover:opacity-75 transition duration-500 bg-white"></div><Avatar className="w-32 h-32 md:w-40 md:h-40 border-4 border-white/20 shadow-xl relative"><AvatarImage src={santriData.foto_url} className="object-cover"/><AvatarFallback className="text-4xl font-bold text-[#112D4E] bg-white">{santriData.nama_lengkap.charAt(0)}</AvatarFallback></Avatar></div>
-                <div className="flex-grow text-center md:text-left space-y-2">
-                    <h2 className="text-3xl md:text-4xl font-black tracking-tight">{santriData.nama_lengkap}</h2>
-                    <p className="text-lg text-blue-100 font-medium flex items-center justify-center md:justify-start gap-2"><Users className="w-5 h-5"/> {santriData.class?.nama_kelas || 'Belum Masuk Kelas'}</p>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
-                        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10"><p className="text-[10px] uppercase font-bold text-blue-200">Jilid</p><p className="text-xl font-bold">{santriData.jilid || '-'}</p></div>
-                        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10"><p className="text-[10px] uppercase font-bold text-blue-200">Poin</p><p className="text-xl font-bold flex items-center justify-center gap-1"><Star className="w-4 h-4 fill-yellow-400 text-yellow-400"/>{santriData.points || 0}</p></div>
-                        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10"><p className="text-[10px] uppercase font-bold text-blue-200">Sesi</p><p className="text-xl font-bold">{santriData.sesi_mengaji || '-'}</p></div>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-3 min-w-[160px]">
-                    <Button onClick={() => setIsInfoModalOpen(true)} variant="outline" className="bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm border-0"><Edit className="w-4 h-4 mr-2" /> Edit Profil</Button>
-                    <div className={cn("px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-3 shadow-md", hasAttendedToday ? "bg-green-500 text-white" : "bg-slate-700 text-white")}>
-                       <AttendanceStatusIcon status={myStatus} onClick={openMyAttendanceModal} className="hover:scale-110" />
-                       <div className="flex flex-col text-left leading-tight">
-                           <span className="text-[10px] uppercase opacity-80">Absen Hari Ini</span>
-                           <span>{hasAttendedToday ? myStatus : "Belum Absen"}</span>
-                       </div>
-                    </div>
-                </div>
+        <section className="mb-8 overflow-hidden rounded-lg border border-slate-200/70 bg-gradient-to-br from-slate-950 via-[#123456] to-emerald-950 text-white shadow-xl dark:border-white/10">
+          <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
+            <div className="flex justify-center lg:justify-start">
+              <div className="rounded-full border border-white/20 bg-white/10 p-1.5 shadow-lg backdrop-blur-sm">
+                <Avatar className="h-28 w-28 border-2 border-white/80 sm:h-32 sm:w-32">
+                  <AvatarImage src={santriData.foto_url} className="object-cover" />
+                  <AvatarFallback className="bg-white text-3xl font-black text-[#112D4E]">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
+                </Avatar>
+              </div>
             </div>
-        </div>
+
+            <div className="min-w-0 text-center lg:text-left">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-200">Profil belajar santri</p>
+              <h2 className="text-2xl font-black tracking-tight sm:text-3xl">{santriData.nama_lengkap}</h2>
+              <p className="mt-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-200 sm:text-base lg:justify-start">
+                <Users className="h-4 w-4" /> {santriData.class?.nama_kelas || 'Belum masuk kelas'}
+              </p>
+              <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md lg:max-w-lg">
+                <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+                  <p className="text-[10px] font-bold uppercase text-slate-300">Jilid</p>
+                  <p className="mt-0.5 text-base font-black sm:text-lg">{santriData.jilid || '-'}</p>
+                </div>
+                <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+                  <p className="text-[10px] font-bold uppercase text-slate-300">Poin</p>
+                  <p className="mt-0.5 flex items-center justify-center gap-1 text-base font-black sm:text-lg lg:justify-start"><Star className="h-4 w-4 fill-amber-300 text-amber-300" />{santriData.points || 0}</p>
+                </div>
+                <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+                  <p className="text-[10px] font-bold uppercase text-slate-300">Sesi</p>
+                  <p className="mt-0.5 truncate text-base font-black sm:text-lg" title={sessionName}>{sessionName}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[180px] lg:grid-cols-1">
+              <Button onClick={() => setIsInfoModalOpen(true)} variant="outline" className="border-white/25 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
+              <button
+                type="button"
+                onClick={openMyAttendanceModal}
+                className={cn(
+                  'flex min-h-10 items-center justify-center gap-3 rounded-md px-4 py-2 text-sm font-semibold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
+                  hasAttendedToday ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-slate-700 text-white hover:bg-slate-600'
+                )}
+              >
+                <AttendanceStatusIcon status={myStatus} className="pointer-events-none" />
+                <span className="flex flex-col text-left leading-tight">
+                  <span className="text-[10px] uppercase opacity-80">Absen hari ini</span>
+                  <span>{hasAttendedToday ? myStatus : 'Belum Absen'}</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
         <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="bg-white dark:bg-[#112D4E] p-1 rounded-lg"><TabsTrigger value="overview">Ringkasan</TabsTrigger><TabsTrigger value="attendance">Rekap Absensi</TabsTrigger><TabsTrigger value="payments">Riwayat Pembayaran</TabsTrigger></TabsList>
+            <div className="no-scrollbar overflow-x-auto pb-1">
+              <TabsList className="h-auto min-w-max rounded-lg bg-white p-1 shadow-sm dark:bg-[#112D4E]">
+                <TabsTrigger value="overview" className="whitespace-nowrap">Ringkasan</TabsTrigger>
+                <TabsTrigger value="attendance" className="whitespace-nowrap">Rekap Absensi</TabsTrigger>
+                <TabsTrigger value="payments" className="whitespace-nowrap">Riwayat Pembayaran</TabsTrigger>
+                <TabsTrigger value="learning" className="whitespace-nowrap">Muroja'ah & Video</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="overview">
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                     <div className="lg:col-span-2 space-y-8">
-                         <ClassmatesList classmates={classmates} todayAttendance={classmatesAttendance} />
-                         <div className="space-y-6">
-                            <HafalanSection title="Doa" items={hafalanItems.filter(i => i.category === 'Doa')} hafalanData={hafalan} isAdult={false} />
-                            <HafalanSection title="Sholat" items={hafalanItems.filter(i => i.category === 'Sholat')} hafalanData={hafalan} isAdult={false} />
-                            <HafalanSection title="Surat" items={hafalanItems.filter(i => i.category === 'Surat')} hafalanData={hafalan} isAdult={false} />
-                         </div>
+                 <div className="space-y-6">
+                   <ClassmatesList classmates={classmates} todayAttendance={classmatesAttendance} />
+                   <div className="space-y-4">
+                     <div className="flex items-end justify-between gap-4">
+                       <div>
+                         <p className="text-xs font-bold uppercase tracking-wider text-primary">Perkembangan belajar</p>
+                         <h2 className="mt-1 text-xl font-black text-foreground sm:text-2xl">Progres hafalan dan karakter</h2>
+                       </div>
+                       <BarChart3 className="hidden h-7 w-7 text-primary/60 sm:block" aria-hidden="true" />
                      </div>
-                     <div className="lg:col-span-1 space-y-8">
-                         <MurojaahRecorder santriId={santriData.id} hafalanItems={hafalanItems} onSubmissionSuccess={() => initializeData()} isAdult={false} />
-                         <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 shadow-xl border-none text-white overflow-hidden relative group cursor-pointer" onClick={() => setIsHafalanModalOpen(true)}>
-                            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
-                            <CardContent className="p-8 flex flex-col items-center justify-center text-center relative z-10 h-full min-h-[250px]">
-                                <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><PlayCircle className="w-8 h-8 text-white" /></div>
-                                <h2 className="text-2xl font-bold mb-2">Video Hafalan</h2><p className="text-indigo-100 text-sm">Tonton video panduan hafalan sesuai jilid Anda untuk belajar lebih mudah.</p>
-                            </CardContent>
-                         </Card>
-                     </div>
+                     <HafalanSection title="Do'a" category="Doa" items={hafalanItems.filter(i => i.category === 'Doa')} hafalanData={hafalan} tone="emerald" />
+                     <HafalanSection title="Sholat" category="Sholat" items={hafalanItems.filter(i => i.category === 'Sholat')} hafalanData={hafalan} tone="sky" />
+                     <HafalanSection title="Surat" category="Surat" items={hafalanItems.filter(i => i.category === 'Surat')} hafalanData={hafalan} tone="violet" />
+                     <SantriDevelopmentProfile santriId={santriData.id} editable={false} collapsible />
+                   </div>
                  </div>
-                 <SantriDevelopmentProfile santriId={santriData.id} editable={false} />
              </TabsContent>
 
             <TabsContent value="attendance">
@@ -459,6 +544,29 @@ const SantriDashboard = ({ isAdult = false }) => {
 
             <TabsContent value="payments">
                 <SantriPaymentHistory />
+            </TabsContent>
+
+            <TabsContent value="learning">
+              <div className="space-y-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-primary">Ruang belajar mandiri</p>
+                  <h2 className="mt-1 text-xl font-black text-foreground sm:text-2xl">Muroja'ah dan video hafalan</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Kirim setoran hafalan dan buka video panduan tanpa memenuhi halaman ringkasan.</p>
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <MurojaahRecorder santriId={santriData.id} hafalanItems={hafalanItems} onSubmissionSuccess={() => initializeData()} isAdult={false} />
+                  <Card className="group overflow-hidden border-none bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-700 text-white shadow-xl">
+                    <CardContent className="flex min-h-[250px] flex-col items-start justify-between p-7 sm:p-8">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/20 bg-white/15 backdrop-blur-sm"><PlayCircle className="h-7 w-7" /></div>
+                      <div className="mt-10">
+                        <h3 className="text-2xl font-black">Video Hafalan</h3>
+                        <p className="mt-2 max-w-md text-sm leading-relaxed text-indigo-100">Tonton panduan sesuai jilid untuk menemani latihan di rumah.</p>
+                        <Button type="button" onClick={() => setIsHafalanModalOpen(true)} className="mt-5 bg-white text-indigo-700 hover:bg-indigo-50">Buka Video</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </TabsContent>
         </Tabs>
 

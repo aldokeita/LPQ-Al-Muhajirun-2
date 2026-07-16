@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import DevelopmentScoreSelector from '@/components/dashboard/shared/DevelopmentScoreSelector';
+import DashboardDisclosure from '@/components/dashboard/shared/DashboardDisclosure';
 import {
   CHARACTER_STRENGTH_OPTIONS,
   DEVELOPMENT_SCORE_OPTIONS,
@@ -48,7 +49,7 @@ const createBehaviorForm = () => ({
   teacherNote: ''
 });
 
-const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBehavior = false }) => {
+const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBehavior = false, collapsible = false }) => {
   const [items, setItems] = useState([]);
   const [scores, setScores] = useState({});
   const [strengths, setStrengths] = useState(new Set());
@@ -157,77 +158,77 @@ const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBeha
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-primary/15 shadow-sm">
-        <CardHeader className="border-b bg-gradient-to-r from-emerald-50 via-white to-sky-50 dark:from-emerald-950/30 dark:via-background dark:to-sky-950/30">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg"><BookHeart className="h-5 w-5 text-emerald-600" />Perkembangan Karakter</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">Skala 1–4 membantu wali memahami proses perkembangan secara bertahap.</p>
-            </div>
-            <div className="rounded-lg border bg-background/80 px-4 py-2 text-right shadow-sm">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Rata-rata</p>
-              <p className="text-2xl font-black text-foreground">{averageScore ? averageScore.toFixed(1) : '—'}<span className="text-sm font-medium text-muted-foreground"> / 4</span></p>
-              {averageMeta && <p className="text-xs font-semibold text-primary">{averageMeta.code} · {averageMeta.label}</p>}
-            </div>
+      <DashboardDisclosure
+        title="Perkembangan Karakter"
+        description="Skala 1–4 membantu wali memahami proses perkembangan secara bertahap."
+        icon={BookHeart}
+        tone="emerald"
+        collapsible={collapsible}
+        summary={(
+          <div className="min-w-[112px] rounded-md border bg-background/80 px-3 py-1.5 text-right shadow-sm">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Rata-rata</p>
+            <p className="text-base font-black text-foreground">{averageScore ? averageScore.toFixed(1) : '—'}<span className="text-[10px] font-medium text-muted-foreground"> / 4</span></p>
+            {averageMeta && <p className="text-[10px] font-semibold text-primary">{averageMeta.code} · {averageMeta.label}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-4">
+        )}
+        contentClassName="p-0 sm:p-0"
+      >
+        <div className="grid grid-cols-2 gap-2 border-b bg-muted/20 p-4 sm:grid-cols-4">
             {DEVELOPMENT_SCORE_OPTIONS.map((option) => (
               <div key={option.score} className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className={cn('h-2.5 w-2.5 rounded-full', scoreTone[option.tone])} aria-hidden="true" />
                 <span><strong className="text-foreground">{option.score} {option.code}</strong> · {option.label}</span>
               </div>
             ))}
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {items.length ? (
-            <div className="divide-y">
-              {items.map((item) => (
-                <div key={item.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">{item.item_order}</span>
-                    <p className="pt-1 text-sm font-medium leading-snug">{item.item_name}</p>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 sm:justify-end">
-                    <DevelopmentScoreSelector
-                      value={scores[item.id]}
-                      onChange={editable ? (score) => handleScoreChange(item.id, score) : undefined}
-                      disabled={savingKey === `score-${item.id}`}
-                      compact
-                    />
-                    {savingKey === `score-${item.id}` && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  </div>
+        </div>
+        {items.length ? (
+          <div className="divide-y">
+            {items.map((item) => (
+              <div key={item.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">{item.item_order}</span>
+                  <p className="pt-1 text-sm font-medium leading-snug">{item.item_name}</p>
                 </div>
-              ))}
-            </div>
-          ) : <p className="p-6 text-center text-sm text-muted-foreground">Belum ada indikator karakter.</p>}
-        </CardContent>
-      </Card>
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                  <DevelopmentScoreSelector
+                    value={scores[item.id]}
+                    onChange={editable ? (score) => handleScoreChange(item.id, score) : undefined}
+                    disabled={savingKey === `score-${item.id}`}
+                    compact
+                  />
+                  {savingKey === `score-${item.id}` && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : <p className="p-6 text-center text-sm text-muted-foreground">Belum ada indikator karakter.</p>}
+      </DashboardDisclosure>
 
-      <Card className="border-violet-200/70 shadow-sm dark:border-violet-900">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-violet-500" />Karakter Unggulan</CardTitle>
-          <p className="text-sm text-muted-foreground">Kekuatan yang paling menonjol dalam keseharian santri.</p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {CHARACTER_STRENGTH_OPTIONS.map((strength) => {
-              const selected = strengths.has(strength);
-              return editable ? (
-                <label key={strength} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors', selected ? 'border-violet-300 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30' : 'hover:bg-muted/50')}>
-                  <Checkbox checked={selected} onCheckedChange={(checked) => handleStrengthChange(strength, Boolean(checked))} disabled={savingKey === `strength-${strength}`} />
-                  <span className="text-sm font-medium">{strength}</span>
-                </label>
-              ) : selected ? (
-                <div key={strength} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-200">
-                  <CheckCircle2 className="h-4 w-4" />{strength}
-                </div>
-              ) : null;
-            })}
-            {!editable && strengths.size === 0 && <p className="col-span-full py-4 text-center text-sm text-muted-foreground">Karakter unggulan belum ditetapkan oleh guru.</p>}
-          </div>
-        </CardContent>
-      </Card>
+      <DashboardDisclosure
+        title="Karakter Unggulan"
+        description="Kekuatan yang paling menonjol dalam keseharian santri."
+        icon={Sparkles}
+        tone="violet"
+        collapsible={collapsible}
+        summary={<span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-200">{strengths.size} karakter terpilih</span>}
+      >
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {CHARACTER_STRENGTH_OPTIONS.map((strength) => {
+            const selected = strengths.has(strength);
+            return editable ? (
+              <label key={strength} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors', selected ? 'border-violet-300 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30' : 'hover:bg-muted/50')}>
+                <Checkbox checked={selected} onCheckedChange={(checked) => handleStrengthChange(strength, Boolean(checked))} disabled={savingKey === `strength-${strength}`} />
+                <span className="text-sm font-medium">{strength}</span>
+              </label>
+            ) : selected ? (
+              <div key={strength} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-200">
+                <CheckCircle2 className="h-4 w-4" />{strength}
+              </div>
+            ) : null;
+          })}
+          {!editable && strengths.size === 0 && <p className="col-span-full py-4 text-center text-sm text-muted-foreground">Karakter unggulan belum ditetapkan oleh guru.</p>}
+        </div>
+      </DashboardDisclosure>
 
       {showBehavior && editable && (
         <Card className="border-orange-200/70 shadow-sm dark:border-orange-900">
