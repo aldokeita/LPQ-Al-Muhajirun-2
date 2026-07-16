@@ -78,14 +78,13 @@ const AdminStatCard = ({
           <p className="admin-stat-card-label">{label}</p>
           {masked && onToggleMask && (
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleMask();
               }}
-              className="admin-stat-card-mask-toggle"
+              className="transition-colors hover:opacity-80"
+              style={{ color: 'hsl(var(--admin-text-muted))' }}
               aria-label={showMask ? 'Sembunyikan nilai' : 'Tampilkan nilai'}
-              aria-pressed={showMask}
             >
               {showMask ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             </button>
