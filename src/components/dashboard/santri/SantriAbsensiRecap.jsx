@@ -247,7 +247,7 @@ const SantriAbsensiRecap = () => {
                     disabled={!canInspect}
                     aria-label={`${i} ${monthNames[month]}: ${tooltip}`}
                     className={cn(
-                        "mx-auto flex h-9 w-full max-w-10 items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-default sm:h-10 sm:text-sm",
+                        "flex h-9 w-full items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-default sm:h-10 sm:text-sm lg:h-11",
                         bgColor
                     )}
                 >
@@ -302,7 +302,7 @@ const SantriAbsensiRecap = () => {
                 ))}
             </div>
 
-            <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/5 dark:border-white/10 dark:bg-slate-950/75 dark:shadow-black/25">
+            <section className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/5 dark:border-white/10 dark:bg-slate-950/75 dark:shadow-black/25">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="flex items-center gap-2 text-lg font-bold"><CalendarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />Kalender Kehadiran</h3>
@@ -315,13 +315,13 @@ const SantriAbsensiRecap = () => {
                     </div>
                 </div>
                 <div className="p-3 sm:p-4">
-                    <div className="mx-auto max-w-lg">
+                    <div className="w-full">
                       <div className="mb-1 grid grid-cols-5 gap-1 sm:gap-1.5">
                         {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map(day => <div key={day} className="py-1.5 text-center text-[11px] font-bold uppercase text-muted-foreground">{day}</div>)}
                       </div>
                       <div className="grid grid-cols-5 gap-1 sm:gap-1.5">{renderCalendar()}</div>
                     </div>
-                    <div className="mx-auto mt-4 flex max-w-lg flex-wrap gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-xs font-medium text-muted-foreground dark:border-white/10">
+                    <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-xs font-medium text-muted-foreground dark:border-white/10 sm:justify-start">
                         <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Tepat waktu</span>
                         <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />Terlambat</span>
                         <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Tidak hadir</span>

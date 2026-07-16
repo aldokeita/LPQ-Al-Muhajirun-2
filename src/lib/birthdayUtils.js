@@ -28,6 +28,25 @@ export const getBirthdayToday = (students = [], date = new Date()) => {
     }));
 };
 
+export const getBirthdaysThisMonth = (people = [], date = new Date()) => {
+  const today = getJakartaDateParts(date);
+  return people
+    .map((person) => ({ person, birthDate: parseDateOnly(person.tanggal_lahir) }))
+    .filter(({ birthDate }) => birthDate?.month === today.month)
+    .map(({ person, birthDate }) => ({
+      ...person,
+      age: Math.max(0, today.year - birthDate.year),
+      birthdayDay: birthDate.day,
+      isBirthdayToday: birthDate.day === today.day,
+    }))
+    .sort((a, b) => {
+      const aUpcoming = a.birthdayDay >= today.day;
+      const bUpcoming = b.birthdayDay >= today.day;
+      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+      return a.birthdayDay - b.birthdayDay;
+    });
+};
+
 export const normalizeIndonesianPhone = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
   if (!digits) return '';
@@ -37,11 +56,13 @@ export const normalizeIndonesianPhone = (value) => {
   return digits;
 };
 
-export const buildBirthdayWhatsappUrl = (student) => {
-  const phone = normalizeIndonesianPhone(student?.no_hp_ortu);
+export const buildBirthdayWhatsappUrl = (person, audience = 'santri') => {
+  const phone = normalizeIndonesianPhone(person?.no_hp_ortu || person?.no_hp);
   if (!phone) return '';
-  const name = String(student?.nama_lengkap || 'Ananda').trim();
-  const ageText = Number.isFinite(Number(student?.age)) ? ` yang hari ini berusia ${student.age} tahun` : '';
-  const message = `Assalamu'alaikum Bapak/Ibu wali ${name}. Barakallah fii umrik untuk ${name}${ageText}. Semoga Allah memberi kesehatan, keberkahan usia, serta memudahkan dan mengistiqamahkan Ananda dalam belajar Al-Qur'an. Aamiin.`;
+  const name = String(person?.nama_lengkap || person?.nama || 'Ananda').trim();
+  const ageText = Number.isFinite(Number(person?.age)) ? ` yang hari ini berusia ${person.age} tahun` : '';
+  const message = audience === 'guru'
+    ? `Assalamu'alaikum ${name}. Barakallah fii umrik${ageText}. Semoga Allah memberi kesehatan, keberkahan usia, dan kemudahan dalam mendampingi para santri belajar Al-Qur'an. Aamiin.`
+    : `Assalamu'alaikum Bapak/Ibu wali ${name}. Barakallah fii umrik untuk ${name}${ageText}. Semoga Allah memberi kesehatan, keberkahan usia, serta memudahkan dan mengistiqamahkan Ananda dalam belajar Al-Qur'an. Aamiin.`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 };

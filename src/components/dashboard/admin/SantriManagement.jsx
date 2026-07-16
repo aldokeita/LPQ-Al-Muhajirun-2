@@ -21,6 +21,7 @@ import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
+import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -496,6 +497,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
+  const [birthdayStudents, setBirthdayStudents] = useState([]);
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
@@ -507,8 +509,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   }, [subCategory]);
 
   useEffect(() => {
-      if (santriList.length > 0) calculateBirthdayCount();
-  }, [santriList]);
+      setBirthdayCount(getBirthdaysThisMonth(birthdayStudents).length);
+  }, [birthdayStudents]);
 
   const loadData = async (currentTab = subCategory) => {
     setIsLoadingData(true);
@@ -544,6 +546,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               });
               return mapSantriForLegacyUi({ ...item, foto_url });
           }));
+          const activeSantri = mappedSantri.filter((s) => !s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()));
+          setBirthdayStudents(activeSantri);
           const filteredSantri = mappedSantri.filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
               const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
@@ -574,23 +578,6 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     }
   };
   
-  const calculateBirthdayCount = async () => {
-      const currentMonth = new Date().getMonth() + 1;
-      let count = 0;
-      santriList.forEach(s => {
-          if (s.tanggal_lahir) {
-              if (new Date(s.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          }
-      });
-      const { data: guruData } = await supabase.from('guru').select('tanggal_lahir');
-      if (guruData) {
-          guruData.forEach(g => {
-              if (g.tanggal_lahir && new Date(g.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          });
-      }
-      setBirthdayCount(count);
-  };
-
   const classGuruMap = useMemo(() => {
     return classesList.reduce((acc, cls) => {
       acc[cls.id] = cls.guru?.nama || 'Belum ada guru';
@@ -1295,7 +1282,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
-      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} />
+      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
       
       <ConfirmationDialog 
         isOpen={confirmDialog.isOpen} 

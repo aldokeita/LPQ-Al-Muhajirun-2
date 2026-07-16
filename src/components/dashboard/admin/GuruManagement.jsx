@@ -17,6 +17,7 @@ import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNot
 import * as XLSX from 'xlsx';
 import { getOperationalRoleFromGuruForm, pickGuruProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
+import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
 
@@ -60,12 +61,7 @@ const GuruManagement = () => {
 
   const calculateBirthdayCount = useCallback(() => {
       try {
-          const currentMonth = new Date().getMonth() + 1;
-          let count = 0;
-          guruList.forEach(g => {
-              if (g.tanggal_lahir && new Date(g.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          });
-          setBirthdayCount(count);
+          setBirthdayCount(getBirthdaysThisMonth(guruList.map((guru) => ({ ...guru, nama_lengkap: guru.nama }))).length);
       } catch (err) {
           console.error("Error calculating birthdays:", err);
       }
@@ -557,7 +553,7 @@ const GuruManagement = () => {
         </DialogContent>
       </Dialog>
 
-      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} />
+      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={guruList.map((guru) => ({ ...guru, nama_lengkap: guru.nama, no_hp_ortu: guru.no_hp }))} audience="guru" />
 
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
         <DialogContent className="max-w-xl p-0 overflow-hidden bg-transparent border-none shadow-none">

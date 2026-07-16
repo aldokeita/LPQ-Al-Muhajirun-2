@@ -37,7 +37,7 @@ import {
   upsertHafalanProgress
 } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
-import { getBirthdayToday } from '@/lib/birthdayUtils';
+import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const jilidOptions = [
   'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
@@ -342,7 +342,7 @@ const GuruDashboard = () => {
 
   const pendingSubmissionsCount = useMemo(() => murojaahSubmissions.filter(sub => sub.status === 'menunggu').length, [murojaahSubmissions]);
   const allMySantri = useMemo(() => myClasses.flatMap(c => c.santri), [myClasses]);
-  const birthdayStudentsToday = useMemo(() => getBirthdayToday(allMySantri), [allMySantri]);
+  const birthdayStudentsThisMonth = useMemo(() => getBirthdaysThisMonth(allMySantri), [allMySantri]);
   const getCurrentPaymentStatus = useCallback((santriId) => paymentStatusBySantri[santriId] || 'Belum Lunas', [paymentStatusBySantri]);
   const categories = [...new Set(hafalanItems.map(i => i.category))];
   const filteredManualItems = hafalanItems.filter(i => i.category === manualMurojaahForm.category).map(i => i.item_name);
@@ -426,7 +426,7 @@ const GuruDashboard = () => {
             <h1 className="text-3xl md:text-4xl font-bold text-foreground font-cinzel">Dashboard Guru</h1>
             <div className="flex flex-wrap gap-2 items-center justify-center md:justify-end">
                 <div className="relative mr-2">
-                    <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-rose-200 bg-rose-50 text-rose-600 shadow-sm hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/20 dark:bg-slate-950 dark:text-rose-300 dark:hover:bg-slate-900" title="Ulang Tahun Hari Ini"><Cake className="w-5 h-5" />{birthdayStudentsToday.length > 0 && <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">{birthdayStudentsToday.length}</span>}</Button>
+                    <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-rose-200 bg-rose-50 text-rose-600 shadow-sm hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/20 dark:bg-slate-950 dark:text-rose-300 dark:hover:bg-slate-900" title="Ulang Tahun Bulan Ini"><Cake className="w-5 h-5" />{birthdayStudentsThisMonth.length > 0 && <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">{birthdayStudentsThisMonth.length}</span>}</Button>
                 </div>
                 <Button onClick={() => navigate('/gatcha-game')} className="border-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/20 transition-all hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-lg hover:shadow-violet-500/30"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
                 <Button onClick={() => navigate('/quiz-hafalan')} className="border-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20 transition-all hover:-translate-y-0.5 hover:from-cyan-500 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/30"><PlayCircle className="w-4 h-4 mr-2"/> Play Quiz</Button>
@@ -449,7 +449,7 @@ const GuruDashboard = () => {
                 </div>
               </div>
               <div className="grid min-w-[190px] gap-2 sm:grid-cols-2 md:grid-cols-1">
-                <Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
+                <Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-primary-foreground dark:border-white/10 dark:bg-slate-900 dark:hover:border-primary dark:hover:bg-primary dark:hover:text-primary-foreground"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
                 <div className="grid grid-cols-2 gap-2"><Button onClick={() => setIsMmqOpen(true)} size="sm" variant="outline">MMQ</Button><Button onClick={() => setIsRecapOpen(true)} size="sm" variant="outline">Absensi</Button></div>
                 <Button onClick={() => setIsMurojaahOpen(true)} size="sm" className="relative overflow-hidden bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"><Mic className="mr-2 h-4 w-4"/> Setoran Muroja'ah{pendingSubmissionsCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rose-500"></span>}</Button>
               </div>
@@ -720,7 +720,7 @@ const GuruDashboard = () => {
       <Dialog open={isRecapOpen} onOpenChange={setIsRecapOpen}><DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Rekap Absensi Guru</DialogTitle></DialogHeader><div className="mt-4"><GuruAttendanceRecap isReadOnly={true} /></div></DialogContent></Dialog>
       <AttendanceDetailsModal isOpen={isAttendanceModalOpen} onClose={() => { setIsAttendanceModalOpen(false); setAttendanceDetails(null); }} details={attendanceDetails} onSuccess={fetchGuruData} />
       <StudentTransferModal isOpen={isTransferModalOpen} onClose={() => { setIsTransferModalOpen(false); setSantriToTransfer(null); }} santri={santriToTransfer} onTransferSuccess={fetchGuruData} />
-      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudentsToday} />
+      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={allMySantri} />
       <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} variant={confirmDialog.variant || "destructive"} confirmText={confirmDialog.confirmText || "Ya, Lanjutkan"} />
       <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Anak" />
     </>

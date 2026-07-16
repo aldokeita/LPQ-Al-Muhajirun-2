@@ -470,7 +470,7 @@ const SantriDashboard = ({ isAdult = false }) => {
           <div className="relative z-10 grid gap-7 p-5 sm:p-7 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
             <div className="flex justify-center lg:justify-start">
               <div className="rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)]">
-                <Avatar className="h-28 w-28 border-4 bg-slate-100 shadow-xl sm:h-32 sm:w-32" style={{ borderColor: levelInfo.accentColor }}>
+                <Avatar className="h-28 w-28 border-4 border-white bg-slate-100 shadow-xl dark:border-slate-700 sm:h-32 sm:w-32">
                   <AvatarImage src={santriData.foto_url} className="object-cover" />
                   <AvatarFallback className="bg-slate-200 text-3xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
                 </Avatar>
@@ -499,7 +499,7 @@ const SantriDashboard = ({ isAdult = false }) => {
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[190px] lg:grid-cols-1">
-              <Button onClick={() => setIsInfoModalOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
+              <Button onClick={() => setIsInfoModalOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-primary-foreground dark:border-white/10 dark:bg-slate-900 dark:hover:border-primary dark:hover:bg-primary dark:hover:text-primary-foreground"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
               <button
                 type="button"
                 onClick={openMyAttendanceModal}
