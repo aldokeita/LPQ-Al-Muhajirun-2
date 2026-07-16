@@ -16,8 +16,9 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950">
-        <DialogHeader className="border-b border-slate-200 pb-4 text-left dark:border-white/10">
+      <DialogContent className="lpq-dialog-surface max-h-[88vh] max-w-2xl overflow-hidden border-white/60 bg-white/78 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.24)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/78">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_42%)]" />
+        <DialogHeader className="relative border-b border-white/50 px-6 pb-5 pt-6 text-left dark:border-white/10 sm:px-8 sm:pt-8">
           <DialogTitle className="flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-white">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">
               <Cake className="h-5 w-5" />
@@ -30,11 +31,11 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
         </DialogHeader>
 
         {birthdaysThisMonth.length > 0 ? (
-          <div className="space-y-3 py-2">
+          <div className="relative grid max-h-[62vh] gap-3 overflow-y-auto px-6 py-5 sm:grid-cols-2 sm:px-8">
             {birthdaysThisMonth.map((student) => {
               const hasWhatsapp = student.isBirthdayToday && Boolean(buildBirthdayWhatsappUrl(student, audience));
               return (
-                <article key={student.id} className="flex flex-col gap-4 rounded-lg border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-400/20 dark:bg-slate-900 sm:flex-row sm:items-center">
+                <article key={student.id} className="group flex flex-col gap-4 rounded-xl border border-white/70 bg-white/58 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:bg-white/76 hover:shadow-[0_18px_42px_rgba(190,24,93,0.12)] dark:border-white/10 dark:bg-white/[0.045] dark:hover:border-rose-400/30 dark:hover:bg-white/[0.075]">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="relative">
                       <Avatar className="h-12 w-12 border-2 border-rose-300">
@@ -50,7 +51,7 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         <Badge variant="secondary">{student.age} tahun</Badge>
                         <Badge variant={student.isBirthdayToday ? 'default' : 'outline'}>{student.isBirthdayToday ? 'Hari ini' : `Tanggal ${student.birthdayDay}`}</Badge>
-                        <Badge variant="outline">{student.class?.nama_kelas || student.jabatan || (audience === 'guru' ? 'Pengajar LPQ' : 'Kelas LPQ')}</Badge>
+                        {(student.class?.nama_kelas || (audience === 'guru' && student.jabatan)) && <Badge variant="outline">{student.class?.nama_kelas || student.jabatan}</Badge>}
                       </div>
                     </div>
                   </div>
@@ -59,7 +60,7 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
                     size="sm"
                     onClick={() => openWhatsappGreeting(student)}
                     disabled={!hasWhatsapp}
-                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
                     title={hasWhatsapp ? `Kirim ucapan untuk ${student.nama_lengkap}` : student.isBirthdayToday ? 'Nomor WhatsApp belum tersedia' : 'Ucapan WhatsApp aktif pada hari ulang tahun'}
                   >
                     <MessageCircle className="mr-2 h-4 w-4" /> Ucapkan
@@ -69,7 +70,7 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+          <div className="relative flex flex-col items-center justify-center px-6 py-14 text-center text-muted-foreground">
             <Cake className="mb-3 h-9 w-9 opacity-30" />
             <p className="font-semibold text-foreground">Belum ada ulang tahun bulan ini</p>
             <p className="mt-1 text-sm">Daftar akan muncul saat ada tanggal lahir pada bulan berjalan.</p>

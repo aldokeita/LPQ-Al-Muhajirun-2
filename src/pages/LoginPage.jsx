@@ -373,7 +373,7 @@ const LoginPage = () => {
                   />
                   <button
                     type="button"
-                    className="login-password-toggle"
+                    className="login-password-toggle lpq-shiny-button"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isSubmitting}
                     aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
@@ -404,7 +404,7 @@ const LoginPage = () => {
               {/* Submit Button */}
               <button
                 type="submit"
-                className="login-submit-btn"
+                className="login-submit-btn lpq-shiny-button"
                 disabled={isSubmitting}
                 aria-busy={isSubmitting}
               >

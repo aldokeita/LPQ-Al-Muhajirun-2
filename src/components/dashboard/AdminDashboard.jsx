@@ -189,7 +189,7 @@ const AdminDashboard = () => {
         <button
           type="button"
           onClick={() => navigate('/tv-display-mode')}
-          className="attendance-header__action-btn attendance-header__action-btn--tv"
+          className="attendance-header__action-btn attendance-header__action-btn--tv lpq-shiny-button"
         >
           <Tv className="w-4 h-4"/><span>TV Display</span>
         </button>
@@ -198,21 +198,21 @@ const AdminDashboard = () => {
             <button
               type="button"
               onClick={() => navigate('/gatcha-game')}
-              className="attendance-header__action-btn attendance-header__action-btn--gatcha"
+              className="attendance-header__action-btn attendance-header__action-btn--gatcha lpq-shiny-button"
             >
               <Gamepad2 className="w-4 h-4"/><span>Play Gatcha</span>
             </button>
             <button
               type="button"
               onClick={() => navigate('/quiz-hafalan')}
-              className="attendance-header__action-btn attendance-header__action-btn--quiz"
+              className="attendance-header__action-btn attendance-header__action-btn--quiz lpq-shiny-button"
             >
               <Library className="w-4 h-4"/><span>Play Quiz</span>
             </button>
             <button
               type="button"
               onClick={() => navigate('/random-name')}
-              className="attendance-header__action-btn attendance-header__action-btn--random"
+              className="attendance-header__action-btn attendance-header__action-btn--random lpq-shiny-button"
             >
               <Shuffle className="w-4 h-4"/><span>Acak Nama</span>
             </button>
@@ -295,7 +295,7 @@ const AdminDashboard = () => {
                 key={tab.id}
                 onClick={() => setActiveSantriSubTab(tab.id)}
                 className={`
-                  admin-glass-tab-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
+                  admin-glass-tab-button lpq-shiny-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
                   ${activeSantriSubTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                 `}
               >

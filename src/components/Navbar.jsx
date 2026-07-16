@@ -70,7 +70,7 @@ const DesktopNav = ({ pathname }) => (
       </Link>
     ) : (
       <div key={group.label} className="navbar-dropdown">
-        <button type="button" aria-haspopup="true">
+        <button type="button" aria-haspopup="true" className="lpq-shiny-button">
           {group.label}
           <ChevronDown className="h-4 w-4" />
         </button>
@@ -202,7 +202,7 @@ const Navbar = () => {
                 <Link key={group.label} to={group.to} className={isActivePath(location.pathname, group.to) ? 'is-active' : ''}>{group.label}</Link>
               ) : (
                 <div key={group.label} className="navbar-mobile-group">
-                  <button type="button" onClick={() => setMobileDropdown(mobileDropdown === group.label ? '' : group.label)}>
+                  <button type="button" onClick={() => setMobileDropdown(mobileDropdown === group.label ? '' : group.label)} className="lpq-shiny-button">
                     {group.label}
                     <ChevronDown className={`h-4 w-4 ${mobileDropdown === group.label ? 'rotate-180' : ''}`} />
                   </button>

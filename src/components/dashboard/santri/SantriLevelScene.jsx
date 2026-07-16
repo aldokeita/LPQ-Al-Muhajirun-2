@@ -1,138 +1,77 @@
 /* eslint-disable react/no-unknown-property */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
+import { ContactShadows, Float, Sparkles, useAnimations, useGLTF } from '@react-three/drei';
+import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
-const seededRandom = (seed) => {
-  let value = seed % 2147483647;
-  return () => {
-    value = (value * 16807) % 2147483647;
-    return (value - 1) / 2147483646;
-  };
+const MODEL_URL = '/models/RobotExpressive.glb';
+
+const getLevelAnimation = (points) => {
+  const score = Number(points) || 0;
+  if (score >= 81) return 'Dance';
+  if (score >= 51) return 'Wave';
+  if (score >= 21) return 'Walking';
+  return 'Idle';
 };
 
-const LearningStars = ({ accentColor, active }) => {
-  const pointsRef = useRef(null);
-  const positions = useMemo(() => {
-    const random = seededRandom(2706);
-    const values = new Float32Array(72 * 3);
-    for (let index = 0; index < 72; index += 1) {
-      values[index * 3] = (random() - 0.5) * 11;
-      values[index * 3 + 1] = (random() - 0.5) * 5.2;
-      values[index * 3 + 2] = -1.5 - random() * 3.5;
-    }
-    return values;
-  }, []);
-
-  useFrame((state, delta) => {
-    if (!active || !pointsRef.current) return;
-    pointsRef.current.rotation.z += delta * 0.018;
-    pointsRef.current.position.x = Math.sin(state.clock.elapsedTime * 0.12) * 0.12;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial color={accentColor} size={0.055} transparent opacity={0.75} depthWrite={false} sizeAttenuation blending={THREE.AdditiveBlending} />
-    </points>
-  );
-};
-
-const EnergyOrbit = ({ radius, accentColor, rotation, speed, active }) => {
-  const orbitRef = useRef(null);
-
-  useFrame((_, delta) => {
-    if (!active || !orbitRef.current) return;
-    orbitRef.current.rotation.z += delta * speed;
-  });
-
-  return (
-    <group ref={orbitRef} rotation={rotation}>
-      <mesh>
-        <torusGeometry args={[radius, 0.018, 8, 96]} />
-        <meshBasicMaterial color={accentColor} transparent opacity={0.38} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh position={[radius, 0, 0]}>
-        <sphereGeometry args={[0.07, 12, 12]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.85} />
-      </mesh>
-    </group>
-  );
-};
-
-const HolographicBook = ({ accentColor, active }) => {
-  const bookRef = useRef(null);
-  const leftPageRef = useRef(null);
-  const rightPageRef = useRef(null);
-  const orbitGroupRef = useRef(null);
+const AnimatedLearningCompanion = ({ active, points }) => {
+  const groupRef = useRef(null);
+  const { scene, animations } = useGLTF(MODEL_URL);
   const { viewport } = useThree();
-  const isCompact = viewport.width < 7;
-  const accent = useMemo(() => new THREE.Color(accentColor), [accentColor]);
-  const secondary = useMemo(() => new THREE.Color(accentColor).offsetHSL(0.13, 0.08, 0.08), [accentColor]);
+  const compact = viewport.width < 7;
+  const model = useMemo(() => {
+    const cloned = clone(scene);
+    cloned.traverse((node) => {
+      if (!node.isMesh) return;
+      node.castShadow = !compact;
+      node.receiveShadow = !compact;
+      node.material = node.material.clone();
+    });
+    return cloned;
+  }, [scene, compact]);
+  const { actions } = useAnimations(animations, groupRef);
+  const selectedAnimation = getLevelAnimation(points);
 
-  useFrame((state, delta) => {
-    if (!active) return;
-    const time = state.clock.elapsedTime;
-    if (bookRef.current) {
-      bookRef.current.position.y = Math.sin(time * 0.72) * 0.12;
-      bookRef.current.rotation.x = -0.08 + Math.sin(time * 0.35) * 0.025;
-      bookRef.current.rotation.z = Math.sin(time * 0.28) * 0.025;
-    }
-    if (leftPageRef.current) leftPageRef.current.rotation.y = -0.34 + Math.sin(time * 0.9) * 0.045;
-    if (rightPageRef.current) rightPageRef.current.rotation.y = 0.34 - Math.sin(time * 0.9) * 0.045;
-    if (orbitGroupRef.current) orbitGroupRef.current.rotation.y += delta * 0.08;
+  useEffect(() => {
+    const opacity = compact ? 0.28 : 0.94;
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      node.material.transparent = opacity < 1;
+      node.material.opacity = opacity;
+      node.material.depthWrite = !compact;
+      node.material.needsUpdate = true;
+    });
+  }, [compact, model]);
+
+  useEffect(() => {
+    const action = actions?.[selectedAnimation] || actions?.Idle || Object.values(actions || {})[0];
+    if (!action) return undefined;
+    action.reset().fadeIn(0.35).play();
+    action.paused = !active;
+    return () => action.fadeOut(0.2);
+  }, [actions, active, selectedAnimation]);
+
+  useEffect(() => {
+    Object.values(actions || {}).forEach((action) => {
+      action.paused = !active;
+    });
+  }, [actions, active]);
+
+  useFrame((state) => {
+    if (!active || !groupRef.current) return;
+    groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.34) * 0.12;
   });
 
-  const pageOpacity = isCompact ? 0.24 : 0.58;
-  const coverOpacity = isCompact ? 0.34 : 1;
-  const pageMaterial = { color: '#f8fafc', transparent: true, opacity: pageOpacity, roughness: 0.2, metalness: 0.12 };
-
   return (
-    <group position={[isCompact ? 0 : 2.35, isCompact ? -0.42 : 0, isCompact ? -0.85 : -0.1]} scale={isCompact ? 0.56 : 0.88}>
-      <group ref={bookRef}>
-        <mesh position={[0, 0, -0.45]}>
-          <sphereGeometry args={[1.38, 28, 28]} />
-          <meshBasicMaterial color={accent} transparent opacity={0.055} blending={THREE.AdditiveBlending} depthWrite={false} />
-        </mesh>
-
-        <group ref={leftPageRef} position={[-0.68, 0, 0]} rotation={[0, -0.34, -0.035]}>
-          <mesh position={[0, 0, -0.08]}>
-            <boxGeometry args={[1.45, 1.78, 0.075]} />
-            <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.22} roughness={0.34} metalness={0.25} transparent={isCompact} opacity={coverOpacity} />
-          </mesh>
-          {[0, 1, 2].map((layer) => (
-            <mesh key={layer} position={[0.035 + layer * 0.012, 0.03, 0.015 + layer * 0.038]} scale={[0.95 - layer * 0.015, 0.94 - layer * 0.012, 1]}>
-              <boxGeometry args={[1.42, 1.7, 0.026]} />
-              <meshStandardMaterial {...pageMaterial} opacity={pageOpacity - layer * 0.04} />
-            </mesh>
-          ))}
-        </group>
-
-        <group ref={rightPageRef} position={[0.68, 0, 0]} rotation={[0, 0.34, 0.035]}>
-          <mesh position={[0, 0, -0.08]}>
-            <boxGeometry args={[1.45, 1.78, 0.075]} />
-            <meshStandardMaterial color={secondary} emissive={secondary} emissiveIntensity={0.22} roughness={0.34} metalness={0.25} transparent={isCompact} opacity={coverOpacity} />
-          </mesh>
-          {[0, 1, 2].map((layer) => (
-            <mesh key={layer} position={[-0.035 - layer * 0.012, 0.03, 0.015 + layer * 0.038]} scale={[0.95 - layer * 0.015, 0.94 - layer * 0.012, 1]}>
-              <boxGeometry args={[1.42, 1.7, 0.026]} />
-              <meshStandardMaterial {...pageMaterial} opacity={pageOpacity - layer * 0.04} />
-            </mesh>
-          ))}
-        </group>
-
-        <mesh position={[0, -0.02, 0.12]}>
-          <capsuleGeometry args={[0.045, 1.58, 8, 16]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.72} />
-        </mesh>
-      </group>
-
-      <group ref={orbitGroupRef}>
-        <EnergyOrbit radius={2.05} accentColor={accentColor} rotation={[1.25, 0.15, 0.2]} speed={0.09} active={active} />
-        <EnergyOrbit radius={2.45} accentColor={secondary} rotation={[0.65, 0.8, -0.4]} speed={-0.055} active={active} />
-      </group>
+    <group
+      ref={groupRef}
+      position={[compact ? 0.9 : 2.45, compact ? -1.85 : -1.65, compact ? -1 : 0]}
+      rotation={[0, compact ? -0.18 : -0.28, 0]}
+      scale={compact ? 0.74 : 0.92}
+    >
+      <Float speed={active ? 1.15 : 0} rotationIntensity={active ? 0.08 : 0} floatIntensity={active ? 0.16 : 0}>
+        <primitive object={model} />
+      </Float>
     </group>
   );
 };
@@ -155,27 +94,33 @@ const useMotionState = () => {
   return state;
 };
 
-const SantriLevelScene = ({ accentColor = '#0ea5e9' }) => {
+const SantriLevelScene = ({ accentColor = '#0ea5e9', points = 0 }) => {
   const { reduced, visible } = useMotionState();
   const active = visible && !reduced;
 
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-      <div className="absolute inset-0 opacity-35" style={{ background: `radial-gradient(circle at 76% 44%, ${accentColor}55, transparent 42%), linear-gradient(120deg, transparent 38%, ${accentColor}18 100%)` }} />
+      <div className="absolute inset-0 opacity-35" style={{ background: `radial-gradient(circle at 78% 44%, ${accentColor}55, transparent 38%), linear-gradient(120deg, transparent 38%, ${accentColor}18 100%)` }} />
       <Canvas
-        camera={{ position: [0, 0, 7.2], fov: 44 }}
+        camera={{ position: [0, 0.2, 7.4], fov: 42 }}
         dpr={[1, 1.5]}
         frameloop={active ? 'always' : 'demand'}
         gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
+        shadows={!reduced}
       >
-        <ambientLight intensity={0.65} />
-        <directionalLight position={[-3, 4, 5]} intensity={0.9} color="#ffffff" />
-        <pointLight position={[3, 2, 4]} intensity={1.7} color={accentColor} />
-        <LearningStars accentColor={accentColor} active={active} />
-        <HolographicBook accentColor={accentColor} active={active} />
+        <ambientLight intensity={0.85} />
+        <directionalLight position={[-3, 5, 5]} intensity={1.35} color="#ffffff" />
+        <pointLight position={[3, 2, 4]} intensity={2.1} color={accentColor} />
+        <Sparkles count={reduced ? 0 : 34} scale={[8, 3.8, 3]} size={1.5} speed={active ? 0.25 : 0} color={accentColor} opacity={0.45} />
+        <Suspense fallback={null}>
+          <AnimatedLearningCompanion active={active} points={points} />
+          <ContactShadows position={[2.45, -1.72, 0]} opacity={0.22} scale={3.5} blur={2.8} far={3.5} color={accentColor} />
+        </Suspense>
       </Canvas>
     </div>
   );
 };
+
+useGLTF.preload(MODEL_URL);
 
 export default SantriLevelScene;

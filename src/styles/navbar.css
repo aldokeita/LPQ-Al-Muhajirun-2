@@ -149,9 +149,17 @@
 
 .navbar-login {
   border-radius: 999px;
-  background: #07111f;
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  background: rgba(7, 17, 31, 0.9);
   color: white;
   font-weight: 900;
+}
+
+.navbar-login:hover {
+  border-color: rgba(103, 232, 249, 0.46);
+  background: rgba(15, 23, 42, 0.94);
+  color: white;
+  box-shadow: 0 10px 28px rgba(8, 145, 178, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .navbar-icon-button {
@@ -160,8 +168,10 @@
 }
 
 .navbar-icon-button:hover {
-  background: rgba(255, 255, 255, 0.58);
-  color: #064e3b;
+  background: rgba(255, 255, 255, 0.7) !important;
+  color: #075985 !important;
+  box-shadow: 0 8px 24px rgba(8, 145, 178, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transform: translateY(-1px);
 }
 
 .navbar-icon-button.is-danger:hover {

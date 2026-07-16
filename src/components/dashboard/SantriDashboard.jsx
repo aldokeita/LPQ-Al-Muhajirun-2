@@ -465,7 +465,7 @@ const SantriDashboard = ({ isAdult = false }) => {
             Dashboard Santri
         </h1>
         <section className="relative mb-8 overflow-hidden rounded-2xl border border-white/80 bg-slate-100 text-slate-900 shadow-[14px_14px_32px_rgba(15,23,42,0.16),-12px_-12px_28px_rgba(255,255,255,0.92)] dark:border-white/10 dark:bg-slate-950 dark:text-white dark:shadow-[14px_14px_32px_rgba(0,0,0,0.5),-10px_-10px_26px_rgba(30,41,59,0.3)]">
-          <Suspense fallback={null}><SantriLevelScene accentColor={levelInfo.accentColor} /></Suspense>
+          <Suspense fallback={null}><SantriLevelScene accentColor={levelInfo.accentColor} points={santriData.points} /></Suspense>
           <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: levelInfo.accentColor }} />
           <div className="relative z-10 grid gap-7 p-5 sm:p-7 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
             <div className="flex justify-center lg:justify-start">
@@ -504,7 +504,7 @@ const SantriDashboard = ({ isAdult = false }) => {
                 type="button"
                 onClick={openMyAttendanceModal}
                 className={cn(
-                  'flex min-h-10 items-center justify-center gap-3 rounded-md px-4 py-2 text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  'lpq-shiny-button flex min-h-10 items-center justify-center gap-3 rounded-md px-4 py-2 text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                   hasAttendedToday ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:border dark:border-emerald-400/40 dark:bg-slate-800 dark:hover:bg-slate-700' : 'bg-slate-800 text-white hover:bg-slate-700'
                 )}
               >
