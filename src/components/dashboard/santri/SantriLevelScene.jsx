@@ -1,77 +1,103 @@
 /* eslint-disable react/no-unknown-property */
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Float, Sparkles, useAnimations, useGLTF } from '@react-three/drei';
-import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Sparkles } from '@react-three/drei';
+import * as THREE from 'three';
 
-const MODEL_URL = '/models/RobotExpressive.glb';
-
-const getLevelAnimation = (points) => {
-  const score = Number(points) || 0;
-  if (score >= 81) return 'Dance';
-  if (score >= 51) return 'Wave';
-  if (score >= 21) return 'Walking';
-  return 'Idle';
+const createSeededRandom = (seed) => {
+  let value = seed >>> 0;
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 4294967296;
+  };
 };
 
-const AnimatedLearningCompanion = ({ active, points }) => {
+const Constellation = ({ accentColor, active, points }) => {
   const groupRef = useRef(null);
-  const { scene, animations } = useGLTF(MODEL_URL);
-  const { viewport } = useThree();
-  const compact = viewport.width < 7;
-  const model = useMemo(() => {
-    const cloned = clone(scene);
-    cloned.traverse((node) => {
-      if (!node.isMesh) return;
-      node.castShadow = !compact;
-      node.receiveShadow = !compact;
-      node.material = node.material.clone();
-    });
-    return cloned;
-  }, [scene, compact]);
-  const { actions } = useAnimations(animations, groupRef);
-  const selectedAnimation = getLevelAnimation(points);
+  const score = Math.max(0, Number(points) || 0);
+  const { starPositions, connectionPositions } = useMemo(() => {
+    const random = createSeededRandom(20260716 + Math.min(score, 100));
+    const stars = [];
+    const starCount = 58;
 
-  useEffect(() => {
-    const opacity = compact ? 0.28 : 0.94;
-    model.traverse((node) => {
-      if (!node.isMesh) return;
-      node.material.transparent = opacity < 1;
-      node.material.opacity = opacity;
-      node.material.depthWrite = !compact;
-      node.material.needsUpdate = true;
-    });
-  }, [compact, model]);
+    for (let index = 0; index < starCount; index += 1) {
+      stars.push([
+        (random() - 0.5) * 12.8,
+        (random() - 0.5) * 5.6,
+        (random() - 0.5) * 2.8,
+      ]);
+    }
 
-  useEffect(() => {
-    const action = actions?.[selectedAnimation] || actions?.Idle || Object.values(actions || {})[0];
-    if (!action) return undefined;
-    action.reset().fadeIn(0.35).play();
-    action.paused = !active;
-    return () => action.fadeOut(0.2);
-  }, [actions, active, selectedAnimation]);
+    const connections = [];
+    stars.forEach((star, index) => {
+      let closestIndex = -1;
+      let closestDistance = 2.15;
 
-  useEffect(() => {
-    Object.values(actions || {}).forEach((action) => {
-      action.paused = !active;
+      for (let candidate = index + 1; candidate < stars.length; candidate += 1) {
+        const distance = Math.hypot(
+          star[0] - stars[candidate][0],
+          star[1] - stars[candidate][1],
+          star[2] - stars[candidate][2],
+        );
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = candidate;
+        }
+      }
+
+      if (closestIndex >= 0) connections.push(...star, ...stars[closestIndex]);
     });
-  }, [actions, active]);
+
+    return {
+      starPositions: new Float32Array(stars.flat()),
+      connectionPositions: new Float32Array(connections),
+    };
+  }, [score]);
 
   useFrame((state) => {
     if (!active || !groupRef.current) return;
-    groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.34) * 0.12;
+    const elapsed = state.clock.elapsedTime;
+    groupRef.current.rotation.z = Math.sin(elapsed * 0.08) * 0.025;
+    groupRef.current.rotation.y = Math.sin(elapsed * 0.12) * 0.055;
+    groupRef.current.position.y = Math.sin(elapsed * 0.28) * 0.08;
   });
 
   return (
-    <group
-      ref={groupRef}
-      position={[compact ? 0.9 : 2.45, compact ? -1.85 : -1.65, compact ? -1 : 0]}
-      rotation={[0, compact ? -0.18 : -0.28, 0]}
-      scale={compact ? 0.74 : 0.92}
-    >
-      <Float speed={active ? 1.15 : 0} rotationIntensity={active ? 0.08 : 0} floatIntensity={active ? 0.16 : 0}>
-        <primitive object={model} />
-      </Float>
+    <group ref={groupRef}>
+      <lineSegments>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[connectionPositions, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial
+          color={accentColor}
+          transparent
+          opacity={0.24}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </lineSegments>
+      <points>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[starPositions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          color="#ffffff"
+          size={0.075}
+          sizeAttenuation
+          transparent
+          opacity={0.92}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </points>
+      <Sparkles
+        count={active ? 42 : 0}
+        scale={[12.5, 5.2, 2.5]}
+        size={1.35}
+        speed={active ? 0.22 : 0}
+        color={accentColor}
+        opacity={0.46}
+      />
     </group>
   );
 };
@@ -99,28 +125,23 @@ const SantriLevelScene = ({ accentColor = '#0ea5e9', points = 0 }) => {
   const active = visible && !reduced;
 
   return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-      <div className="absolute inset-0 opacity-35" style={{ background: `radial-gradient(circle at 78% 44%, ${accentColor}55, transparent 38%), linear-gradient(120deg, transparent 38%, ${accentColor}18 100%)` }} />
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div
+        className="absolute inset-0 opacity-50"
+        style={{
+          background: `radial-gradient(circle at 72% 42%, ${accentColor}42, transparent 44%), radial-gradient(circle at 18% 80%, ${accentColor}22, transparent 35%)`,
+        }}
+      />
       <Canvas
-        camera={{ position: [0, 0.2, 7.4], fov: 42 }}
-        dpr={[1, 1.5]}
+        camera={{ position: [0, 0, 7.2], fov: 43 }}
+        dpr={[1, 1.45]}
         frameloop={active ? 'always' : 'demand'}
         gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
-        shadows={!reduced}
       >
-        <ambientLight intensity={0.85} />
-        <directionalLight position={[-3, 5, 5]} intensity={1.35} color="#ffffff" />
-        <pointLight position={[3, 2, 4]} intensity={2.1} color={accentColor} />
-        <Sparkles count={reduced ? 0 : 34} scale={[8, 3.8, 3]} size={1.5} speed={active ? 0.25 : 0} color={accentColor} opacity={0.45} />
-        <Suspense fallback={null}>
-          <AnimatedLearningCompanion active={active} points={points} />
-          <ContactShadows position={[2.45, -1.72, 0]} opacity={0.22} scale={3.5} blur={2.8} far={3.5} color={accentColor} />
-        </Suspense>
+        <Constellation accentColor={accentColor} active={active} points={points} />
       </Canvas>
     </div>
   );
 };
-
-useGLTF.preload(MODEL_URL);
 
 export default SantriLevelScene;

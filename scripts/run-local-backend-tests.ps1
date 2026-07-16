@@ -106,7 +106,8 @@ with expected_migrations(version) as (
     ('20260624002100'),
     ('20260629000100'),
     ('20260716000100'),
-    ('20260716000200')
+    ('20260716000200'),
+    ('20260716000300')
 ),
 sensitive_tables(table_name) as (
   values
@@ -124,6 +125,7 @@ sensitive_tables(table_name) as (
     ('feedbacks'),
     ('notifications'),
     ('santri_notes'),
+    ('login_logs'),
     ('santri_character_scores'),
     ('santri_character_strengths'),
     ('santri_behavior_records')
@@ -138,7 +140,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 24 and not exists (
+       (count(sm.version) = 25 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -254,6 +256,27 @@ select 'consume auth rate limit rpc exists',
            and p.proname = 'consume_auth_rate_limit'
        )::text,
        'rpc=consume_auth_rate_limit'
+
+union all
+select 'login activity log rpc and rls exist',
+       (
+         exists (
+           select 1
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public'
+             and p.proname = 'record_login_attempt'
+         )
+         and exists (
+           select 1
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and c.relname = 'login_logs'
+             and c.relrowsecurity
+         )
+       )::text,
+       'table=login_logs rpc=record_login_attempt'
 
 union all
 select 'move santri to class rpc exists',

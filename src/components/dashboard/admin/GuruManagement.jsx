@@ -16,7 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import * as XLSX from 'xlsx';
 import { getOperationalRoleFromGuruForm, pickGuruProfileFields } from '@/lib/dataMasterAdapters';
-import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
+import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
@@ -48,7 +48,7 @@ const GuruManagement = () => {
             console.error("Database Error fetching guru:", error);
             throw new Error(error.message);
         }
-        setGuruList(data || []);
+        setGuruList(await resolveAvatarRecords(data, { ownerType: 'guru' }));
     } catch (err) {
         console.error("Full fetchGuru Error:", err);
         toast({ title: "Gagal memuat data guru", description: err.message, variant: "destructive" });

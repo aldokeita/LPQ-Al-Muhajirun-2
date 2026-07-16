@@ -13,6 +13,7 @@ import MMQScheduleForm from './MMQScheduleForm';
 import MMQAttendanceModal from './MMQAttendanceModal';
 import { formatTimestamp, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
@@ -54,7 +55,7 @@ const MMQManagement = () => {
         if (attendanceData) setAttendances(attendanceData);
 
         const { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, foto_url');
-        if (guruData) setGurus(guruData);
+        if (guruData) setGurus(await resolveAvatarRecords(guruData, { ownerType: 'guru' }));
     };
 
     useEffect(() => {
