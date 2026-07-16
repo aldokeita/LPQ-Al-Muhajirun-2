@@ -247,7 +247,7 @@ const SantriAbsensiRecap = () => {
                     disabled={!canInspect}
                     aria-label={`${i} ${monthNames[month]}: ${tooltip}`}
                     className={cn(
-                        "flex aspect-square min-h-11 items-center justify-center rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-default",
+                        "mx-auto flex h-9 w-full max-w-10 items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-default sm:h-10 sm:text-sm",
                         bgColor
                     )}
                 >
@@ -302,24 +302,26 @@ const SantriAbsensiRecap = () => {
                 ))}
             </div>
 
-            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/5 dark:border-white/10 dark:bg-slate-950/75 dark:shadow-black/25">
-                <div className="flex flex-col gap-4 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/5 dark:border-white/10 dark:bg-slate-950/75 dark:shadow-black/25">
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="flex items-center gap-2 text-lg font-bold"><CalendarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />Kalender Kehadiran</h3>
                         <p className="mt-1 text-xs text-muted-foreground">Hari belajar Senin sampai Jumat</p>
                     </div>
                     <div className="flex items-center justify-between gap-2 sm:justify-end">
-                        <Button variant="outline" size="icon" onClick={prevMonth} aria-label="Bulan sebelumnya"><ChevronLeft className="h-4 w-4" /></Button>
-                        <span className="min-w-[148px] text-center text-sm font-bold">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
-                        <Button variant="outline" size="icon" onClick={nextMonth} aria-label="Bulan berikutnya" disabled={currentDate.getMonth() >= new Date().getMonth() && currentDate.getFullYear() >= new Date().getFullYear()}><ChevronRight className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevMonth} aria-label="Bulan sebelumnya"><ChevronLeft className="h-4 w-4" /></Button>
+                        <span className="min-w-[132px] text-center text-sm font-bold">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextMonth} aria-label="Bulan berikutnya" disabled={currentDate.getMonth() >= new Date().getMonth() && currentDate.getFullYear() >= new Date().getFullYear()}><ChevronRight className="h-4 w-4" /></Button>
                     </div>
                 </div>
-                <div className="p-3 sm:p-5">
-                    <div className="mb-2 grid grid-cols-5 gap-1.5 sm:gap-2">
-                        {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map(day => <div key={day} className="py-2 text-center text-xs font-bold uppercase tracking-wide text-muted-foreground">{day}</div>)}
+                <div className="p-3 sm:p-4">
+                    <div className="mx-auto max-w-lg">
+                      <div className="mb-1 grid grid-cols-5 gap-1 sm:gap-1.5">
+                        {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map(day => <div key={day} className="py-1.5 text-center text-[11px] font-bold uppercase text-muted-foreground">{day}</div>)}
+                      </div>
+                      <div className="grid grid-cols-5 gap-1 sm:gap-1.5">{renderCalendar()}</div>
                     </div>
-                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">{renderCalendar()}</div>
-                    <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-200 pt-4 text-xs font-medium text-muted-foreground dark:border-white/10">
+                    <div className="mx-auto mt-4 flex max-w-lg flex-wrap gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-xs font-medium text-muted-foreground dark:border-white/10">
                         <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Tepat waktu</span>
                         <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />Terlambat</span>
                         <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Tidak hadir</span>

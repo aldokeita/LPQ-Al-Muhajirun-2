@@ -48,7 +48,7 @@ const HafalanDisplay = ({
         <div 
             ref={isDraggable ? drop : null}
             className={cn(
-                "flex flex-col h-full border rounded-xl overflow-hidden transition-all duration-300",
+                "flex min-w-0 flex-col h-full border rounded-xl overflow-hidden transition-all duration-300",
                 isOver ? "bg-blue-50 border-blue-400 ring-2 ring-blue-200" : "bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800",
                 isCompleted && !isDraggable ? "bg-green-50/50 border-green-200" : ""
             )}
@@ -81,7 +81,7 @@ const HafalanDisplay = ({
                                 <div key={item.id} className="relative group">
                                     {hasScoring ? (
                                         <div className={cn(
-                                            "grid gap-2 rounded-lg border p-2 text-sm transition-colors",
+                                            "grid min-w-0 gap-2 rounded-lg border p-2 text-sm transition-colors",
                                             isHafal
                                                 ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-400/25 dark:bg-slate-900/70"
                                                 : "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950"

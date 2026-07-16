@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart3, BookOpen, CheckCircle as CheckCircleFull, Edit, Mic, PlayCircle, Send, Star, Upload, Users, Video } from 'lucide-react';
@@ -33,6 +33,9 @@ import {
 } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getSessionName } from '@/utils/sessionMapping';
+import { resolveSantriLevel } from '@/lib/santriLevel';
+
+const SantriLevelScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
 /**
  * SANTRI AUTHENTICATION FLOW DOCUMENTATION:
@@ -345,6 +348,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
   const [hafalanItems, setHafalanItems] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [levelConfig, setLevelConfig] = useState(null);
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isHafalanModalOpen, setIsHafalanModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -359,10 +363,11 @@ const SantriDashboard = ({ isAdult = false }) => {
   const initializeData = useCallback(async () => {
     if (!user) return;
 
-    const [santriResult, itemsResult, videosResult] = await Promise.all([
+    const [santriResult, itemsResult, videosResult, levelConfigResult] = await Promise.all([
         supabase.from('santri').select('*, class:current_class_id(*, guru:id_guru(nama))').eq('id', user.id).single(),
         fetchHafalanItems(),
-        supabase.from('website_content').select('content').eq('key', 'hafalanVideos').maybeSingle()
+        supabase.from('website_content').select('content').eq('key', 'hafalanVideos').maybeSingle(),
+        supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle()
     ]);
 
         if (santriResult.data) {
@@ -420,6 +425,7 @@ const SantriDashboard = ({ isAdult = false }) => {
     if (Array.isArray(itemsResult)) setHafalanItems(itemsResult);
     if (videosResult.data?.content) setVideos(videosResult.data.content);
     else setVideos([{ id: 1, title: 'Hafalan Jilid 1', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', jilid: 'Jilid 1' }]);
+    setLevelConfig(levelConfigResult.data?.content || null);
   }, [user]);
 
   useEffect(() => { initializeData(); }, [initializeData]);
@@ -433,6 +439,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   const jilidVideos = videos.reduce((acc, video) => { const jilid = video.jilid || 'Lainnya'; if (!acc[jilid]) acc[jilid] = []; acc[jilid].push(video); return acc; }, {});
   const hasAttendedToday = dailyAttendance.includes(santriData.id);
   const sessionName = getSessionName(santriData.sesi_mengaji || santriData.class?.sesi) || '-';
+  const levelInfo = resolveSantriLevel({ points: santriData.points, gender: santriData.jenis_kelamin, config: levelConfig });
 
   const myStatus = myAttendanceRecord
     ? determineAttendanceStatus(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName))
@@ -452,52 +459,53 @@ const SantriDashboard = ({ isAdult = false }) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+    <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-24 sm:px-6 lg:px-8">
         <BirthdayGreeting user={santriData} type="Santri" />
         <h1 className="text-3xl md:text-4xl font-bold text-[#112D4E] dark:text-white mb-8 flex items-center justify-between font-cinzel">
             Dashboard Santri
         </h1>
-        <section className="mb-8 overflow-hidden rounded-lg border border-slate-200/70 bg-gradient-to-br from-slate-950 via-[#123456] to-slate-900 text-white shadow-xl dark:border-white/10">
-          <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
+        <section className="relative mb-8 overflow-hidden rounded-2xl border border-white/80 bg-slate-100 text-slate-900 shadow-[14px_14px_32px_rgba(15,23,42,0.16),-12px_-12px_28px_rgba(255,255,255,0.92)] dark:border-white/10 dark:bg-slate-950 dark:text-white dark:shadow-[14px_14px_32px_rgba(0,0,0,0.5),-10px_-10px_26px_rgba(30,41,59,0.3)]">
+          <Suspense fallback={null}><SantriLevelScene accentColor={levelInfo.accentColor} /></Suspense>
+          <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: levelInfo.accentColor }} />
+          <div className="relative z-10 grid gap-7 p-5 sm:p-7 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
             <div className="flex justify-center lg:justify-start">
-              <div className="rounded-full border border-white/20 bg-white/10 p-1.5 shadow-lg backdrop-blur-sm">
-                <Avatar className="h-28 w-28 border-2 border-white/80 sm:h-32 sm:w-32">
+              <div className="rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)]">
+                <Avatar className="h-28 w-28 border-4 bg-slate-100 shadow-xl sm:h-32 sm:w-32" style={{ borderColor: levelInfo.accentColor }}>
                   <AvatarImage src={santriData.foto_url} className="object-cover" />
-                  <AvatarFallback className="bg-white text-3xl font-black text-[#112D4E]">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
+                  <AvatarFallback className="bg-slate-200 text-3xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
                 </Avatar>
               </div>
             </div>
 
             <div className="min-w-0 text-center lg:text-left">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-200">Profil belajar santri</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.18em]" style={{ color: levelInfo.textColor }}>Profil belajar santri</p>
               <h2 className="text-2xl font-black tracking-tight sm:text-3xl">{santriData.nama_lengkap}</h2>
-              <p className="mt-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-200 sm:text-base lg:justify-start">
+              <p className="mt-2 flex items-center justify-center gap-2 text-sm font-semibold text-muted-foreground sm:text-base lg:justify-start">
                 <Users className="h-4 w-4" /> {santriData.class?.nama_kelas || 'Belum masuk kelas'}
               </p>
-              <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md lg:max-w-lg">
-                <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
-                  <p className="text-[10px] font-bold uppercase text-slate-300">Jilid</p>
-                  <p className="mt-0.5 text-base font-black sm:text-lg">{santriData.jilid || '-'}</p>
-                </div>
-                <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
-                  <p className="text-[10px] font-bold uppercase text-slate-300">Poin</p>
-                  <p className="mt-0.5 flex items-center justify-center gap-1 text-base font-black sm:text-lg lg:justify-start"><Star className="h-4 w-4 fill-amber-300 text-amber-300" />{santriData.points || 0}</p>
-                </div>
-                <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
-                  <p className="text-[10px] font-bold uppercase text-slate-300">Sesi</p>
-                  <p className="mt-0.5 truncate text-base font-black sm:text-lg" title={sessionName}>{sessionName}</p>
-                </div>
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:max-w-xl sm:grid-cols-4">
+                {[
+                  ['Jilid', santriData.jilid || '-'],
+                  ['Poin', santriData.points || 0],
+                  ['Level', levelInfo.name],
+                  ['Sesi', sessionName],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0 rounded-md border border-white/80 bg-slate-100/90 px-3 py-2.5 shadow-[inset_3px_3px_7px_rgba(15,23,42,0.1),inset_-3px_-3px_7px_rgba(255,255,255,0.9)] backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/85 dark:shadow-[inset_3px_3px_7px_rgba(0,0,0,0.4),inset_-3px_-3px_7px_rgba(51,65,85,0.24)]">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground">{label}</p>
+                    <p className="mt-0.5 truncate text-sm font-black sm:text-base" title={String(value)}>{label === 'Poin' ? <span className="inline-flex items-center gap-1"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{value}</span> : value}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[180px] lg:grid-cols-1">
-              <Button onClick={() => setIsInfoModalOpen(true)} variant="outline" className="border-white/25 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[190px] lg:grid-cols-1">
+              <Button onClick={() => setIsInfoModalOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900 dark:hover:bg-slate-800"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
               <button
                 type="button"
                 onClick={openMyAttendanceModal}
                 className={cn(
-                  'flex min-h-10 items-center justify-center gap-3 rounded-md px-4 py-2 text-sm font-semibold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
-                  hasAttendedToday ? 'bg-emerald-500 text-white hover:bg-emerald-600 dark:border dark:border-emerald-400/40 dark:bg-slate-800 dark:hover:bg-slate-700' : 'bg-slate-700 text-white hover:bg-slate-600'
+                  'flex min-h-10 items-center justify-center gap-3 rounded-md px-4 py-2 text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  hasAttendedToday ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:border dark:border-emerald-400/40 dark:bg-slate-800 dark:hover:bg-slate-700' : 'bg-slate-800 text-white hover:bg-slate-700'
                 )}
               >
                 <AttendanceStatusIcon status={myStatus} className="pointer-events-none" />

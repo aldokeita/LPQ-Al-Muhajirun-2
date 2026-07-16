@@ -27,7 +27,7 @@ const DevelopmentScoreSelector = ({ value, onChange, disabled = false, compact =
   }
 
   return (
-    <div className="inline-grid grid-cols-4 gap-1" role="group" aria-label="Pilih skor perkembangan">
+    <div className="grid w-full min-w-0 grid-cols-4 gap-1" role="group" aria-label="Pilih skor perkembangan">
       {DEVELOPMENT_SCORE_OPTIONS.map((option) => {
         const isSelected = Number(value) === option.score;
         return (
@@ -38,7 +38,7 @@ const DevelopmentScoreSelector = ({ value, onChange, disabled = false, compact =
             onClick={() => onChange(option.score)}
             className={cn(
               'min-h-9 rounded-md border text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
-              compact ? 'min-w-9 px-1.5' : 'min-w-12 px-2',
+              compact ? 'w-full min-w-0 px-1' : 'w-full min-w-0 px-2',
               isSelected ? toneClasses[option.tone] : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
             )}
             aria-pressed={isSelected}
