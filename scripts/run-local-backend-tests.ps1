@@ -107,7 +107,8 @@ with expected_migrations(version) as (
     ('20260629000100'),
     ('20260716000100'),
     ('20260716000200'),
-    ('20260716000300')
+    ('20260716000300'),
+    ('20260716000400')
 ),
 sensitive_tables(table_name) as (
   values
@@ -126,6 +127,7 @@ sensitive_tables(table_name) as (
     ('notifications'),
     ('santri_notes'),
     ('login_logs'),
+    ('jilid_history'),
     ('santri_character_scores'),
     ('santri_character_strengths'),
     ('santri_behavior_records')
@@ -140,7 +142,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 25 and not exists (
+       (count(sm.version) = 26 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -277,6 +279,18 @@ select 'login activity log rpc and rls exist',
          )
        )::text,
        'table=login_logs rpc=record_login_attempt'
+
+union all
+select 'jilid history table and rls exist',
+       exists (
+         select 1
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public'
+           and c.relname = 'jilid_history'
+           and c.relrowsecurity
+       )::text,
+       'table=jilid_history'
 
 union all
 select 'move santri to class rpc exists',
