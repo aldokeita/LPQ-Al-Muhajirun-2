@@ -6,6 +6,13 @@ export function normalizeNomorInduk(value: unknown): string {
   return normalized;
 }
 
+export function normalizeOptionalNomorInduk(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") throw new Error("Nomor Induk Qiroati tidak valid.");
+  if (!value.trim()) return null;
+  return normalizeNomorInduk(value);
+}
+
 export function requireString(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${label} wajib diisi.`);
   return value.trim();
@@ -48,4 +55,3 @@ export function extractSantriIdFromAvatarPath(path: string): string | null {
   const match = path.match(/^santri\/([0-9a-fA-F-]{36})\/profile\.webp$/);
   return match?.[1] ?? null;
 }
-

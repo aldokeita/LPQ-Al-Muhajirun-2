@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Users, BookOpen, Award, Calendar, UserCheck } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const PentashihDashboard = () => {
   const { user } = useAuth();
@@ -38,17 +39,19 @@ const PentashihDashboard = () => {
           .order('order_in_class', { ascending: true, nullsFirst: false }),
         supabase
           .from('santri')
-          .select('id, nama_lengkap, nama_panggilan, nomor_induk_qiroati, foto_url, jilid, current_class_id, sesi_mengaji, status')
+          .select('id, nama_lengkap, nama_panggilan, nomor_induk_qiroati, foto_url, avatar_path, jilid, current_class_id, sesi_mengaji, status')
           .order('nama_lengkap'),
       ]);
 
       const firstError = guruRes.error || classesRes.error || membershipsRes.error || santriRes.error;
       if (firstError) throw firstError;
 
-      setGuruData(guruRes.data || null);
+      const resolvedGuru = await resolveAvatarRecord(guruRes.data, { ownerType: 'guru' });
+      const resolvedSantri = await resolveAvatarRecords(santriRes.data, { ownerType: 'santri' });
+      setGuruData(resolvedGuru || null);
       setClasses(classesRes.data || []);
       setMemberships(membershipsRes.data || []);
-      setSantriList(santriRes.data || []);
+      setSantriList(resolvedSantri);
     } catch (error) {
       toast({ title: 'Gagal memuat dashboard pentashih', description: error.message, variant: 'destructive' });
     } finally {

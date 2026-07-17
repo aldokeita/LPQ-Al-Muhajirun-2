@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
@@ -54,40 +55,45 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             // 1. Fetch Active Santri
             const { data: santriList, error: santriError } = await supabase
                 .from('santri')
-                .select('id, nama_lengkap, jilid, foto_url, created_at')
-                .eq('id_kelas', classItem.id)
+                .select('id, nama_lengkap, jilid, foto_url, avatar_path, created_at')
+                .eq('current_class_id', classItem.id)
                 .eq('status', 'Aktif');
 
             if (santriError) throw santriError;
+            const resolvedSantriList = await resolveAvatarRecords(santriList, { ownerType: 'santri' });
 
-            if (santriList && santriList.length > 0) {
-                setTotalSantri(santriList.length);
-                const santriIds = santriList.map(s => s.id);
+            if (resolvedSantriList.length > 0) {
+                setTotalSantri(resolvedSantriList.length);
+                const santriIds = resolvedSantriList.map(s => s.id);
 
                 // Jilid Distribution
                 const counts = {};
-                santriList.forEach(s => { counts[s.jilid] = (counts[s.jilid] || 0) + 1; });
+                resolvedSantriList.forEach(s => { counts[s.jilid] = (counts[s.jilid] || 0) + 1; });
                 setJilidData(Object.keys(counts).map(key => ({ name: key, value: counts[key] })));
 
                 // 2. Fetch Jilid History for these santri
                 const { data: history, error: historyError } = await supabase
                     .from('jilid_history')
-                    .select('*, santri:santri_id(nama_lengkap, foto_url)')
+                    .select('*, santri:santri_id(id, nama_lengkap, foto_url, avatar_path)')
                     .in('santri_id', santriIds)
                     .order('changed_at', { ascending: false });
                 
                 if (historyError) throw historyError;
 
-                setJilidHistory(history || []);
+                const resolvedHistory = await Promise.all((history || []).map(async (entry) => ({
+                    ...entry,
+                    santri: await resolveAvatarRecord(entry.santri, { ownerType: 'santri' }),
+                })));
+                setJilidHistory(resolvedHistory);
 
                 // Calculate Increase Percentage (Last 30 days)
                 const thirtyDaysAgo = new Date();
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
                 const recentIncreases = (history || []).filter(h => new Date(h.changed_at) >= thirtyDaysAgo).length;
-                setJilidIncreasePercentage(Math.round((recentIncreases / santriList.length) * 100));
+                setJilidIncreasePercentage(Math.round((recentIncreases / resolvedSantriList.length) * 100));
 
                 // 3. Calculate Stagnation
-                const stagnationList = santriList.map(s => {
+                const stagnationList = resolvedSantriList.map(s => {
                     const lastChange = (history || []).find(h => h.santri_id === s.id);
                     const lastDate = lastChange ? new Date(lastChange.changed_at) : new Date(s.created_at);
                     const diffTime = Math.abs(new Date() - lastDate);
@@ -119,7 +125,7 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
                     if (a.status === 'Hadir') grouped[a.attendance_date].hadir += 1;
                 });
                 const sortedDates = Object.values(grouped).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-7);
-                const currentSize = santriList?.length || 1;
+                const currentSize = resolvedSantriList.length || 1;
                 const chartData = sortedDates.map(d => ({
                     date: new Date(d.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
                     persentase: Math.min(100, Math.round((d.hadir / currentSize) * 100))
@@ -130,6 +136,11 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             }
         } catch (err) {
             console.error("Error fetching class stats", err);
+            setTotalSantri(0);
+            setJilidData([]);
+            setJilidHistory([]);
+            setStagnationData([]);
+            toast({ title: "Gagal memuat performa kelas", description: err.message, variant: "destructive" });
         }
     };
 
@@ -140,20 +151,21 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             // First get santri IDs for this class
             const { data: santriList, error: santriError } = await supabase
                 .from('santri')
-                .select('id, nama_lengkap, foto_url')
-                .eq('id_kelas', classItem.id);
+                .select('id, nama_lengkap, foto_url, avatar_path')
+                .eq('current_class_id', classItem.id);
 
             if (santriError) throw santriError;
+            const resolvedSantriList = await resolveAvatarRecords(santriList, { ownerType: 'santri' });
             
-            if (!santriList || santriList.length === 0) {
+            if (resolvedSantriList.length === 0) {
                 setDetailedAttendance([]);
                 setIsDetailedLoading(false);
                 return;
             }
 
             const santriMap = {};
-            santriList.forEach(s => { santriMap[s.id] = s; });
-            const santriIds = santriList.map(s => s.id);
+            resolvedSantriList.forEach(s => { santriMap[s.id] = s; });
+            const santriIds = resolvedSantriList.map(s => s.id);
 
             let query = supabase.from('attendance')
                 .select('*')
@@ -213,12 +225,13 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             // 3. Get Santri in this class
             const { data: santriList, error: santriError } = await supabase
                 .from('santri')
-                .select('id, nama_lengkap, foto_url')
-                .eq('id_kelas', classItem.id)
+                .select('id, nama_lengkap, foto_url, avatar_path')
+                .eq('current_class_id', classItem.id)
                 .eq('status', 'Aktif')
                 .order('nama_lengkap');
             
             if (santriError) throw santriError;
+            const resolvedSantriList = await resolveAvatarRecords(santriList, { ownerType: 'santri' });
 
             // 4. Get Attendance data
             const { data: attendance, error: attError } = await supabase
@@ -235,7 +248,7 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
 
             const pastSessionDaysCount = uniqueActiveDays.filter(d => new Date(historyYear, historyMonth, d) <= today).length;
 
-            const userRecap = (santriList || []).map(user => {
+            const userRecap = resolvedSantriList.map(user => {
                 const attendanceByDate = {};
                 let totalHadir = 0;
                 

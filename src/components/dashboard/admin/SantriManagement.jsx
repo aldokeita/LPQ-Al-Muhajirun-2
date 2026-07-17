@@ -21,6 +21,7 @@ import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
+import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -35,7 +36,7 @@ const jilidOptions = [
 ];
 
 const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
-const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati`;
+const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
 
 const getSelectedClassId = (input) => input?.current_class_id || input?.id_kelas || null;
 
@@ -496,10 +497,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
+  const [birthdayStudents, setBirthdayStudents] = useState([]);
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
-    jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: 'Anak'
+    jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: 'Anak'
   });
 
   useEffect(() => {
@@ -507,8 +509,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   }, [subCategory]);
 
   useEffect(() => {
-      if (santriList.length > 0) calculateBirthdayCount();
-  }, [santriList]);
+      setBirthdayCount(getBirthdaysThisMonth(birthdayStudents).length);
+  }, [birthdayStudents]);
 
   const loadData = async (currentTab = subCategory) => {
     setIsLoadingData(true);
@@ -544,6 +546,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               });
               return mapSantriForLegacyUi({ ...item, foto_url });
           }));
+          const activeSantri = mappedSantri.filter((s) => !s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()));
+          setBirthdayStudents(activeSantri);
           const filteredSantri = mappedSantri.filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
               const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
@@ -574,23 +578,6 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     }
   };
   
-  const calculateBirthdayCount = async () => {
-      const currentMonth = new Date().getMonth() + 1;
-      let count = 0;
-      santriList.forEach(s => {
-          if (s.tanggal_lahir) {
-              if (new Date(s.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          }
-      });
-      const { data: guruData } = await supabase.from('guru').select('tanggal_lahir');
-      if (guruData) {
-          guruData.forEach(g => {
-              if (g.tanggal_lahir && new Date(g.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          });
-      }
-      setBirthdayCount(count);
-  };
-
   const classGuruMap = useMemo(() => {
     return classesList.reduce((acc, cls) => {
       acc[cls.id] = cls.guru?.nama || 'Belum ada guru';
@@ -701,7 +688,16 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
     if (finalFormData.password && finalFormData.password.length < 4) {
         toast({ title: "Validasi Password Gagal", description: "Password minimal 4 karakter.", variant: "destructive" });
+      return;
+    }
+
+    if (finalFormData.default_spp_amount !== '' && finalFormData.default_spp_amount !== null) {
+      const defaultSppAmount = Number(finalFormData.default_spp_amount);
+      if (!Number.isFinite(defaultSppAmount) || defaultSppAmount < 10000) {
+        toast({ title: "Default SPP Tidak Valid", description: "Default SPP minimal Rp10.000 atau kosongkan jika belum ditentukan.", variant: "destructive" });
         return;
+      }
+      finalFormData.default_spp_amount = defaultSppAmount;
     }
 
     try {
@@ -909,11 +905,21 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           title: 'Migrasi ke Dewasa',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori DEWASA? Santri akan dikeluarkan dari kelas saat ini.`,
           onConfirm: async () => {
-              toast({
-                  title: "Migrasi ditunda",
-                  description: "Migrasi kategori/kelas perlu operasi backend atomik agar current_class_id dan class_memberships tetap konsisten.",
-                  variant: "destructive"
+              const { data, error } = await supabase.rpc('change_santri_category', {
+                  p_santri_id: editingSantri.id,
+                  p_target_category: 'Dewasa',
+                  p_reason: 'Migrasi TPQ ke santri dewasa oleh admin',
               });
+
+              if (error) {
+                  toast({ title: "Migrasi gagal", description: error.message, variant: "destructive" });
+                  return;
+              }
+
+              toast({ title: "Migrasi berhasil", description: data?.[0]?.message || `${editingSantri.nama_lengkap} dipindahkan ke kategori Dewasa.` });
+              setIsFormOpen(false);
+              setEditingSantri(null);
+              await loadData(subCategory);
           }
       });
   };
@@ -1237,6 +1243,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="admin-edit-field">
+                            <label>Default SPP Bulanan</label>
+                            <Input type="number" min="10000" step="1000" value={formData.default_spp_amount ?? ''} onChange={(e) => setFormData({ ...formData, default_spp_amount: e.target.value })} placeholder="Contoh: 70000" />
+                            <span className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>Opsional. Nominal ini otomatis dipilih saat pembayaran SPP.</span>
+                        </div>
+                        <div className="admin-edit-field">
                             <label className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
                             <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
                         </div>
@@ -1281,7 +1292,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
-      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} />
+      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
       
       <ConfirmationDialog 
         isOpen={confirmDialog.isOpen} 

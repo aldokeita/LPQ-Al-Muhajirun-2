@@ -15,6 +15,7 @@ import AttendanceStatusIcon from '../shared/AttendanceStatusIcon';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
 import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
@@ -132,7 +133,7 @@ const AttendanceRecap = () => {
 
             const { data: santri, error: sanError } = await supabase
                 .from('santri')
-                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, kategori, status');
+                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, avatar_path, kategori, status');
             const { data: guru, error: guruError } = await supabase.from('guru').select('id, nama, foto_url');
 
             let classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, is_active').eq('is_active', true);
@@ -149,10 +150,15 @@ const AttendanceRecap = () => {
                 throw new Error("Gagal mengambil data dari database");
             }
 
+            const [resolvedSantri, resolvedGuru] = await Promise.all([
+                resolveAvatarRecords(santri, { ownerType: 'santri' }),
+                resolveAvatarRecords(guru, { ownerType: 'guru' }),
+            ]);
+
             setAttendanceData(attendance || []);
             setAllUsers([
-                ...(santri || []).map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })),
-                ...(guru || []).map(g => ({ ...g, name: g.nama, role: 'guru' }))
+                ...resolvedSantri.map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })),
+                ...resolvedGuru.map(g => ({ ...g, name: g.nama, role: 'guru' }))
             ]);
             setClasses(classData || []);
 

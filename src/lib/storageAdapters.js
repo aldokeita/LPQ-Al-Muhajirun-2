@@ -225,6 +225,32 @@ export const resolveAvatarUrl = async ({ ownerType, ownerId, avatarPath, fallbac
   return preloadAvatarUrl(resolvedUrl);
 };
 
+export const resolveAvatarRecord = async (
+  record,
+  {
+    ownerType,
+    ownerIdKey = 'id',
+    avatarPathKey = 'avatar_path',
+    fallbackUrlKey = 'foto_url',
+    outputKey = 'foto_url',
+  } = {},
+) => {
+  if (!record) return record;
+
+  const resolvedUrl = await resolveAvatarUrl({
+    ownerType,
+    ownerId: record[ownerIdKey],
+    avatarPath: record[avatarPathKey],
+    fallbackUrl: record[fallbackUrlKey],
+  });
+
+  return { ...record, [outputKey]: resolvedUrl };
+};
+
+export const resolveAvatarRecords = async (records, options) => Promise.all(
+  (records || []).map((record) => resolveAvatarRecord(record, options)),
+);
+
 const fileExtensionFor = (file) => EXTENSION_BY_TYPE[file.type] || 'bin';
 
 export const getWebsiteAssetPath = ({ folder = 'general', key, file }) => {

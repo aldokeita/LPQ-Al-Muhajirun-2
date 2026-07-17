@@ -17,8 +17,8 @@ export const getSantriDiagnosticData = async () => {
         let classData = null;
         let guruData = null;
 
-        if (santri?.id_kelas) {
-            const { data: c } = await supabase.from('classes').select('*').eq('id', santri.id_kelas).single();
+        if (santri?.current_class_id) {
+            const { data: c } = await supabase.from('classes').select('*').eq('id', santri.current_class_id).single();
             classData = c;
             
             if (c?.id_guru) {
@@ -125,7 +125,7 @@ export const getCompleteDataFlowDiagram = () => {
 === DATA FLOW DIAGRAM ===
 [1] ATTENDANCE: public.attendance -> RLS (user_id = auth.uid()) -> supabase.from('attendance').select('*').eq('user_id', uid) -> <SantriAbsensiRecap />
 [2] PAYMENTS: public.payments -> RLS (santri_id = auth.uid()) -> supabase.from('payments').select('*').eq('santri_id', uid) -> <SantriPaymentHistory />
-[3] CLASSES: public.classes -> RLS (public read) -> supabase.from('classes').select('*') -> Mapped to santri.id_kelas -> <SantriDashboard />
+[3] CLASSES: public.classes -> RLS -> santri.current_class_id -> <SantriDashboard />
 [4] SANTRI: public.santri -> RLS (auth.uid() = id) -> supabase.from('santri').select('*, class(...)').eq('id', uid) -> <SantriDashboard />
 =========================
     `;

@@ -22,6 +22,7 @@ import { motion } from 'framer-motion';
 import AdultClassManagement from './AdultClassManagement';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
+import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -408,7 +409,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           supabase.from('guru').select('id, nama, foto_url, no_hp, roles, status'),
           supabase
             .from('santri')
-            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
+            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
             .order('order_in_class', { ascending: true, nullsFirst: false }),
           supabase.from('attendance').select('*').eq('attendance_date', today),
           supabase.from('website_content').select('content').eq('key', configKey).maybeSingle()
@@ -419,7 +420,13 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           return;
         }
 
-        const mappedClasses = (classData || []).map(mapClassForLegacyUi);
+        const resolvedGuruData = await resolveAvatarRecords(guruData, { ownerType: 'guru' });
+        const resolvedSantriData = await resolveAvatarRecords(rawSantriData, { ownerType: 'santri' });
+        const resolvedClassData = await Promise.all((classData || []).map(async (classItem) => ({
+            ...classItem,
+            guru: await resolveAvatarRecord(classItem.guru, { ownerType: 'guru' }),
+        })));
+        const mappedClasses = resolvedClassData.map(mapClassForLegacyUi);
         const filteredClasses = mappedClasses.filter(c => {
             if (c.is_active === false) return false;
             if (kategori === 'Anak') return !c.kategori || c.kategori.toLowerCase() === 'anak';
@@ -427,9 +434,9 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
         });
         setClasses(filteredClasses);
 
-        setGuruList(guruData || []);
+        setGuruList(resolvedGuruData);
 
-        const filteredSantri = (rawSantriData || []).map(mapSantriForLegacyUi).filter(s => {
+        const filteredSantri = resolvedSantriData.map(mapSantriForLegacyUi).filter(s => {
             const isMatch = kategori === 'Anak' ? (!s.kategori || s.kategori.toLowerCase() === 'anak' || s.kategori.toLowerCase() === 'tpq') : s.kategori === kategori;
             const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
             return isMatch && isActive;
@@ -670,9 +677,17 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   };
 
   const showHistory = async () => {
-    const { data, error } = await supabase.from('class_mutations').select('*, santri:santri_id(nama_lengkap, foto_url), from_class:from_class_id(nama_kelas, sesi, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, sesi, guru:id_guru(nama))').order('mutation_date', { ascending: false });
+    const { data, error } = await supabase.from('class_mutations').select('*, santri:santri_id(id, nama_lengkap, foto_url, avatar_path), from_class:from_class_id(nama_kelas, sesi, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, sesi, guru:id_guru(nama))').order('mutation_date', { ascending: false });
     if (error) { toast({ title: 'Gagal memuat riwayat', description: error.message, variant: 'destructive'}); }
-    else { setMutationHistory(data || []); setFilteredHistory(data || []); setIsHistoryOpen(true); }
+    else {
+      const resolvedHistory = await Promise.all((data || []).map(async (entry) => ({
+        ...entry,
+        santri: await resolveAvatarRecord(entry.santri, { ownerType: 'santri' }),
+      })));
+      setMutationHistory(resolvedHistory);
+      setFilteredHistory(resolvedHistory);
+      setIsHistoryOpen(true);
+    }
   };
 
   const confirmDeleteHistory = (id) => {

@@ -70,6 +70,13 @@ export const formatPaymentPeriod = (bulan, tahun) => {
 
 export const validatePaymentAmount = (amount) => Number.isFinite(Number(amount)) && Number(amount) >= 0;
 
+export const getSharedDefaultSppAmount = (santriList = []) => {
+    if (!Array.isArray(santriList) || santriList.length === 0) return null;
+    const amounts = santriList.map((santri) => Number(santri?.default_spp_amount));
+    if (amounts.some((amount) => !Number.isFinite(amount) || amount < 10000)) return null;
+    return amounts.every((amount) => amount === amounts[0]) ? amounts[0] : null;
+};
+
 export const getPaymentErrorMessage = (error) => {
     const message = String(error?.message || '');
     if (message.includes('payments_active_santri_bulan_tahun_unique')) {

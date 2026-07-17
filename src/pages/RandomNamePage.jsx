@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 // --- Particle Component for Background ---
 const FloatingParticle = ({ delay, isDark }) => (
@@ -86,12 +87,15 @@ const RandomNamePage = () => {
                 // 1. Fetch Santri
                 const { data: santriData, error: santriError } = await supabase
                     .from('santri')
-                    .select('id, nama_lengkap, foto_url, points, jilid, jenis_kelamin')
+                    .select('id, nama_lengkap, foto_url, avatar_path, points, jilid, jenis_kelamin')
                     .eq('status', 'Aktif')
                     .eq('kategori', 'Anak');
                 
                 if (santriError) throw santriError;
-                setSantriList(santriData || []);
+                const resolvedSantri = await resolveAvatarRecords(santriData || [], {
+                    ownerType: 'santri',
+                });
+                setSantriList(resolvedSantri);
 
                 // 2. Fetch Settings using website_content instead of hallucinated table
                 const { data: settingsData, error: settingsError } = await supabase
