@@ -22,7 +22,7 @@ import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessio
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
-import { archiveSantriAccounts } from '@/lib/santriArchiveAdapters';
+import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArchiveAdapters';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 
 const jilidOptions = [
@@ -36,6 +36,8 @@ const jilidOptions = [
     'Jilid 6A', 'Jilid 6B',
     'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
 ];
+
+const ptptTargetOptions = ['Juz 1', 'Juz 2', 'Juz 28', 'Juz 29', 'Juz 30'];
 
 const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
 const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
@@ -346,6 +348,7 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
 };
 
 const SantriManagement = ({ subCategory = 'tpq' }) => {
+  const academicLevelOptions = subCategory === 'ptpt' ? ptptTargetOptions : jilidOptions;
   const { user } = useAuth();
   const [santriList, setSantriList] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -504,7 +507,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
-    jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: 'Anak'
+    jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
   });
 
   useEffect(() => {
@@ -676,7 +679,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       ['nama_lengkap', 'Nama lengkap'],
       ['tanggal_lahir', 'Tanggal lahir'],
       ['jenis_kelamin', 'Jenis kelamin'],
-      ['jilid', 'Jilid'],
+      ['jilid', subCategory === 'ptpt' ? 'Target tahfizh' : 'Jilid'],
       ['sesi_mengaji', 'Sesi'],
     ];
     const missingField = requiredFields.find(([field]) => !String(finalFormData[field] ?? '').trim());
@@ -709,6 +712,10 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       let targetId = editingSantri?.id;
 
       if (!editingSantri) {
+        if (!enableEdgeFunctions) {
+          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+          return;
+        }
         const { data, error } = await supabase.functions.invoke('manage-user', {
           body: {
             action: 'create',
@@ -718,7 +725,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(await getFunctionErrorMessage(error, 'Akun santri gagal dibuat.'));
+        }
         if (!data?.ok || !data?.data?.user_id) {
           throw new Error(data?.error?.message || 'Akun santri gagal dibuat.');
         }
@@ -747,7 +756,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         return;
       }
 
-      const needsAuthEdgeFunction = !editingSantri || shouldArchiveAfterSave;
+      const needsAuthEdgeFunction = shouldArchiveAfterSave;
       if (needsAuthEdgeFunction && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
         return;
@@ -897,7 +906,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setFormData({
       nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
       nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: sessionOptions[0] || 'Pagi', rfid_tag: '',
-      jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
+      jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
     });
     setEditingSantri(null);
   };
@@ -985,7 +994,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
              </div>
              <div className="admin-panel-header-text">
                 <h2>Manajemen Santri ({subCategory.toUpperCase()})</h2>
-                <p>Kelola data santri, jilid, dan status aktif.</p>
+                <p>Kelola data santri, {subCategory === 'ptpt' ? 'target tahfizh' : 'jilid'}, dan status aktif.</p>
              </div>
           </div>
           
@@ -1045,8 +1054,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                     <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
-                    <SelectTrigger><SelectValue placeholder="Jilid" /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">Semua Jilid</SelectItem>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                    <SelectTrigger><SelectValue placeholder={subCategory === 'ptpt' ? 'Target Tahfizh' : 'Jilid'} /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua {subCategory === 'ptpt' ? 'Target' : 'Jilid'}</SelectItem>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={filters.rfid} onValueChange={val => setFilters(f => ({...f, rfid: val}))}>
                     <SelectTrigger><SelectValue placeholder="RFID" /></SelectTrigger>
@@ -1079,7 +1088,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('tanggal_pendaftaran')}><div className="flex items-center">Tgl Masuk <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jenis_kelamin')}><div className="flex items-center">L/P <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('guru_pengampu')}><div className="flex items-center">Guru Pengampu <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
-              <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jilid')}><div className="flex items-center">Jilid <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jilid')}><div className="flex items-center">{subCategory === 'ptpt' ? 'Target' : 'Jilid'} <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('sesi_mengaji')}><div className="flex items-center">Sesi <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Berkas</th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aksi</th>
@@ -1196,7 +1205,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         <div className="admin-edit-field"><label>RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
                         <div className="admin-edit-field"><label>Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="admin-edit-field"><label>Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>{subCategory === 'ptpt' ? 'Target Tahfizh' : 'Jilid'}</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="admin-edit-field">

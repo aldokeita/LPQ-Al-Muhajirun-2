@@ -18,6 +18,14 @@ function copyIfPresent(source: Record<string, unknown>, target: Record<string, u
   if (hasOwn(source, key)) target[key] = source[key] ?? null;
 }
 
+function normalizeSantriCategory(value: unknown): "Anak" | "PTPT" | "Dewasa" {
+  const normalized = String(value ?? "Anak").trim().toLowerCase();
+  if (normalized === "anak" || normalized === "tpq") return "Anak";
+  if (normalized === "ptpt") return "PTPT";
+  if (normalized === "dewasa") return "Dewasa";
+  throw new Error("INVALID_SANTRI_CATEGORY");
+}
+
 Deno.serve(async (req) => {
   const options = handleOptions(req);
   if (options) return options;
@@ -43,7 +51,8 @@ Deno.serve(async (req) => {
     if (action === "create") {
       const displayName = requireString(profile.nama_lengkap ?? profile.nama, "Nama");
       const initialPassword = requireString(body.initial_password, "Password awal");
-      const isAdultSantri = role === "santri" && String(profile.kategori ?? "").toLowerCase() === "dewasa";
+      const santriCategory = role === "santri" ? normalizeSantriCategory(profile.kategori) : null;
+      const isAdultSantri = role === "santri" && santriCategory === "Dewasa";
       const nomorInduk = role === "santri"
         ? (isAdultSantri
           ? normalizeOptionalNomorInduk(profile.nomor_induk_qiroati)
@@ -108,7 +117,7 @@ Deno.serve(async (req) => {
           nomor_induk_qiroati: nomorInduk,
           nama_lengkap: displayName,
           nama_panggilan: profile.nama_panggilan ?? null,
-          kategori: profile.kategori ?? null,
+          kategori: santriCategory,
           jenis_kelamin: profile.jenis_kelamin ?? null,
           tanggal_lahir: profile.tanggal_lahir ?? null,
           tempat_lahir: profile.tempat_lahir ?? null,
@@ -266,9 +275,23 @@ Deno.serve(async (req) => {
       ];
 
       for (const field of santriFields) copyIfPresent(profile, santriUpdates, field);
+      if (hasOwn(profile, "kategori")) {
+        santriUpdates.kategori = normalizeSantriCategory(profile.kategori);
+      }
 
       if (hasOwn(profile, "nomor_induk_qiroati")) {
-        const isAdultSantri = String(profile.kategori ?? "").toLowerCase() === "dewasa";
+        let effectiveCategory = hasOwn(profile, "kategori")
+          ? normalizeSantriCategory(profile.kategori)
+          : null;
+        if (!effectiveCategory) {
+          const { data: currentSantri } = await admin
+            .from("santri")
+            .select("kategori")
+            .eq("id", targetUserId)
+            .maybeSingle();
+          effectiveCategory = normalizeSantriCategory(currentSantri?.kategori);
+        }
+        const isAdultSantri = effectiveCategory === "Dewasa";
         const nomorInduk = isAdultSantri
           ? normalizeOptionalNomorInduk(profile.nomor_induk_qiroati)
           : normalizeNomorInduk(profile.nomor_induk_qiroati);
@@ -360,6 +383,9 @@ Deno.serve(async (req) => {
   } catch (error) {
     logSafe("error", "manage_user_error", { request_id: rid, message: String(error) });
     if (String(error).includes("FORBIDDEN")) return fail(req, "FORBIDDEN", "Akses ditolak.", 403);
+    if (String(error).includes("INVALID_SANTRI_CATEGORY")) {
+      return fail(req, "INVALID_SANTRI_CATEGORY", "Kategori santri harus TPQ, PTPT, atau Dewasa.", 400);
+    }
     return fail(req, "MANAGE_USER_FAILED", "Operasi akun gagal.", 400);
   }
 });

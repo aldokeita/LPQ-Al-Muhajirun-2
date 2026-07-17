@@ -138,6 +138,27 @@ function New-DummyUserSpec {
       password = "LocalOnly-Demo-Santri-B2!"
       role = "santri"
       name = "Santri Demo B2"
+    },
+    @{
+      id = "10000000-0000-0000-0000-000000000301"
+      email = "santri+10000000-0000-0000-0000-000000000301@auth.lpqalmuhajirun.local"
+      password = "LocalOnly-Demo-PTPT-1!"
+      role = "santri"
+      name = "Santri PTPT Demo 1"
+    },
+    @{
+      id = "10000000-0000-0000-0000-000000000302"
+      email = "santri+10000000-0000-0000-0000-000000000302@auth.lpqalmuhajirun.local"
+      password = "LocalOnly-Demo-PTPT-2!"
+      role = "santri"
+      name = "Santri PTPT Demo 2"
+    },
+    @{
+      id = "10000000-0000-0000-0000-000000000303"
+      email = "santri+10000000-0000-0000-0000-000000000303@auth.lpqalmuhajirun.local"
+      password = "LocalOnly-Demo-PTPT-3!"
+      role = "santri"
+      name = "Santri PTPT Demo 3"
     }
   )
 }

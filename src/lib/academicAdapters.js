@@ -57,6 +57,22 @@ export const groupHafalanItemsByJilid = (items = []) => {
     return groups;
 };
 
+export const PTPT_TAHFIZH_TARGETS = ['Juz 1', 'Juz 2', 'Juz 28', 'Juz 29', 'Juz 30'];
+
+export const getHafalanProgramScope = (santriOrCategory) => {
+    const category = typeof santriOrCategory === 'string'
+        ? santriOrCategory
+        : santriOrCategory?.kategori;
+    return String(category || '').toUpperCase() === 'PTPT' ? 'PTPT' : 'TPQ';
+};
+
+export const groupHafalanItemsByTarget = (items = [], targets = PTPT_TAHFIZH_TARGETS) => (
+    Object.fromEntries(targets.map((target) => [
+        target,
+        items.filter((item) => String(item?.jilid || '').trim() === target)
+    ]))
+);
+
 export const getAcademicErrorMessage = (error) => {
     const message = String(error?.message || error || '');
     if (message.includes('row-level security') || error?.code === '42501') {
@@ -121,23 +137,25 @@ export const deleteCalendarEvent = async (id) => {
     if (error) throw error;
 };
 
-export const fetchHafalanItems = async (category = null) => {
+export const fetchHafalanItems = async (category = null, programScope = null) => {
     let query = supabase
         .from('hafalan_items')
-        .select('id,category,jilid,item_name,item_order,is_active')
+        .select('id,program_scope,category,jilid,item_name,item_order,is_active')
         .eq('is_active', true)
         .order('item_order', { ascending: true })
         .order('item_name', { ascending: true });
 
     if (category) query = query.eq('category', category);
+    if (programScope) query = query.eq('program_scope', programScope);
 
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
 };
 
-export const createHafalanItem = async ({ category, itemName, jilid, itemOrder }) => {
+export const createHafalanItem = async ({ category, itemName, jilid, itemOrder, programScope = 'TPQ' }) => {
     const { error } = await supabase.from('hafalan_items').insert({
+        program_scope: programScope,
         category,
         item_name: String(itemName || '').trim(),
         jilid: String(jilid || ''),
@@ -178,7 +196,7 @@ export const fetchClassesWithActiveSantriForTeacher = async (guruId) => {
     const classIds = classes.map((item) => item.id);
     const { data: memberships, error: membershipError } = await supabase
         .from('class_memberships')
-        .select('class_id,order_in_class,santri:santri_id(id,nama_lengkap,nomor_induk_qiroati,jilid,status,current_class_id,sesi_mengaji,foto_url,avatar_path,tanggal_lahir,no_hp_ortu,created_at)')
+        .select('class_id,order_in_class,santri:santri_id(id,nama_lengkap,nomor_induk_qiroati,kategori,jilid,status,current_class_id,sesi_mengaji,foto_url,avatar_path,tanggal_lahir,no_hp_ortu,created_at)')
         .in('class_id', classIds)
         .eq('status', 'active')
         .order('order_in_class', { ascending: true });

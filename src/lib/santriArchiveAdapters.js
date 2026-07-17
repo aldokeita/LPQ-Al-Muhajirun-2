@@ -18,7 +18,7 @@ const ARCHIVE_SELECT = [
   'avatar_path',
 ].join(',');
 
-const getFunctionErrorMessage = async (error, fallback) => {
+export const getFunctionErrorMessage = async (error, fallback) => {
   if (!error) return fallback;
 
   try {

@@ -51,6 +51,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const [raporYear, setRaporYear] = useState(new Date().getFullYear().toString());
     const [isGeneratingRapor, setIsGeneratingRapor] = useState(false);
     const [isLoadingReportData, setIsLoadingReportData] = useState(false);
+    const isPtpt = String(santri?.kategori || '').toUpperCase() === 'PTPT';
+    const reportHafalanItems = isPtpt ? hafalanData?.tahfizh?.items : hafalanData?.surat?.items;
 
     const fetchNotes = useCallback(async () => {
         if (!santri) return;
@@ -452,7 +454,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                         {/* Tabel Progres Hafalan Detail */}
                         <div className="space-y-4 mt-8">
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                                <BookOpen className="w-5 h-5 text-green-500"/> Progres Hafalan Surat Pendek
+                                <BookOpen className="w-5 h-5 text-green-500"/> {isPtpt ? 'Progres Tahfizh PTPT' : 'Progres Hafalan Surat Pendek'}
                             </h3>
 
                             <div className="rapor-table-container">
@@ -466,11 +468,11 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {hafalanData?.surat?.items?.length > 0 ? (
-                                            hafalanData.surat.items.map((item, idx) => (
+                                        {reportHafalanItems?.length > 0 ? (
+                                            reportHafalanItems.map((item, idx) => (
                                                 <tr key={item.id || idx} className="rapor-row">
                                                     <td className="rapor-td font-semibold text-slate-800 dark:text-slate-200">{item.item_name}</td>
-                                                    <td className="rapor-td text-muted-foreground">Surat Pendek</td>
+                                                    <td className="rapor-td text-muted-foreground">{isPtpt ? item.jilid : 'Surat Pendek'}</td>
                                                     <td className="rapor-td text-center">
                                                         {item.hafal ? (
                                                             <span className="status-badge status-badge-good"><Check className="w-3 h-3 mr-1"/> Lulus</span>
@@ -486,7 +488,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                         ) : (
                                             <tr>
                                                 <td colSpan="4" className="p-8 text-center text-muted-foreground italic bg-slate-50 dark:bg-slate-900/30">
-                                                    Belum ada data hafalan surat yang tercatat.
+                                                    {isPtpt ? 'Belum ada data tahfizh yang tercatat.' : 'Belum ada data hafalan surat yang tercatat.'}
                                                 </td>
                                             </tr>
                                         )}

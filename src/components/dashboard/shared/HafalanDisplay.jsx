@@ -9,6 +9,7 @@ import DevelopmentScoreSelector from '@/components/dashboard/shared/DevelopmentS
 
 const HafalanDisplay = ({ 
     jilid, 
+    titlePrefix = 'Jilid',
     items, 
     isDraggable = false, 
     onItemDrop, 
@@ -58,7 +59,7 @@ const HafalanDisplay = ({
                 isCompleted && !isDraggable ? "bg-green-100/50 text-green-800" : "bg-slate-100/50 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
             )}>
                 <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm">Jilid {jilid}</span>
+                    <span className="font-bold text-sm">{[titlePrefix, jilid].filter(Boolean).join(' ')}</span>
                     {isLoading && <Loader2 className="w-3 h-3 animate-spin" />}
                 </div>
                 {progressData || hasScoring ? (

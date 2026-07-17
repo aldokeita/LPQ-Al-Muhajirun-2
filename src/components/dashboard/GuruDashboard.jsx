@@ -31,7 +31,9 @@ import {
   fetchHafalanItems,
   fetchHafalanProgress,
   fetchMurojaahSubmissions,
+  getHafalanProgramScope,
   getAcademicErrorMessage,
+  PTPT_TAHFIZH_TARGETS,
   updateMurojaahReview,
   upsertHafalanProgress
 } from '@/lib/academicAdapters';
@@ -155,7 +157,7 @@ const GuruDashboard = () => {
   const [isMurojaahOpen, setIsMurojaahOpen] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState(null);
   const [previewAvatar, setPreviewAvatar] = useState(null);
-  const [selectedHafalan, setSelectedHafalan] = useState({ category: '', items: [] });
+  const [selectedHafalan, setSelectedHafalan] = useState({ category: '', programScope: 'TPQ', items: [] });
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
   const [currentSubmission, setCurrentSubmission] = useState(null);
   const [feedback, setFeedback] = useState('');
@@ -267,9 +269,12 @@ const GuruDashboard = () => {
 
   const openDetailModal = (santri) => { setSelectedSantri(santri); setIsDetailOpen(true); };
   const openHafalanModal = (santri, category) => {
-      const filteredItems = hafalanItems.filter(i => i.category === category);
+      const programScope = getHafalanProgramScope(santri);
+      const filteredItems = hafalanItems.filter((item) => (
+        item.category === category && item.program_scope === programScope
+      ));
       setSelectedSantri(santri);
-      setSelectedHafalan({ category, items: filteredItems });
+      setSelectedHafalan({ category, programScope, items: filteredItems });
       setIsHafalanOpen(true);
   };
   const openMurojaahModal = (submission) => { setIsManualMurojaahActive(false); setCurrentSubmission(submission); setFeedback(submission.feedback || ''); setIsMurojaahOpen(true); };
@@ -396,9 +401,16 @@ const GuruDashboard = () => {
   const themeGradient = isFemale ? 'from-teal-500 to-emerald-600' : 'from-green-600 to-green-800';
   const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
   const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
-  const itemsByJilid = selectedHafalan.items ? {
-      1: selectedHafalan.items.filter(i => !i.jilid || String(i.jilid) === '1'), 2: selectedHafalan.items.filter(i => String(i.jilid) === '2'), 3: selectedHafalan.items.filter(i => String(i.jilid) === '3'), 4: selectedHafalan.items.filter(i => String(i.jilid) === '4'), 5: selectedHafalan.items.filter(i => String(i.jilid) === '5'), 6: selectedHafalan.items.filter(i => String(i.jilid) === '6'),
-  } : {};
+  const hafalanTargets = selectedHafalan.programScope === 'PTPT'
+      ? PTPT_TAHFIZH_TARGETS
+      : ['1', '2', '3', '4', '5', '6'];
+  const itemsByJilid = Object.fromEntries(hafalanTargets.map((target, index) => [
+      target,
+      (selectedHafalan.items || []).filter((item) => {
+          const itemTarget = String(item.jilid || '');
+          return itemTarget === String(target) || (index === 0 && !itemTarget);
+      })
+  ]));
 
   const getProgressData = () => {
       if (!selectedSantri || !selectedHafalan.category) return {};
@@ -522,9 +534,15 @@ const GuruDashboard = () => {
                                                 </td>
                                                 <td className="py-3 px-4">
                                                     <div className="flex flex-wrap gap-1">
-                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-primary/20 hover:bg-primary/5 text-primary" onClick={() => openHafalanModal(santri, 'Doa')}>Doa</Button>
-                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-primary/20 hover:bg-primary/5 text-primary" onClick={() => openHafalanModal(santri, 'Sholat')}>Sholat</Button>
-                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-primary/20 hover:bg-primary/5 text-primary" onClick={() => openHafalanModal(santri, 'Surat')}>Surat</Button>
+                                                        {getHafalanProgramScope(santri) === 'PTPT' ? (
+                                                          <Button size="sm" variant="outline" className="h-7 border-violet-300 text-xs text-violet-700 hover:bg-violet-50 dark:border-violet-400/30 dark:text-violet-200 dark:hover:bg-violet-950/30" onClick={() => openHafalanModal(santri, 'Tahfizh')}>Tahfizh</Button>
+                                                        ) : (
+                                                          <>
+                                                            <Button size="sm" variant="outline" className="h-7 text-xs border-primary/20 hover:bg-primary/5 text-primary" onClick={() => openHafalanModal(santri, 'Doa')}>Doa</Button>
+                                                            <Button size="sm" variant="outline" className="h-7 text-xs border-primary/20 hover:bg-primary/5 text-primary" onClick={() => openHafalanModal(santri, 'Sholat')}>Sholat</Button>
+                                                            <Button size="sm" variant="outline" className="h-7 text-xs border-primary/20 hover:bg-primary/5 text-primary" onClick={() => openHafalanModal(santri, 'Surat')}>Surat</Button>
+                                                          </>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="py-3 px-4">
@@ -579,8 +597,8 @@ const GuruDashboard = () => {
               </div>
             </DialogHeader>
             <div className="grid min-w-0 grid-cols-1 gap-4 pt-4 md:grid-cols-2 xl:grid-cols-3">
-              {[1, 2, 3, 4, 5, 6].map(jilid => (
-                <HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
+              {hafalanTargets.map(jilid => (
+                <HafalanDisplay key={jilid} jilid={jilid} titlePrefix={selectedHafalan.programScope === 'PTPT' ? '' : 'Jilid'} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
               ))}
             </div>
           </DialogContent>

@@ -28,7 +28,10 @@ import {
   fetchHafalanItems,
   getAcademicErrorMessage,
   getDevelopmentScoreMeta,
+  getHafalanProgramScope,
   groupHafalanItemsByJilid,
+  groupHafalanItemsByTarget,
+  PTPT_TAHFIZH_TARGETS,
   progressStatusToComplete
 } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
@@ -102,7 +105,16 @@ const scoreToneClasses = {
   emerald: 'bg-emerald-500'
 };
 
-const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' }) => {
+const HafalanSection = ({
+  title,
+  category,
+  items,
+  hafalanData,
+  tone = 'emerald',
+  targets = [1, 2, 3, 4, 5, 6],
+  titlePrefix = 'Jilid',
+  isTahfizh = false
+}) => {
   const scoreData = {};
   items.forEach(i => {
       const progress = hafalanData.find(h =>
@@ -113,7 +125,9 @@ const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' 
           : null;
   });
 
-  const itemsByJilid = groupHafalanItemsByJilid(items);
+  const itemsByJilid = isTahfizh
+    ? groupHafalanItemsByTarget(items, targets)
+    : groupHafalanItemsByJilid(items);
   const scoredValues = Object.values(scoreData).filter((score) => Number.isInteger(score) && score >= 1 && score <= 4);
   const averageScore = scoredValues.length
     ? scoredValues.reduce((total, score) => total + score, 0) / scoredValues.length
@@ -125,7 +139,9 @@ const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' 
   return (
     <DashboardDisclosure
       title={title}
-      description={`Pantau skor dan capaian hafalan ${title.toLowerCase()} dari seluruh jilid.`}
+      description={isTahfizh
+        ? 'Pantau skor hafalan tahfizh dari Juz 1, 2, 28, 29, dan 30.'
+        : `Pantau skor dan capaian hafalan ${title.toLowerCase()} dari seluruh jilid.`}
       icon={BookOpen}
       tone={tone}
       summary={(
@@ -157,16 +173,17 @@ const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' 
         ))}
       </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-        <p className="font-semibold text-foreground">Rincian per jilid</p>
+        <p className="font-semibold text-foreground">{isTahfizh ? 'Rincian per target juz' : 'Rincian per jilid'}</p>
         <p className="text-muted-foreground">
           {averageMeta ? `Capaian saat ini: ${averageMeta.code} · ${averageMeta.label}` : 'Belum ada skor dari guru'}
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {[1, 2, 3, 4, 5, 6].map((jilid) => (
+        {targets.map((jilid) => (
           <HafalanDisplay
             key={jilid}
             jilid={jilid}
+            titlePrefix={titlePrefix}
             items={itemsByJilid[jilid]}
             isDraggable={false}
             scoreData={scoreData}
@@ -178,12 +195,18 @@ const HafalanSection = ({ title, category, items, hafalanData, tone = 'emerald' 
 };
 
 const MurojaahRecorder = ({ santriId, hafalanItems, onSubmissionSuccess, isAdult }) => {
-    const [selectedCategory, setSelectedCategory] = useState('Surat');
+    const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [isUploading, setIsUploading] = useState(false);
 
     const categories = [...new Set(hafalanItems.map(i => i.category))];
     const filteredItems = [...new Set(hafalanItems.filter(i => i.category === selectedCategory).map(i => i.item_name))];
+
+    useEffect(() => {
+      if (!categories.length || categories.includes(selectedCategory)) return;
+      setSelectedCategory(categories[0]);
+      setSelectedItem('');
+    }, [categories, selectedCategory]);
 
     const handleSend = () => {
         if(!selectedItem) return;
@@ -422,7 +445,10 @@ const SantriDashboard = ({ isAdult = false }) => {
             if (friendsAttendance) setClassmatesAttendance(friendsAttendance);
         }
     }
-    if (Array.isArray(itemsResult)) setHafalanItems(itemsResult);
+    if (Array.isArray(itemsResult)) {
+      const programScope = getHafalanProgramScope(santriResult.data);
+      setHafalanItems(itemsResult.filter((item) => item.program_scope === programScope));
+    }
     if (videosResult.data?.content) setVideos(videosResult.data.content);
     else setVideos([{ id: 1, title: 'Hafalan Jilid 1', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', jilid: 'Jilid 1' }]);
     setLevelConfig(levelConfigResult.data?.content || null);
@@ -485,7 +511,7 @@ const SantriDashboard = ({ isAdult = false }) => {
               </p>
               <div className="mt-5 grid grid-cols-2 gap-2 sm:max-w-xl sm:grid-cols-4">
                 {[
-                  ['Jilid', santriData.jilid || '-'],
+                  [getHafalanProgramScope(santriData) === 'PTPT' ? 'Target' : 'Jilid', santriData.jilid || '-'],
                   ['Poin', santriData.points || 0],
                   ['Level', levelInfo.name],
                   ['Sesi', sessionName],
@@ -538,9 +564,24 @@ const SantriDashboard = ({ isAdult = false }) => {
                        </div>
                        <BarChart3 className="hidden h-7 w-7 text-primary/60 sm:block" aria-hidden="true" />
                      </div>
-                     <HafalanSection title="Do'a" category="Doa" items={hafalanItems.filter(i => i.category === 'Doa')} hafalanData={hafalan} tone="emerald" />
-                     <HafalanSection title="Sholat" category="Sholat" items={hafalanItems.filter(i => i.category === 'Sholat')} hafalanData={hafalan} tone="sky" />
-                     <HafalanSection title="Surat" category="Surat" items={hafalanItems.filter(i => i.category === 'Surat')} hafalanData={hafalan} tone="violet" />
+                     {getHafalanProgramScope(santriData) === 'PTPT' ? (
+                       <HafalanSection
+                         title="Tahfizh PTPT"
+                         category="Tahfizh"
+                         items={hafalanItems.filter(i => i.category === 'Tahfizh')}
+                         hafalanData={hafalan}
+                         tone="violet"
+                         targets={PTPT_TAHFIZH_TARGETS}
+                         titlePrefix=""
+                         isTahfizh
+                       />
+                     ) : (
+                       <>
+                         <HafalanSection title="Do'a" category="Doa" items={hafalanItems.filter(i => i.category === 'Doa')} hafalanData={hafalan} tone="emerald" />
+                         <HafalanSection title="Sholat" category="Sholat" items={hafalanItems.filter(i => i.category === 'Sholat')} hafalanData={hafalan} tone="sky" />
+                         <HafalanSection title="Surat" category="Surat" items={hafalanItems.filter(i => i.category === 'Surat')} hafalanData={hafalan} tone="violet" />
+                       </>
+                     )}
                      <SantriDevelopmentProfile santriId={santriData.id} editable={false} collapsible />
                    </div>
                  </div>
