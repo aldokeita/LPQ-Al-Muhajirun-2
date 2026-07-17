@@ -839,6 +839,7 @@ try {
 
   Invoke-StepScript -Name "migration order validation" -Path (Join-Path $PSScriptRoot "validate-migration-order.ps1") | Out-Null
   Invoke-StepScript -Name "seed dummy-only validation" -Path (Join-Path $PSScriptRoot "validate-seed-dummy-only.ps1") | Out-Null
+  Invoke-StepScript -Name "legacy class column validation" -Path (Join-Path $PSScriptRoot "validate-no-legacy-class-column.ps1") | Out-Null
   Invoke-StepScript -Name "no-secret scan" -Path (Join-Path $PSScriptRoot "validate-no-secrets.ps1") | Out-Null
 
   Invoke-SchemaChecks

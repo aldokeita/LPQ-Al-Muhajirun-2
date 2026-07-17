@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
+import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C',
@@ -275,7 +276,7 @@ const SantriDewasaManagement = () => {
               return isDewasa && isActive;
           });
           console.log(`Filtered Dewasa Santri (Aktif): ${filteredDewasa.length} records`);
-          setSantriList(filteredDewasa);
+          setSantriList(filteredDewasa.map(mapSantriForLegacyUi));
       }
 
       if (classesRes.error) {
@@ -430,6 +431,8 @@ const SantriDewasaManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const finalFormData = { ...formData, kategori: 'Dewasa', points: 0 };
+    finalFormData.current_class_id = finalFormData.id_kelas || null;
+    delete finalFormData.id_kelas;
 
     if (!finalFormData.nama_panggilan) {
         toast({ title: "Gagal", description: "Username (Nama Panggilan) wajib diisi.", variant: "destructive" });
@@ -454,14 +457,16 @@ const SantriDewasaManagement = () => {
     let result;
     if (editingSantri) {
       result = await supabase.from('santri').update(finalFormData).eq('id', editingSantri.id);
-      toast({ title: "Berhasil!", description: "Data santri berhasil diperbarui" });
     } else {
       result = await supabase.from('santri').insert(finalFormData);
-      toast({ title: "Berhasil!", description: "Santri dewasa berhasil ditambahkan" });
     }
 
     if (result.error) toast({ title: "Gagal!", description: result.error.message, variant: "destructive" });
     else {
+      toast({
+        title: "Berhasil!",
+        description: editingSantri ? "Data santri berhasil diperbarui" : "Santri dewasa berhasil ditambahkan"
+      });
       loadData();
       setIsFormOpen(false);
       resetForm();
@@ -537,8 +542,18 @@ const SantriDewasaManagement = () => {
           title: 'Migrasi ke TPQ',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori TPQ (Anak)? Santri akan dikeluarkan dari kelas Dewasa saat ini.`,
           onConfirm: async () => {
+              const currentClassId = editingSantri.current_class_id ?? editingSantri.id_kelas ?? null;
+              if (currentClassId) {
+                  toast({
+                      title: "Mutasi kelas diperlukan",
+                      description: "Pindahkan santri dari kelas aktif melalui Manajemen Kelas sebelum mengubah kategori.",
+                      variant: "destructive"
+                  });
+                  return;
+              }
+
               const { error } = await supabase.from('santri')
-                  .update({ kategori: 'Anak', id_kelas: null, order_in_class: null })
+                  .update({ kategori: 'Anak', current_class_id: null, order_in_class: null })
                   .eq('id', editingSantri.id);
 
               if (error) {

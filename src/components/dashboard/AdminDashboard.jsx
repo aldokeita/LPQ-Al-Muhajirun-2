@@ -102,7 +102,7 @@ const AdminDashboard = () => {
     try {
       switch (category) {
         case 'santri':
-          const { data: fullSantri } = await supabase.from('santri').select('*, class:id_kelas(nama_kelas, id_guru)').eq('id', item.id).single();
+          const { data: fullSantri } = await supabase.from('santri').select('*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru)').eq('id', item.id).single();
           if (fullSantri) {
             setSelectedSantri(fullSantri);
             setIsSantriModalOpen(true);
@@ -124,7 +124,7 @@ const AdminDashboard = () => {
           break;
         case 'hafalan':
           if (item.santri?.id) {
-             const { data: santriFromHafalan } = await supabase.from('santri').select('*, class:id_kelas(nama_kelas, id_guru)').eq('id', item.santri.id).single();
+             const { data: santriFromHafalan } = await supabase.from('santri').select('*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru)').eq('id', item.santri.id).single();
              if (santriFromHafalan) {
                 setSelectedSantri(santriFromHafalan);
                 setIsSantriModalOpen(true);

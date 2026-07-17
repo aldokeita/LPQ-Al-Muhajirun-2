@@ -169,13 +169,13 @@ const GuruPerformanceSummary = () => {
         if (classIds.length > 0) {
           // Get total active santri per class to calculate total expected sessions
           const { data: santriList } = await supabase.from('santri')
-            .select('id, id_kelas')
-            .in('id_kelas', classIds)
+            .select('id, current_class_id')
+            .in('current_class_id', classIds)
             .eq('status', 'Aktif');
             
           const classSantriCount = {};
           santriList?.forEach(s => {
-              classSantriCount[s.id_kelas] = (classSantriCount[s.id_kelas] || 0) + 1;
+              classSantriCount[s.current_class_id] = (classSantriCount[s.current_class_id] || 0) + 1;
           });
 
           // Fetch only past dates attendance
@@ -232,14 +232,14 @@ const GuruPerformanceSummary = () => {
         let avgProgress = 0;
         if (classIds.length > 0) {
           const { data: santriList, error: santriError } = await supabase.from('santri')
-            .select('id, nama_lengkap, id_kelas')
-            .in('id_kelas', classIds)
+            .select('id, nama_lengkap, current_class_id')
+            .in('current_class_id', classIds)
             .eq('status', 'Aktif');
           if (santriError) throw santriError;
           
           const santriIds = santriList?.map(s => s.id) || [];
           const santriMap = {};
-          santriList?.forEach(s => santriMap[s.id] = { name: s.nama_lengkap, className: classMap[s.id_kelas] });
+          santriList?.forEach(s => santriMap[s.id] = { name: s.nama_lengkap, className: classMap[s.current_class_id] });
           
           if (santriIds.length > 0) {
             const { data: progressData, error: progError } = await supabase.from('hafalan_progress')
