@@ -4,7 +4,7 @@ import { fail, methodNotAllowed, ok } from "../_shared/response.ts";
 import { requireRole } from "../_shared/roles.ts";
 import { getServiceRoleClient } from "../_shared/supabaseAdmin.ts";
 import { logSafe, requestId } from "../_shared/safeLogger.ts";
-import { normalizeNomorInduk, requireString, validateRole } from "../_shared/validation.ts";
+import { normalizeNomorInduk, normalizeOptionalNomorInduk, requireString, validateRole } from "../_shared/validation.ts";
 
 function internalEmailFor(userId: string): string {
   return `santri+${userId}@auth.lpqalmuhajirun.local`;
@@ -43,7 +43,12 @@ Deno.serve(async (req) => {
     if (action === "create") {
       const displayName = requireString(profile.nama_lengkap ?? profile.nama, "Nama");
       const initialPassword = requireString(body.initial_password, "Password awal");
-      const nomorInduk = role === "santri" ? normalizeNomorInduk(profile.nomor_induk_qiroati) : null;
+      const isAdultSantri = role === "santri" && String(profile.kategori ?? "").toLowerCase() === "dewasa";
+      const nomorInduk = role === "santri"
+        ? (isAdultSantri
+          ? normalizeOptionalNomorInduk(profile.nomor_induk_qiroati)
+          : normalizeNomorInduk(profile.nomor_induk_qiroati))
+        : null;
 
       if (nomorInduk) {
         const { data: existingAlias } = await admin
@@ -136,16 +141,18 @@ Deno.serve(async (req) => {
           return fail(req, "SANTRI_CREATE_FAILED", "Data santri gagal dibuat.", 400);
         }
 
-        const { error: aliasError } = await admin.from("auth_login_aliases").insert({
-          auth_user_id: userId,
-          alias_value: nomorInduk,
-          normalized_alias: nomorInduk,
-          internal_email: finalEmail,
-          is_active: true,
-        });
-        if (aliasError) {
-          await admin.auth.admin.deleteUser(userId);
-          return fail(req, "ALIAS_CREATE_FAILED", "Alias login santri gagal dibuat.", 400);
+        if (nomorInduk) {
+          const { error: aliasError } = await admin.from("auth_login_aliases").insert({
+            auth_user_id: userId,
+            alias_value: nomorInduk,
+            normalized_alias: nomorInduk,
+            internal_email: finalEmail,
+            is_active: true,
+          });
+          if (aliasError) {
+            await admin.auth.admin.deleteUser(userId);
+            return fail(req, "ALIAS_CREATE_FAILED", "Alias login santri gagal dibuat.", 400);
+          }
         }
       } else {
         const { error: guruError } = await admin.from("guru").insert({
@@ -213,46 +220,63 @@ Deno.serve(async (req) => {
       for (const field of santriFields) copyIfPresent(profile, santriUpdates, field);
 
       if (hasOwn(profile, "nomor_induk_qiroati")) {
-        const nomorInduk = normalizeNomorInduk(profile.nomor_induk_qiroati);
-        const { data: duplicateAlias } = await admin
-          .from("auth_login_aliases")
-          .select("auth_user_id")
-          .eq("alias_type", "nomor_induk_qiroati")
-          .eq("normalized_alias", nomorInduk)
-          .neq("auth_user_id", targetUserId)
-          .maybeSingle();
+        const isAdultSantri = String(profile.kategori ?? "").toLowerCase() === "dewasa";
+        const nomorInduk = isAdultSantri
+          ? normalizeOptionalNomorInduk(profile.nomor_induk_qiroati)
+          : normalizeNomorInduk(profile.nomor_induk_qiroati);
 
-        if (duplicateAlias) {
-          return fail(req, "DUPLICATE_NOMOR_INDUK", "Nomor Induk Qiroati sudah digunakan.", 409);
-        }
+        if (!nomorInduk) {
+          santriUpdates.nomor_induk_qiroati = null;
+          const { error: aliasDeleteError } = await admin
+            .from("auth_login_aliases")
+            .delete()
+            .eq("auth_user_id", targetUserId)
+            .eq("alias_type", "nomor_induk_qiroati");
 
-        santriUpdates.nomor_induk_qiroati = nomorInduk;
+          if (aliasDeleteError) {
+            return fail(req, "ALIAS_UPDATE_FAILED", "Alias login santri gagal diperbarui.", 400);
+          }
+        } else {
+          const { data: duplicateAlias } = await admin
+            .from("auth_login_aliases")
+            .select("auth_user_id")
+            .eq("alias_type", "nomor_induk_qiroati")
+            .eq("normalized_alias", nomorInduk)
+            .neq("auth_user_id", targetUserId)
+            .maybeSingle();
 
-        const { data: existingAlias } = await admin
-          .from("auth_login_aliases")
-          .select("id, internal_email")
-          .eq("auth_user_id", targetUserId)
-          .eq("alias_type", "nomor_induk_qiroati")
-          .eq("is_active", true)
-          .maybeSingle();
+          if (duplicateAlias) {
+            return fail(req, "DUPLICATE_NOMOR_INDUK", "Nomor Induk Qiroati sudah digunakan.", 409);
+          }
 
-        const internalEmail = existingAlias?.internal_email ?? internalEmailFor(targetUserId);
-        const aliasPayload = {
-          auth_user_id: targetUserId,
-          alias_type: "nomor_induk_qiroati",
-          alias_value: nomorInduk,
-          normalized_alias: nomorInduk,
-          internal_email: internalEmail,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        };
+          santriUpdates.nomor_induk_qiroati = nomorInduk;
 
-        const aliasResult = existingAlias
-          ? await admin.from("auth_login_aliases").update(aliasPayload).eq("id", existingAlias.id)
-          : await admin.from("auth_login_aliases").insert(aliasPayload);
+          const { data: existingAlias } = await admin
+            .from("auth_login_aliases")
+            .select("id, internal_email")
+            .eq("auth_user_id", targetUserId)
+            .eq("alias_type", "nomor_induk_qiroati")
+            .eq("is_active", true)
+            .maybeSingle();
 
-        if (aliasResult.error) {
-          return fail(req, "ALIAS_UPDATE_FAILED", "Alias login santri gagal diperbarui.", 400);
+          const internalEmail = existingAlias?.internal_email ?? internalEmailFor(targetUserId);
+          const aliasPayload = {
+            auth_user_id: targetUserId,
+            alias_type: "nomor_induk_qiroati",
+            alias_value: nomorInduk,
+            normalized_alias: nomorInduk,
+            internal_email: internalEmail,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          };
+
+          const aliasResult = existingAlias
+            ? await admin.from("auth_login_aliases").update(aliasPayload).eq("id", existingAlias.id)
+            : await admin.from("auth_login_aliases").insert(aliasPayload);
+
+          if (aliasResult.error) {
+            return fail(req, "ALIAS_UPDATE_FAILED", "Alias login santri gagal diperbarui.", 400);
+          }
         }
       }
 

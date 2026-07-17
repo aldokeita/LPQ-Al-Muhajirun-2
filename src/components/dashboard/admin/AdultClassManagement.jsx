@@ -344,7 +344,7 @@ const AdultClassManagement = () => {
   const [santriSearch, setSantriSearch] = useState('');
   const [unassignedFilterJilid, setUnassignedFilterJilid] = useState('all');
   const [formData, setFormData] = useState({ nama_kelas: '', sesi: '', id_guru: null, notes: '', kategori: 'Dewasa' });
-  const [sessionFilters, setSessionFilters] = useState(['Malam']);
+  const [sessionFilters, setSessionFilters] = useState(['Pagi', 'Siang', 'Malam']);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
 
   const fetchAllData = useCallback(async () => {
@@ -390,7 +390,16 @@ const AdultClassManagement = () => {
     }
   }, []);
 
-  useEffect(() => { fetchAllData(); }, [fetchAllData]);
+  useEffect(() => {
+    fetchAllData();
+    const refresh = () => fetchAllData();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('lpq:santri-data-changed', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('lpq:santri-data-changed', refresh);
+    };
+  }, [fetchAllData]);
 
   const handleSaveConfig = async (newLocalSessions) => {
       try {
@@ -512,9 +521,10 @@ const AdultClassManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const targetSession = formData.sesi || Object.keys(sessionTimes)[0];
     const classData = {
       nama_kelas: formData.nama_kelas.trim(),
-      sesi: formData.sesi || null,
+      sesi: targetSession,
       id_guru: formData.id_guru || null,
       kategori: 'Dewasa',
       is_active: true,
@@ -522,13 +532,16 @@ const AdultClassManagement = () => {
     if (!editingClass) {
       classData.sort_order = classes.reduce((max, item) => Math.max(max, item.sort_order || 0), 0) + 1;
     }
-    const { error } = editingClass ? await supabase.from('classes').update(classData).eq('id', editingClass.id) : await supabase.from('classes').insert(classData);
+    const { error } = editingClass
+      ? await supabase.from('classes').update(classData).eq('id', editingClass.id)
+      : await supabase.from('classes').insert(classData);
     if (error) {
       toast({ title: 'Gagal membuat kelas', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Berhasil', description: `Kelas ${classData.nama_kelas} berhasil disimpan.` });
+      setSessionFilters((current) => current.includes(targetSession) ? current : [...current, targetSession]);
       setIsFormOpen(false);
-      fetchAllData();
+      await fetchAllData();
     }
   };
 

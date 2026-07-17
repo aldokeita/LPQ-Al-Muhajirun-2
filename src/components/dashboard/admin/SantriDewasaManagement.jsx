@@ -438,11 +438,6 @@ const SantriDewasaManagement = () => {
         return;
     }
 
-    if (!finalFormData.nomor_induk_qiroati) {
-        toast({ title: "Gagal", description: "Nomor Induk Qiroati wajib diisi.", variant: "destructive" });
-        return;
-    }
-
     if (!editingSantri && !finalFormData.password) {
         toast({ title: "Gagal", description: "Password wajib diisi untuk santri baru.", variant: "destructive" });
         return;
@@ -471,6 +466,8 @@ const SantriDewasaManagement = () => {
         : pickSantriProfileFields(finalFormData);
 
       delete profilePayload.current_class_id;
+      profilePayload.kategori = 'Dewasa';
+      profilePayload.nomor_induk_qiroati = finalFormData.nomor_induk_qiroati || null;
 
       if (classChanged && !selectedClassId) {
         throw new Error('Pilih kelas tujuan. Pengeluaran dari kelas dilakukan melalui migrasi kategori yang aman.');
@@ -515,6 +512,7 @@ const SantriDewasaManagement = () => {
         description: editingSantri ? "Data santri berhasil diperbarui" : "Santri dewasa berhasil ditambahkan"
       });
       await loadData();
+      window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       setIsFormOpen(false);
       resetForm();
     } catch (error) {
@@ -803,7 +801,7 @@ const SantriDewasaManagement = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><User className="w-3 h-3"/> Username (Login)</label><Input type="text" value={formData.nama_panggilan || ''} onChange={(e) => setFormData({ ...formData, nama_panggilan: e.target.value })} required /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} required /></div>
+                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor Induk Qiroati <span className="normal-case opacity-70">(opsional)</span></label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Key className="w-3 h-3"/> Password Awal</label><Input type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} disabled={Boolean(editingSantri)} placeholder={editingSantri ? 'Kelola melalui reset password' : 'Masukkan password awal'} /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor HP (WA)</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>

@@ -173,6 +173,29 @@ select 'santri nomor induk is text',
        'column=santri.nomor_induk_qiroati'
 
 union all
+select 'adult santri nomor induk is optional',
+       (
+         exists (
+           select 1
+           from information_schema.columns
+           where table_schema = 'public'
+             and table_name = 'santri'
+             and column_name = 'nomor_induk_qiroati'
+             and is_nullable = 'YES'
+         )
+         and exists (
+           select 1
+           from pg_constraint c
+           join pg_class t on t.oid = c.conrelid
+           join pg_namespace n on n.oid = t.relnamespace
+           where n.nspname = 'public'
+             and t.relname = 'santri'
+             and c.conname = 'santri_nomor_induk_required_for_non_adult'
+         )
+       )::text,
+       'nullable=adult_only'
+
+union all
 select 'santri nomor induk unique',
        exists (
          select 1

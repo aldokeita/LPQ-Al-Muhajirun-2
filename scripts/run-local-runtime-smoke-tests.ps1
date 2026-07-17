@@ -13,7 +13,10 @@ function Get-LocalEnv {
   if ($env:SUPABASE_API_URL) {
     $envMap["API_URL"] = $env:SUPABASE_API_URL.Trim()
   }
-  if ($envMap.ContainsKey("ANON_KEY") -and $envMap.ContainsKey("API_URL")) {
+  if ($env:SUPABASE_SERVICE_ROLE_KEY) {
+    $envMap["SERVICE_ROLE_KEY"] = $env:SUPABASE_SERVICE_ROLE_KEY.Trim()
+  }
+  if ($envMap.ContainsKey("ANON_KEY") -and $envMap.ContainsKey("API_URL") -and $envMap.ContainsKey("SERVICE_ROLE_KEY")) {
     return $envMap
   }
 
@@ -31,6 +34,7 @@ function Get-LocalEnv {
   }
   if (!$envMap.ContainsKey("ANON_KEY")) { throw "ANON_KEY not found in local Supabase status." }
   if (!$envMap.ContainsKey("API_URL")) { throw "API_URL not found in local Supabase status." }
+  if (!$envMap.ContainsKey("SERVICE_ROLE_KEY")) { throw "SERVICE_ROLE_KEY not found in local Supabase status." }
   if ($statusExitCode -ne 0) { throw "Local Supabase status command failed." }
   return $envMap
 }
@@ -54,6 +58,7 @@ function Invoke-Json {
     $webMethod = switch ($Method.ToUpperInvariant()) {
       "GET" { "Get" }
       "POST" { "Post" }
+      "DELETE" { "Delete" }
       default { throw "Unsupported HTTP method for smoke test: $Method" }
     }
 
@@ -129,6 +134,11 @@ $anonKey = $envMap["ANON_KEY"]
 $script:AnonHeaders = @{
   apikey = $anonKey
   Authorization = "Bearer $anonKey"
+}
+$serviceRoleKey = $envMap["SERVICE_ROLE_KEY"]
+$script:ServiceHeaders = @{
+  apikey = $serviceRoleKey
+  Authorization = "Bearer $serviceRoleKey"
 }
 $script:SmokeTestIp = "local-smoke-$([guid]::NewGuid().ToString("N"))"
 Write-Host "Using local API $script:ApiUrl with anon key length $($anonKey.Length)."
@@ -237,6 +247,34 @@ $duplicateSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
   }
 }
 Add-Result "function manage-user duplicate nomor denied" (-not $duplicateSantri.ok -and $duplicateSantri.status -eq 409) "status=$($duplicateSantri.status) error=$($duplicateSantri.error)"
+
+$adultWithoutNomor = CallFunction -Name "manage-user" -Token $adminToken -Body @{
+  action = "create"
+  role = "santri"
+  initial_password = "LocalOnly-Adult-Optional-001!"
+  profile = @{
+    nomor_induk_qiroati = $null
+    nama_lengkap = "Santri Dewasa Optional Local Smoke"
+    nama_panggilan = "Adult Optional Smoke"
+    kategori = "Dewasa"
+    status = "Aktif"
+  }
+}
+$adultUserId = $adultWithoutNomor.body.data.user_id
+$adultRecord = if ($adultUserId) {
+  RestGet -Path "santri?id=eq.$adultUserId&select=id,nomor_induk_qiroati,kategori" -Token $adminToken
+} else {
+  $null
+}
+$adultRows = if ($adultRecord) { @($adultRecord.body) } else { @() }
+$adultRowCount = @($adultRows).Count
+$adultCreated = $adultWithoutNomor.ok -and $adultRowCount -eq 1 -and $null -eq $adultRows[0].nomor_induk_qiroati -and $adultRows[0].kategori -eq "Dewasa"
+Add-Result "function manage-user creates adult without nomor induk" $adultCreated "function_ok=$($adultWithoutNomor.ok) user_created=$([bool]$adultUserId) rows=$adultRowCount nomor_null=$($null -eq $adultRows[0].nomor_induk_qiroati) category=$($adultRows[0].kategori)"
+
+if ($adultUserId) {
+  $adultCleanup = Invoke-Json -Method "DELETE" -Url "$script:ApiUrl/auth/v1/admin/users/$adultUserId" -Headers $script:ServiceHeaders
+  Add-Result "adult optional smoke cleanup" $adultCleanup.ok "status=$($adultCleanup.status)"
+}
 
 $resetGuru = CallFunction -Name "reset-user-password" -Token $adminToken -Body @{
   target_user_id = "10000000-0000-0000-0000-000000000003"
