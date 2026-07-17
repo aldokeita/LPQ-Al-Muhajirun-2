@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { buildOrQuery, escapeSearchValue } from '@/utils/supabaseQueryBuilder';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 export const useGlobalSearch = (query, delay = 300) => {
   const [results, setResults] = useState({});
@@ -50,7 +51,7 @@ export const useGlobalSearch = (query, delay = 300) => {
       const [santriRes, guruRes, classesRes, paySantriRes, payLocalRes] = await Promise.all([
         safeQuery(
           supabase.from('santri')
-            .select('id, nama_lengkap, nomor_induk_qiroati, foto_url, status, jilid')
+            .select('id, nama_lengkap, nomor_induk_qiroati, foto_url, avatar_path, status, jilid')
             .or(santriOr)
             .limit(5)
         ),
@@ -93,9 +94,12 @@ export const useGlobalSearch = (query, delay = 300) => {
         }
       }
 
+      const resolvedSantriResults = await resolveAvatarRecords(santriRes.data || [], {
+        ownerType: 'santri',
+      });
       const newResults = {};
       
-      if (santriRes.data?.length > 0) newResults.santri = santriRes.data;
+      if (resolvedSantriResults.length > 0) newResults.santri = resolvedSantriResults;
       if (guruRes.data?.length > 0) newResults.guru = guruRes.data;
       if (classesRes.data?.length > 0) newResults.kelas = classesRes.data;
       

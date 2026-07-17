@@ -512,10 +512,24 @@ const AdultClassManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const classData = { ...formData, kategori: 'Dewasa' };
-    if (!editingClass) { classData.sort_order = classes.reduce((max, c) => Math.max(max, c.order || 0), 0) + 1; }
+    const classData = {
+      nama_kelas: formData.nama_kelas.trim(),
+      sesi: formData.sesi || null,
+      id_guru: formData.id_guru || null,
+      kategori: 'Dewasa',
+      is_active: true,
+    };
+    if (!editingClass) {
+      classData.sort_order = classes.reduce((max, item) => Math.max(max, item.sort_order || 0), 0) + 1;
+    }
     const { error } = editingClass ? await supabase.from('classes').update(classData).eq('id', editingClass.id) : await supabase.from('classes').insert(classData);
-    if (error) toast({ title: 'Gagal', variant: 'destructive' }); else { toast({ title: 'Berhasil' }); setIsFormOpen(false); fetchAllData(); }
+    if (error) {
+      toast({ title: 'Gagal membuat kelas', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Berhasil', description: `Kelas ${classData.nama_kelas} berhasil disimpan.` });
+      setIsFormOpen(false);
+      fetchAllData();
+    }
   };
 
   const showHistory = async () => {

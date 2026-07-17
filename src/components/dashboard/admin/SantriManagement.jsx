@@ -905,11 +905,21 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           title: 'Migrasi ke Dewasa',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori DEWASA? Santri akan dikeluarkan dari kelas saat ini.`,
           onConfirm: async () => {
-              toast({
-                  title: "Migrasi ditunda",
-                  description: "Migrasi kategori/kelas perlu operasi backend atomik agar current_class_id dan class_memberships tetap konsisten.",
-                  variant: "destructive"
+              const { data, error } = await supabase.rpc('change_santri_category', {
+                  p_santri_id: editingSantri.id,
+                  p_target_category: 'Dewasa',
+                  p_reason: 'Migrasi TPQ ke santri dewasa oleh admin',
               });
+
+              if (error) {
+                  toast({ title: "Migrasi gagal", description: error.message, variant: "destructive" });
+                  return;
+              }
+
+              toast({ title: "Migrasi berhasil", description: data?.[0]?.message || `${editingSantri.nama_lengkap} dipindahkan ke kategori Dewasa.` });
+              setIsFormOpen(false);
+              setEditingSantri(null);
+              await loadData(subCategory);
           }
       });
   };

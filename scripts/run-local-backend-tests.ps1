@@ -304,6 +304,17 @@ select 'move santri to class rpc exists',
        'rpc=move_santri_to_class'
 
 union all
+select 'change santri category rpc exists',
+       exists (
+         select 1
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public'
+           and p.proname = 'change_santri_category'
+       )::text,
+       'rpc=change_santri_category'
+
+union all
 select 'payments period unique index exists',
        exists (
          select 1

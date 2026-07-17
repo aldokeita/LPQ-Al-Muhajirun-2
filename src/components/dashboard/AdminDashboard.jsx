@@ -32,6 +32,7 @@ import { fetchCashflowSummary } from '@/lib/financeAdapters';
 import AdminPageHeader from './shared/AdminPageHeader';
 import AdminStatCard from './shared/AdminStatCard';
 import AdminModuleNav from './shared/AdminModuleNav';
+import { resolveAvatarRecord } from '@/lib/storageAdapters';
 
 const withTimeout = (promise, ms) => {
   const timeout = new Promise((_, reject) =>
@@ -104,7 +105,7 @@ const AdminDashboard = () => {
         case 'santri':
           const { data: fullSantri } = await supabase.from('santri').select('*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru)').eq('id', item.id).single();
           if (fullSantri) {
-            setSelectedSantri(fullSantri);
+            setSelectedSantri(await resolveAvatarRecord(fullSantri, { ownerType: 'santri' }));
             setIsSantriModalOpen(true);
           } else {
              toast({ title: "Gagal", description: "Data santri tidak ditemukan.", variant: "destructive" });
@@ -126,7 +127,7 @@ const AdminDashboard = () => {
           if (item.santri?.id) {
              const { data: santriFromHafalan } = await supabase.from('santri').select('*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru)').eq('id', item.santri.id).single();
              if (santriFromHafalan) {
-                setSelectedSantri(santriFromHafalan);
+                setSelectedSantri(await resolveAvatarRecord(santriFromHafalan, { ownerType: 'santri' }));
                 setIsSantriModalOpen(true);
              }
           } else {
