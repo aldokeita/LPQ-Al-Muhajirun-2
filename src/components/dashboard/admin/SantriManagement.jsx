@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, Upload, ArrowUpDown, FileCheck, Download, CheckCircle, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen } from 'lucide-react';
+import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +22,8 @@ import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessio
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
+import { archiveSantriAccounts } from '@/lib/santriArchiveAdapters';
+import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -496,6 +498,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [previewImage, setPreviewImage] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
   const [birthdayStudents, setBirthdayStudents] = useState([]);
   const [formData, setFormData] = useState({
@@ -546,11 +549,13 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               });
               return mapSantriForLegacyUi({ ...item, foto_url });
           }));
-          const activeSantri = mappedSantri.filter((s) => !s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()));
+          const activeSantri = mappedSantri.filter((s) => (
+              !s.deleted_at && (!s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()))
+          ));
           setBirthdayStudents(activeSantri);
           const filteredSantri = mappedSantri.filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
-              const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
+              const isActive = !s.deleted_at && (!s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active');
               if (currentTab === 'tpq') return (cat === 'anak' || cat === 'tpq') && isActive;
               if (currentTab === 'ptpt') return cat === 'ptpt' && isActive;
               return false;
@@ -726,12 +731,14 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       const selectedClassId = getSelectedClassId(finalFormData);
       const originalClassId = getSelectedClassId(editingSantri);
       const classChanged = Boolean(selectedClassId) && selectedClassId !== originalClassId;
+      const shouldArchiveAfterSave = String(finalFormData.status || '').toLowerCase() === 'nonaktif';
 
       if (Object.prototype.hasOwnProperty.call(profilePayload, 'current_class_id')) {
         delete profilePayload.current_class_id;
       }
+      if (shouldArchiveAfterSave) delete profilePayload.status;
 
-      if (editingSantri && Object.keys(profilePayload).length === 0 && !classChanged) {
+      if (editingSantri && Object.keys(profilePayload).length === 0 && !classChanged && !shouldArchiveAfterSave) {
         toast({
           title: "Tidak ada perubahan",
           description: "Tidak ada field santri yang berbeda dari data tersimpan. Ubah minimal satu field lalu simpan kembali.",
@@ -740,7 +747,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         return;
       }
 
-      const needsAuthEdgeFunction = !editingSantri;
+      const needsAuthEdgeFunction = !editingSantri || shouldArchiveAfterSave;
       if (needsAuthEdgeFunction && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
         return;
@@ -767,8 +774,18 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         if (classError) throw classError;
       }
 
-      toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
-      loadData(subCategory);
+      if (shouldArchiveAfterSave) {
+        await archiveSantriAccounts([targetId], 'Dinonaktifkan melalui form Data Santri');
+      }
+
+      toast({
+        title: "Berhasil!",
+        description: shouldArchiveAfterSave
+          ? "Data santri tersimpan dan dipindahkan ke arsip."
+          : (editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan"),
+      });
+      await loadData(subCategory);
+      window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       setIsFormOpen(false);
       resetForm();
     } catch (error) {
@@ -784,46 +801,12 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   
   const handleDelete = async () => {
     if (selectedSantri.size === 0) return;
-
-    setIsLoadingData(true);
-    let hasReferences = false;
-    let errorTables = [];
     const idsToDelete = Array.from(selectedSantri);
-
-    const checkRef = async (table, label, foreignKey = 'santri_id') => {
-        try {
-            const { data, error } = await supabase.from(table).select('id').in(foreignKey, idsToDelete).limit(1);
-            if (data && data.length > 0) {
-                hasReferences = true;
-                errorTables.push(label);
-            }
-        } catch (e) {
-            console.error(`Error checking reference in ${table}:`, e);
-        }
-    };
-
-    await checkRef('payments', 'Pembayaran');
-    await checkRef('hafalan_progress', 'Hafalan Progress');
-    await checkRef('murojaah_submissions', 'Setoran Murojaah');
-    await checkRef('santri_notes', 'Catatan Santri');
-    await checkRef('jilid_history', 'Riwayat Jilid');
-    await checkRef('class_mutations', 'Mutasi Kelas');
-
-    setIsLoadingData(false);
-
-    if (hasReferences) {
-        toast({ 
-            title: "Gagal Menghapus", 
-            description: `Tidak bisa menghapus santri karena masih ada data yang terhubung. Hapus data di tabel berikut terlebih dahulu: ${errorTables.join(', ')}.`, 
-            variant: "destructive" 
-        });
-        return;
-    }
 
     setConfirmDialog({
       isOpen: true,
-      title: 'Hapus Santri',
-      description: `Yakin ingin menghapus ${selectedSantri.size} data santri terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      title: 'Pindahkan ke Arsip',
+      description: `${selectedSantri.size} santri akan dinonaktifkan dan dipindahkan ke arsip. Kelas, hafalan, karakter, absensi, pembayaran, dan seluruh riwayat tetap tersimpan serta dapat dipulihkan kapan saja.`,
       onConfirm: async () => {
         if (!enableEdgeFunctions) {
           toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
@@ -831,20 +814,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         }
 
         try {
-          for (const id of idsToDelete) {
-            const { data, error } = await supabase.functions.invoke('manage-user', {
-              body: { action: 'deactivate', role: 'santri', target_user_id: id },
-            });
-            if (error) throw error;
-            if (!data?.ok) throw new Error(data?.error?.message || 'Akun santri gagal dinonaktifkan.');
-          }
-
-          const { error } = await supabase.from('santri').update({ status: 'Nonaktif' }).in('id', idsToDelete);
-          if (error) throw error;
-
-          loadData(subCategory);
+          await archiveSantriAccounts(idsToDelete, 'Dipindahkan ke arsip dari Data Santri');
+          await loadData(subCategory);
+          window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
           setSelectedSantri(new Set());
-          toast({ title: "Berhasil!", description: "Akun santri terpilih berhasil dinonaktifkan" });
+          toast({ title: "Masuk arsip", description: "Santri terpilih telah diarsipkan tanpa menghapus riwayatnya." });
         } catch (error) {
           toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
@@ -861,14 +835,6 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       description: `Yakin ingin ${confirmationText} ${selectedSantri.size} data santri terpilih?`,
       onConfirm: async () => {
         const idsToUpdate = Array.from(selectedSantri);
-        if (status === 'Aktif') {
-          toast({
-            title: "Aktivasi massal ditunda",
-            description: "Mengaktifkan kembali akun perlu operasi backend resmi agar status Supabase Auth dan tabel santri tetap konsisten.",
-            variant: "destructive"
-          });
-          return;
-        }
 
         if (!enableEdgeFunctions) {
           toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
@@ -876,20 +842,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         }
 
         try {
-          for (const id of idsToUpdate) {
-            const { data, error } = await supabase.functions.invoke('manage-user', {
-              body: { action: 'deactivate', role: 'santri', target_user_id: id },
-            });
-            if (error) throw error;
-            if (!data?.ok) throw new Error(data?.error?.message || 'Akun santri gagal dinonaktifkan.');
-          }
-
-          const { error } = await supabase.from('santri').update({ status }).in('id', idsToUpdate);
-          if (error) throw error;
-
-          loadData(subCategory);
+          await archiveSantriAccounts(idsToUpdate, 'Dinonaktifkan dari Data Santri');
+          await loadData(subCategory);
+          window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
           setSelectedSantri(new Set());
-          toast({ title: "Berhasil!", description: `Status santri terpilih berhasil diubah menjadi ${status}.` });
+          toast({ title: "Santri dinonaktifkan", description: "Data dipindahkan ke arsip dan dapat dipulihkan kapan saja." });
         } catch (error) {
           toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
@@ -1033,6 +990,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           </div>
           
           <div className="admin-panel-header-actions">
+            <button onClick={() => setIsArchiveOpen(true)} className="admin-action-cluster-btn">
+                <Archive className="w-4 h-4" /> Arsip
+            </button>
             <button
                 onClick={() => setIsBirthdayModalOpen(true)}
                 className="admin-action-cluster-btn relative"
@@ -1048,14 +1008,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
             {selectedSantri.size > 0 && (
                 <div className="admin-bulk-bar">
-                    <button onClick={() => handleBulkStatusChange('Aktif')} className="admin-bulk-btn admin-bulk-btn--activate">
-                        <CheckCircle className="w-3.5 h-3.5"/> Aktifkan
-                    </button>
                     <button onClick={() => handleBulkStatusChange('Nonaktif')} className="admin-bulk-btn admin-bulk-btn--deactivate">
                         <XCircle className="w-3.5 h-3.5"/> Non-Aktif
                     </button>
                     <button onClick={handleDelete} className="admin-bulk-btn admin-bulk-btn--delete">
-                        <Trash2 className="w-3.5 h-3.5"/> Hapus ({selectedSantri.size})
+                        <Archive className="w-3.5 h-3.5"/> Arsipkan ({selectedSantri.size})
                     </button>
                 </div>
             )}
@@ -1293,6 +1250,13 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
+      <SantriArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
+        categories={subCategory === 'ptpt' ? ['PTPT'] : ['Anak', 'TPQ']}
+        title={`Arsip Santri ${subCategory.toUpperCase()}`}
+        onRestored={() => loadData(subCategory)}
+      />
       
       <ConfirmationDialog 
         isOpen={confirmDialog.isOpen} 

@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     const profile = body.profile ?? {};
     const admin = getServiceRoleClient();
 
-    if (!["create", "update", "deactivate"].includes(action)) {
+    if (!["create", "update", "deactivate", "archive", "restore"].includes(action)) {
       return fail(req, "VALIDATION_ERROR", "Action tidak valid.", 400);
     }
 
@@ -177,6 +177,54 @@ Deno.serve(async (req) => {
     }
 
     const targetUserId = requireString(body.target_user_id, "Target user id");
+
+    const isSantriArchive = role === "santri" && ["deactivate", "archive"].includes(action);
+    const isSantriRestore = role === "santri" && action === "restore";
+
+    if (isSantriArchive || isSantriRestore) {
+      const archived = isSantriArchive;
+      const authUpdate = await admin.auth.admin.updateUserById(targetUserId, {
+        ban_duration: archived ? "876000h" : "none",
+      });
+
+      if (authUpdate.error) {
+        return fail(
+          req,
+          archived ? "AUTH_ARCHIVE_FAILED" : "AUTH_RESTORE_FAILED",
+          archived ? "Akun santri gagal diarsipkan." : "Akun santri gagal dipulihkan.",
+          400,
+        );
+      }
+
+      const { data: archiveResult, error: archiveError } = await admin.rpc("set_santri_archive_state", {
+        p_santri_id: targetUserId,
+        p_archived: archived,
+        p_actor_id: user.id,
+        p_reason: body.reason ?? (archived ? "Diarsipkan oleh admin" : null),
+      });
+
+      if (archiveError) {
+        await admin.auth.admin.updateUserById(targetUserId, {
+          ban_duration: archived ? "none" : "876000h",
+        });
+        return fail(
+          req,
+          archived ? "SANTRI_ARCHIVE_FAILED" : "SANTRI_RESTORE_FAILED",
+          archived ? "Data santri gagal dipindahkan ke arsip." : "Data santri gagal dipulihkan dari arsip.",
+          400,
+        );
+      }
+
+      return ok(req, {
+        user_id: targetUserId,
+        archived,
+        current_class_id: archiveResult?.[0]?.current_class_id ?? null,
+      });
+    }
+
+    if (["archive", "restore"].includes(action)) {
+      return fail(req, "VALIDATION_ERROR", "Arsip dan pemulihan akun hanya tersedia untuk santri.", 400);
+    }
 
     if (action === "deactivate") {
       await admin.from("user_profiles").update({ status: "inactive", updated_by: user.id }).eq("id", targetUserId);

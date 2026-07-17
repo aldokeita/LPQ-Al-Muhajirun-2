@@ -108,7 +108,10 @@ with expected_migrations(version) as (
     ('20260716000100'),
     ('20260716000200'),
     ('20260716000300'),
-    ('20260716000400')
+    ('20260716000400'),
+    ('20260717000100'),
+    ('20260717000200'),
+    ('20260717000300')
 ),
 sensitive_tables(table_name) as (
   values
@@ -142,7 +145,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 26 and not exists (
+       (count(sm.version) = 29 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -336,6 +339,16 @@ select 'change santri category rpc exists',
            and p.proname = 'change_santri_category'
        )::text,
        'rpc=change_santri_category'
+
+union all
+select 'santri archive rpc is service role only',
+       (
+         to_regprocedure('public.set_santri_archive_state(uuid,boolean,uuid,text)') is not null
+         and has_function_privilege('service_role', 'public.set_santri_archive_state(uuid,boolean,uuid,text)', 'EXECUTE')
+         and not has_function_privilege('authenticated', 'public.set_santri_archive_state(uuid,boolean,uuid,text)', 'EXECUTE')
+         and not has_function_privilege('anon', 'public.set_santri_archive_state(uuid,boolean,uuid,text)', 'EXECUTE')
+       )::text,
+       'rpc=set_santri_archive_state scope=service_role'
 
 union all
 select 'payments period unique index exists',

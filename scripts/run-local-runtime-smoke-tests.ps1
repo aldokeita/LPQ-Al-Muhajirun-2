@@ -236,6 +236,41 @@ $oversize = CallFunction -Name "generate-signed-upload-url" -Token $santriToken 
 }
 Add-Result "function signed upload oversize denied" (-not $oversize.ok)
 
+$archiveTargetId = "10000000-0000-0000-0000-000000000101"
+$membershipBeforeArchive = RestGet -Path "class_memberships?santri_id=eq.$archiveTargetId&select=id,class_id,status" -Token $adminToken
+$santriBeforeArchive = RestGet -Path "santri?id=eq.$archiveTargetId&select=id,current_class_id" -Token $adminToken
+$archiveSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
+  action = "archive"
+  role = "santri"
+  target_user_id = $archiveTargetId
+  reason = "Local archive workflow smoke test"
+}
+$archivedRecord = RestGet -Path "santri?id=eq.$archiveTargetId&select=id,status,deleted_at,current_class_id" -Token $adminToken
+$archivedRows = @($archivedRecord.body)
+$archiveStateValid = $archiveSantri.ok -and $archivedRows.Count -eq 1 -and $archivedRows[0].status -eq "Nonaktif" -and $null -ne $archivedRows[0].deleted_at
+Add-Result "function manage-user archives santri" $archiveStateValid "status=$($archiveSantri.status) archived=$($archivedRows[0].status)"
+
+$archivedLogin = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYQA001"; password = "LocalOnly-Demo-Santri-A1!" }
+Add-Result "archived santri login denied" (-not $archivedLogin.ok) "status=$($archivedLogin.status)"
+
+$membershipAfterArchive = RestGet -Path "class_memberships?santri_id=eq.$archiveTargetId&select=id,class_id,status" -Token $adminToken
+$santriBeforeRows = @($santriBeforeArchive.body)
+$membershipPreserved = @($membershipBeforeArchive.body).Count -gt 0 -and @($membershipBeforeArchive.body).Count -eq @($membershipAfterArchive.body).Count -and $santriBeforeRows[0].current_class_id -eq $archivedRows[0].current_class_id
+Add-Result "archive preserves class and membership" $membershipPreserved "memberships=$(@($membershipAfterArchive.body).Count)"
+
+$restoreSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
+  action = "restore"
+  role = "santri"
+  target_user_id = $archiveTargetId
+}
+$restoredRecord = RestGet -Path "santri?id=eq.$archiveTargetId&select=id,status,deleted_at,current_class_id" -Token $adminToken
+$restoredRows = @($restoredRecord.body)
+$restoreStateValid = $restoreSantri.ok -and $restoredRows.Count -eq 1 -and $restoredRows[0].status -eq "Aktif" -and $null -eq $restoredRows[0].deleted_at
+Add-Result "function manage-user restores santri" $restoreStateValid "status=$($restoreSantri.status) restored=$($restoredRows[0].status)"
+
+$restoredLogin = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYQA001"; password = "LocalOnly-Demo-Santri-A1!" }
+Add-Result "restored santri login works" ($restoredLogin.ok -and $restoredLogin.body.data.session.access_token) "status=$($restoredLogin.status)"
+
 $duplicateSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
   action = "create"
   role = "santri"
