@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, Upload, ArrowUpDown, Download, CheckCircle, XCircle, Trophy, User, Mail, Key, Briefcase, Filter, FileSpreadsheet, ArrowRightLeft, GraduationCap, MapPin } from 'lucide-react';
+import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, Download, XCircle, Trophy, User, Mail, Key, Briefcase, Filter, FileSpreadsheet, ArrowRightLeft, GraduationCap, MapPin } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,8 +19,10 @@ import { validatePassword } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
-import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
+import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/lib/storageAdapters';
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
+import { archiveSantriAccounts } from '@/lib/santriArchiveAdapters';
+import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C',
@@ -241,6 +243,7 @@ const SantriDewasaManagement = () => {
   const photoInputRef = React.useRef(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [previewImage, setPreviewImage] = useState(null);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     nomor_induk_qiroati: '', nama_lengkap: '', nama_panggilan: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
@@ -272,11 +275,12 @@ const SantriDewasaManagement = () => {
           // Client-side filtering to be safe against case inconsistencies
           const filteredDewasa = (santriRes.data || []).filter(s => {
               const isDewasa = s.kategori && s.kategori.toLowerCase() === 'dewasa';
-              const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
+              const isActive = !s.deleted_at && (!s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active');
               return isDewasa && isActive;
           });
-          console.log(`Filtered Dewasa Santri (Aktif): ${filteredDewasa.length} records`);
-          setSantriList(filteredDewasa.map(mapSantriForLegacyUi));
+          const mappedDewasa = filteredDewasa.map(mapSantriForLegacyUi);
+          const resolvedDewasa = await resolveAvatarRecords(mappedDewasa, { ownerType: 'santri' });
+          setSantriList(resolvedDewasa);
       }
 
       if (classesRes.error) {
@@ -464,8 +468,10 @@ const SantriDewasaManagement = () => {
       const profilePayload = editingSantri
         ? pickChangedSantriProfileFields(finalFormData, editingSantri)
         : pickSantriProfileFields(finalFormData);
+      const shouldArchiveAfterSave = String(finalFormData.status || '').toLowerCase() === 'nonaktif';
 
       delete profilePayload.current_class_id;
+      if (shouldArchiveAfterSave) delete profilePayload.status;
       profilePayload.kategori = 'Dewasa';
       profilePayload.nomor_induk_qiroati = finalFormData.nomor_induk_qiroati || null;
 
@@ -507,9 +513,15 @@ const SantriDewasaManagement = () => {
         if (error) throw error;
       }
 
+      if (shouldArchiveAfterSave) {
+        await archiveSantriAccounts([targetId], 'Dinonaktifkan melalui form Data Santri Dewasa');
+      }
+
       toast({
         title: "Berhasil!",
-        description: editingSantri ? "Data santri berhasil diperbarui" : "Santri dewasa berhasil ditambahkan"
+        description: shouldArchiveAfterSave
+          ? "Data santri tersimpan dan dipindahkan ke arsip."
+          : (editingSantri ? "Data santri berhasil diperbarui" : "Santri dewasa berhasil ditambahkan")
       });
       await loadData();
       window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
@@ -528,54 +540,21 @@ const SantriDewasaManagement = () => {
 
   const handleDelete = async () => {
     if (selectedSantri.size === 0) return;
-
-    setIsLoadingData(true);
-    let hasReferences = false;
-    let errorTables = [];
     const idsToDelete = Array.from(selectedSantri);
-
-    // Validate foreign key references before allowing deletion
-    const checkRef = async (table, label, foreignKey = 'santri_id') => {
-        try {
-            const { data, error } = await supabase.from(table).select('id').in(foreignKey, idsToDelete).limit(1);
-            if (data && data.length > 0) {
-                hasReferences = true;
-                errorTables.push(label);
-            }
-        } catch (e) {
-            console.error(`Error checking reference in ${table}:`, e);
-        }
-    };
-
-    await checkRef('payments', 'Pembayaran');
-    await checkRef('hafalan_progress', 'Hafalan Progress');
-    await checkRef('murojaah_submissions', 'Setoran Murojaah');
-    await checkRef('santri_notes', 'Catatan Santri');
-    await checkRef('jilid_history', 'Riwayat Jilid');
-    await checkRef('class_mutations', 'Mutasi Kelas');
-
-    setIsLoadingData(false);
-
-    if (hasReferences) {
-        toast({
-            title: "Gagal Menghapus",
-            description: `Tidak bisa menghapus santri karena masih ada data yang terhubung. Hapus data di tabel berikut terlebih dahulu: ${errorTables.join(', ')}.`,
-            variant: "destructive"
-        });
-        return;
-    }
 
     setConfirmDialog({
       isOpen: true,
-      title: 'Hapus Santri',
-      description: `Yakin ingin menghapus ${selectedSantri.size} data santri terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      title: 'Pindahkan ke Arsip',
+      description: `${selectedSantri.size} santri dewasa akan dinonaktifkan. Seluruh kelas, hafalan, karakter, absensi, pembayaran, dan riwayat tetap tersimpan untuk dipulihkan nanti.`,
       onConfirm: async () => {
-        const { error } = await supabase.from('santri').delete().in('id', idsToDelete);
-        if (error) toast({ title: "Gagal!", description: error.message, variant: "destructive" });
-        else {
-          loadData();
+        try {
+          await archiveSantriAccounts(idsToDelete, 'Dipindahkan ke arsip dari Data Santri Dewasa');
+          await loadData();
+          window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
           setSelectedSantri(new Set());
-          toast({ title: "Berhasil!", description: "Data santri terpilih berhasil dihapus" });
+          toast({ title: "Masuk arsip", description: "Santri dewasa telah diarsipkan tanpa menghapus riwayatnya." });
+        } catch (error) {
+          toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
       }
     });
@@ -668,10 +647,13 @@ const SantriDewasaManagement = () => {
           </div>
 
           <div className="admin-panel-header-actions">
+            <button onClick={() => setIsArchiveOpen(true)} className="admin-action-cluster-btn">
+                <Archive className="w-4 h-4" /> Arsip
+            </button>
             {selectedSantri.size > 0 && (
                 <div className="admin-bulk-bar">
                     <button onClick={handleDelete} className="admin-bulk-btn admin-bulk-btn--delete">
-                        <Trash2 className="w-3.5 h-3.5"/> Hapus ({selectedSantri.size})
+                        <Archive className="w-3.5 h-3.5"/> Arsipkan ({selectedSantri.size})
                     </button>
                 </div>
             )}
@@ -845,6 +827,13 @@ const SantriDewasaManagement = () => {
 
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category="Dewasa" />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
+      <SantriArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
+        categories={['Dewasa']}
+        title="Arsip Santri Dewasa"
+        onRestored={loadData}
+      />
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}

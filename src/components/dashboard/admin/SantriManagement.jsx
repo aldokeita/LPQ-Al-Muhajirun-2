@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, Upload, ArrowUpDown, FileCheck, Download, CheckCircle, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen } from 'lucide-react';
+import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +22,8 @@ import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessio
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
+import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArchiveAdapters';
+import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -34,6 +36,8 @@ const jilidOptions = [
     'Jilid 6A', 'Jilid 6B',
     'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
 ];
+
+const ptptTargetOptions = ['Juz 1', 'Juz 2', 'Juz 28', 'Juz 29', 'Juz 30'];
 
 const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
 const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
@@ -344,6 +348,7 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
 };
 
 const SantriManagement = ({ subCategory = 'tpq' }) => {
+  const academicLevelOptions = subCategory === 'ptpt' ? ptptTargetOptions : jilidOptions;
   const { user } = useAuth();
   const [santriList, setSantriList] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -496,12 +501,13 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [previewImage, setPreviewImage] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
   const [birthdayStudents, setBirthdayStudents] = useState([]);
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
-    jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: 'Anak'
+    jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
   });
 
   useEffect(() => {
@@ -546,11 +552,13 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               });
               return mapSantriForLegacyUi({ ...item, foto_url });
           }));
-          const activeSantri = mappedSantri.filter((s) => !s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()));
+          const activeSantri = mappedSantri.filter((s) => (
+              !s.deleted_at && (!s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()))
+          ));
           setBirthdayStudents(activeSantri);
           const filteredSantri = mappedSantri.filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
-              const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
+              const isActive = !s.deleted_at && (!s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active');
               if (currentTab === 'tpq') return (cat === 'anak' || cat === 'tpq') && isActive;
               if (currentTab === 'ptpt') return cat === 'ptpt' && isActive;
               return false;
@@ -671,7 +679,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       ['nama_lengkap', 'Nama lengkap'],
       ['tanggal_lahir', 'Tanggal lahir'],
       ['jenis_kelamin', 'Jenis kelamin'],
-      ['jilid', 'Jilid'],
+      ['jilid', subCategory === 'ptpt' ? 'Target tahfizh' : 'Jilid'],
       ['sesi_mengaji', 'Sesi'],
     ];
     const missingField = requiredFields.find(([field]) => !String(finalFormData[field] ?? '').trim());
@@ -704,6 +712,10 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       let targetId = editingSantri?.id;
 
       if (!editingSantri) {
+        if (!enableEdgeFunctions) {
+          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+          return;
+        }
         const { data, error } = await supabase.functions.invoke('manage-user', {
           body: {
             action: 'create',
@@ -713,7 +725,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(await getFunctionErrorMessage(error, 'Akun santri gagal dibuat.'));
+        }
         if (!data?.ok || !data?.data?.user_id) {
           throw new Error(data?.error?.message || 'Akun santri gagal dibuat.');
         }
@@ -726,12 +740,14 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       const selectedClassId = getSelectedClassId(finalFormData);
       const originalClassId = getSelectedClassId(editingSantri);
       const classChanged = Boolean(selectedClassId) && selectedClassId !== originalClassId;
+      const shouldArchiveAfterSave = String(finalFormData.status || '').toLowerCase() === 'nonaktif';
 
       if (Object.prototype.hasOwnProperty.call(profilePayload, 'current_class_id')) {
         delete profilePayload.current_class_id;
       }
+      if (shouldArchiveAfterSave) delete profilePayload.status;
 
-      if (editingSantri && Object.keys(profilePayload).length === 0 && !classChanged) {
+      if (editingSantri && Object.keys(profilePayload).length === 0 && !classChanged && !shouldArchiveAfterSave) {
         toast({
           title: "Tidak ada perubahan",
           description: "Tidak ada field santri yang berbeda dari data tersimpan. Ubah minimal satu field lalu simpan kembali.",
@@ -740,7 +756,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         return;
       }
 
-      const needsAuthEdgeFunction = !editingSantri;
+      const needsAuthEdgeFunction = shouldArchiveAfterSave;
       if (needsAuthEdgeFunction && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
         return;
@@ -767,8 +783,18 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         if (classError) throw classError;
       }
 
-      toast({ title: "Berhasil!", description: editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan" });
-      loadData(subCategory);
+      if (shouldArchiveAfterSave) {
+        await archiveSantriAccounts([targetId], 'Dinonaktifkan melalui form Data Santri');
+      }
+
+      toast({
+        title: "Berhasil!",
+        description: shouldArchiveAfterSave
+          ? "Data santri tersimpan dan dipindahkan ke arsip."
+          : (editingSantri ? "Data santri berhasil diperbarui" : "Santri baru berhasil ditambahkan"),
+      });
+      await loadData(subCategory);
+      window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       setIsFormOpen(false);
       resetForm();
     } catch (error) {
@@ -784,46 +810,12 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   
   const handleDelete = async () => {
     if (selectedSantri.size === 0) return;
-
-    setIsLoadingData(true);
-    let hasReferences = false;
-    let errorTables = [];
     const idsToDelete = Array.from(selectedSantri);
-
-    const checkRef = async (table, label, foreignKey = 'santri_id') => {
-        try {
-            const { data, error } = await supabase.from(table).select('id').in(foreignKey, idsToDelete).limit(1);
-            if (data && data.length > 0) {
-                hasReferences = true;
-                errorTables.push(label);
-            }
-        } catch (e) {
-            console.error(`Error checking reference in ${table}:`, e);
-        }
-    };
-
-    await checkRef('payments', 'Pembayaran');
-    await checkRef('hafalan_progress', 'Hafalan Progress');
-    await checkRef('murojaah_submissions', 'Setoran Murojaah');
-    await checkRef('santri_notes', 'Catatan Santri');
-    await checkRef('jilid_history', 'Riwayat Jilid');
-    await checkRef('class_mutations', 'Mutasi Kelas');
-
-    setIsLoadingData(false);
-
-    if (hasReferences) {
-        toast({ 
-            title: "Gagal Menghapus", 
-            description: `Tidak bisa menghapus santri karena masih ada data yang terhubung. Hapus data di tabel berikut terlebih dahulu: ${errorTables.join(', ')}.`, 
-            variant: "destructive" 
-        });
-        return;
-    }
 
     setConfirmDialog({
       isOpen: true,
-      title: 'Hapus Santri',
-      description: `Yakin ingin menghapus ${selectedSantri.size} data santri terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      title: 'Pindahkan ke Arsip',
+      description: `${selectedSantri.size} santri akan dinonaktifkan dan dipindahkan ke arsip. Kelas, hafalan, karakter, absensi, pembayaran, dan seluruh riwayat tetap tersimpan serta dapat dipulihkan kapan saja.`,
       onConfirm: async () => {
         if (!enableEdgeFunctions) {
           toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
@@ -831,20 +823,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         }
 
         try {
-          for (const id of idsToDelete) {
-            const { data, error } = await supabase.functions.invoke('manage-user', {
-              body: { action: 'deactivate', role: 'santri', target_user_id: id },
-            });
-            if (error) throw error;
-            if (!data?.ok) throw new Error(data?.error?.message || 'Akun santri gagal dinonaktifkan.');
-          }
-
-          const { error } = await supabase.from('santri').update({ status: 'Nonaktif' }).in('id', idsToDelete);
-          if (error) throw error;
-
-          loadData(subCategory);
+          await archiveSantriAccounts(idsToDelete, 'Dipindahkan ke arsip dari Data Santri');
+          await loadData(subCategory);
+          window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
           setSelectedSantri(new Set());
-          toast({ title: "Berhasil!", description: "Akun santri terpilih berhasil dinonaktifkan" });
+          toast({ title: "Masuk arsip", description: "Santri terpilih telah diarsipkan tanpa menghapus riwayatnya." });
         } catch (error) {
           toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
@@ -861,14 +844,6 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       description: `Yakin ingin ${confirmationText} ${selectedSantri.size} data santri terpilih?`,
       onConfirm: async () => {
         const idsToUpdate = Array.from(selectedSantri);
-        if (status === 'Aktif') {
-          toast({
-            title: "Aktivasi massal ditunda",
-            description: "Mengaktifkan kembali akun perlu operasi backend resmi agar status Supabase Auth dan tabel santri tetap konsisten.",
-            variant: "destructive"
-          });
-          return;
-        }
 
         if (!enableEdgeFunctions) {
           toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
@@ -876,20 +851,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         }
 
         try {
-          for (const id of idsToUpdate) {
-            const { data, error } = await supabase.functions.invoke('manage-user', {
-              body: { action: 'deactivate', role: 'santri', target_user_id: id },
-            });
-            if (error) throw error;
-            if (!data?.ok) throw new Error(data?.error?.message || 'Akun santri gagal dinonaktifkan.');
-          }
-
-          const { error } = await supabase.from('santri').update({ status }).in('id', idsToUpdate);
-          if (error) throw error;
-
-          loadData(subCategory);
+          await archiveSantriAccounts(idsToUpdate, 'Dinonaktifkan dari Data Santri');
+          await loadData(subCategory);
+          window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
           setSelectedSantri(new Set());
-          toast({ title: "Berhasil!", description: `Status santri terpilih berhasil diubah menjadi ${status}.` });
+          toast({ title: "Santri dinonaktifkan", description: "Data dipindahkan ke arsip dan dapat dipulihkan kapan saja." });
         } catch (error) {
           toast({ title: "Gagal!", description: error.message, variant: "destructive" });
         }
@@ -940,7 +906,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setFormData({
       nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
       nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: sessionOptions[0] || 'Pagi', rfid_tag: '',
-      jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
+      jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
     });
     setEditingSantri(null);
   };
@@ -1028,11 +994,14 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
              </div>
              <div className="admin-panel-header-text">
                 <h2>Manajemen Santri ({subCategory.toUpperCase()})</h2>
-                <p>Kelola data santri, jilid, dan status aktif.</p>
+                <p>Kelola data santri, {subCategory === 'ptpt' ? 'target tahfizh' : 'jilid'}, dan status aktif.</p>
              </div>
           </div>
           
           <div className="admin-panel-header-actions">
+            <button onClick={() => setIsArchiveOpen(true)} className="admin-action-cluster-btn">
+                <Archive className="w-4 h-4" /> Arsip
+            </button>
             <button
                 onClick={() => setIsBirthdayModalOpen(true)}
                 className="admin-action-cluster-btn relative"
@@ -1048,14 +1017,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
             {selectedSantri.size > 0 && (
                 <div className="admin-bulk-bar">
-                    <button onClick={() => handleBulkStatusChange('Aktif')} className="admin-bulk-btn admin-bulk-btn--activate">
-                        <CheckCircle className="w-3.5 h-3.5"/> Aktifkan
-                    </button>
                     <button onClick={() => handleBulkStatusChange('Nonaktif')} className="admin-bulk-btn admin-bulk-btn--deactivate">
                         <XCircle className="w-3.5 h-3.5"/> Non-Aktif
                     </button>
                     <button onClick={handleDelete} className="admin-bulk-btn admin-bulk-btn--delete">
-                        <Trash2 className="w-3.5 h-3.5"/> Hapus ({selectedSantri.size})
+                        <Archive className="w-3.5 h-3.5"/> Arsipkan ({selectedSantri.size})
                     </button>
                 </div>
             )}
@@ -1088,8 +1054,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                     <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
-                    <SelectTrigger><SelectValue placeholder="Jilid" /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">Semua Jilid</SelectItem>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                    <SelectTrigger><SelectValue placeholder={subCategory === 'ptpt' ? 'Target Tahfizh' : 'Jilid'} /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua {subCategory === 'ptpt' ? 'Target' : 'Jilid'}</SelectItem>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={filters.rfid} onValueChange={val => setFilters(f => ({...f, rfid: val}))}>
                     <SelectTrigger><SelectValue placeholder="RFID" /></SelectTrigger>
@@ -1122,7 +1088,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('tanggal_pendaftaran')}><div className="flex items-center">Tgl Masuk <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jenis_kelamin')}><div className="flex items-center">L/P <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('guru_pengampu')}><div className="flex items-center">Guru Pengampu <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
-              <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jilid')}><div className="flex items-center">Jilid <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jilid')}><div className="flex items-center">{subCategory === 'ptpt' ? 'Target' : 'Jilid'} <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('sesi_mengaji')}><div className="flex items-center">Sesi <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Berkas</th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aksi</th>
@@ -1239,7 +1205,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         <div className="admin-edit-field"><label>RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
                         <div className="admin-edit-field"><label>Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="admin-edit-field"><label>Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        <div className="admin-edit-field"><label>{subCategory === 'ptpt' ? 'Target Tahfizh' : 'Jilid'}</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="admin-edit-field">
@@ -1293,6 +1259,13 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
+      <SantriArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
+        categories={subCategory === 'ptpt' ? ['PTPT'] : ['Anak', 'TPQ']}
+        title={`Arsip Santri ${subCategory.toUpperCase()}`}
+        onRestored={() => loadData(subCategory)}
+      />
       
       <ConfirmationDialog 
         isOpen={confirmDialog.isOpen} 

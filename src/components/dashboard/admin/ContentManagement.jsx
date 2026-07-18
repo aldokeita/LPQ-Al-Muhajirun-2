@@ -32,20 +32,29 @@ import {
   slugify
 } from '@/lib/publicContentAdapters';
 
-const HafalanItemManager = ({ category }) => {
+const TPQ_LEVELS = [1, 2, 3, 4, 5, 6].map(String);
+const PTPT_LEVELS = ['Juz 1', 'Juz 2', 'Juz 28', 'Juz 29', 'Juz 30'];
+
+const HafalanItemManager = ({
+  category,
+  programScope = 'TPQ',
+  title = category,
+  levels = TPQ_LEVELS,
+  levelPrefix = 'Jilid'
+}) => {
   const [items, setItems] = useState([]);
   const [newItemName, setNewItemName] = useState('');
-  const [targetJilid, setTargetJilid] = useState(1);
+  const [targetJilid, setTargetJilid] = useState(String(levels[0]));
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchItems();
-  }, [category]);
+  }, [category, programScope]);
 
   const fetchItems = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchHafalanItems(category);
+      const data = await fetchHafalanItems(category, programScope);
       setItems(data || []);
     } catch (error) {
       toast({ title: "Gagal memuat item hafalan", description: getAcademicErrorMessage(error), variant: "destructive" });
@@ -58,6 +67,7 @@ const HafalanItemManager = ({ category }) => {
     try {
       await createHafalanItem({
         category,
+        programScope,
         itemName: newItemName,
         itemOrder: items.length + 1,
         jilid: targetJilid
@@ -87,7 +97,7 @@ const HafalanItemManager = ({ category }) => {
 
     try {
         await updateHafalanItem(itemId, { jilid: newJilid });
-        toast({ title: "Berhasil", description: `Item dipindahkan ke Jilid ${newJilid}` });
+      toast({ title: "Berhasil", description: `Item dipindahkan ke ${[levelPrefix, newJilid].filter(Boolean).join(' ')}` });
     } catch (error) {
         toast({ title: "Gagal memindahkan item", description: getAcademicErrorMessage(error), variant: "destructive" });
         fetchItems(); // Revert on error
@@ -95,36 +105,47 @@ const HafalanItemManager = ({ category }) => {
   };
 
   // Group items by Jilid for display
-  const itemsByJilid = {
-      1: items.filter(i => !i.jilid || String(i.jilid) === '1'), // Default to 1 if null
-      2: items.filter(i => String(i.jilid) === '2'),
-      3: items.filter(i => String(i.jilid) === '3'),
-      4: items.filter(i => String(i.jilid) === '4'),
-      5: items.filter(i => String(i.jilid) === '5'),
-      6: items.filter(i => String(i.jilid) === '6'),
-  };
+  const itemsByJilid = Object.fromEntries(levels.map((level, index) => [
+    String(level),
+    items.filter((item) => {
+      const itemLevel = String(item.jilid || '');
+      return itemLevel === String(level) || (index === 0 && !itemLevel);
+    })
+  ]));
 
   return (
-    <div className="space-y-6 p-6 border rounded-xl bg-slate-50 dark:bg-slate-900/50">
+    <section className="space-y-6 rounded-lg border bg-muted/20 p-4 sm:p-6" aria-labelledby={`hafalan-${programScope}-${category}`}>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
-          <h4 className="font-bold text-2xl text-primary">{category}</h4>
+          <div>
+            <h4 id={`hafalan-${programScope}-${category}`} className="text-xl font-black text-foreground sm:text-2xl">{title}</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {programScope === 'PTPT'
+                ? 'Kurikulum tahfizh PTPT terpisah dari hafalan TPQ dan dinilai dengan skala 1–4.'
+                : 'Atur urutan hafalan TPQ berdasarkan jilid pembelajaran.'}
+            </p>
+          </div>
           <div className="flex gap-2 w-full md:w-auto">
-            <Select value={targetJilid.toString()} onValueChange={(val) => setTargetJilid(parseInt(val))}>
-                <SelectTrigger className="w-[100px] bg-white"><SelectValue placeholder="Jilid" /></SelectTrigger>
+            <Select value={targetJilid} onValueChange={setTargetJilid}>
+                <SelectTrigger className="w-[120px] bg-background"><SelectValue placeholder={levelPrefix || 'Target'} /></SelectTrigger>
                 <SelectContent>
-                    {[1,2,3,4,5,6].map(j => <SelectItem key={j} value={j.toString()}>Jilid {j}</SelectItem>)}
+                    {levels.map((level) => (
+                      <SelectItem key={level} value={String(level)}>
+                        {[levelPrefix, level].filter(Boolean).join(' ')}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
-            <Input placeholder="Nama hafalan baru..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="bg-white dark:bg-slate-950 flex-1 min-w-[200px]" />
+            <Input placeholder="Nama hafalan baru..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="min-w-[200px] flex-1 bg-background" />
             <Button onClick={handleAddItem}><Plus className="w-4 h-4 mr-2"/> Tambah</Button>
           </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {[1, 2, 3, 4, 5, 6].map(jilid => (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {levels.map(jilid => (
               <HafalanDisplay
                   key={jilid}
                   jilid={jilid}
+                  titlePrefix={levelPrefix}
                   items={itemsByJilid[jilid]}
                   isDraggable={true}
                   onItemDrop={handleItemDrop}
@@ -135,9 +156,9 @@ const HafalanItemManager = ({ category }) => {
       </div>
 
       <p className="text-xs text-muted-foreground text-center pt-2">
-          Tip: Tarik dan lepas item hafalan untuk memindahkan antar Jilid.
+          Tarik dan lepas item hafalan untuk memindahkannya ke target lain.
       </p>
-    </div>
+    </section>
   );
 };
 
@@ -777,10 +798,27 @@ const ContentManagement = () => {
                 {feedbacks.length > 0 ? feedbacks.map(fb => (<div key={fb.id} className="admin-card p-4 bg-background relative"><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => handleDeleteFeedback(fb.id)}><Trash2 className="h-4 w-4" /></Button><p className="font-semibold text-lg">{fb.nama || 'Anonim'}</p><div className="text-sm text-muted-foreground mb-2"><span>{fb.email || '-'}</span> | <span>{fb.phone || '-'}</span> | <span>{new Date(fb.created_at).toLocaleString('id-ID')}</span></div><p className="whitespace-pre-wrap">{fb.message}</p></div>)) : (<p className="text-center text-muted-foreground py-4">Tidak ada pesan masuk.</p>)}
             </div>
         </TabsContent>
-        <TabsContent value="hafalan" className="grid md:grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-2">
-          <HafalanItemManager category="Doa" />
-          <HafalanItemManager category="Sholat" />
-          <HafalanItemManager category="Surat" />
+        <TabsContent value="hafalan" className="animate-in fade-in slide-in-from-bottom-2">
+          <Tabs defaultValue="tpq" className="space-y-5">
+            <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-muted p-1 sm:w-auto">
+              <TabsTrigger value="tpq" className="min-w-[150px]">Hafalan TPQ</TabsTrigger>
+              <TabsTrigger value="ptpt" className="min-w-[150px]">Hafalan PTPT</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tpq" className="space-y-6">
+              <HafalanItemManager category="Doa" programScope="TPQ" />
+              <HafalanItemManager category="Sholat" programScope="TPQ" />
+              <HafalanItemManager category="Surat" programScope="TPQ" />
+            </TabsContent>
+            <TabsContent value="ptpt">
+              <HafalanItemManager
+                category="Tahfizh"
+                programScope="PTPT"
+                title="Kurikulum Tahfizh PTPT"
+                levels={PTPT_LEVELS}
+                levelPrefix=""
+              />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}><DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>{editingItem ? 'Edit' : 'Tambah'} {modalType.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</DialogTitle><DialogDescription>Pastikan untuk menyimpan semua perubahan setelah selesai mengedit.</DialogDescription></DialogHeader>{renderModalContent()}</DialogContent></Dialog>

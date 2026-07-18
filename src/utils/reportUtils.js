@@ -41,9 +41,17 @@ export const calculateAttendanceData = async (santriId, startDate, endDate) => {
 
 export const getHafalanProgressData = async (santriId) => {
     try {
+        const { data: santri, error: santriError } = await supabase
+            .from('santri')
+            .select('kategori')
+            .eq('id', santriId)
+            .single();
+        if (santriError) throw santriError;
+        const programScope = String(santri?.kategori || '').toUpperCase() === 'PTPT' ? 'PTPT' : 'TPQ';
+
         const [itemsRes, progressRes] = await Promise.all([
-            supabase.from('hafalan_items').select('id,category,jilid,item_name,item_order,is_active,created_at').eq('is_active', true).order('item_order'),
-            supabase.from('hafalan_progress').select('id,santri_id,item_id,category,item_name,status,created_at,updated_at').eq('santri_id', santriId)
+            supabase.from('hafalan_items').select('id,program_scope,category,jilid,item_name,item_order,is_active,created_at').eq('program_scope', programScope).eq('is_active', true).order('item_order'),
+            supabase.from('hafalan_progress').select('id,santri_id,item_id,category,item_name,status,score,created_at,updated_at').eq('santri_id', santriId)
         ]);
 
         if (itemsRes.error) throw itemsRes.error;
@@ -70,6 +78,7 @@ export const getHafalanProgressData = async (santriId) => {
         const doa = allItems.filter(d => d.category === 'Doa');
         const sholat = allItems.filter(d => d.category === 'Sholat');
         const surat = allItems.filter(d => d.category === 'Surat');
+        const tahfizh = allItems.filter(d => d.category === 'Tahfizh');
 
         const getCompleted = (arr) => arr.filter(d => d.is_completed).length;
 
@@ -77,6 +86,8 @@ export const getHafalanProgressData = async (santriId) => {
             doa: { total: doa.length, completed: getCompleted(doa), items: doa },
             sholat: { total: sholat.length, completed: getCompleted(sholat), items: sholat },
             surat: { total: surat.length, completed: getCompleted(surat), items: surat },
+            tahfizh: { total: tahfizh.length, completed: getCompleted(tahfizh), items: tahfizh },
+            programScope,
             totalCompleted: getCompleted(allItems),
             overallProgress: allItems.length > 0 ? Math.round((getCompleted(allItems) / allItems.length) * 100) : 0,
             allItems: allItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -197,11 +208,13 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.autoTable({
             startY: finalY + 20,
             head: [['Kategori Hafalan', 'Total Item', 'Telah Dihafal', 'Sisa Item']],
-            body: [
-                ['Doa Harian', hafalanData.doa.total, hafalanData.doa.completed, hafalanData.doa.total - hafalanData.doa.completed],
-                ['Bacaan Sholat', hafalanData.sholat.total, hafalanData.sholat.completed, hafalanData.sholat.total - hafalanData.sholat.completed],
-                ['Surat Pendek', hafalanData.surat.total, hafalanData.surat.completed, hafalanData.surat.total - hafalanData.surat.completed]
-            ],
+            body: hafalanData.programScope === 'PTPT'
+                ? [['Tahfizh PTPT', hafalanData.tahfizh.total, hafalanData.tahfizh.completed, hafalanData.tahfizh.total - hafalanData.tahfizh.completed]]
+                : [
+                    ['Doa Harian', hafalanData.doa.total, hafalanData.doa.completed, hafalanData.doa.total - hafalanData.doa.completed],
+                    ['Bacaan Sholat', hafalanData.sholat.total, hafalanData.sholat.completed, hafalanData.sholat.total - hafalanData.sholat.completed],
+                    ['Surat Pendek', hafalanData.surat.total, hafalanData.surat.completed, hafalanData.surat.total - hafalanData.surat.completed]
+                ],
             theme: 'grid',
             headStyles: { fillColor: successColor, textColor: 255, fontStyle: 'bold' },
             bodyStyles: { textColor: 50, halign: 'center' },

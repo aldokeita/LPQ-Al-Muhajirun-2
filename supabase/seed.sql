@@ -13,7 +13,10 @@ values
   ('10000000-0000-0000-0000-000000000102', 'santri', 'Santri Demo A2', null, 'active'),
   ('10000000-0000-0000-0000-000000000103', 'santri', 'Santri Demo A3', null, 'active'),
   ('10000000-0000-0000-0000-000000000201', 'santri', 'Santri Demo B1', null, 'active'),
-  ('10000000-0000-0000-0000-000000000202', 'santri', 'Santri Demo B2', null, 'active')
+  ('10000000-0000-0000-0000-000000000202', 'santri', 'Santri Demo B2', null, 'active'),
+  ('10000000-0000-0000-0000-000000000301', 'santri', 'Santri PTPT Demo 1', null, 'active'),
+  ('10000000-0000-0000-0000-000000000302', 'santri', 'Santri PTPT Demo 2', null, 'active'),
+  ('10000000-0000-0000-0000-000000000303', 'santri', 'Santri PTPT Demo 3', null, 'active')
 on conflict (id) do nothing;
 
 insert into public.guru (id, nama, email, jabatan, roles, is_notulen, status)
@@ -29,7 +32,10 @@ values
   ('10000000-0000-0000-0000-000000000102', 'DUMMYQA002', 'Santri Demo A2', 'Anak', 'Aktif', 'santri/10000000-0000-0000-0000-000000000102/profile.webp'),
   ('10000000-0000-0000-0000-000000000103', 'DUMMYQA003', 'Santri Demo A3', 'Anak', 'Aktif', 'santri/10000000-0000-0000-0000-000000000103/profile.webp'),
   ('10000000-0000-0000-0000-000000000201', 'DUMMYQB001', 'Santri Demo B1', 'Anak', 'Aktif', 'santri/10000000-0000-0000-0000-000000000201/profile.webp'),
-  ('10000000-0000-0000-0000-000000000202', 'DUMMYQB002', 'Santri Demo B2', 'Anak', 'Aktif', 'santri/10000000-0000-0000-0000-000000000202/profile.webp')
+  ('10000000-0000-0000-0000-000000000202', 'DUMMYQB002', 'Santri Demo B2', 'Anak', 'Aktif', 'santri/10000000-0000-0000-0000-000000000202/profile.webp'),
+  ('10000000-0000-0000-0000-000000000301', 'DUMMYPTPT001', 'Santri PTPT Demo 1', 'PTPT', 'Aktif', null),
+  ('10000000-0000-0000-0000-000000000302', 'DUMMYPTPT002', 'Santri PTPT Demo 2', 'PTPT', 'Aktif', null),
+  ('10000000-0000-0000-0000-000000000303', 'DUMMYPTPT003', 'Santri PTPT Demo 3', 'PTPT', 'Aktif', null)
 on conflict (id) do nothing;
 
 insert into public.auth_login_aliases (auth_user_id, alias_value, normalized_alias, internal_email)
@@ -38,13 +44,17 @@ values
   ('10000000-0000-0000-0000-000000000102', 'DUMMYQA002', 'DUMMYQA002', 'santri+10000000-0000-0000-0000-000000000102@auth.lpqalmuhajirun.local'),
   ('10000000-0000-0000-0000-000000000103', 'DUMMYQA003', 'DUMMYQA003', 'santri+10000000-0000-0000-0000-000000000103@auth.lpqalmuhajirun.local'),
   ('10000000-0000-0000-0000-000000000201', 'DUMMYQB001', 'DUMMYQB001', 'santri+10000000-0000-0000-0000-000000000201@auth.lpqalmuhajirun.local'),
-  ('10000000-0000-0000-0000-000000000202', 'DUMMYQB002', 'DUMMYQB002', 'santri+10000000-0000-0000-0000-000000000202@auth.lpqalmuhajirun.local')
+  ('10000000-0000-0000-0000-000000000202', 'DUMMYQB002', 'DUMMYQB002', 'santri+10000000-0000-0000-0000-000000000202@auth.lpqalmuhajirun.local'),
+  ('10000000-0000-0000-0000-000000000301', 'DUMMYPTPT001', 'DUMMYPTPT001', 'santri+10000000-0000-0000-0000-000000000301@auth.lpqalmuhajirun.local'),
+  ('10000000-0000-0000-0000-000000000302', 'DUMMYPTPT002', 'DUMMYPTPT002', 'santri+10000000-0000-0000-0000-000000000302@auth.lpqalmuhajirun.local'),
+  ('10000000-0000-0000-0000-000000000303', 'DUMMYPTPT003', 'DUMMYPTPT003', 'santri+10000000-0000-0000-0000-000000000303@auth.lpqalmuhajirun.local')
 on conflict (alias_type, normalized_alias) do nothing;
 
 insert into public.classes (id, nama_kelas, id_guru, sesi, kategori, sort_order)
 values
   ('20000000-0000-0000-0000-000000000001', 'Kelas Demo A', '10000000-0000-0000-0000-000000000002', 'Sore', 'Anak', 1),
-  ('20000000-0000-0000-0000-000000000002', 'Kelas Demo B', '10000000-0000-0000-0000-000000000003', 'Sore', 'Anak', 2)
+  ('20000000-0000-0000-0000-000000000002', 'Kelas Demo B', '10000000-0000-0000-0000-000000000003', 'Sore', 'Anak', 2),
+  ('20000000-0000-0000-0000-000000000003', 'Kelas Tahfizh PTPT Demo', '10000000-0000-0000-0000-000000000002', 'Sore', 'PTPT', 3)
 on conflict (id) do nothing;
 
 update public.santri
@@ -60,13 +70,30 @@ where id in (
   '10000000-0000-0000-0000-000000000202'
 );
 
+update public.santri
+set current_class_id = '20000000-0000-0000-0000-000000000003'::uuid,
+    jilid = case id
+      when '10000000-0000-0000-0000-000000000301'::uuid then 'Juz 30'
+      when '10000000-0000-0000-0000-000000000302'::uuid then 'Juz 29'
+      else 'Juz 28'
+    end,
+    sesi_mengaji = '3'
+where id in (
+  '10000000-0000-0000-0000-000000000301',
+  '10000000-0000-0000-0000-000000000302',
+  '10000000-0000-0000-0000-000000000303'
+);
+
 insert into public.class_memberships (santri_id, class_id, start_date, status, order_in_class)
 values
   ('10000000-0000-0000-0000-000000000101', '20000000-0000-0000-0000-000000000001', current_date, 'active', 1),
   ('10000000-0000-0000-0000-000000000102', '20000000-0000-0000-0000-000000000001', current_date, 'active', 2),
   ('10000000-0000-0000-0000-000000000103', '20000000-0000-0000-0000-000000000001', current_date, 'active', 3),
   ('10000000-0000-0000-0000-000000000201', '20000000-0000-0000-0000-000000000002', current_date, 'active', 1),
-  ('10000000-0000-0000-0000-000000000202', '20000000-0000-0000-0000-000000000002', current_date, 'active', 2)
+  ('10000000-0000-0000-0000-000000000202', '20000000-0000-0000-0000-000000000002', current_date, 'active', 2),
+  ('10000000-0000-0000-0000-000000000301', '20000000-0000-0000-0000-000000000003', current_date, 'active', 1),
+  ('10000000-0000-0000-0000-000000000302', '20000000-0000-0000-0000-000000000003', current_date, 'active', 2),
+  ('10000000-0000-0000-0000-000000000303', '20000000-0000-0000-0000-000000000003', current_date, 'active', 3)
 on conflict do nothing;
 
 insert into public.pentashih_class_assignments (pentashih_id, class_id, scope, is_active)

@@ -108,7 +108,11 @@ with expected_migrations(version) as (
     ('20260716000100'),
     ('20260716000200'),
     ('20260716000300'),
-    ('20260716000400')
+    ('20260716000400'),
+    ('20260717000100'),
+    ('20260717000200'),
+    ('20260717000300'),
+    ('20260717000400')
 ),
 sensitive_tables(table_name) as (
   values
@@ -142,7 +146,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 26 and not exists (
+       (count(sm.version) = 30 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -338,6 +342,16 @@ select 'change santri category rpc exists',
        'rpc=change_santri_category'
 
 union all
+select 'santri archive rpc is service role only',
+       (
+         to_regprocedure('public.set_santri_archive_state(uuid,boolean,uuid,text)') is not null
+         and has_function_privilege('service_role', 'public.set_santri_archive_state(uuid,boolean,uuid,text)', 'EXECUTE')
+         and not has_function_privilege('authenticated', 'public.set_santri_archive_state(uuid,boolean,uuid,text)', 'EXECUTE')
+         and not has_function_privilege('anon', 'public.set_santri_archive_state(uuid,boolean,uuid,text)', 'EXECUTE')
+       )::text,
+       'rpc=set_santri_archive_state scope=service_role'
+
+union all
 select 'payments period unique index exists',
        exists (
          select 1
@@ -381,6 +395,52 @@ from public.hafalan_items
 where is_active
   and category in ('Doa', 'Sholat', 'Surat')
   and jilid in ('1', '2', '3', '4', '5', '6')
+
+union all
+select 'ptpt category and curriculum scope installed',
+       (
+         exists (
+           select 1
+           from information_schema.columns
+           where table_schema = 'public'
+             and table_name = 'hafalan_items'
+             and column_name = 'program_scope'
+             and is_nullable = 'NO'
+         )
+         and exists (
+           select 1 from pg_constraint
+           where conname = 'santri_kategori_check'
+             and conrelid = 'public.santri'::regclass
+             and pg_get_constraintdef(oid) like '%PTPT%'
+         )
+       )::text,
+       'category=PTPT program_scope=required'
+
+union all
+select 'ptpt tahfizh curriculum installed',
+       (
+         count(*) = 98
+         and count(*) filter (where jilid = 'Juz 1') = 21
+         and count(*) filter (where jilid = 'Juz 2') = 20
+         and count(*) filter (
+           where jilid = 'Juz 1'
+             and item_order between 1 and 21
+             and item_name = format('Halaman %s', item_order)
+         ) = 21
+         and count(*) filter (
+           where jilid = 'Juz 2'
+             and item_order between 1 and 20
+             and item_name = format('Halaman %s', item_order + 21)
+         ) = 20
+         and count(*) filter (where jilid = 'Juz 28') = 9
+         and count(*) filter (where jilid = 'Juz 29') = 11
+         and count(*) filter (where jilid = 'Juz 30') = 37
+       )::text,
+       'items=' || count(*)::text
+from public.hafalan_items
+where is_active
+  and program_scope = 'PTPT'
+  and category = 'Tahfizh'
 
 union all
 select 'hafalan scoring is constrained and synchronized',
@@ -753,6 +813,93 @@ values (
   '10000000-0000-0000-0000-000000000002'
 );
 
+insert into public.hafalan_progress (
+  santri_id, item_id, category, item_name, score, assessed_by, created_by, updated_by
+)
+select
+  '10000000-0000-0000-0000-000000000301',
+  hi.id,
+  hi.category,
+  hi.item_name,
+  4,
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002'
+from public.hafalan_items hi
+where hi.program_scope = 'PTPT'
+  and hi.jilid = 'Juz 30'
+  and hi.item_name = 'An-Naba'
+on conflict (santri_id, item_id) where item_id is not null
+do update set score = excluded.score, assessed_by = excluded.assessed_by, updated_by = excluded.updated_by;
+
+insert into public.santri_character_scores (santri_id, item_id, score, assessed_by, created_by, updated_by)
+values (
+  '10000000-0000-0000-0000-000000000301',
+  2,
+  3,
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002'
+)
+on conflict (santri_id, item_id) do update set score = excluded.score, updated_by = excluded.updated_by;
+
+insert into public.santri_character_strengths (santri_id, strength_key, selected_by)
+values (
+  '10000000-0000-0000-0000-000000000301',
+  'Semangat Belajar',
+  '10000000-0000-0000-0000-000000000002'
+)
+on conflict (santri_id, strength_key) do update set selected_at = now();
+
+insert into public.santri_behavior_records (
+  santri_id, guru_id, incident_date, level, behavior, follow_up, teacher_note, created_by, updated_by
+)
+values (
+  '10000000-0000-0000-0000-000000000301',
+  '10000000-0000-0000-0000-000000000002',
+  current_date,
+  'Ringan',
+  'RUNNER-PTPT-DEVELOPMENT',
+  'Nasihat dan pengingat dari guru',
+  'Data dummy test lokal',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002'
+);
+
+select 'guru scores assigned ptpt tahfizh',
+       exists (
+         select 1
+         from public.hafalan_progress hp
+         join public.hafalan_items hi on hi.id = hp.item_id
+         where hp.santri_id = '10000000-0000-0000-0000-000000000301'
+           and hi.program_scope = 'PTPT'
+           and hi.item_name = 'An-Naba'
+           and hp.score = 4
+           and hp.status = 'lulus'
+       )::text,
+       'program=PTPT item=An-Naba score=4';
+
+select 'guru manages ptpt character development',
+       (
+         exists (
+           select 1 from public.santri_character_scores
+           where santri_id = '10000000-0000-0000-0000-000000000301'
+             and item_id = 2
+             and score = 3
+         )
+         and exists (
+           select 1 from public.santri_character_strengths
+           where santri_id = '10000000-0000-0000-0000-000000000301'
+             and strength_key = 'Semangat Belajar'
+         )
+         and exists (
+           select 1 from public.santri_behavior_records
+           where santri_id = '10000000-0000-0000-0000-000000000301'
+             and behavior = 'RUNNER-PTPT-DEVELOPMENT'
+         )
+       )::text,
+       'score strength behavior=allowed';
+
 select 'guru scores assigned santri character',
        exists (
          select 1 from public.santri_character_scores
@@ -816,6 +963,13 @@ delete from public.santri_character_strengths
 where santri_id = '10000000-0000-0000-0000-000000000101' and strength_key = 'Disiplin';
 delete from public.santri_character_scores
 where santri_id = '10000000-0000-0000-0000-000000000101' and item_id = 1;
+delete from public.santri_behavior_records where behavior = 'RUNNER-PTPT-DEVELOPMENT';
+delete from public.santri_character_strengths
+where santri_id = '10000000-0000-0000-0000-000000000301' and strength_key = 'Semangat Belajar';
+delete from public.santri_character_scores
+where santri_id = '10000000-0000-0000-0000-000000000301' and item_id = 2;
+delete from public.hafalan_progress
+where santri_id = '10000000-0000-0000-0000-000000000301';
 rollback;
 '@
 

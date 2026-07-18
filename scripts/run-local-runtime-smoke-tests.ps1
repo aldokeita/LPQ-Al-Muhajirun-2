@@ -163,6 +163,9 @@ $santriLogin = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk
 Add-Result "function signin santri success" ($santriLogin.ok -and $santriLogin.body.data.session.access_token) "status=$($santriLogin.status) error=$($santriLogin.error)"
 $santriToken = $santriLogin.body.data.session.access_token
 
+$ptptLogin = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYPTPT001"; password = "LocalOnly-Demo-PTPT-1!" }
+Add-Result "function signin ptpt santri success" ($ptptLogin.ok -and $ptptLogin.body.data.session.access_token) "status=$($ptptLogin.status) error=$($ptptLogin.error)"
+
 $wrongPassword = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYQA001"; password = "wrong-local-only" }
 $unknownAlias = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYUNKNOWN"; password = "wrong-local-only" }
 $wrongMessage = $wrongPassword.body.error.message
@@ -170,7 +173,7 @@ $unknownMessage = $unknownAlias.body.error.message
 Add-Result "function signin generic error" (-not $wrongPassword.ok -and -not $unknownAlias.ok -and $wrongMessage -eq $unknownMessage)
 
 $guruASantri = RestGet -Path "santri?select=id&order=id" -Token $guruAToken
-Add-Result "rls guru A sees class A santri only" ($guruASantri.ok -and @($guruASantri.body).Count -eq 3) "status=$($guruASantri.status) count=$(@($guruASantri.body).Count) error=$($guruASantri.error)"
+Add-Result "rls guru A sees assigned TPQ and PTPT santri only" ($guruASantri.ok -and @($guruASantri.body).Count -eq 6) "status=$($guruASantri.status) count=$(@($guruASantri.body).Count) error=$($guruASantri.error)"
 
 $guruBSantri = RestGet -Path "santri?select=id&order=id" -Token $guruBToken
 Add-Result "rls guru B sees class B santri only" ($guruBSantri.ok -and @($guruBSantri.body).Count -eq 2) "status=$($guruBSantri.status) count=$(@($guruBSantri.body).Count) error=$($guruBSantri.error)"
@@ -236,6 +239,41 @@ $oversize = CallFunction -Name "generate-signed-upload-url" -Token $santriToken 
 }
 Add-Result "function signed upload oversize denied" (-not $oversize.ok)
 
+$archiveTargetId = "10000000-0000-0000-0000-000000000101"
+$membershipBeforeArchive = RestGet -Path "class_memberships?santri_id=eq.$archiveTargetId&select=id,class_id,status" -Token $adminToken
+$santriBeforeArchive = RestGet -Path "santri?id=eq.$archiveTargetId&select=id,current_class_id" -Token $adminToken
+$archiveSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
+  action = "archive"
+  role = "santri"
+  target_user_id = $archiveTargetId
+  reason = "Local archive workflow smoke test"
+}
+$archivedRecord = RestGet -Path "santri?id=eq.$archiveTargetId&select=id,status,deleted_at,current_class_id" -Token $adminToken
+$archivedRows = @($archivedRecord.body)
+$archiveStateValid = $archiveSantri.ok -and $archivedRows.Count -eq 1 -and $archivedRows[0].status -eq "Nonaktif" -and $null -ne $archivedRows[0].deleted_at
+Add-Result "function manage-user archives santri" $archiveStateValid "status=$($archiveSantri.status) archived=$($archivedRows[0].status)"
+
+$archivedLogin = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYQA001"; password = "LocalOnly-Demo-Santri-A1!" }
+Add-Result "archived santri login denied" (-not $archivedLogin.ok) "status=$($archivedLogin.status)"
+
+$membershipAfterArchive = RestGet -Path "class_memberships?santri_id=eq.$archiveTargetId&select=id,class_id,status" -Token $adminToken
+$santriBeforeRows = @($santriBeforeArchive.body)
+$membershipPreserved = @($membershipBeforeArchive.body).Count -gt 0 -and @($membershipBeforeArchive.body).Count -eq @($membershipAfterArchive.body).Count -and $santriBeforeRows[0].current_class_id -eq $archivedRows[0].current_class_id
+Add-Result "archive preserves class and membership" $membershipPreserved "memberships=$(@($membershipAfterArchive.body).Count)"
+
+$restoreSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
+  action = "restore"
+  role = "santri"
+  target_user_id = $archiveTargetId
+}
+$restoredRecord = RestGet -Path "santri?id=eq.$archiveTargetId&select=id,status,deleted_at,current_class_id" -Token $adminToken
+$restoredRows = @($restoredRecord.body)
+$restoreStateValid = $restoreSantri.ok -and $restoredRows.Count -eq 1 -and $restoredRows[0].status -eq "Aktif" -and $null -eq $restoredRows[0].deleted_at
+Add-Result "function manage-user restores santri" $restoreStateValid "status=$($restoreSantri.status) restored=$($restoredRows[0].status)"
+
+$restoredLogin = CallFunction -Name "signin-with-nomor-induk" -Body @{ nomor_induk_qiroati = "DUMMYQA001"; password = "LocalOnly-Demo-Santri-A1!" }
+Add-Result "restored santri login works" ($restoredLogin.ok -and $restoredLogin.body.data.session.access_token) "status=$($restoredLogin.status)"
+
 $duplicateSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
   action = "create"
   role = "santri"
@@ -247,6 +285,36 @@ $duplicateSantri = CallFunction -Name "manage-user" -Token $adminToken -Body @{
   }
 }
 Add-Result "function manage-user duplicate nomor denied" (-not $duplicateSantri.ok -and $duplicateSantri.status -eq 409) "status=$($duplicateSantri.status) error=$($duplicateSantri.error)"
+
+$ptptCreatedByAdmin = CallFunction -Name "manage-user" -Token $adminToken -Body @{
+  action = "create"
+  role = "santri"
+  initial_password = "LocalOnly-PTPT-Create-001!"
+  profile = @{
+    nomor_induk_qiroati = "DUMMYPTPTCREATE001"
+    nama_lengkap = "Santri PTPT Create Local Smoke"
+    nama_panggilan = "PTPT Create Smoke"
+    kategori = "PTPT"
+    jilid = "Juz 30"
+    sesi_mengaji = "3"
+    status = "Aktif"
+  }
+}
+$ptptCreatedUserId = $ptptCreatedByAdmin.body.data.user_id
+$ptptCreatedRecord = if ($ptptCreatedUserId) {
+  RestGet -Path "santri?id=eq.$ptptCreatedUserId&select=id,nomor_induk_qiroati,kategori,jilid" -Token $adminToken
+} else {
+  $null
+}
+$ptptCreatedRows = if ($ptptCreatedRecord) { @($ptptCreatedRecord.body) } else { @() }
+$ptptCreatedRowCount = @($ptptCreatedRows).Count
+$ptptCreatedOk = $ptptCreatedByAdmin.ok -and $ptptCreatedRowCount -eq 1 -and $ptptCreatedRows[0].kategori -eq "PTPT" -and $ptptCreatedRows[0].jilid -eq "Juz 30"
+Add-Result "function manage-user creates ptpt santri" $ptptCreatedOk "status=$($ptptCreatedByAdmin.status) rows=$ptptCreatedRowCount category=$($ptptCreatedRows[0].kategori)"
+
+if ($ptptCreatedUserId) {
+  $ptptCleanup = Invoke-Json -Method "DELETE" -Url "$script:ApiUrl/auth/v1/admin/users/$ptptCreatedUserId" -Headers $script:ServiceHeaders
+  Add-Result "ptpt create smoke cleanup" $ptptCleanup.ok "status=$($ptptCleanup.status)"
+}
 
 $adultWithoutNomor = CallFunction -Name "manage-user" -Token $adminToken -Body @{
   action = "create"
