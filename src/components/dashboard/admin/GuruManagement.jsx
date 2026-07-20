@@ -42,7 +42,7 @@ const GuruManagement = () => {
         console.log("Fetching guru data from database...");
         const { data, error } = await supabase
           .from('guru')
-          .select('id, nama, email, no_hp, alamat, foto_url, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at')
+          .select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at')
           .order('nama');
         if (error) {
             console.error("Database Error fetching guru:", error);
@@ -73,7 +73,7 @@ const GuruManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      nama: '', jabatan: '', email: '', no_hp: '', alamat: '', rfid_tag: '', is_notulen: false, foto_url: '', password: '',
+      nama: '', jabatan: '', email: '', no_hp: '', alamat: '', rfid_tag: '', is_notulen: false, foto_url: '', avatar_path: '', password: '',
       roles: [], jenis_kelamin: 'Laki-laki', status_guru: 'Non-Syahadah', nomor_induk_qiroati: '', tanggal_lahir: ''
     });
     setEditingGuru(null);
@@ -209,16 +209,19 @@ const GuruManagement = () => {
               throw new Error("Avatar memakai path berdasarkan UUID akun. Simpan data guru terlebih dahulu sebelum upload foto.");
           }
           const ownerType = formData.roles?.includes('Pentashih') ? 'pentashih' : 'guru';
-          const { signedUrl } = await uploadAvatar({ ownerType, ownerId: editingGuru.id, file });
+          const { path, signedUrl } = await uploadAvatar({ ownerType, ownerId: editingGuru.id, file });
           const finalUrl = signedUrl || formData.foto_url || '';
 
-          setFormData(prev => ({...prev, foto_url: finalUrl }));
+          setFormData(prev => ({...prev, foto_url: finalUrl, avatar_path: path }));
           setPreviewImage(finalUrl);
 
           if (editingGuru) {
-              const { error: updateError } = await supabase.from('guru').update({ foto_url: finalUrl }).eq('id', editingGuru.id);
+              const { error: updateError } = await supabase
+                .from('guru')
+                .update({ avatar_path: path })
+                .eq('id', editingGuru.id);
               if (updateError) {
-                  throw new Error("Gagal menyimpan URL foto ke database.");
+                  throw new Error("Gagal menyimpan referensi foto ke database.");
               }
               toast({ title: "Foto Tersimpan", description: "Foto profil berhasil diperbarui secara otomatis." });
               fetchGuru();

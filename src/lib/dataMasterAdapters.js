@@ -84,7 +84,8 @@ export const pickGuruProfileFields = (input, role = 'guru') => ({
   email: input.email?.trim() || null,
   no_hp: input.no_hp || null,
   alamat: input.alamat || null,
-  foto_url: input.foto_url || null,
+  foto_url: input.avatar_path ? null : (input.foto_url || null),
+  avatar_path: input.avatar_path || null,
   rfid_tag: input.rfid_tag || null,
   jabatan: input.jabatan || null,
   roles: role === 'pentashih'

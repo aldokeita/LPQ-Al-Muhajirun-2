@@ -75,9 +75,14 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
         if (file.size > 2 * 1024 * 1024) { toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 2 MB.", variant: "destructive" }); return; }
         setIsUploading(true);
         try {
-          const { signedUrl } = await uploadAvatar({ ownerType: 'guru', ownerId: formData.id, file });
+          const { path, signedUrl } = await uploadAvatar({ ownerType: 'guru', ownerId: formData.id, file });
           const finalUrl = signedUrl || formData.foto_url || '';
-          setFormData(prev => ({...prev, foto_url: finalUrl }));
+          const { error: profileError } = await supabase
+            .from('guru')
+            .update({ avatar_path: path, foto_url: null })
+            .eq('id', formData.id);
+          if (profileError) throw profileError;
+          setFormData(prev => ({...prev, foto_url: finalUrl, avatar_path: path }));
           toast({ title: "Foto Berhasil Diupload", description: "Foto profil tersimpan di Storage dan tetap tampil setelah refresh." });
           onProfileUpdate();
         } catch (error) { toast({ title: 'Upload Gagal', description: getStorageErrorMessage(error), variant: 'destructive' }); } finally { setIsUploading(false); e.target.value = ''; }
@@ -86,7 +91,12 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
         setIsUploading(true);
         try {
           await deleteAvatar({ ownerType: 'guru', ownerId: formData.id });
-          setFormData(prev => ({ ...prev, foto_url: '' }));
+          const { error: profileError } = await supabase
+            .from('guru')
+            .update({ avatar_path: null, foto_url: null })
+            .eq('id', formData.id);
+          if (profileError) throw profileError;
+          setFormData(prev => ({ ...prev, foto_url: '', avatar_path: null }));
           toast({ title: "Foto Dihapus", description: "Foto profil Anda telah dihapus dari Storage." });
           onProfileUpdate();
         } catch (error) {
@@ -99,6 +109,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
     const handleSubmit = async (e) => {
         e.preventDefault();
         const { id, password, ...updateData } = formData;
+        if (updateData.avatar_path) updateData.foto_url = null;
         let passwordUpdated = true;
         if (password) {
             const passwordError = validatePassword(password);
