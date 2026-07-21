@@ -5,8 +5,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
 import { MessageCircle, ChevronRight, Check, AlertTriangle } from 'lucide-react';
-import { generateJilidPromotionMessage, generateJilidDemotionMessage, generateWhatsAppLink, WHATSAPP_GROUP_LINKS } from '@/utils/whatsappMessages';
+import { generateWhatsAppLink, resolveWhatsAppGroupLink, WHATSAPP_GROUP_LINKS } from '@/utils/whatsappMessages';
 import { toast } from '@/components/ui/use-toast';
+import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
 
 const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, nextJilid, onConfirm, kategori = 'Anak' }) => {
     const [message, setMessage] = useState('');
@@ -60,27 +61,21 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
             console.error("Error fetching whatsapp link:", err);
         } finally {
             setIsLoadingLink(false);
-            generateMessage(groupLink);
+            const templates = await fetchWhatsAppTemplates();
+            generateMessage(groupLink, templates);
         }
     };
 
-    const generateMessage = (groupLink) => {
-        let msg = '';
-        
-        if (kategori === 'Dewasa') {
-            // Simplified Adult Message logic (can be expanded if needed)
-            const salam = "Assalamualaikum Warahmatullahi Wabarakatuh,\n\n";
-            msg = `${salam}Kepada Yth. Bapak/Ibu *${santri.nama_lengkap}*,\n\nAlhamdulillah, selamat atas kenaikan ke *${nextJilid}*. Semoga pencapaian ini menjadi motivasi untuk terus meningkatkan kualitas bacaan dan pemahaman Al-Qur'an.\n\nTerima kasih atas dedikasi dan semangat belajarnya.\n\nWassalamualaikum,\n*Admin LPQ Al-Muhajirun Metode Qiroati Baturaja*`;
-        } else {
-            // Use utility functions for structured messages
-            if (direction === 'up') {
-                msg = generateJilidPromotionMessage(santri.nama_lengkap, nextJilid, groupLink);
-            } else {
-                msg = generateJilidDemotionMessage(santri.nama_lengkap, nextJilid, groupLink);
-            }
-        }
-        
-        setMessage(msg);
+    const generateMessage = (groupLink, templates) => {
+        const template = direction === 'up' ? templates.jilidPromotion : templates.jilidDemotion;
+        setMessage(renderWhatsAppTemplate(template, {
+            nama_santri: santri.nama_lengkap,
+            jilid_lama: currentJilid,
+            jilid_baru: nextJilid,
+            link_grup: resolveWhatsAppGroupLink(nextJilid, groupLink),
+            nama_lembaga: 'LPQ Al-Muhajirun',
+            kategori,
+        }));
     };
 
     const handleSendWA = () => {

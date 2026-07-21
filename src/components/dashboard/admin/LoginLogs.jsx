@@ -129,10 +129,10 @@ const LoginLogs = () => {
                         </div>
                         <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>
                             <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" style={{ color: 'hsl(var(--admin-accent))' }}/> Peran: <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{log.role || 'N/A'}</span></div>
-                            <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" style={{ color: 'hsl(var(--admin-accent))' }}/> Lokasi: <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{log.city || 'N/A'}, {log.country || 'N/A'}</span></div>
+                            <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" style={{ color: 'hsl(var(--admin-accent))' }}/> Perkiraan lokasi: <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{[log.city, log.country].filter(Boolean).join(', ') || 'Tidak tersedia'}</span></div>
                             <div className="flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5" style={{ color: 'hsl(var(--admin-accent))' }}/> Perangkat: <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{log.device || 'N/A'}</span></div>
                             <div className="col-span-1 md:col-span-3 flex items-center gap-1.5 truncate">
-                                IP: <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{log.ip_address}</span>
+                                IP: <span className="font-medium" style={{ color: 'hsl(var(--admin-text-primary))' }}>{log.ip_address || 'Tidak tersedia'}</span>
                             </div>
                         </div>
                     </div>

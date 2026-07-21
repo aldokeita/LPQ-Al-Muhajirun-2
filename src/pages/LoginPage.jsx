@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import TextType from '@/components/reactbits/TextType/TextType';
 import { useTheme } from '@/contexts/ThemeContext';
 import '@/styles/public-login.css';
+import { LOGIN_SECURITY_CONSENT_KEY, recordLoginAttempt } from '@/lib/loginSecurityAdapters';
 
 /* Lazy load DarkVeil to avoid blocking initial render */
 const DarkVeil = lazy(() => import('@/components/reactbits/DarkVeil/DarkVeil'));
@@ -80,19 +81,11 @@ const getDeviceCategory = () => {
   return 'Desktop';
 };
 
-const recordLoginResult = async ({ username, status }) => {
-  if (!isSupabaseConfigured || !username) return;
-  try {
-    await supabase.rpc('record_login_attempt', {
-      p_username_attempt: username,
-      p_status: status,
-      p_role: username.includes('@') ? null : 'santri',
-      p_device: getDeviceCategory(),
-    });
-  } catch {
-    // Login must remain available if the optional audit endpoint is temporarily unavailable.
-  }
-};
+const recordLoginResult = ({ username, status }) => recordLoginAttempt({
+  username,
+  status,
+  device: getDeviceCategory(),
+});
 
 /* ======================================== */
 /*            MAIN COMPONENT                */
@@ -106,6 +99,9 @@ const LoginPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [securityNoticeAccepted, setSecurityNoticeAccepted] = useState(() => (
+    typeof window !== 'undefined' && window.localStorage.getItem(LOGIN_SECURITY_CONSENT_KEY) === 'accepted'
+  ));
 
   const { signInWithUsername, user, role, loading, profileLoading } = useAuth();
   const { isDark } = useTheme();
@@ -211,6 +207,12 @@ const LoginPage = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const acceptSecurityNotice = () => {
+    window.localStorage.setItem(LOGIN_SECURITY_CONSENT_KEY, 'accepted');
+    setSecurityNoticeAccepted(true);
+    window.setTimeout(() => usernameRef.current?.focus(), 100);
   };
 
   /* --- Loading / Redirect state --- */
@@ -450,6 +452,25 @@ const LoginPage = () => {
             </div>
           </motion.div>
         </main>
+
+        {!securityNoticeAccepted && (
+          <div className="login-privacy-overlay" role="presentation">
+            <section className="login-privacy-dialog" role="dialog" aria-modal="true" aria-labelledby="login-privacy-title" aria-describedby="login-privacy-description">
+              <div className="login-privacy-icon"><Lock aria-hidden="true" /></div>
+              <div>
+                <p className="login-privacy-kicker">Keamanan akun</p>
+                <h2 id="login-privacy-title">Privasi dan keamanan login</h2>
+                <p id="login-privacy-description">
+                  Untuk melindungi akun, sistem mencatat waktu login, jenis perangkat, alamat IP, dan perkiraan lokasi jaringan. Penyimpanan lokal digunakan untuk mempertahankan sesi serta pilihan ini.
+                </p>
+                <p className="login-privacy-note">Kami tidak merekam password, isi sesi, GPS, atau lokasi presisi perangkat.</p>
+              </div>
+              <button type="button" onClick={acceptSecurityNotice} className="login-privacy-action">
+                Izinkan &amp; lanjutkan
+              </button>
+            </section>
+          </div>
+        )}
       </div>
     </>
   );

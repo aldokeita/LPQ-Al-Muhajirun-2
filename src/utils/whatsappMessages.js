@@ -20,7 +20,7 @@ export const WHATSAPP_GROUP_LINKS = {
 /**
  * Helper to get link from mapping, falling back to provided link or default message
  */
-const getGroupLink = (jilidName, providedLink) => {
+export const resolveWhatsAppGroupLink = (jilidName, providedLink) => {
   if (providedLink && providedLink !== '[Link Grup Belum Tersedia]') return providedLink;
   
   // Normalize key lookup
@@ -54,7 +54,7 @@ export const generateWhatsAppLink = (phoneNumber, message) => {
  * @returns {string}
  */
 export const generateJilidPromotionMessage = (santriName, newJilidName, newJilidLink) => {
-  const finalLink = getGroupLink(newJilidName, newJilidLink);
+  const finalLink = resolveWhatsAppGroupLink(newJilidName, newJilidLink);
 
   return `Assalamualaikum Warahmatullahi Wabarakatuh,
 
@@ -81,7 +81,7 @@ Wassalamualaikum Warahmatullahi Wabarakatuh,
  * @returns {string}
  */
 export const generateJilidDemotionMessage = (santriName, jilidName, jilidLink) => {
-  const finalLink = getGroupLink(jilidName, jilidLink);
+  const finalLink = resolveWhatsAppGroupLink(jilidName, jilidLink);
 
   return `Assalamualaikum Warahmatullahi Wabarakatuh,
 

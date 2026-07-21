@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { supabase } from '@/lib/customSupabaseClient';
 import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
+import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
 
 const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const receiptRef = useRef(null);
@@ -17,6 +18,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const [completePayment, setCompletePayment] = useState(null);
     const [qrCodeDataURL, setQrCodeDataURL] = useState('');
     const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
+    const [paymentMessageTemplate, setPaymentMessageTemplate] = useState(DEFAULT_WHATSAPP_TEMPLATES.paymentReceipt);
 
     useEffect(() => {
         const fetchCompletePayment = async () => {
@@ -58,6 +60,11 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
         return () => {
             active = false;
         };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        fetchWhatsAppTemplates().then((templates) => setPaymentMessageTemplate(templates.paymentReceipt));
     }, [isOpen]);
 
     useEffect(() => {
@@ -122,25 +129,20 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
             return;
         }
 
-        const formattedAmount = amount.toLocaleString('id-ID');
+        const formattedAmount = `Rp ${amount.toLocaleString('id-ID')}`;
         const date = new Date(paymentDate).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-
-        const message = `Assalamualaikum Wr. Wb.
-Ayah/Bunda dari *${studentName}*
-
-Terima kasih telah melakukan pembayaran di LPQ Al-Muhajirun.
-Berikut rincian pembayaran yang telah kami terima:
-
-📋 *Rincian:* ${notes}
-💰 *Nominal:* Rp ${formattedAmount}
-📅 *Tanggal:* ${date}
-💳 *Metode:* ${paymentMethod}
-✅ *Status:* LUNAS
-
-Terima kasih atas kepercayaannya. Semoga menjadi amal jariyah dan berkah untuk keluarga.
-        
-Salam,
-*Admin LPQ Al-Muhajirun*`;
+        const message = renderWhatsAppTemplate(paymentMessageTemplate, {
+            nama_santri: studentName,
+            nomor_induk: studentId,
+            rincian: notes,
+            nominal: formattedAmount,
+            tanggal: date,
+            periode: period,
+            metode: paymentMethod,
+            transaction_id: transactionRef,
+            status: 'LUNAS',
+            nama_lembaga: 'LPQ Al-Muhajirun',
+        });
 
         const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');

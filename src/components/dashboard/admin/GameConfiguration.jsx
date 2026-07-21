@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2 } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
@@ -14,12 +15,14 @@ import AttendanceConfiguration from './AttendanceConfiguration';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 import { normalizeLevelConfigShape } from '@/lib/santriLevel';
+import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, saveWhatsAppTemplates } from '@/lib/whatsappTemplateAdapters';
 
 const GameConfiguration = () => {
     const [activeTab, setActiveTab] = useState('attendance');
     const tabs = [
         { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
         { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
+        { id: 'whatsapp', label: 'Pesan WhatsApp', icon: MessageSquare },
         ...(enableGameFeatures ? [
             { id: 'gatcha', label: 'Gatcha Game', icon: Gamepad2 },
             { id: 'quiz', label: 'Quiz Hafalan', icon: Trophy },
@@ -78,6 +81,10 @@ const GameConfiguration = () => {
 
                 <TabsContent value="levels" className="animate-in fade-in slide-in-from-bottom-2">
                     <LevelSettings />
+                </TabsContent>
+
+                <TabsContent value="whatsapp" className="animate-in fade-in slide-in-from-bottom-2">
+                    <WhatsAppTemplateSettings />
                 </TabsContent>
             </Tabs>
         </div>
@@ -620,6 +627,102 @@ const LevelSettings = () => {
                     {renderLevelList('female', levelConfig.female)}
                 </TabsContent>
             </Tabs>
+        </div>
+    );
+};
+
+const TEMPLATE_FIELDS = [
+    {
+        key: 'jilidPromotion',
+        title: 'Kenaikan Jilid',
+        description: 'Pesan untuk wali saat santri melanjutkan ke jilid berikutnya.',
+        variables: ['nama_santri', 'jilid_lama', 'jilid_baru', 'link_grup', 'nama_lembaga'],
+    },
+    {
+        key: 'jilidDemotion',
+        title: 'Penurunan / Penguatan Jilid',
+        description: 'Pesan pendampingan saat santri perlu menguatkan pembelajaran di jilid tujuan.',
+        variables: ['nama_santri', 'jilid_lama', 'jilid_baru', 'link_grup', 'nama_lembaga'],
+    },
+    {
+        key: 'paymentReceipt',
+        title: 'Bukti Pembayaran',
+        description: 'Pesan yang menyertai rincian transaksi pembayaran kepada wali santri.',
+        variables: ['nama_santri', 'nomor_induk', 'rincian', 'nominal', 'tanggal', 'periode', 'metode', 'transaction_id', 'status', 'nama_lembaga'],
+    },
+];
+
+const WhatsAppTemplateSettings = () => {
+    const [templates, setTemplates] = useState({ ...DEFAULT_WHATSAPP_TEMPLATES });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        fetchWhatsAppTemplates()
+            .then((data) => active && setTemplates(data))
+            .finally(() => active && setIsLoading(false));
+        return () => { active = false; };
+    }, []);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            for (const field of TEMPLATE_FIELDS) {
+                if (!templates[field.key]?.trim()) throw new Error(`Template ${field.title} tidak boleh kosong.`);
+            }
+            const saved = await saveWhatsAppTemplates(templates);
+            setTemplates(saved);
+            toast({ title: 'Berhasil', description: 'Template pesan WhatsApp telah disimpan dan langsung digunakan.' });
+        } catch (error) {
+            toast({ title: 'Gagal menyimpan template', description: error.message, variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="game-config-panel space-y-5">
+            <div className="game-config-section-heading">
+                <div>
+                    <h3 className="text-lg font-black">Editor Pesan WhatsApp</h3>
+                    <p className="text-sm text-muted-foreground">Gunakan variabel dinamis agar pesan tetap personal tanpa menulis ulang setiap transaksi.</p>
+                </div>
+                <Button type="button" onClick={handleSave} disabled={isLoading || isSaving} className="game-config-save">
+                    <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Menyimpan...' : 'Simpan Template'}
+                </Button>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+                {TEMPLATE_FIELDS.map((field, index) => (
+                    <section key={field.key} className={`rounded-lg border bg-background/80 p-4 shadow-sm ${index === 2 ? 'xl:col-span-2' : ''}`}>
+                        <div className="mb-3">
+                            <h4 className="font-bold text-foreground">{field.title}</h4>
+                            <p className="text-xs leading-relaxed text-muted-foreground">{field.description}</p>
+                        </div>
+                        <Textarea
+                            value={templates[field.key] || ''}
+                            onChange={(event) => setTemplates((current) => ({ ...current, [field.key]: event.target.value }))}
+                            className="min-h-64 resize-y font-mono text-xs leading-relaxed"
+                            aria-label={`Template WhatsApp ${field.title}`}
+                        />
+                        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Variabel tersedia">
+                            {field.variables.map((variable) => (
+                                <code key={variable} className="rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{'{{'}{variable}{'}}'}</code>
+                            ))}
+                        </div>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 px-0 text-xs"
+                            onClick={() => setTemplates((current) => ({ ...current, [field.key]: DEFAULT_WHATSAPP_TEMPLATES[field.key] }))}
+                        >
+                            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Kembalikan contoh awal
+                        </Button>
+                    </section>
+                ))}
+            </div>
         </div>
     );
 };

@@ -648,3 +648,70 @@
   -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
   -webkit-text-fill-color: #0a1f15;
 }
+/* Login security notice */
+.login-privacy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: end center;
+  padding: 20px;
+  background: rgba(3, 10, 15, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.login-privacy-dialog {
+  width: min(720px, 100%);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  color: #e5eef2;
+  background: rgba(8, 18, 25, 0.96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
+}
+
+.login-privacy-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.login-privacy-icon svg { width: 18px; height: 18px; }
+.login-privacy-kicker { margin: 0 0 2px; color: #6ee7b7; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.login-privacy-dialog h2 { margin: 0 0 4px; font-size: 16px; font-weight: 750; letter-spacing: 0; }
+.login-privacy-dialog p { margin: 0; color: #cbd5e1; font-size: 12px; line-height: 1.55; }
+.login-privacy-dialog .login-privacy-note { margin-top: 4px; color: #94a3b8; font-size: 11px; }
+
+.login-privacy-action {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(110, 231, 183, 0.4);
+  border-radius: 8px;
+  color: #052e24;
+  background: #6ee7b7;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.login-privacy-action:hover { background: #a7f3d0; transform: translateY(-1px); }
+.login-privacy-action:focus-visible { outline: 3px solid rgba(110, 231, 183, 0.45); outline-offset: 3px; }
+
+@media (max-width: 640px) {
+  .login-privacy-overlay { padding: 12px; }
+  .login-privacy-dialog { grid-template-columns: auto 1fr; align-items: start; padding: 16px; }
+  .login-privacy-action { grid-column: 1 / -1; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-privacy-action { transition: none; }
+}

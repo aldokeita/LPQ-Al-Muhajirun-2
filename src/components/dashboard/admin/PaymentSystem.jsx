@@ -30,6 +30,7 @@ import {
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import PaymentProofModal from './PaymentProofModal';
+import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -458,7 +459,7 @@ const PaymentSystem = () => {
     }
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     if (!receiptData || !receiptData.santri?.length) return;
     const santriWithPhone = receiptData.santri.find(s => String(s.no_hp_ortu || '').trim());
     if (!santriWithPhone) { toast({ title: "Gagal", description: "Tidak ada nomor HP wali murid yang ditemukan.", variant: "destructive" }); return; }
@@ -476,7 +477,19 @@ const PaymentSystem = () => {
 
     const santriNames = receiptData.santri.map(s => s.nama_lengkap).join(', ');
     const totalAmount = receiptData.total; 
-    const message = `Assalamualaikum Wr. Wb.\n\nTerima kasih. Telah diterima pembayaran dari ananda *${santriNames}* pada tanggal ${receiptData.timestamp.toLocaleDateString('id-ID')} dengan rincian:\n${itemsText}\n\n*Total: Rp${totalAmount.toLocaleString('id-ID')}*\n\nStatus: *LUNAS* via ${receiptData.method}\n\nCek status pembayaran: https://lpqalmuhajirun.id/login\n\nTerima kasih,\nAdmin LPQ Al-Muhajirun`;
+    const templates = await fetchWhatsAppTemplates();
+    const message = renderWhatsAppTemplate(templates.paymentReceipt, {
+      nama_santri: santriNames,
+      nomor_induk: santriWithPhone.nomor_induk_qiroati || '-',
+      rincian: itemsText,
+      nominal: `Rp ${totalAmount.toLocaleString('id-ID')}`,
+      tanggal: receiptData.timestamp.toLocaleDateString('id-ID'),
+      periode: receiptData.items.filter((item) => item.monthly).flatMap((item) => item.months || []).join(', ') || '-',
+      metode: receiptData.method,
+      transaction_id: receiptData.transactionId || '-',
+      status: 'LUNAS',
+      nama_lembaga: 'LPQ Al-Muhajirun',
+    });
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };

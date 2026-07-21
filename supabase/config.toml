@@ -45,3 +45,6 @@ verify_jwt = true
 
 [functions.generate-signed-upload-url]
 verify_jwt = true
+
+[functions.record-login-attempt]
+verify_jwt = false

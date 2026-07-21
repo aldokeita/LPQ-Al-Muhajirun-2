@@ -344,6 +344,12 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         ? (editModal.data?.computedStatus || 'Tidak Hadir')
         : (checkInTs ? determineAttendanceStatus(checkInTs, sessionStartTs) : 'Tidak Hadir');
     const timeDiff = calculateTimeDifference(checkInTs || editModal.data?.record?.check_in_timestamp, sessionStartTs);
+    const ModalStatusIcon = computedStatusForModal === 'Terlambat' ? Clock : computedStatusForModal === 'Hadir' ? CheckCircle2 : XCircle;
+    const modalStatusTone = computedStatusForModal === 'Terlambat'
+        ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/35 dark:text-amber-200'
+        : computedStatusForModal === 'Hadir'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/35 dark:text-emerald-200'
+            : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/35 dark:text-rose-200';
 
     return (
         <Tabs defaultValue="rekap_absensi" className="w-full">
@@ -530,75 +536,52 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                         </DialogContent>
                     </Dialog>
 
-                    {/* Advanced Edit Modal - Replaces Confirmation Dialog */}
                     <Dialog open={editModal.isOpen} onOpenChange={(open) => !open && setEditModal({ isOpen: false, data: null })}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Detail & Edit Kehadiran Guru</DialogTitle>
-                                <DialogDescription>
-                                    Informasi kehadiran {editModal.data?.guruName} pada tanggal {editModal.data?.dateStr} ({editModal.data?.sesi})
-                                </DialogDescription>
+                        <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+                            <DialogHeader className="border-b bg-muted/35 px-5 py-4 text-left">
+                                <div className="flex items-start gap-3">
+                                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border bg-background text-primary shadow-sm">
+                                        <Calendar className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <DialogTitle className="text-base">Detail Kehadiran Guru</DialogTitle>
+                                        <DialogDescription className="mt-1 truncate text-xs">
+                                            {editModal.data?.guruName || 'Guru'} · {editModal.data?.dateStr || '-'} · {editModal.data?.sesi || '-'}
+                                        </DialogDescription>
+                                    </div>
+                                </div>
                             </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                    <Calendar className="w-5 h-5 text-blue-500" />
-                                    <div>
-                                        <p className="text-xs text-slate-500">Waktu Sesi</p>
-                                        <p className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                                            {sessionStartTs ? formatTimestamp(sessionStartTs) : '-'}
+                            <div className="space-y-4 px-5 py-4">
+                                <div className="grid grid-cols-2 divide-x rounded-lg border bg-background shadow-sm">
+                                    <div className="px-3 py-2.5">
+                                        <p className="text-[11px] text-muted-foreground">Mulai sesi</p>
+                                        <p className="mt-0.5 font-mono text-sm font-semibold">{sessionStartTs ? formatTimestamp(sessionStartTs) : '-'}</p>
+                                    </div>
+                                    <div className="px-3 py-2.5">
+                                        <p className="text-[11px] text-muted-foreground">Waktu tercatat</p>
+                                        <p className="mt-0.5 font-mono text-sm font-semibold">
+                                            {editModal.data?.record?.check_in_timestamp ? formatTimestamp(editModal.data.record.check_in_timestamp) : 'Belum absen'}
                                         </p>
                                     </div>
                                 </div>
 
-                                {isReadOnlyMode ? (
-                                    <>
-                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                            <div>
-                                                <p className="text-xs text-slate-500">Waktu Absensi (Timestamp)</p>
-                                                <p className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                                                    {editModal.data?.record?.check_in_timestamp ? formatTimestamp(editModal.data.record.check_in_timestamp) : 'Belum Absen'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className={`p-4 rounded-xl border flex items-center justify-between
-                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                                              computedStatusForModal === 'Hadir' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                                            <div className="flex items-center gap-2">
-                                                {computedStatusForModal === 'Terlambat' ? <Clock className="w-5 h-5" /> : computedStatusForModal === 'Hadir' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                                                <div>
-                                                    <p className="text-sm font-semibold">Status: {computedStatusForModal}</p>
-                                                    {computedStatusForModal === 'Terlambat' && <p className="text-xs mt-1">Terlambat: {timeDiff} menit</p>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="space-y-2 border-t pt-4">
-                                            <label className="text-sm font-medium">Edit Waktu Hadir</label>
-                                            <Input
-                                                type="time"
-                                                step="1"
-                                                value={editTime}
-                                                onChange={(e) => setEditTime(e.target.value)}
-                                                className="font-mono"
-                                            />
-                                            <p className="text-xs text-muted-foreground">Kosongkan untuk merubah status menjadi Tidak Hadir.</p>
-                                        </div>
-                                        <div className={`p-4 rounded-xl border flex items-center gap-2
-                                            ${computedStatusForModal === 'Terlambat' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                                              computedStatusForModal === 'Hadir' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                                            {computedStatusForModal === 'Terlambat' ? <Clock className="w-5 h-5" /> : computedStatusForModal === 'Hadir' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                                            <div>
-                                                <p className="text-sm font-semibold">Status yang akan disimpan: {computedStatusForModal}</p>
-                                                {computedStatusForModal === 'Terlambat' && <p className="text-xs mt-1">Terlambat: {timeDiff} menit</p>}
-                                            </div>
-                                        </div>
-                                    </>
+                                {!isReadOnlyMode && (
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="guru-attendance-time" className="text-xs font-semibold">Ubah waktu hadir</label>
+                                        <Input id="guru-attendance-time" type="time" step="1" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-10 font-mono" />
+                                        <p className="text-[11px] text-muted-foreground">Kosongkan atau gunakan tombol tidak hadir untuk mengubah status.</p>
+                                    </div>
                                 )}
+
+                                <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${modalStatusTone}`}>
+                                    <ModalStatusIcon className="h-4 w-4 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-semibold">{isReadOnlyMode ? 'Status kehadiran' : 'Status yang akan disimpan'}: {computedStatusForModal}</p>
+                                        {computedStatusForModal === 'Terlambat' && <p className="mt-0.5 text-[11px] opacity-80">Terlambat {timeDiff} menit dari jadwal sesi.</p>}
+                                    </div>
+                                </div>
                             </div>
-                            <DialogFooter>
+                            <DialogFooter className="border-t bg-muted/20 px-5 py-3 sm:justify-between">
                                 <Button variant="outline" onClick={() => setEditModal({ isOpen: false, data: null })}>
                                     {isReadOnlyMode ? 'Tutup' : 'Batal'}
                                 </Button>
@@ -613,7 +596,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                             Tandai Tidak Hadir
                                         </Button>
                                         <Button
-                                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            className="bg-emerald-600 text-white hover:bg-emerald-700"
                                             onClick={() => handleSaveAttendance()}
                                             disabled={isSubmitting}
                                         >

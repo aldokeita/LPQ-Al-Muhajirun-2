@@ -524,6 +524,40 @@ Add-Check "admin guru edit resets Auth password through the guarded function" {
   if ($function -notmatch "admin\.auth\.admin\.updateUserById") { throw "password reset does not update Supabase Auth" }
 }
 
+Add-Check "WhatsApp message templates are editable and used by jilid and payment flows" {
+  $configuration = Read-Text "src/components/dashboard/admin/GameConfiguration.jsx"
+  $adapter = Read-Text "src/lib/whatsappTemplateAdapters.js"
+  $jilid = Read-Text "src/components/dashboard/admin/JilidChangeModal.jsx"
+  $proof = Read-Text "src/components/dashboard/admin/PaymentProofModal.jsx"
+  $payments = Read-Text "src/components/dashboard/admin/PaymentSystem.jsx"
+  if ($configuration -notmatch "\{ id: 'whatsapp', label: 'Pesan WhatsApp'" -or $configuration -notmatch "saveWhatsAppTemplates") { throw "WhatsApp template editor is unavailable" }
+  if ($adapter -notmatch "whatsapp_message_templates" -or $adapter -notmatch "isPublic: false" -or $adapter -notmatch "renderWhatsAppTemplate") { throw "WhatsApp templates are not stored privately or rendered safely" }
+  if ($jilid -notmatch "templates\.jilidPromotion" -or $jilid -notmatch "templates\.jilidDemotion") { throw "jilid messages do not use configured templates" }
+  if ($proof -notmatch "paymentMessageTemplate" -or $payments -notmatch "templates\.paymentReceipt") { throw "payment messages do not use configured templates" }
+}
+
+Add-Check "login security logging uses server-derived IP and transparent consent" {
+  $login = Read-Text "src/pages/LoginPage.jsx"
+  $adapter = Read-Text "src/lib/loginSecurityAdapters.js"
+  $function = Read-Text "supabase/functions/record-login-attempt/index.ts"
+  $config = Read-Text "supabase/config.toml"
+  $logs = Read-Text "src/components/dashboard/admin/LoginLogs.jsx"
+  if ($login -match "rpc\('record_login_attempt'" -or $login -notmatch "LOGIN_SECURITY_CONSENT_KEY") { throw "login still bypasses the security notice or server logger" }
+  if ($login -notmatch "Kami tidak merekam password" -or $login -notmatch "Izinkan &amp; lanjutkan") { throw "privacy notice is not explicit and actionable" }
+  if ($adapter -notmatch "/functions/v1/record-login-attempt" -or $adapter -match "password") { throw "frontend login logger has an unsafe contract" }
+  if ($function -notmatch 'req\.headers\.get\("x-forwarded-for"\)' -or $function -notmatch "cf-ipcity" -or $function -notmatch "consume_auth_rate_limit") { throw "Edge logger does not derive and rate-limit network metadata" }
+  if ($function -notmatch "ip_address: ipAddress" -or $function -notmatch "user_agent: userAgent") { throw "Edge logger does not persist the server-derived audit fields" }
+  if ($config -notmatch '\[functions\.record-login-attempt\][\s\S]*verify_jwt = false') { throw "failed login logger cannot run anonymously" }
+  if ($logs -notmatch "Perkiraan lokasi") { throw "admin log incorrectly presents network location as exact GPS" }
+}
+
+Add-Check "guru attendance detail modal stays compact and editable" {
+  $recap = Read-Text "src/components/dashboard/admin/GuruAttendanceRecap.jsx"
+  if ($recap -notmatch 'DialogContent className="overflow-hidden p-0 sm:max-w-lg"') { throw "guru attendance modal is not using the compact shell" }
+  if ($recap -notmatch "grid grid-cols-2 divide-x" -or $recap -notmatch "ModalStatusIcon") { throw "guru attendance summary is not compact or status-aware" }
+  if ($recap -notmatch "handleSaveAttendance\(\{ markAbsent: true \}\)" -or $recap -notmatch "Simpan Perubahan") { throw "guru attendance edit actions were lost" }
+}
+
 $passed = @($checks | Where-Object { $_.Status -eq "PASS" }).Count
 $failed = @($checks | Where-Object { $_.Status -eq "FAIL" }).Count
 
