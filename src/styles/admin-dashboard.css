@@ -2930,6 +2930,17 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   z-index: 1;
 }
 
+.attendance-profile-card__session-label {
+  margin: -0.05rem 0 0.7rem;
+  color: hsl(var(--att-text-muted));
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+  position: relative;
+  z-index: 1;
+}
+
 /* Status & Time Row — centered */
 .attendance-profile-card__status-row {
   display: flex;
@@ -3034,6 +3045,69 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.attendance-profile-card__attendance-summary {
+  grid-column: 1 / -1;
+  gap: 0.6rem;
+  padding: 0.72rem 0.65rem;
+}
+
+.attendance-profile-card__attendance-summary-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: hsl(var(--att-text-muted));
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.attendance-profile-card__attendance-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
+.attendance-profile-card__attendance-value {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  padding: 0.12rem 0.4rem;
+}
+
+.attendance-profile-card__attendance-value + .attendance-profile-card__attendance-value {
+  border-left: 1px solid hsl(var(--att-border-subtle));
+}
+
+.attendance-profile-card__attendance-value strong {
+  font-size: 1rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.attendance-profile-card__attendance-value span {
+  color: hsl(var(--att-text-muted));
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.attendance-profile-card__attendance-value--present strong {
+  color: hsl(var(--att-success));
+}
+
+.attendance-profile-card__attendance-value--late strong {
+  color: hsl(var(--att-amber));
+}
+
+.attendance-profile-card__attendance-value--absent strong {
+  color: hsl(var(--att-danger));
 }
 
 /* Message */
@@ -3189,6 +3263,13 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   box-shadow:
     0 6px 14px rgba(18, 121, 74, 0.3),
     inset 1px 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.attendance-profile-card--white-glass.attendance-profile-card--late .attendance-profile-card__success-badge {
+  background: linear-gradient(145deg, #fbbf24, #d97706);
+  box-shadow:
+    0 6px 14px rgba(217, 119, 6, 0.32),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.48);
 }
 
 .attendance-profile-card--white-glass .attendance-profile-card__role-badge {

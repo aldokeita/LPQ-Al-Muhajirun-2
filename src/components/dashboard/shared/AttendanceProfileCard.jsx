@@ -56,15 +56,19 @@ const AttendanceProfileCard = ({
   const cardDepth = clampDepth(cardBorderThickness, 8);
   const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
+  const isLate = status === 'Terlambat';
   const displayMessage = formatAttendanceMessage(message, sesi);
-  const nameGradient = pointAccent
+  const statusAccent = isLate ? getLateAccent() : null;
+  const nameGradient = statusAccent
+    ? `linear-gradient(135deg, ${statusAccent.gradientStart}, ${statusAccent.gradientEnd})`
+    : pointAccent
     ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
     : isTeacher
       ? 'linear-gradient(135deg, #047857, #22c55e)'
       : levelColor
         ? `linear-gradient(135deg, ${levelColor}, color-mix(in srgb, ${levelColor} 58%, white))`
         : 'linear-gradient(135deg, #047857, #34d399)';
-  const visualAccent = pointAccent || {
+  const visualAccent = statusAccent || pointAccent || {
     color: '#169b62',
     gradientStart: '#087443',
     gradientEnd: '#4ade80',
@@ -82,7 +86,13 @@ const AttendanceProfileCard = ({
     '--attendance-avatar-shadow-y': `${Math.max(7, avatarDepth * 2)}px`,
     '--attendance-avatar-shadow-blur': `${Math.max(18, avatarDepth * 5)}px`,
   };
-  const studentStatusStyle = pointAccent
+  const statusStyle = isLate
+    ? {
+        backgroundColor: 'var(--att-amber-bg)',
+        borderColor: 'var(--att-amber-border)',
+        color: 'var(--att-amber)',
+      }
+    : pointAccent
     ? {
         backgroundColor: 'rgba(255, 255, 255, 0.92)',
         borderColor: pointAccent.color,
@@ -99,7 +109,7 @@ const AttendanceProfileCard = ({
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
+      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''} ${isLate ? 'attendance-profile-card--late' : ''}`}
       style={cardStyle}
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
@@ -147,6 +157,12 @@ const AttendanceProfileCard = ({
         {name}
       </h2>
 
+      {!isTeacher && sesi && (
+        <p className="attendance-profile-card__session-label">
+          Sesi {getSessionName(sesi)}
+        </p>
+      )}
+
       {/* Subtitle */}
       {isTeacher && jabatan && (
         <p className="attendance-profile-card__subtitle">{jabatan}</p>
@@ -157,7 +173,7 @@ const AttendanceProfileCard = ({
         <div className="attendance-profile-card__status-row">
           <div
             className="attendance-profile-card__status-chip"
-            style={studentStatusStyle}
+            style={statusStyle}
           >
             {statusConfig.icon}
             <span className="font-semibold">{statusConfig.label}</span>
@@ -204,16 +220,10 @@ const AttendanceProfileCard = ({
               <DetailItem icon={<Book className="w-4 h-4" />} label="Hafalan" value={hafalanCount} pointAccent={pointAccent} />
             )}
             {monthlyStats && (
-              <DetailItem icon={<CheckCircle className="w-4 h-4" />} label="Kehadiran" value={monthlyStats.present ?? 0} pointAccent={pointAccent} />
-            )}
-            {monthlyStats && (
-              <DetailItem icon={<Clock className="w-4 h-4" />} label="Tidak Hadir" value={monthlyStats.absent ?? 0} pointAccent={pointAccent} />
+              <AttendanceSummary monthlyStats={monthlyStats} />
             )}
             {kelas && (
               <DetailItem icon={<Users className="w-4 h-4" />} label="Kelas" value={kelas} />
-            )}
-            {sesi && (
-              <DetailItem icon={<Calendar className="w-4 h-4" />} label="Sesi" value={sesi} accent />
             )}
             {rfid && (
               <DetailItem icon={<Fingerprint className="w-4 h-4" />} label="RFID" value={rfid} mono />
@@ -286,6 +296,29 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
       >
         {value}
       </span>
+    </div>
+  </div>
+);
+
+const AttendanceSummary = ({ monthlyStats }) => (
+  <div className="attendance-profile-card__detail-item attendance-profile-card__attendance-summary">
+    <div className="attendance-profile-card__attendance-summary-header">
+      <Calendar className="w-4 h-4" />
+      <span>Bulan Ini</span>
+    </div>
+    <div className="attendance-profile-card__attendance-values">
+      <div className="attendance-profile-card__attendance-value attendance-profile-card__attendance-value--present">
+        <strong>{monthlyStats.present ?? 0}</strong>
+        <span>Hadir</span>
+      </div>
+      <div className="attendance-profile-card__attendance-value attendance-profile-card__attendance-value--late">
+        <strong>{monthlyStats.late ?? 0}</strong>
+        <span>Terlambat</span>
+      </div>
+      <div className="attendance-profile-card__attendance-value attendance-profile-card__attendance-value--absent">
+        <strong>{monthlyStats.absent ?? 0}</strong>
+        <span>Tidak Hadir</span>
+      </div>
     </div>
   </div>
 );
@@ -385,6 +418,16 @@ function formatAttendanceMessage(message, sesi) {
     /\b(pada\s+)?sesi\s*([0-4])\b/gi,
     (_match, prefix, sessionValue) => `${prefix ? 'pada ' : ''}Sesi ${getSessionName(sessionValue)}`,
   );
+}
+
+function getLateAccent() {
+  return {
+    color: '#d97706',
+    gradientStart: '#b45309',
+    gradientEnd: '#fbbf24',
+    soft: 'rgba(245, 158, 11, 0.16)',
+    glow: 'rgba(245, 158, 11, 0.5)',
+  };
 }
 
 export default AttendanceProfileCard;

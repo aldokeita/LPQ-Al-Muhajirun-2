@@ -112,7 +112,7 @@ const getCurrentMonthDateRange = () => {
 };
 
 const getSantriMonthlyAttendanceStats = async (santriId) => {
-    if (!santriId) return { present: 0, absent: 0 };
+    if (!santriId) return { present: 0, late: 0, absent: 0 };
 
     const { start, end } = getCurrentMonthDateRange();
     const now = new Date();
@@ -125,7 +125,7 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
     const [attendanceResult, holidayResult] = await Promise.all([
       supabase
         .from('attendance')
-        .select('attendance_date')
+        .select('attendance_date, status')
         .eq('user_id', santriId)
         .gte('attendance_date', start)
         .lt('attendance_date', end),
@@ -138,7 +138,7 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
     ]);
 
     if (attendanceResult.error || holidayResult.error) {
-        return { present: 0, absent: 0 };
+        return { present: 0, late: 0, absent: 0 };
     }
 
     const holidaySet = new Set((holidayResult.data || []).map(item => item.date));
@@ -156,15 +156,31 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
         }
     }
 
-    const presentDateSet = new Set(
-        (attendanceResult.data || [])
-            .map(row => String(row.attendance_date || '').split('T')[0])
-            .filter(Boolean)
-    );
-    const present = activeDaysUntilToday.filter(date => presentDateSet.has(date)).length;
-    const absent = Math.max(activeDaysUntilToday.length - present, 0);
+    const activeDaySet = new Set(activeDaysUntilToday);
+    const presentDateSet = new Set();
+    const lateDateSet = new Set();
 
-    return { present, absent };
+    (attendanceResult.data || []).forEach(row => {
+        const date = String(row.attendance_date || '').split('T')[0];
+        if (!date || !activeDaySet.has(date)) return;
+
+        if (row.status === 'Terlambat') {
+            lateDateSet.add(date);
+            presentDateSet.delete(date);
+            return;
+        }
+
+        if (!lateDateSet.has(date) && ['Hadir', 'Tepat Waktu'].includes(row.status)) {
+            presentDateSet.add(date);
+        }
+    });
+
+    const present = presentDateSet.size;
+    const late = lateDateSet.size;
+    const attended = new Set([...presentDateSet, ...lateDateSet]).size;
+    const absent = Math.max(activeDaysUntilToday.length - attended, 0);
+
+    return { present, late, absent };
 };
 
 const getSantriHafalanCount = async (santriId) => {

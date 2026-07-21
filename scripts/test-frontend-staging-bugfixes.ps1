@@ -181,6 +181,18 @@ Add-Check "digital attendance duplicate scan keeps first timestamp and avatar ca
   if ($page -notmatch "resolveAvatarUrl" -or $admin -notmatch "resolveAvatarUrl") { throw "digital attendance does not resolve avatar URLs" }
 }
 
+Add-Check "attendance profile shows late accent and combined monthly stats" {
+  $card = Read-Text "src/components/dashboard/shared/AttendanceProfileCard.jsx"
+  $page = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  if ($card -notmatch "const isLate = status === 'Terlambat'") { throw "late status does not override the profile accent" }
+  if ($card -notmatch "attendance-profile-card--late") { throw "late profile class is missing" }
+  if ($card -notmatch "attendance-profile-card__attendance-summary") { throw "monthly attendance is not combined into one card" }
+  if ($card -notmatch "monthlyStats\.late") { throw "monthly late count is not rendered" }
+  if ($card -notmatch "Sesi \{getSessionName\(sesi\)\}") { throw "student session label is missing below the name" }
+  if ($page -notmatch "select\('attendance_date, status'\)") { throw "monthly attendance query does not load status" }
+  if ($page -notmatch "return \{ present, late, absent \}") { throw "monthly attendance result does not separate late records" }
+}
+
 Add-Check "admin dashboard counts active santri status variants" {
   $text = Read-Text "src/components/dashboard/AdminDashboard.jsx"
   if ($text -notmatch "\.in\('status', \['Aktif', 'active'\]\)") { throw "active santri stat does not include Aktif and active variants" }
