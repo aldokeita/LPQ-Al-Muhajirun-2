@@ -99,14 +99,19 @@ const ProfilePage = () => {
 
     const fetchData = async () => {
       try {
-        const [contentMap, guruResult] = await Promise.all([
-          fetchWebsiteContentMap({ publicOnly: true }).catch(() => ({})),
-          supabase
+        const fetchActiveGuru = async () => {
+          const result = await supabase
             .from('guru')
             .select('id, nama, jabatan, foto_url, roles, jenis_kelamin, status')
             .eq('status', 'active')
-            .order('nama')
-            .catch(() => ({ data: null, error: null })),
+            .order('nama');
+
+          return result.error ? { data: null, error: result.error } : result;
+        };
+
+        const [contentMap, guruResult] = await Promise.all([
+          fetchWebsiteContentMap({ publicOnly: true }).catch(() => ({})),
+          fetchActiveGuru(),
         ]);
 
         if (!mounted) return;
