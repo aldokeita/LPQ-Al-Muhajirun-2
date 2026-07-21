@@ -15,6 +15,7 @@ import {
   Fingerprint,
   Calendar,
 } from 'lucide-react';
+import { getSessionName } from '@/utils/sessionMapping';
 
 /**
  * AttendanceProfileCard — Shared premium profile card for attendance results.
@@ -375,18 +376,15 @@ function formatAttendanceMessage(message, sesi) {
   if (!message) return message;
 
   const normalizedMessage = String(message);
-  const sessionLabel = String(sesi || '').trim();
+  const sessionLabel = getSessionName(sesi);
   if (sessionLabel && /berhasil\s+melakukan\s+absensi/i.test(normalizedMessage)) {
     return `Absensi Sesi ${sessionLabel} berhasil.`;
   }
 
-  return normalizedMessage
-    .replace(/\bpada\s+sesi\s*1\b/gi, 'pada Sesi Pagi')
-    .replace(/\bsesi\s*1\b/gi, 'Sesi Pagi')
-    .replace(/\bpada\s+sesi\s*2\b/gi, 'pada Sesi Siang')
-    .replace(/\bsesi\s*2\b/gi, 'Sesi Siang')
-    .replace(/\bpada\s+sesi\s*3\b/gi, 'pada Sesi Sore')
-    .replace(/\bsesi\s*3\b/gi, 'Sesi Sore');
+  return normalizedMessage.replace(
+    /\b(pada\s+)?sesi\s*([0-4])\b/gi,
+    (_match, prefix, sessionValue) => `${prefix ? 'pada ' : ''}Sesi ${getSessionName(sessionValue)}`,
+  );
 }
 
 export default AttendanceProfileCard;
