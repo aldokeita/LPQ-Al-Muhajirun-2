@@ -505,6 +505,18 @@ Add-Check "level configuration saves with verified readback and drives digital a
   if ($configuration -notmatch "\{ id: 'levels', label: 'Konfigurasi Level'" ) { throw "level settings tab is unavailable" }
   if ($attendance -notmatch "resolveSantriLevel\(\{ points, gender, config: levelConfig \}\)") { throw "digital attendance does not use the shared level resolver" }
   if ($resolver -notmatch "cardBorderThickness" -or $resolver -notmatch "avatarBorderThickness") { throw "shared resolver omits profile-card visual settings" }
+  if ($configuration -notmatch "const \[isSaving, setIsSaving\]" -or $configuration -notmatch 'type="button" onClick=\{saveLevelConfig\}') { throw "level save button can remain locked by initial loading" }
+  if ($resolver -notmatch "name: 'Pemula'" -or $attendance -notmatch "label: 'Pemula'") { throw "level fallback is inconsistent with configuration defaults" }
+}
+
+Add-Check "admin guru edit resets Auth password through the guarded function" {
+  $management = Read-Text "src/components/dashboard/admin/GuruManagement.jsx"
+  $function = Read-Text "supabase/functions/reset-user-password/index.ts"
+  if ($management -match "Reset password ditunda") { throw "existing guru password edit is still blocked" }
+  if ($management -notmatch "functions\.invoke\('reset-user-password'") { throw "guru edit does not invoke the password reset function" }
+  if ($management -notmatch "target_user_id: userId" -or $management -notmatch "new_password: formData\.password") { throw "password reset payload is incomplete" }
+  if ($function -notmatch 'requireRole\(user\.id, \["admin"\]\)') { throw "password reset function is not restricted to admin" }
+  if ($function -notmatch "admin\.auth\.admin\.updateUserById") { throw "password reset does not update Supabase Auth" }
 }
 
 $passed = @($checks | Where-Object { $_.Status -eq "PASS" }).Count

@@ -315,12 +315,12 @@ const DigitalAttendancePage = () => {
 
   const getLevelInfo = (points = 0, gender) => {
       const defaultInfo = {
-          label: 'Santri Biasa',
-          color: '#22c55e',
-          badgeIcon: <Book className="w-8 h-8 text-[#22c55e]" />,
+          label: 'Pemula',
+          color: '#3b82f6',
+          badgeIcon: <Book className="w-8 h-8 text-[#3b82f6]" />,
           enableGradient: true,
           cardBgColor: '#ffffff',
-          textColor: '#22c55e',
+          textColor: '#3b82f6',
           cardBorderThickness: 8,
           avatarBorderThickness: 4,
           textGradient: true

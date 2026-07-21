@@ -405,26 +405,33 @@ const normalizeLevel = (level, fallbackColor = '#3b82f6') => {
 };
 
 const LevelSettings = () => {
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [levelConfig, setLevelConfig] = useState(createDefaultLevelConfig);
 
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
-            const { data } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
-            if (data?.content) {
-                setLevelConfig({
-                    male: (data.content.male || []).map((level) => normalizeLevel(level, '#3b82f6')),
-                    female: (data.content.female || []).map((level) => normalizeLevel(level, '#ec4899'))
-                });
+            try {
+                const { data, error } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
+                if (error) throw error;
+                if (data?.content) {
+                    setLevelConfig({
+                        male: (data.content.male || []).map((level) => normalizeLevel(level, '#3b82f6')),
+                        female: (data.content.female || []).map((level) => normalizeLevel(level, '#ec4899'))
+                    });
+                }
+            } catch (error) {
+                toast({ title: 'Gagal Memuat Konfigurasi Level', description: error.message || 'Konfigurasi default tetap dapat diedit dan disimpan.', variant: 'destructive' });
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         };
         load();
     }, []);
 
     const saveLevelConfig = async () => {
-        setIsLoading(true);
+        setIsSaving(true);
         try {
             const normalizedConfig = {
                 male: levelConfig.male.map((level) => normalizeLevel(level, '#3b82f6')).sort((a, b) => a.min - b.min),
@@ -450,7 +457,7 @@ const LevelSettings = () => {
         } catch (error) {
             toast({ title: "Gagal Simpan", description: error.message || 'Konfigurasi level tidak dapat disimpan.', variant: "destructive" });
         } finally {
-            setIsLoading(false);
+            setIsSaving(false);
         }
     };
 
@@ -587,8 +594,8 @@ const LevelSettings = () => {
                     <h3 className="text-lg font-black">Level & Visual Profile Card</h3>
                     <p className="text-sm text-muted-foreground">Atur rentang poin, nama level, warna aksen, serta depth neumorphic untuk santri putra dan putri.</p>
                 </div>
-                <Button onClick={saveLevelConfig} disabled={isLoading} className="game-config-save">
-                    <Save className="w-4 h-4 mr-2"/> Simpan Konfigurasi Level
+                <Button type="button" onClick={saveLevelConfig} disabled={isLoading || isSaving} className="game-config-save">
+                    <Save className="w-4 h-4 mr-2"/> {isSaving ? 'Menyimpan...' : 'Simpan Konfigurasi Level'}
                 </Button>
             </div>
             

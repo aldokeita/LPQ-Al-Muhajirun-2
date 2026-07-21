@@ -1,8 +1,7 @@
 const FALLBACK_LEVELS = [
-  { name: 'Santri Biasa', min: 0, max: 20, color: '#22c55e' },
-  { name: 'Santri Rajin', min: 21, max: 50, color: '#0ea5e9' },
-  { name: 'Santri Super', min: 51, max: 80, color: '#f59e0b' },
-  { name: 'Santri Legend', min: 81, max: Number.POSITIVE_INFINITY, color: '#ef4444' },
+  { name: 'Pemula', min: 0, max: 100, color: '#3b82f6' },
+  { name: 'Menengah', min: 101, max: 300, color: '#22c55e' },
+  { name: 'Mahir', min: 301, max: Number.POSITIVE_INFINITY, color: '#eab308' },
 ];
 
 const normalizeGenderKey = (gender) => {
@@ -28,7 +27,7 @@ export const resolveSantriLevel = ({ points = 0, gender, config }) => {
   const accentColor = matched.accentColor || matched.color || '#0ea5e9';
 
   return {
-    name: matched.name || 'Santri Biasa',
+    name: matched.name || 'Pemula',
     min: Number(matched.min ?? 0),
     max: Number(matched.max ?? Number.POSITIVE_INFINITY),
     accentColor,

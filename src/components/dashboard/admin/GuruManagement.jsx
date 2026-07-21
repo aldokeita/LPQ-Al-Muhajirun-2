@@ -239,7 +239,7 @@ const GuruManagement = () => {
 
   const validatePassword = (password) => {
     if (!password) return null;
-    if (password.length < 6) return "Password minimal 6 karakter.";
+    if (password.length < 8) return "Password minimal 8 karakter.";
     if (!/[a-z]/.test(password)) return "Password harus mengandung minimal satu huruf kecil.";
     if (!/[A-Z]/.test(password)) return "Password harus mengandung minimal satu huruf besar.";
     if (!/[0-9]/.test(password)) return "Password harus mengandung minimal satu angka.";
@@ -250,15 +250,6 @@ const GuruManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const operationalRole = getOperationalRoleFromGuruForm(formData);
-
-    if (editingGuru && formData.password) {
-        toast({
-            title: "Reset password ditunda",
-            description: "Perubahan password akun existing perlu menggunakan reset-user-password agar Auth tetap konsisten.",
-            variant: "destructive"
-        });
-        return;
-    }
 
     if (formData.password) {
         const passwordError = validatePassword(formData.password);
@@ -274,7 +265,8 @@ const GuruManagement = () => {
     setIsSubmitting(true);
     let userId = editingGuru?.id;
     const requiresAuthEdgeFunction = !editingGuru;
-    if (requiresAuthEdgeFunction && !enableEdgeFunctions) {
+    const requiresPasswordReset = Boolean(editingGuru && formData.password);
+    if ((requiresAuthEdgeFunction || requiresPasswordReset) && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
         setIsSubmitting(false);
         return;
@@ -301,6 +293,18 @@ const GuruManagement = () => {
             throw new Error("ID Pengguna tidak valid setelah operasi otentikasi.");
         }
 
+        if (requiresPasswordReset) {
+          const { data: resetData, error: resetError } = await supabase.functions.invoke('reset-user-password', {
+            body: {
+              target_user_id: userId,
+              new_password: formData.password,
+            },
+          });
+          if (resetError || !resetData?.ok) {
+            throw new Error(resetData?.error?.message || resetError?.message || 'Password Auth guru gagal direset.');
+          }
+        }
+
         const dataToSubmit = { ...pickGuruProfileFields(formData, operationalRole), id: userId };
 
         const { error: profileError } = await supabase.from('guru').upsert(dataToSubmit);
@@ -310,7 +314,7 @@ const GuruManagement = () => {
             throw new Error(profileError.message);
         }
 
-        toast({ title: "Berhasil!", description: "Data guru berhasil disimpan." });
+        toast({ title: "Berhasil!", description: requiresPasswordReset ? "Data dan password Auth guru berhasil diperbarui." : "Data guru berhasil disimpan." });
         setIsDialogOpen(false);
         fetchGuru();
     } catch (err) {
@@ -527,7 +531,7 @@ const GuruManagement = () => {
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Toggle menampilkan password yang sedang diketik. Password Auth lama tidak dapat dibaca kembali.
+                    Masukkan password baru minimal 8 karakter. Toggle hanya menampilkan nilai baru; password Auth lama tidak dapat dibaca kembali.
                   </p>
                 </div>
 
