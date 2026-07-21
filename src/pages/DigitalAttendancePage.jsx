@@ -572,10 +572,6 @@ const DigitalAttendancePage = () => {
                   setLastScan({ type: 'warning', message: 'Santri nonaktif tidak dapat dicatat absensinya.', name: santriData.nama_lengkap, photo: santriData.foto_url });
                   return;
               }
-              if (!santriData.current_class_id) {
-                  setLastScan({ type: 'warning', message: 'Santri belum memiliki kelas aktif.', name: santriData.nama_lengkap, photo: santriData.foto_url });
-                  return;
-              }
               user = santriData; userRole = 'santri'; kategori = santriData.kategori || 'Anak';
               sesiUser = getSantriSession(santriData);
           }

@@ -181,6 +181,16 @@ Add-Check "digital attendance duplicate scan keeps first timestamp and avatar ca
   if ($page -notmatch "resolveAvatarUrl" -or $admin -notmatch "resolveAvatarUrl") { throw "digital attendance does not resolve avatar URLs" }
 }
 
+Add-Check "active santri without class can use digital attendance" {
+  $page = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  $admin = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"
+  $adapter = Read-Text "src/lib/attendanceAdapters.js"
+  if ($page -match "Santri belum memiliki kelas aktif") { throw "public scanner still rejects classless santri" }
+  if ($admin -match "Santri belum memiliki kelas aktif") { throw "admin scanner still rejects classless santri" }
+  if ($adapter -notmatch "class_id:\s*santri\.current_class_id") { throw "attendance payload no longer preserves optional class id" }
+  if ($adapter -notmatch "fallback = 'Pagi'") { throw "classless santri has no session fallback" }
+}
+
 Add-Check "attendance profile shows late accent and combined monthly stats" {
   $card = Read-Text "src/components/dashboard/shared/AttendanceProfileCard.jsx"
   $page = Read-Text "src/pages/DigitalAttendancePage.jsx"
