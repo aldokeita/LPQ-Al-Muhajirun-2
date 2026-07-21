@@ -599,7 +599,7 @@ const DigitalAttendancePage = () => {
 
         const isAdult = kategori === 'Dewasa';
         const randomQuote = (userRole === 'guru' || isAdult) ? (isAdult ? adultQuotes[Math.floor(Math.random() * adultQuotes.length)] : guruQuotes[Math.floor(Math.random() * guruQuotes.length)]) : motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
-        const successData = { type: 'success', role: userRole, kategori, name: user.nama || user.nama_lengkap, photo: user.foto_url, quote: randomQuote, points: user.points, jilid: user.jilid, jabatan: user.jabatan, no_hp: user.no_hp, rfid: tag, gender: user.jenis_kelamin, isPentashih };
+        const successData = { type: 'success', role: userRole, kategori, name: user.nama || user.nama_lengkap, photo: user.foto_url, quote: randomQuote, points: user.points, jilid: user.jilid, jabatan: user.jabatan, no_hp: user.no_hp, rfid: tag, gender: user.jenis_kelamin, isPentashih, sesi: sesiUser };
 
         if (existingAttendance) {
           if (isPentashih) {
@@ -938,6 +938,7 @@ const DigitalAttendancePage = () => {
             points={scan.points}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
+            sesi={scan.sesi}
             message={scan.message}
             quote={scan.quote}
             showSuccessBadge
@@ -961,6 +962,7 @@ const DigitalAttendancePage = () => {
             levelInfo={scan.levelInfo}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
+            sesi={scan.sesi}
             message={scan.message}
             quote={scan.quote}
             showSuccessBadge

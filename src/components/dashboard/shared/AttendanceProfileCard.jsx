@@ -55,7 +55,7 @@ const AttendanceProfileCard = ({
   const cardDepth = clampDepth(cardBorderThickness, 8);
   const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
-  const displayMessage = formatAttendanceMessage(message);
+  const displayMessage = formatAttendanceMessage(message, sesi);
   const nameGradient = pointAccent
     ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
     : isTeacher
@@ -371,15 +371,20 @@ function getStatusConfig(status) {
   }
 }
 
-function formatAttendanceMessage(message) {
+function formatAttendanceMessage(message, sesi) {
   if (!message) return message;
 
   const normalizedMessage = String(message);
-  if (/berhasil\s+melakukan\s+absensi/i.test(normalizedMessage)) {
-    return 'Absensi Sesi Sore berhasil.';
+  const sessionLabel = String(sesi || '').trim();
+  if (sessionLabel && /berhasil\s+melakukan\s+absensi/i.test(normalizedMessage)) {
+    return `Absensi Sesi ${sessionLabel} berhasil.`;
   }
 
   return normalizedMessage
+    .replace(/\bpada\s+sesi\s*1\b/gi, 'pada Sesi Pagi')
+    .replace(/\bsesi\s*1\b/gi, 'Sesi Pagi')
+    .replace(/\bpada\s+sesi\s*2\b/gi, 'pada Sesi Siang')
+    .replace(/\bsesi\s*2\b/gi, 'Sesi Siang')
     .replace(/\bpada\s+sesi\s*3\b/gi, 'pada Sesi Sore')
     .replace(/\bsesi\s*3\b/gi, 'Sesi Sore');
 }
