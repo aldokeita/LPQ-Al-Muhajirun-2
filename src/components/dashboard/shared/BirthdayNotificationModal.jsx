@@ -16,16 +16,16 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="lpq-dialog-surface max-h-[88vh] max-w-2xl overflow-hidden border-white/60 bg-white/78 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.24)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/78">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_42%)]" />
-        <DialogHeader className="relative border-b border-white/50 px-6 pb-5 pt-6 text-left dark:border-white/10 sm:px-8 sm:pt-8">
+      <DialogContent className="lpq-dialog-surface max-h-[88vh] max-w-2xl overflow-hidden border-slate-200/90 bg-slate-50/[0.97] p-0 shadow-[0_28px_90px_rgba(15,23,42,0.2)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/[0.94]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.1),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.08),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_42%)]" />
+        <DialogHeader className="relative border-b border-slate-200/80 px-6 pb-5 pt-6 text-left dark:border-white/10 sm:px-8 sm:pt-8">
           <DialogTitle className="flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-white">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">
               <Cake className="h-5 w-5" />
             </span>
             {audience === 'guru' ? 'Ulang Tahun Guru Bulan Ini' : 'Ulang Tahun Santri Bulan Ini'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-slate-600 dark:text-slate-300">
             {audience === 'guru' ? 'Daftar pengajar yang berulang tahun pada bulan berjalan.' : 'Daftar santri yang berulang tahun pada bulan berjalan.'}
           </DialogDescription>
         </DialogHeader>
@@ -35,7 +35,7 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
             {birthdaysThisMonth.map((student) => {
               const hasWhatsapp = student.isBirthdayToday && Boolean(buildBirthdayWhatsappUrl(student, audience));
               return (
-                <article key={student.id} className="group flex flex-col gap-4 rounded-xl border border-white/70 bg-white/58 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:bg-white/76 hover:shadow-[0_18px_42px_rgba(190,24,93,0.12)] dark:border-white/10 dark:bg-white/[0.045] dark:hover:border-rose-400/30 dark:hover:bg-white/[0.075]">
+                <article key={student.id} className="group flex flex-col gap-4 rounded-xl border border-slate-200/90 bg-white/[0.92] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:bg-white hover:shadow-[0_18px_42px_rgba(190,24,93,0.12)] dark:border-white/10 dark:bg-white/[0.045] dark:hover:border-rose-400/30 dark:hover:bg-white/[0.075]">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="relative">
                       <Avatar className="h-12 w-12 border-2 border-rose-300">

@@ -328,7 +328,7 @@ const LoginPage = () => {
               {/* Username Field */}
               <div className="login-field-group">
                 <label htmlFor="login-username" className="login-field-label">
-                  Email atau Username
+                  Email atau Nama Panggilan Santri
                 </label>
                 <div className="login-input-wrapper">
                   <User className="login-input-icon" aria-hidden="true" />
@@ -339,7 +339,7 @@ const LoginPage = () => {
                     autoComplete="username"
                     autoCapitalize="none"
                     spellCheck="false"
-                    placeholder="Masukkan email atau username santri"
+                    placeholder="Email pengajar atau Nama Panggilan Santri"
                     value={username}
                     onChange={(e) => {
                       setUsername(e.target.value);

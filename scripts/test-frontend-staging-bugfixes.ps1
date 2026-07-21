@@ -92,9 +92,31 @@ Add-Check "santri login supports nickname alias without custom JWT" {
   if ($fn -match '\.limit\(2\)') { throw "Edge Function still rejects duplicate nicknames by limiting to two" }
   if ($fn -notmatch "candidateAliases") { throw "Edge Function does not support multiple nickname candidates" }
   if ($fn -notmatch "auth.signInWithPassword") { throw "Edge Function does not verify through Supabase Auth" }
+  if ($fn -notmatch "passwordSync") { throw "Edge Function does not repair a valid Nomor Induk password mismatch" }
   if ($fn -match "createJwt|jwt.sign|custom JWT") { throw "custom JWT logic detected" }
   if ($auth -notmatch "username,") { throw "frontend does not send username alias to Edge Function" }
   if ($login -notmatch "Nama Panggilan Santri") { throw "login placeholder does not explain santri nickname username" }
+}
+
+Add-Check "santri identifiers use resilient clipboard copy" {
+  $component = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  $helper = Read-Text "src/lib/clipboardUtils.js"
+  if ($component -notmatch "copyTextToClipboard") { throw "santri identifiers do not use the clipboard helper" }
+  if ($helper -notmatch "navigator\.clipboard") { throw "Clipboard API path is missing" }
+  if ($helper -notmatch "execCommand\('copy'\)") { throw "clipboard fallback is missing" }
+}
+
+Add-Check "birthday modal has an opaque light theme surface" {
+  $modal = Read-Text "src/components/dashboard/shared/BirthdayNotificationModal.jsx"
+  if ($modal -notmatch "bg-slate-50/\[0\.97\]") { throw "light modal surface is still too transparent" }
+  if ($modal -notmatch "border-slate-200") { throw "light modal border is not theme-safe" }
+}
+
+Add-Check "Nomor Induk edits synchronize Auth password" {
+  $component = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  $function = Read-Text "supabase/functions/manage-user/index.ts"
+  if ($component -notmatch "Login santri gagal disinkronkan") { throw "admin edit does not route login changes through manage-user" }
+  if ($function -notmatch "AUTH_PASSWORD_SYNC_FAILED") { throw "manage-user does not synchronize the Auth password" }
 }
 
 Add-Check "santri avatar upload persists avatar path after storage upload" {

@@ -16,12 +16,25 @@ type UserProfile = {
   status: string;
 };
 
+type SantriLoginProfile = {
+  id: string;
+  nomor_induk_qiroati: string | null;
+};
+
 function normalizeIdentifier(value: string): string {
   return value.trim();
 }
 
 function canBeNomorInduk(value: string): boolean {
   return Boolean(value) && !/\s/.test(value);
+}
+
+function normalizePasswordAsNomorInduk(value: string): string | null {
+  try {
+    return normalizeNomorInduk(value);
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -115,6 +128,13 @@ Deno.serve(async (req) => {
       .in("id", candidateAliases.map((candidate) => candidate.auth_user_id))
       .returns<Array<UserProfile & { id: string }>>();
     const profileByUserId = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+    const { data: santriProfiles } = await admin
+      .from("santri")
+      .select("id,nomor_induk_qiroati")
+      .in("id", candidateAliases.map((candidate) => candidate.auth_user_id))
+      .returns<SantriLoginProfile[]>();
+    const santriByUserId = new Map((santriProfiles ?? []).map((santri) => [santri.id, santri]));
+    const passwordAsNomorInduk = normalizePasswordAsNomorInduk(password);
 
     const anon = getAnonClient();
     let matchedSession: Awaited<ReturnType<typeof anon.auth.signInWithPassword>>["data"]["session"] = null;
@@ -124,10 +144,25 @@ Deno.serve(async (req) => {
       const profile = profileByUserId.get(candidate.auth_user_id);
       if (!profile || profile.role !== "santri" || profile.status !== "active") continue;
 
-      const { data, error } = await anon.auth.signInWithPassword({
+      let { data, error } = await anon.auth.signInWithPassword({
         email: candidate.internal_email,
         password,
       });
+
+      const santriProfile = santriByUserId.get(candidate.auth_user_id);
+      const storedNomorInduk = santriProfile?.nomor_induk_qiroati
+        ? normalizeNomorInduk(santriProfile.nomor_induk_qiroati)
+        : null;
+
+      if (error && passwordAsNomorInduk && storedNomorInduk === passwordAsNomorInduk) {
+        const passwordSync = await admin.auth.admin.updateUserById(candidate.auth_user_id, { password });
+        if (!passwordSync.error) {
+          ({ data, error } = await anon.auth.signInWithPassword({
+            email: candidate.internal_email,
+            password,
+          }));
+        }
+      }
 
       if (!error && data.session && data.user) {
         matchedSession = data.session;

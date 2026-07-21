@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen } from 'lucide-react';
+import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +23,7 @@ import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProf
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArchiveAdapters';
+import { copyTextToClipboard } from '@/lib/clipboardUtils';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 
 const jilidOptions = [
@@ -762,6 +763,26 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         return;
       }
 
+      if (editingSantri && Object.prototype.hasOwnProperty.call(profilePayload, 'nomor_induk_qiroati')) {
+        if (!enableEdgeFunctions) {
+          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke('manage-user', {
+          body: {
+            action: 'update',
+            role: 'santri',
+            target_user_id: targetId,
+            profile: { nomor_induk_qiroati: profilePayload.nomor_induk_qiroati },
+          },
+        });
+
+        if (error) throw new Error(await getFunctionErrorMessage(error, 'Login santri gagal disinkronkan.'));
+        if (!data?.ok) throw new Error(data?.error?.message || 'Login santri gagal disinkronkan.');
+        delete profilePayload.nomor_induk_qiroati;
+      }
+
       if (Object.keys(profilePayload).length > 0) {
         const { data: savedSantri, error } = await supabase
           .from('santri')
@@ -917,40 +938,40 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setSortConfig({ key, direction });
   };
 
-  const handleCopyRFID = (rfid) => {
+  const handleCopyRFID = async (rfid) => {
     if (!rfid) {
         toast({ title: "Gagal", description: "Tidak ada RFID tag untuk disalin.", variant: "destructive" });
         return;
     }
-    navigator.clipboard.writeText(rfid).then(() => {
+    try {
+        await copyTextToClipboard(rfid);
         toast({ 
-            title: "RFID Copied!", 
+            title: "RFID disalin",
             description: "RFID tag disalin ke clipboard.", 
             className: "bg-green-50 border-green-200 text-green-700",
             action: <CheckCircle className="w-5 h-5 text-green-600"/>
         });
-    }).catch(err => {
-        console.error('Failed to copy RFID: ', err);
+    } catch {
         toast({ title: "Gagal Copy", description: "Tidak bisa menyalin RFID.", variant: "destructive" });
-    });
+    }
   };
 
-  const handleCopyIndukQiroati = (induk) => {
+  const handleCopyIndukQiroati = async (induk) => {
     if (!induk) {
         toast({ title: "Gagal", description: "Nomor Induk Qiroati tidak tersedia.", variant: "destructive" });
         return;
     }
-    navigator.clipboard.writeText(induk).then(() => {
+    try {
+        await copyTextToClipboard(induk);
         toast({ 
-            title: "No Induk Qiroati Copied!", 
+            title: "Nomor Induk disalin",
             description: "Nomor induk disalin ke clipboard.", 
             className: "bg-green-50 border-green-200 text-green-700",
             action: <CheckCircle className="w-5 h-5 text-green-600"/>
         });
-    }).catch(err => {
-        console.error('Failed to copy Induk: ', err);
+    } catch {
         toast({ title: "Gagal Copy", description: "Tidak bisa menyalin Nomor Induk.", variant: "destructive" });
-    });
+    }
   };
   
   const sortedAndFilteredSantri = useMemo(() => {
@@ -1106,22 +1127,26 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                             <AvatarFallback className="bg-blue-100 text-blue-700 font-bold text-xs">{santri.nama_lengkap.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <div 
-                                className="font-medium text-foreground cursor-pointer hover:text-blue-600 hover:underline flex items-center gap-1 group/name" 
+                            <button
+                                type="button"
+                                className="font-medium text-left text-foreground cursor-pointer hover:text-blue-600 hover:underline flex items-center gap-1 group/name focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 rounded-sm"
                                 onClick={() => handleCopyRFID(santri.rfid_tag)}
                                 title="Klik untuk menyalin RFID"
+                                aria-label={`Salin RFID ${santri.nama_lengkap}`}
                             >
                                 {santri.nama_lengkap}
                                 <Copy className="w-3 h-3 opacity-0 group-hover/name:opacity-50" />
-                            </div>
-                            <div 
-                                className="text-xs text-muted-foreground font-mono cursor-pointer hover:text-green-600 hover:underline flex items-center gap-1 group/nick" 
+                            </button>
+                            <button
+                                type="button"
+                                className="text-xs text-left text-muted-foreground font-mono cursor-pointer hover:text-green-600 hover:underline flex items-center gap-1 group/nick focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
                                 onClick={() => handleCopyIndukQiroati(santri.nomor_induk_qiroati)}
                                 title="Klik untuk menyalin No Induk Qiroati"
+                                aria-label={`Salin Nomor Induk Qiroati ${santri.nama_panggilan || santri.nama_lengkap}`}
                             >
                                 {santri.nama_panggilan}
                                 <Copy className="w-3 h-3 opacity-0 group-hover/nick:opacity-50" />
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </td>

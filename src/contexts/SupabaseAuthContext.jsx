@@ -238,7 +238,6 @@ export const AuthProvider = ({ children }) => {
       console.log('[AuthContext] Attempting santri login via Edge Function...');
       const { data: functionData, error: functionError } = await supabase.functions.invoke('signin-with-nomor-induk', {
         body: {
-          nomor_induk_qiroati: username,
           username,
           password,
         },

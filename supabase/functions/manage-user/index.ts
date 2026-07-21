@@ -323,6 +323,14 @@ Deno.serve(async (req) => {
             return fail(req, "DUPLICATE_NOMOR_INDUK", "Nomor Induk Qiroati sudah digunakan.", 409);
           }
 
+          const { error: passwordSyncError } = await admin.auth.admin.updateUserById(targetUserId, {
+            password: nomorInduk,
+          });
+
+          if (passwordSyncError) {
+            return fail(req, "AUTH_PASSWORD_SYNC_FAILED", "Password login santri gagal disinkronkan.", 400);
+          }
+
           santriUpdates.nomor_induk_qiroati = nomorInduk;
 
           const { data: existingAlias } = await admin
