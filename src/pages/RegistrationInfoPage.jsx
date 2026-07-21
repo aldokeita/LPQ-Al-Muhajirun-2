@@ -19,70 +19,8 @@ import {
   Award,
 } from 'lucide-react';
 import { fetchWebsiteContentMap, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
+import { DEFAULT_ENROLLMENT_DATA } from '@/lib/enrollmentContent';
 import '@/styles/public-enrollment.css';
-
-/* ---------- Default Data (Hardcoded Fallback) ---------- */
-const DEFAULT_ENROLLMENT_DATA = {
-  categories: [
-    {
-      id: 'tpq',
-      name: 'Santri TPQ (Anak)',
-      description: 'Program pembelajaran Al-Qur\'an untuk mulai dari usia 3 - 16 tahun dengan kurikulum terstruktur dan lingkungan belajar yang menyenangkan.',
-      icon: '👦',
-      fees: [
-        { id: 'f1', name: 'Sarpras', amount: 'Rp 115.000', order: 1 },
-        { id: 'f2', name: 'Seragam', amount: 'Rp 175.000', order: 2 },
-        { id: 'f3', name: 'Buku Prestasi', amount: 'Rp 10.000', order: 3 },
-        { id: 'f4', name: 'ID Card', amount: 'Rp 25.000', order: 4 },
-        { id: 'f5', name: 'Buku Jilid', amount: 'Rp 25.000', order: 5 },
-        { id: 'f6', name: 'SPP Awal', amount: 'Rp 100.000', order: 6 },
-      ],
-      totalFee: 'Rp 450.000',
-      notes: [
-        { id: 'n1', icon: '💰', text: 'Biaya pendaftaran dapat dicicil selama 1 bulan' },
-        { id: 'n2', icon: '👨‍👩‍👧‍👦', text: 'Tersedia paket khusus untuk keluarga dengan lebih dari 1 santri' },
-        { id: 'n3', icon: '📚', text: 'TPQ baru dimulai setelah semua syarat administrasi terpenuhi' },
-        { id: 'n4', icon: '👥', text: 'Wajib didampingi kedua orang tua saat pendaftaran' },
-      ],
-      requirements: [
-        { id: 'r1', text: 'Kedua wali dan calon santri wajib hadir saat mengisi formulir pendaftaran' },
-        { id: 'r2', text: 'Mengisi formulir pendaftaran dengan lengkap dan benar' },
-        { id: 'r3', text: 'Fotokopi Akta Kelahiran (1 lembar)' },
-        { id: 'r4', text: 'Fotokopi Kartu Keluarga (1 lembar)' },
-        { id: 'r5', text: 'Pas foto ukuran 3x4 (2 lembar)' },
-        { id: 'r6', text: 'Materai Rp 10.000' },
-      ],
-      order: 1,
-    },
-    {
-      id: 'dewasa',
-      name: 'Santri Dewasa',
-      description: 'Program pembelajaran Al-Qur\'an untuk usia dewasa di atas 17 tahun dengan jadwal fleksibel dan pendekatan personal.',
-      icon: '🎓',
-      fees: [
-        { id: 'f7', name: 'Sarpras', amount: 'Rp 115.000', order: 1 },
-        { id: 'f8', name: 'Seragam', amount: '-', disabled: true, order: 2 },
-        { id: 'f9', name: 'Buku Prestasi', amount: 'Rp 10.000', order: 3 },
-        { id: 'f10', name: 'ID Card', amount: '-', disabled: true, order: 4 },
-        { id: 'f11', name: 'Buku Jilid', amount: 'Rp 25.000', order: 5 },
-        { id: 'f12', name: 'SPP Awal', amount: 'Rp 100.000', order: 6 },
-      ],
-      totalFee: 'Rp 250.000',
-      notes: [
-        { id: 'n5', icon: '🎓', text: 'Usia minimal 17 tahun ke atas' },
-        { id: 'n6', icon: '🤝', text: 'Berkomitmen untuk mengikuti pembelajaran secara rutin' },
-        { id: 'n7', icon: '📅', text: 'Jadwal fleksibel (Pagi/Siang/Malam) sesuai kesepakatan' },
-        { id: 'n8', icon: '💰', text: 'Pembayaran pendaftaran dilakukan di awal masuk' },
-      ],
-      requirements: [
-        { id: 'r7', text: 'Mengisi formulir pendaftaran' },
-        { id: 'r8', text: 'Menyerahkan 1 lembar fotokopi KTP' },
-        { id: 'r9', text: 'Membayar biaya administrasi pendaftaran' },
-      ],
-      order: 2,
-    },
-  ],
-};
 
 /* ---------- Animation Variants ---------- */
 const fadeUp = {

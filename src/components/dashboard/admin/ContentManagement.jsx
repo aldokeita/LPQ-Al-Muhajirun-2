@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
+import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
 import {
   archiveAnnouncement,
   archiveNews,
@@ -217,10 +218,10 @@ const ContentManagement = () => {
       newContent.model3dSettings = { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 };
     }
     // Parse enrollmentInfo
-    if (newContent.enrollmentInfo && typeof newContent.enrollmentInfo === 'object' && Array.isArray(newContent.enrollmentInfo.categories)) {
+    if (newContent.enrollmentInfo && typeof newContent.enrollmentInfo === 'object' && Array.isArray(newContent.enrollmentInfo.categories) && newContent.enrollmentInfo.categories.length > 0) {
       setEnrollmentData(newContent.enrollmentInfo);
     } else {
-      setEnrollmentData({ categories: [] });
+      setEnrollmentData(createDefaultEnrollmentData());
     }
     try {
       const [news, announcements] = await Promise.all([fetchAdminNews(), fetchAdminAnnouncements()]);
@@ -467,11 +468,13 @@ const ContentManagement = () => {
   const handleSaveEnrollment = async () => {
     setIsEnrollmentSaving(true);
     try {
-      await saveWebsiteContentItem({
+      const normalizedEnrollmentData = prepareEnrollmentDataForSave(enrollmentData);
+      const saved = await saveWebsiteContentItem({
         key: 'enrollmentInfo',
-        content: enrollmentData,
+        content: normalizedEnrollmentData,
         isPublic: true,
       });
+      setEnrollmentData(saved.content || normalizedEnrollmentData);
       toast({ title: "Tersimpan!", description: "Informasi pendaftaran berhasil disimpan." });
     } catch (error) {
       toast({ title: "Gagal Menyimpan", description: getPublicContentErrorMessage(error), variant: "destructive" });
