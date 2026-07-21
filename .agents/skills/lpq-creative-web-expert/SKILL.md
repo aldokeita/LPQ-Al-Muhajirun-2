@@ -150,6 +150,26 @@ Avoid visual clichés unless the user asks for them:
 - stock-template hero layouts with no institutional identity;
 - decoration that competes with reading or task completion.
 
+## LPQ Aurora Neo-Glass
+
+Treat **LPQ Aurora Neo-Glass** as the canonical name for the visual language first established by the Media Player. Apply it when the user asks for “Aurora Glassmorphism”, “Soft Neo-Glass UI”, “seperti Media Player”, or “LPQ Aurora Neo-Glass”.
+
+Combine these traits:
+- translucent frosted surfaces with strong but readable background blur;
+- restrained radial aurora lighting in teal, cyan, blue, violet, or a contextual accent;
+- thin luminous borders, inset highlights, and soft outer shadows for tactile depth;
+- rounded controls with subtle neo-glass hover and pressed states;
+- one clear focal control or active state instead of making every element glow;
+- spring-based microinteraction, short transitions, and reduced-motion fallbacks;
+- equally intentional light and dark variants with sufficient contrast.
+
+Use this style selectively for media controls, creative tools, configuration dialogs, focused dashboard modules, and other interactive surfaces that benefit from depth. Do not apply it to every card, dense table, long form, or ordinary page section. Preserve semantic hierarchy, keyboard focus, mobile performance, and a solid-color fallback when `backdrop-filter` is unavailable.
+
+Use these files as the living implementation reference when present:
+- `src/components/MediaPlayerWidget.jsx`;
+- `src/components/dashboard/admin/MediaPlayerSettings.jsx`;
+- the `.media-player-glass*` and `.media-settings-glass*` rules in `src/styles/admin-dashboard.css`.
+
 ## Anti-generic creativity test
 Before finalizing a major screen, ask:
 1. Could this exact screen belong to any random school or SaaS product?
