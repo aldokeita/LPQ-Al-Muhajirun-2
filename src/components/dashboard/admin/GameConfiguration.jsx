@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
+import { normalizeLevelConfigShape } from '@/lib/santriLevel';
 
 const GameConfiguration = () => {
     const [activeTab, setActiveTab] = useState('attendance');
@@ -404,6 +405,17 @@ const normalizeLevel = (level, fallbackColor = '#3b82f6') => {
     };
 };
 
+const normalizeEditableLevelConfig = (content) => {
+    const defaults = createDefaultLevelConfig();
+    const normalized = normalizeLevelConfigShape(content);
+    return {
+        male: (normalized.male.length > 0 ? normalized.male : defaults.male)
+            .map((level) => normalizeLevel(level, '#3b82f6')),
+        female: (normalized.female.length > 0 ? normalized.female : defaults.female)
+            .map((level) => normalizeLevel(level, '#ec4899')),
+    };
+};
+
 const LevelSettings = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -416,10 +428,7 @@ const LevelSettings = () => {
                 const { data, error } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
                 if (error) throw error;
                 if (data?.content) {
-                    setLevelConfig({
-                        male: (data.content.male || []).map((level) => normalizeLevel(level, '#3b82f6')),
-                        female: (data.content.female || []).map((level) => normalizeLevel(level, '#ec4899'))
-                    });
+                    setLevelConfig(normalizeEditableLevelConfig(data.content));
                 }
             } catch (error) {
                 toast({ title: 'Gagal Memuat Konfigurasi Level', description: error.message || 'Konfigurasi default tetap dapat diedit dan disimpan.', variant: 'destructive' });
@@ -448,11 +457,11 @@ const LevelSettings = () => {
             }
 
             const saved = await saveWebsiteContentItem({ key: 'level_config', content: normalizedConfig, isPublic: true });
-            if (!saved?.content?.male || !saved?.content?.female) throw new Error('Konfigurasi tersimpan tanpa data level lengkap.');
-            setLevelConfig({
-                male: saved.content.male.map((level) => normalizeLevel(level, '#3b82f6')),
-                female: saved.content.female.map((level) => normalizeLevel(level, '#ec4899')),
-            });
+            const savedConfig = normalizeLevelConfigShape(saved?.content);
+            if (savedConfig.male.length === 0 || savedConfig.female.length === 0) {
+                throw new Error('Konfigurasi tersimpan tanpa data level lengkap.');
+            }
+            setLevelConfig(normalizeEditableLevelConfig(saved.content));
             toast({ title: "Berhasil", description: "Konfigurasi level putra dan putri sudah aktif pada profil absensi digital." });
         } catch (error) {
             toast({ title: "Gagal Simpan", description: error.message || 'Konfigurasi level tidak dapat disimpan.', variant: "destructive" });

@@ -501,20 +501,25 @@ Add-Check "level configuration saves with verified readback and drives digital a
   $attendance = Read-Text "src/pages/DigitalAttendancePage.jsx"
   $resolver = Read-Text "src/lib/santriLevel.js"
   if ($configuration -notmatch "saveWebsiteContentItem\(\{ key: 'level_config'") { throw "level settings bypass the official content adapter" }
-  if ($configuration -notmatch "saved\?\.content\?\.male" -or $configuration -notmatch "saved\?\.content\?\.female") { throw "saved level settings are not read back" }
+  if ($configuration -notmatch "normalizeLevelConfigShape\(saved\?\.content\)") { throw "saved level settings are not normalized on readback" }
   if ($configuration -notmatch "\{ id: 'levels', label: 'Konfigurasi Level'" ) { throw "level settings tab is unavailable" }
   if ($attendance -notmatch "resolveSantriLevel\(\{ points, gender, config: levelConfig \}\)") { throw "digital attendance does not use the shared level resolver" }
   if ($resolver -notmatch "cardBorderThickness" -or $resolver -notmatch "avatarBorderThickness") { throw "shared resolver omits profile-card visual settings" }
   if ($configuration -notmatch "const \[isSaving, setIsSaving\]" -or $configuration -notmatch 'type="button" onClick=\{saveLevelConfig\}') { throw "level save button can remain locked by initial loading" }
   if ($resolver -notmatch "name: 'Pemula'" -or $attendance -notmatch "label: 'Pemula'") { throw "level fallback is inconsistent with configuration defaults" }
+  if ($resolver -notmatch "typeof config !== 'string'" -or $resolver -notmatch "Object\.values\(value\)" -or $resolver -notmatch "parsed\.putra") { throw "legacy string/object level settings are not normalized" }
 }
 
 Add-Check "admin guru edit resets Auth password through the guarded function" {
   $management = Read-Text "src/components/dashboard/admin/GuruManagement.jsx"
+  $edgeAdapter = Read-Text "src/lib/edgeFunctionAdapters.js"
   $function = Read-Text "supabase/functions/reset-user-password/index.ts"
+  $cors = Read-Text "supabase/functions/_shared/cors.ts"
   if ($management -match "Reset password ditunda") { throw "existing guru password edit is still blocked" }
-  if ($management -notmatch "functions\.invoke\('reset-user-password'") { throw "guru edit does not invoke the password reset function" }
+  if ($management -notmatch "invokeAuthenticatedEdgeFunction\('reset-user-password'") { throw "guru edit does not use the authenticated password reset request" }
   if ($management -notmatch "target_user_id: userId" -or $management -notmatch "new_password: formData\.password") { throw "password reset payload is incomplete" }
+  if ($edgeAdapter -notmatch "supabase\.auth\.getSession\(\)" -or $edgeAdapter -notmatch 'Authorization: `Bearer \$\{accessToken\}`') { throw "Edge Function request does not carry the active user session" }
+  if ($cors -notmatch "https://lpqalmuhajirun\.id" -or $cors -notmatch "https://www\.lpqalmuhajirun\.id") { throw "production domains are missing from Edge Function CORS" }
   if ($function -notmatch 'requireRole\(user\.id, \["admin"\]\)') { throw "password reset function is not restricted to admin" }
   if ($function -notmatch "admin\.auth\.admin\.updateUserById") { throw "password reset does not update Supabase Auth" }
 }

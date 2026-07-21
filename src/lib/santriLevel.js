@@ -11,9 +11,43 @@ const normalizeGenderKey = (gender) => {
     : 'male';
 };
 
+const parseLevelConfig = (config) => {
+  if (typeof config !== 'string') return config;
+  try {
+    return JSON.parse(config);
+  } catch {
+    return null;
+  }
+};
+
+const toLevelArray = (value) => {
+  if (Array.isArray(value)) return value.filter((level) => level && typeof level === 'object');
+  if (!value || typeof value !== 'object') return [];
+  return Object.values(value).filter((level) => level && typeof level === 'object' && !Array.isArray(level));
+};
+
+export const normalizeLevelConfigShape = (config) => {
+  const parsed = parseLevelConfig(config);
+  if (!parsed || typeof parsed !== 'object') return { male: [], female: [] };
+
+  if (Array.isArray(parsed)) {
+    const sharedLevels = toLevelArray(parsed);
+    return { male: sharedLevels, female: sharedLevels };
+  }
+
+  const hasGenderGroups = ['male', 'female', 'putra', 'putri', 'laki_laki', 'perempuan']
+    .some((key) => Object.prototype.hasOwnProperty.call(parsed, key));
+  const sharedLevels = hasGenderGroups ? [] : toLevelArray(parsed);
+
+  return {
+    male: toLevelArray(parsed.male ?? parsed.putra ?? parsed.laki_laki ?? sharedLevels),
+    female: toLevelArray(parsed.female ?? parsed.putri ?? parsed.perempuan ?? sharedLevels),
+  };
+};
+
 export const resolveSantriLevel = ({ points = 0, gender, config }) => {
   const safePoints = Math.max(0, Number(points) || 0);
-  const configuredLevels = config?.[normalizeGenderKey(gender)];
+  const configuredLevels = normalizeLevelConfigShape(config)[normalizeGenderKey(gender)];
   const levels = Array.isArray(configuredLevels) && configuredLevels.length > 0
     ? configuredLevels
     : FALLBACK_LEVELS;

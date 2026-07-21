@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import { getOperationalRoleFromGuruForm, pickGuruProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
+import { invokeAuthenticatedEdgeFunction } from '@/lib/edgeFunctionAdapters';
 
 const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
 
@@ -294,14 +295,12 @@ const GuruManagement = () => {
         }
 
         if (requiresPasswordReset) {
-          const { data: resetData, error: resetError } = await supabase.functions.invoke('reset-user-password', {
-            body: {
-              target_user_id: userId,
-              new_password: formData.password,
-            },
+          const resetData = await invokeAuthenticatedEdgeFunction('reset-user-password', {
+            target_user_id: userId,
+            new_password: formData.password,
           });
-          if (resetError || !resetData?.ok) {
-            throw new Error(resetData?.error?.message || resetError?.message || 'Password Auth guru gagal direset.');
+          if (!resetData?.ok) {
+            throw new Error(resetData?.error?.message || 'Password Auth guru gagal direset.');
           }
         }
 

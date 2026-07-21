@@ -1,7 +1,7 @@
 export function getCorsHeaders(req: Request): HeadersInit {
   const origin = req.headers.get("origin") ?? "";
   const env = Deno.env.get("FUNCTION_ENV") ?? "development";
-  const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://lpq-al-muhajirun-staging.vercel.app,https://lpqalmuhajirun.id")
+  const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://lpq-al-muhajirun-staging.vercel.app,https://lpqalmuhajirun.id,https://www.lpqalmuhajirun.id")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
