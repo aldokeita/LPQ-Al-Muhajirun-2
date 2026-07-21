@@ -158,7 +158,14 @@ export const resolveSantriAttendanceSession = ({
     sessionTimes,
   });
 
-  if (assignedWindow.canRecord) {
+  const current = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const assignedEndAt = assignedWindow.endAt ? new Date(assignedWindow.endAt) : null;
+  const assignedSessionHasEnded = assignedEndAt
+    && !Number.isNaN(current.getTime())
+    && !Number.isNaN(assignedEndAt.getTime())
+    && Math.floor(current.getTime() / 60000) > Math.floor(assignedEndAt.getTime() / 60000);
+
+  if (assignedWindow.canRecord && !assignedSessionHasEnded) {
     return {
       can: true,
       ...assignedWindow,

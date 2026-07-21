@@ -262,7 +262,7 @@ console.log('ok');
 
 Add-Check "attendance configuration can keep recording after session end" {
   $js = @'
-import { DEFAULT_SESSION_TIMES, evaluateAttendanceWindow } from './src/utils/AttendanceStatusLogic.js';
+import { DEFAULT_SESSION_TIMES, evaluateAttendanceWindow, resolveSantriAttendanceSession } from './src/utils/AttendanceStatusLogic.js';
 const configurableTimes = Object.fromEntries(Object.entries(DEFAULT_SESSION_TIMES).map(([name, value]) => [
   name,
   { ...value, closeAfterEnd: false },
@@ -274,6 +274,19 @@ const result = evaluateAttendanceWindow({
   sessionTimes: configurableTimes,
 });
 if (!result.canRecord || result.status !== 'Terlambat') throw new Error(JSON.stringify(result));
+
+const alternateResult = resolveSantriAttendanceSession({
+  timestamp: '2026-07-21T16:05:00+07:00',
+  dateStr: '2026-07-21',
+  assignedSession: 'Pagi',
+  sessionTimes: configurableTimes,
+});
+const lateMinutes = Math.floor(
+  (new Date('2026-07-21T16:05:00+07:00').getTime() - new Date(alternateResult.deadlineAt).getTime()) / 60000,
+);
+if (!alternateResult.can || alternateResult.attendedSession !== 'Sore' || alternateResult.status !== 'Terlambat' || lateMinutes !== 5) {
+  throw new Error(JSON.stringify({ alternateResult, lateMinutes }));
+}
 console.log('ok');
 '@
   $output = & node --input-type=module -e $js
