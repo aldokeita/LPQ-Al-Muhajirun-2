@@ -56,10 +56,9 @@ import {
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
+import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 
 // --- Data (unchanged) ---
-const sessionTimes = DEFAULT_SESSION_TIMES;
-
 const guruQuotes = [
     "Mengajar adalah belajar dua kali.",
     "Guru terbaik mengajar dari hati, bukan hanya dari buku.",
@@ -200,7 +199,7 @@ const getSantriHafalanCount = async (santriId) => {
 };
 
 // --- Business logic (unchanged) ---
-const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date()) => {
+const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date(), sessionTimes = DEFAULT_SESSION_TIMES) => {
     if (isPentashih) return { can: true, message: '' };
 
     const today = timestamp;
@@ -235,6 +234,7 @@ const DigitalClock = ({ showSeconds = true }) => {
 
 // --- Main Component ---
 const DigitalAttendancePage = () => {
+  const { sessionTimes } = useAttendanceSessionConfiguration();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
   const [rfidTag, setRfidTag] = useState('');
@@ -661,7 +661,7 @@ const DigitalAttendancePage = () => {
               assignedSession: sesiUser,
               sessionTimes,
             })
-          : canCheckIn(sesiUser, userRole, isPentashih, todayDate);
+          : canCheckIn(sesiUser, userRole, isPentashih, todayDate, sessionTimes);
         if (!checkInStatus.can) {
           setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, rfid: tag });
           return;

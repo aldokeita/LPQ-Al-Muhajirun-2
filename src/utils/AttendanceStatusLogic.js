@@ -119,7 +119,7 @@ export const evaluateAttendanceWindow = ({
     };
   }
 
-  if (currentMinute > endMinute) {
+  if (config.closeAfterEnd !== false && currentMinute > endMinute) {
     return {
       canRecord: false,
       phase: 'ended',

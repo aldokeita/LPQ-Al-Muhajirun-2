@@ -19,14 +19,12 @@ import {
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import {
-    DEFAULT_SESSION_TIMES,
     evaluateAttendanceWindow,
     getJakartaTimeString,
     normalizeAttendanceSessionName,
     resolveSantriAttendanceSession,
 } from '@/utils/AttendanceStatusLogic';
-
-const sessionTimes = DEFAULT_SESSION_TIMES;
+import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 
 const DigitalClock = () => {
     const [time, setTime] = useState(new Date());
@@ -44,6 +42,7 @@ const DigitalClock = () => {
 };
 
 const DigitalAttendance = () => {
+    const { sessionTimes } = useAttendanceSessionConfiguration();
     const [rfidTag, setRfidTag] = useState('');
     const [lastScan, setLastScan] = useState(null);
     const [isLoading, setIsLoading] = useState(false);

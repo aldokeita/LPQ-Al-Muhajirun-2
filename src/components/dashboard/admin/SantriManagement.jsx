@@ -958,30 +958,84 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     });
   };
 
-  const handleMigration = async () => {
+  const getMigrationLabel = (targetCategory) => targetCategory === 'Anak' ? 'TPQ' : targetCategory;
+
+  const migrateSantriCategory = async (santriId, targetCategory, reason) => {
+      const { data, error } = await supabase.rpc('change_santri_category', {
+          p_santri_id: santriId,
+          p_target_category: targetCategory,
+          p_reason: reason,
+      });
+      if (error) throw error;
+      return data?.[0];
+  };
+
+  const handleMigration = async (targetCategory) => {
       if (!editingSantri) return;
-      
+      const targetLabel = getMigrationLabel(targetCategory);
+
       setConfirmDialog({
           isOpen: true,
-          title: 'Migrasi ke Dewasa',
-          description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori DEWASA? Santri akan dikeluarkan dari kelas saat ini.`,
+          title: `Migrasi ke ${targetLabel}`,
+          description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori ${targetLabel}? Santri akan dikeluarkan dari kelas saat ini.`,
           onConfirm: async () => {
-              const { data, error } = await supabase.rpc('change_santri_category', {
-                  p_santri_id: editingSantri.id,
-                  p_target_category: 'Dewasa',
-                  p_reason: 'Migrasi TPQ ke santri dewasa oleh admin',
-              });
+              try {
+                  const result = await migrateSantriCategory(
+                      editingSantri.id,
+                      targetCategory,
+                      `Migrasi ke ${targetLabel} melalui Edit Data Santri`,
+                  );
+                  toast({ title: 'Migrasi berhasil', description: result?.message || `${editingSantri.nama_lengkap} dipindahkan ke kategori ${targetLabel}.` });
+                  setIsFormOpen(false);
+                  setEditingSantri(null);
+                  await loadData(subCategory);
+              } catch (error) {
+                  toast({ title: 'Migrasi gagal', description: error.message, variant: 'destructive' });
+              }
+          }
+      });
+  };
 
-              if (error) {
-                  toast({ title: "Migrasi gagal", description: error.message, variant: "destructive" });
-                  return;
+  const handleBulkMigration = (targetCategory) => {
+      if (selectedSantri.size === 0) return;
+      const targetLabel = getMigrationLabel(targetCategory);
+      const selectedIds = Array.from(selectedSantri);
+
+      setConfirmDialog({
+          isOpen: true,
+          title: `Migrasi ${selectedIds.length} Santri ke ${targetLabel}`,
+          description: `Kelas aktif seluruh santri terpilih akan dilepas sebelum dipindahkan ke kategori ${targetLabel}.`,
+          onConfirm: async () => {
+              let migrated = 0;
+              const failures = [];
+
+              for (const santriId of selectedIds) {
+                  try {
+                      await migrateSantriCategory(
+                          santriId,
+                          targetCategory,
+                          `Migrasi massal ke ${targetLabel} dari tabel Data Santri`,
+                      );
+                      migrated += 1;
+                  } catch (error) {
+                      failures.push(error?.message || 'Migrasi gagal');
+                  }
               }
 
-              toast({ title: "Migrasi berhasil", description: data?.[0]?.message || `${editingSantri.nama_lengkap} dipindahkan ke kategori Dewasa.` });
-              setIsFormOpen(false);
-              setEditingSantri(null);
               await loadData(subCategory);
-          }
+              setSelectedSantri(new Set());
+              window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
+
+              if (failures.length > 0) {
+                  toast({
+                      title: 'Migrasi selesai sebagian',
+                      description: `${migrated} berhasil, ${failures.length} gagal. ${failures[0]}`,
+                      variant: 'destructive',
+                  });
+              } else {
+                  toast({ title: 'Migrasi berhasil', description: `${migrated} santri dipindahkan ke kategori ${targetLabel}.` });
+              }
+          },
       });
   };
 
@@ -1112,6 +1166,19 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
             {selectedSantri.size > 0 && (
                 <div className="admin-bulk-bar">
+                    {subCategory === 'ptpt' && (
+                        <button onClick={() => handleBulkMigration('Anak')} className="admin-bulk-btn">
+                            <ArrowRightLeft className="w-3.5 h-3.5"/> Ke TPQ
+                        </button>
+                    )}
+                    {subCategory !== 'ptpt' && (
+                        <button onClick={() => handleBulkMigration('PTPT')} className="admin-bulk-btn">
+                            <ArrowRightLeft className="w-3.5 h-3.5"/> Ke PTPT
+                        </button>
+                    )}
+                    <button onClick={() => handleBulkMigration('Dewasa')} className="admin-bulk-btn">
+                        <ArrowRightLeft className="w-3.5 h-3.5"/> Ke Dewasa
+                    </button>
                     <button onClick={() => handleBulkStatusChange('Nonaktif')} className="admin-bulk-btn admin-bulk-btn--deactivate">
                         <XCircle className="w-3.5 h-3.5"/> Non-Aktif
                     </button>
@@ -1352,9 +1419,20 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
             <div className="admin-edit-footer">
                 {editingSantri && (
-                    <Button type="button" variant="outline" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200" onClick={handleMigration}>
-                        <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke Dewasa
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        {subCategory === 'ptpt' ? (
+                            <Button type="button" variant="outline" className="border-cyan-200 text-cyan-700 hover:bg-cyan-50 hover:text-cyan-800" onClick={() => handleMigration('Anak')}>
+                                <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke TPQ
+                            </Button>
+                        ) : (
+                            <Button type="button" variant="outline" className="border-cyan-200 text-cyan-700 hover:bg-cyan-50 hover:text-cyan-800" onClick={() => handleMigration('PTPT')}>
+                                <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke PTPT
+                            </Button>
+                        )}
+                        <Button type="button" variant="outline" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200" onClick={() => handleMigration('Dewasa')}>
+                            <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke Dewasa
+                        </Button>
+                    </div>
                 )}
                 <div className="admin-edit-footer-actions">
                     <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button>

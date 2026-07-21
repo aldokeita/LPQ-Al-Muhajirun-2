@@ -6,26 +6,31 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
+import AttendanceConfiguration from './AttendanceConfiguration';
+import { enableGameFeatures } from '@/lib/featureFlags';
 
 const GameConfiguration = () => {
-    const [activeTab, setActiveTab] = useState("gatcha");
+    const [activeTab, setActiveTab] = useState('attendance');
     const tabs = [
-        { id: 'gatcha', label: 'Gatcha Game', icon: Gamepad2 },
-        { id: 'quiz', label: 'Quiz Hafalan', icon: Trophy },
-        { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
+        { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
+        ...(enableGameFeatures ? [
+            { id: 'gatcha', label: 'Gatcha Game', icon: Gamepad2 },
+            { id: 'quiz', label: 'Quiz Hafalan', icon: Trophy },
+            { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
+        ] : []),
     ];
 
     return (
         <div className="game-config-shell space-y-6">
             <div className="game-config-hero">
-                <div className="game-config-hero__icon"><Gamepad2 className="w-6 h-6" /></div>
+                <div className="game-config-hero__icon"><Settings2 className="w-6 h-6" /></div>
                 <div>
-                    <h2 className="text-2xl font-black tracking-tight">Konfigurasi Permainan & Gamifikasi</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Atur pengalaman bermain, konten quiz, hadiah, dan visual level santri.</p>
+                    <h2 className="text-2xl font-black tracking-tight">Konfigurasi Sistem</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Atur waktu absensi serta pengalaman permainan dan gamifikasi.</p>
                 </div>
             </div>
             
@@ -57,6 +62,10 @@ const GameConfiguration = () => {
                     </div>
                 </div>
                 
+                <TabsContent value="attendance" className="animate-in fade-in slide-in-from-bottom-2">
+                    <AttendanceConfiguration />
+                </TabsContent>
+
                 <TabsContent value="gatcha" className="animate-in fade-in slide-in-from-bottom-2">
                     <GatchaSettings />
                 </TabsContent>

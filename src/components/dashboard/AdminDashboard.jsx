@@ -165,11 +165,10 @@ const AdminDashboard = () => {
     { value: 'expense', label: 'Pengeluaran', icon: TrendingDown, group: 'keuangan' },
     { value: 'content', label: 'Konten', icon: FileText, group: 'konten' },
     { value: 'tv-settings', label: 'Pengaturan TV', icon: Tv, group: 'konten' },
-    { value: 'game-config', label: 'Konfigurasi Game', icon: Settings, group: 'konten' },
+    { value: 'game-config', label: 'Konfigurasi', icon: Settings, group: 'konten' },
     { value: 'backup', label: 'Backup & Restore', icon: Database, group: 'sistem' },
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
   ].filter(tab => {
-    if (tab.value === 'game-config') return enableGameFeatures;
     if (tab.value === 'backup') return enableBackupRestore;
     return true;
   });
@@ -351,7 +350,6 @@ const AdminDashboard = () => {
         santri={selectedSantri}
         isOpen={isSantriModalOpen}
         onOpenChange={setIsSantriModalOpen}
-        onCategoryChanged={setSelectedSantri}
       />
     </div>
   );

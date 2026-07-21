@@ -260,6 +260,34 @@ console.log('ok');
   if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "final attendance window rules failed" }
 }
 
+Add-Check "attendance configuration can keep recording after session end" {
+  $js = @'
+import { DEFAULT_SESSION_TIMES, evaluateAttendanceWindow } from './src/utils/AttendanceStatusLogic.js';
+const configurableTimes = Object.fromEntries(Object.entries(DEFAULT_SESSION_TIMES).map(([name, value]) => [
+  name,
+  { ...value, closeAfterEnd: false },
+]));
+const result = evaluateAttendanceWindow({
+  timestamp: '2026-07-21T10:30:00+07:00',
+  dateStr: '2026-07-21',
+  sesi: 'Pagi',
+  sessionTimes: configurableTimes,
+});
+if (!result.canRecord || result.status !== 'Terlambat') throw new Error(JSON.stringify(result));
+console.log('ok');
+'@
+  $output = & node --input-type=module -e $js
+  if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "disabled session closure is not honored" }
+
+  $editor = Read-Text "src/components/dashboard/admin/AttendanceConfiguration.jsx"
+  $adapter = Read-Text "src/lib/attendanceConfiguration.js"
+  $publicPage = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  $adminPage = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"
+  if ($editor -notmatch "Tutup absensi otomatis setelah sesi berakhir") { throw "session closure switch is missing" }
+  if ($adapter -notmatch "attendance_session_config") { throw "attendance configuration storage key is missing" }
+  if ($publicPage -notmatch "useAttendanceSessionConfiguration" -or $adminPage -notmatch "useAttendanceSessionConfiguration") { throw "digital attendance does not load saved session configuration" }
+}
+
 Add-Check "santri may attend a different active session" {
   $js = @'
 import { resolveSantriAttendanceSession } from './src/utils/AttendanceStatusLogic.js';
@@ -330,12 +358,14 @@ Add-Check "attendance recap filters santri by registered session" {
   if ($recap -notmatch "Semua Sesi") { throw "attendance recap session filter UI is missing" }
 }
 
-Add-Check "admin detail can migrate TPQ and PTPT through guarded RPC" {
-  $modal = Read-Text "src/components/dashboard/shared/SantriDetailModal.jsx"
+Add-Check "admin edit and table selection can migrate TPQ PTPT and adult" {
+  $management = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
   $migration = Read-Text "supabase/migrations/20260721000300_change_santri_category_ptpt.sql"
-  if ($modal -notmatch "Migrasi ke \{isPtpt \? 'TPQ' : 'PTPT'\}") { throw "TPQ/PTPT migration button is missing" }
-  if ($modal -notmatch "rpc\('change_santri_category'") { throw "category migration does not use the atomic RPC" }
-  if ($modal -notmatch "role === 'admin'") { throw "category migration control is not admin-only" }
+  if ($management -notmatch "Migrasi ke PTPT") { throw "edit form PTPT migration is missing" }
+  if ($management -notmatch "Migrasi ke Dewasa") { throw "edit form adult migration is missing" }
+  if ($management -notmatch "handleBulkMigration\('PTPT'\)") { throw "bulk PTPT migration is missing" }
+  if ($management -notmatch "handleBulkMigration\('Dewasa'\)") { throw "bulk adult migration is missing" }
+  if ($management -notmatch "rpc\('change_santri_category'") { throw "category migration does not use the atomic RPC" }
   if ($migration -notmatch "when 'PTPT' then 'PTPT'") { throw "category RPC migration does not support PTPT" }
   if ($migration -notmatch "set search_path = public, pg_temp") { throw "category RPC lacks an explicit search path" }
 }
