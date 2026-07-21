@@ -3265,13 +3265,6 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     inset 1px 1px 0 rgba(255, 255, 255, 0.45);
 }
 
-.attendance-profile-card--white-glass.attendance-profile-card--late .attendance-profile-card__success-badge {
-  background: linear-gradient(145deg, #fbbf24, #d97706);
-  box-shadow:
-    0 6px 14px rgba(217, 119, 6, 0.32),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.48);
-}
-
 .attendance-profile-card--white-glass .attendance-profile-card__role-badge {
   bottom: 0.9rem;
   padding: 0.34rem 0.8rem;
@@ -3322,6 +3315,24 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     4px 5px 10px rgba(76, 91, 105, 0.13);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+}
+
+.attendance-profile-card--white-glass .attendance-profile-card__status-chip--present {
+  border-color: hsl(var(--att-success) / 0.38) !important;
+  background: hsl(var(--att-success) / 0.12) !important;
+  color: hsl(var(--att-success)) !important;
+}
+
+.attendance-profile-card--white-glass .attendance-profile-card__status-chip--late {
+  border-color: hsl(var(--att-amber-border)) !important;
+  background: hsl(var(--att-amber-bg) / 0.92) !important;
+  color: hsl(var(--att-amber)) !important;
+}
+
+.attendance-profile-card--white-glass .attendance-profile-card__status-chip--absent {
+  border-color: hsl(var(--att-danger-border)) !important;
+  background: hsl(var(--att-danger-bg) / 0.9) !important;
+  color: hsl(var(--att-danger)) !important;
 }
 
 .attendance-profile-card--white-glass .attendance-profile-card__details {

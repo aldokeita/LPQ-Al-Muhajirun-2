@@ -56,19 +56,15 @@ const AttendanceProfileCard = ({
   const cardDepth = clampDepth(cardBorderThickness, 8);
   const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
-  const isLate = status === 'Terlambat';
   const displayMessage = formatAttendanceMessage(message, sesi);
-  const statusAccent = isLate ? getLateAccent() : null;
-  const nameGradient = statusAccent
-    ? `linear-gradient(135deg, ${statusAccent.gradientStart}, ${statusAccent.gradientEnd})`
-    : pointAccent
+  const nameGradient = pointAccent
     ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
     : isTeacher
       ? 'linear-gradient(135deg, #047857, #22c55e)'
       : levelColor
         ? `linear-gradient(135deg, ${levelColor}, color-mix(in srgb, ${levelColor} 58%, white))`
         : 'linear-gradient(135deg, #047857, #34d399)';
-  const visualAccent = statusAccent || pointAccent || {
+  const visualAccent = pointAccent || {
     color: '#169b62',
     gradientStart: '#087443',
     gradientEnd: '#4ade80',
@@ -86,13 +82,7 @@ const AttendanceProfileCard = ({
     '--attendance-avatar-shadow-y': `${Math.max(7, avatarDepth * 2)}px`,
     '--attendance-avatar-shadow-blur': `${Math.max(18, avatarDepth * 5)}px`,
   };
-  const statusStyle = isLate
-    ? {
-        backgroundColor: 'var(--att-amber-bg)',
-        borderColor: 'var(--att-amber-border)',
-        color: 'var(--att-amber)',
-      }
-    : pointAccent
+  const statusStyle = pointAccent
     ? {
         backgroundColor: 'rgba(255, 255, 255, 0.92)',
         borderColor: pointAccent.color,
@@ -109,7 +99,7 @@ const AttendanceProfileCard = ({
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''} ${isLate ? 'attendance-profile-card--late' : ''}`}
+      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
       style={cardStyle}
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
@@ -172,7 +162,7 @@ const AttendanceProfileCard = ({
       {status && (
         <div className="attendance-profile-card__status-row">
           <div
-            className="attendance-profile-card__status-chip"
+            className={`attendance-profile-card__status-chip ${getStatusToneClass(status)}`}
             style={statusStyle}
           >
             {statusConfig.icon}
@@ -420,14 +410,11 @@ function formatAttendanceMessage(message, sesi) {
   );
 }
 
-function getLateAccent() {
-  return {
-    color: '#d97706',
-    gradientStart: '#b45309',
-    gradientEnd: '#fbbf24',
-    soft: 'rgba(245, 158, 11, 0.16)',
-    glow: 'rgba(245, 158, 11, 0.5)',
-  };
+function getStatusToneClass(status) {
+  if (status === 'Terlambat') return 'attendance-profile-card__status-chip--late';
+  if (['Tidak Hadir', 'Alpha'].includes(status)) return 'attendance-profile-card__status-chip--absent';
+  if (['Hadir', 'Tepat Waktu'].includes(status)) return 'attendance-profile-card__status-chip--present';
+  return '';
 }
 
 export default AttendanceProfileCard;

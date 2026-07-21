@@ -194,8 +194,8 @@ Add-Check "active santri without class can use digital attendance" {
 Add-Check "attendance profile shows late accent and combined monthly stats" {
   $card = Read-Text "src/components/dashboard/shared/AttendanceProfileCard.jsx"
   $page = Read-Text "src/pages/DigitalAttendancePage.jsx"
-  if ($card -notmatch "const isLate = status === 'Terlambat'") { throw "late status does not override the profile accent" }
-  if ($card -notmatch "attendance-profile-card--late") { throw "late profile class is missing" }
+  if ($card -notmatch "attendance-profile-card__status-chip--late") { throw "late status chip class is missing" }
+  if ($card -match "statusAccent|getLateAccent|attendance-profile-card--late") { throw "late status still overrides the whole profile accent" }
   if ($card -notmatch "attendance-profile-card__attendance-summary") { throw "monthly attendance is not combined into one card" }
   if ($card -notmatch "monthlyStats\.late") { throw "monthly late count is not rendered" }
   if ($card -notmatch "Sesi \{getSessionName\(sesi\)\}") { throw "student session label is missing below the name" }
