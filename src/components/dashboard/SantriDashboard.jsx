@@ -37,6 +37,7 @@ import {
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getSessionName } from '@/utils/sessionMapping';
 import { resolveSantriLevel } from '@/lib/santriLevel';
+import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
 
 const SantriLevelScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -335,7 +336,7 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
                             <Avatar className="w-24 h-24 border-4 border-white shadow-md"><AvatarImage src={formData.foto_url} /><AvatarFallback>{formData.nama_lengkap?.charAt(0)}</AvatarFallback></Avatar>
                             <div className="space-y-2 flex-1">
                                 <h4 className="fontsemibold text-sm text-blue-800 dark:text-blue-300">Ganti Foto Profil</h4>
-                                <div className="text-xs text-muted-foreground space-y-1"><p>Pastikan wajah Anda terlihat jelas.</p><p className="font-semibold text-orange-600">Maksimal ukuran file: 2 MB.</p></div>
+                                <div className="text-xs text-muted-foreground space-y-1"><p>Pastikan wajah Anda terlihat jelas.</p><p className="font-semibold text-orange-600">Foto hingga 12 MB dikompres otomatis menjadi WebP.</p></div>
                                 <div className="flex flex-wrap gap-2 mt-2"><Button type="button" size="sm" variant="outline" onClick={() => photoInputRef.current?.click()} disabled={isUploading}><Upload className="w-4 h-4 mr-2" /> {isUploading ? 'Mengupload...' : 'Pilih Foto'}</Button><Button type="button" size="sm" variant="outline" onClick={handleDeletePhoto} disabled={isUploading || !formData.foto_url}>Hapus Foto</Button><input type="file" ref={photoInputRef} className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} /></div>
                             </div>
                         </div>
@@ -366,6 +367,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isHafalanModalOpen, setIsHafalanModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
   const [dailyAttendance, setDailyAttendance] = useState([]);
   const [classmates, setClassmates] = useState([]);
   const [classmatesAttendance, setClassmatesAttendance] = useState([]);
@@ -490,10 +492,12 @@ const SantriDashboard = ({ isAdult = false }) => {
           <div className="relative z-10 grid gap-7 p-5 sm:p-7 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
             <div className="flex justify-center lg:justify-start">
               <div className="rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)]">
-                <Avatar className="h-28 w-28 border-4 border-white bg-slate-100 shadow-xl dark:border-slate-700 sm:h-32 sm:w-32">
-                  <AvatarImage src={santriData.foto_url} className="object-cover" />
-                  <AvatarFallback className="bg-slate-200 text-3xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
-                </Avatar>
+                <button type="button" onClick={() => setIsAvatarPreviewOpen(true)} className="block rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label="Lihat foto profil santri">
+                  <Avatar className="h-28 w-28 border-4 border-white bg-slate-100 shadow-xl dark:border-slate-700 sm:h-32 sm:w-32">
+                    <AvatarImage src={santriData.foto_url} className="object-cover" />
+                    <AvatarFallback className="bg-slate-200 text-3xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                </button>
               </div>
             </div>
 
@@ -614,6 +618,7 @@ const SantriDashboard = ({ isAdult = false }) => {
         </Tabs>
 
         <EditProfileDialog isOpen={isInfoModalOpen} onOpenChange={setIsInfoModalOpen} santri={santriData} onUpdate={initializeData} />
+        <AvatarPreviewDialog open={isAvatarPreviewOpen} onOpenChange={setIsAvatarPreviewOpen} imageUrl={santriData.foto_url} name={santriData.nama_lengkap} description="Foto profil santri yang sedang digunakan." />
 
         <Dialog open={isHafalanModalOpen} onOpenChange={setIsHafalanModalOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

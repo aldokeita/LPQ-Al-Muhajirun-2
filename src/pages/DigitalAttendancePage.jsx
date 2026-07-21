@@ -57,6 +57,7 @@ import {
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
+import { resolveSantriLevel } from '@/lib/santriLevel';
 
 // --- Data (unchanged) ---
 const guruQuotes = [
@@ -327,28 +328,10 @@ const DigitalAttendancePage = () => {
 
       if (!levelConfig) return defaultInfo;
 
-      const normalizedGender = String(gender || '').toLowerCase();
-      const genderKey = normalizedGender.includes('perempuan') ||
-        normalizedGender.includes('putri') ||
-        normalizedGender === 'p'
-        ? 'female'
-        : 'male';
-      const levels = levelConfig[genderKey];
-
-      if (!Array.isArray(levels) || levels.length === 0) return defaultInfo;
-
-      const safePoints = Number(points) || 0;
-      const matchedLevel = levels.find((level) => {
-          const min = Number(level.min ?? 0);
-          const max = Number(level.max ?? 999999);
-          return safePoints >= min && safePoints <= max;
-      }) || levels[0];
-
-      if (!matchedLevel) return defaultInfo;
-
-      const accentColor = matchedLevel.accentColor || matchedLevel.color || defaultInfo.color;
+      const resolvedLevel = resolveSantriLevel({ points, gender, config: levelConfig });
+      const accentColor = resolvedLevel.accentColor || defaultInfo.color;
       let icon = <Book className="w-8 h-8" style={{ color: accentColor }} />;
-      const levelName = String(matchedLevel.name || '').toLowerCase();
+      const levelName = String(resolvedLevel.name || '').toLowerCase();
       if (levelName.includes('mahir') || levelName.includes('legend') || levelName.includes('s')) {
           icon = <Crown className="w-10 h-10" style={{ color: accentColor }} />;
       } else if (levelName.includes('menengah') || levelName.includes('super') || levelName.includes('a')) {
@@ -356,15 +339,15 @@ const DigitalAttendancePage = () => {
       }
 
       return {
-          label: matchedLevel.name || defaultInfo.label,
+          label: resolvedLevel.name || defaultInfo.label,
           color: accentColor,
           badgeIcon: icon,
-          enableGradient: true,
-          cardBgColor: '#ffffff',
-          textColor: accentColor,
-          cardBorderThickness: matchedLevel.cardDepth ?? matchedLevel.cardBorderThickness ?? 8,
-          avatarBorderThickness: matchedLevel.avatarDepth ?? matchedLevel.avatarBorderThickness ?? 4,
-          textGradient: true
+          enableGradient: resolvedLevel.enableGradient,
+          cardBgColor: resolvedLevel.cardBgColor,
+          textColor: resolvedLevel.textColor,
+          cardBorderThickness: resolvedLevel.cardBorderThickness,
+          avatarBorderThickness: resolvedLevel.avatarBorderThickness,
+          textGradient: resolvedLevel.textGradient
       };
   };
 

@@ -4,6 +4,8 @@ import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureF
 const AVATAR_BUCKET = 'avatars';
 const WEBSITE_ASSETS_BUCKET = 'website-assets';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+const MAX_AVATAR_SOURCE_SIZE = 12 * 1024 * 1024;
+const MAX_AVATAR_DIMENSION = 1600;
 const MAX_WEBSITE_ASSET_SIZE = 20 * 1024 * 1024;
 const AVATAR_URL_CACHE_TTL = 45 * 60 * 1000;
 const avatarUrlCache = new Map();
@@ -29,7 +31,91 @@ export const getStorageErrorMessage = (error) => {
 export const validateAvatarFile = (file) => {
   if (!file) throw new Error('File avatar belum dipilih.');
   if (!IMAGE_TYPES.has(file.type)) throw new Error('Avatar harus berupa JPG, JPEG, PNG, atau WebP.');
-  if (file.size > MAX_AVATAR_SIZE) throw new Error('Ukuran avatar maksimal 2 MB.');
+  if (file.size > MAX_AVATAR_SOURCE_SIZE) throw new Error('Ukuran foto sumber maksimal 12 MB.');
+};
+
+const canvasToWebpBlob = (canvas, quality) => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) resolve(blob);
+    else reject(new Error('Browser gagal mengonversi avatar ke WebP.'));
+  }, 'image/webp', quality);
+});
+
+const loadAvatarImage = async (file) => {
+  if (typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(file);
+    return {
+      image: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      cleanup: () => bitmap.close(),
+    };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Foto avatar tidak dapat dibaca.'));
+    };
+    image.src = objectUrl;
+  });
+  return {
+    image,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+    cleanup: () => URL.revokeObjectURL(objectUrl),
+  };
+};
+
+export const compressAvatarToWebp = async (file) => {
+  validateAvatarFile(file);
+
+  if (file.type === 'image/webp' && file.size <= MAX_AVATAR_SIZE) {
+    return new File([file], 'profile.webp', { type: 'image/webp', lastModified: file.lastModified });
+  }
+
+  if (typeof document === 'undefined') {
+    throw new Error('Kompresi avatar hanya dapat dilakukan di browser.');
+  }
+
+  const decoded = await loadAvatarImage(file);
+  try {
+    const initialScale = Math.min(1, MAX_AVATAR_DIMENSION / Math.max(decoded.width, decoded.height));
+    let width = Math.max(1, Math.round(decoded.width * initialScale));
+    let height = Math.max(1, Math.round(decoded.height * initialScale));
+    const qualitySteps = [0.86, 0.78, 0.7, 0.62];
+    let outputBlob = null;
+
+    for (let resizeAttempt = 0; resizeAttempt < 3; resizeAttempt += 1) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d', { alpha: true });
+      if (!context) throw new Error('Browser tidak mendukung kompresi avatar.');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(decoded.image, 0, 0, width, height);
+
+      for (const quality of qualitySteps) {
+        outputBlob = await canvasToWebpBlob(canvas, quality);
+        if (outputBlob.size <= MAX_AVATAR_SIZE) break;
+      }
+      if (outputBlob?.size <= MAX_AVATAR_SIZE) break;
+      width = Math.max(1, Math.round(width * 0.78));
+      height = Math.max(1, Math.round(height * 0.78));
+    }
+
+    if (!outputBlob || outputBlob.size > MAX_AVATAR_SIZE) {
+      throw new Error('Foto masih lebih dari 2 MB setelah dikompres. Pilih foto dengan resolusi lebih kecil.');
+    }
+
+    return new File([outputBlob], 'profile.webp', { type: 'image/webp', lastModified: Date.now() });
+  } finally {
+    decoded.cleanup();
+  }
 };
 
 export const validateWebsiteAssetFile = (file) => {
@@ -165,18 +251,18 @@ export const createSignedAvatarUrl = async (path, expiresIn = 3600) => {
 };
 
 export const uploadAvatar = async ({ ownerType, ownerId, file }) => {
-  validateAvatarFile(file);
+  const webpFile = await compressAvatarToWebp(file);
   const path = getAvatarPath({ ownerType, ownerId });
   let storedPath;
   try {
-    storedPath = await uploadDirectlyToStorage({ bucket: AVATAR_BUCKET, path, file });
+    storedPath = await uploadDirectlyToStorage({ bucket: AVATAR_BUCKET, path, file: webpFile });
   } catch (directError) {
     if (!enableEdgeFunctions) throw directError;
     try {
       storedPath = await uploadViaSignedUrl({
         bucket: AVATAR_BUCKET,
         path,
-        file,
+        file: webpFile,
         purpose: `${ownerType}-avatar`,
       });
     } catch (edgeError) {

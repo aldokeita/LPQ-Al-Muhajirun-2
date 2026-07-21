@@ -12,15 +12,16 @@ import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
 import { enableGameFeatures } from '@/lib/featureFlags';
+import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 
 const GameConfiguration = () => {
     const [activeTab, setActiveTab] = useState('attendance');
     const tabs = [
         { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
+        { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
         ...(enableGameFeatures ? [
             { id: 'gatcha', label: 'Gatcha Game', icon: Gamepad2 },
             { id: 'quiz', label: 'Quiz Hafalan', icon: Trophy },
-            { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
         ] : []),
     ];
 
@@ -424,22 +425,33 @@ const LevelSettings = () => {
 
     const saveLevelConfig = async () => {
         setIsLoading(true);
-        const normalizedConfig = {
-            male: levelConfig.male.map((level) => normalizeLevel(level, '#3b82f6')).sort((a, b) => a.min - b.min),
-            female: levelConfig.female.map((level) => normalizeLevel(level, '#ec4899')).sort((a, b) => a.min - b.min)
-        };
-        const { error } = await supabase.from('website_content').upsert(
-            { key: 'level_config', content: normalizedConfig },
-            { onConflict: 'key' }
-        );
+        try {
+            const normalizedConfig = {
+                male: levelConfig.male.map((level) => normalizeLevel(level, '#3b82f6')).sort((a, b) => a.min - b.min),
+                female: levelConfig.female.map((level) => normalizeLevel(level, '#ec4899')).sort((a, b) => a.min - b.min)
+            };
+            for (const [gender, levels] of Object.entries(normalizedConfig)) {
+                if (levels.length === 0) throw new Error(`Minimal satu level santri ${gender === 'male' ? 'putra' : 'putri'} wajib tersedia.`);
+                levels.forEach((level) => {
+                    if (!level.name?.trim()) throw new Error('Nama level tidak boleh kosong.');
+                    if (!Number.isFinite(Number(level.min)) || !Number.isFinite(Number(level.max)) || Number(level.min) > Number(level.max)) {
+                        throw new Error(`Rentang poin level ${level.name} tidak valid.`);
+                    }
+                });
+            }
 
-        if (error) {
-            toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
-        } else {
-            setLevelConfig(normalizedConfig);
-            toast({ title: "Berhasil", description: "Konfigurasi level langsung terhubung ke profile card santri." });
+            const saved = await saveWebsiteContentItem({ key: 'level_config', content: normalizedConfig, isPublic: true });
+            if (!saved?.content?.male || !saved?.content?.female) throw new Error('Konfigurasi tersimpan tanpa data level lengkap.');
+            setLevelConfig({
+                male: saved.content.male.map((level) => normalizeLevel(level, '#3b82f6')),
+                female: saved.content.female.map((level) => normalizeLevel(level, '#ec4899')),
+            });
+            toast({ title: "Berhasil", description: "Konfigurasi level putra dan putri sudah aktif pada profil absensi digital." });
+        } catch (error) {
+            toast({ title: "Gagal Simpan", description: error.message || 'Konfigurasi level tidak dapat disimpan.', variant: "destructive" });
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     const updateLevel = (gender, id, field, value) => {

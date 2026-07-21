@@ -211,7 +211,7 @@ Add-Check "favicon and media player use stable cohesive assets" {
   $homePage = Read-Text "src/pages/HomePage.jsx"
   $player = Read-Text "src/components/MediaPlayerWidget.jsx"
   $styles = Read-Text "src/styles/admin-dashboard.css"
-  if ($index -notmatch "/lpq-mark\.svg\?v=2" -or -not (Test-Path "public/lpq-mark.svg")) { throw "stable SVG favicon is missing" }
+  if ($index -notmatch "/logoalmuhajirun\.ico\?v=1" -or -not (Test-Path "public/logoalmuhajirun.ico")) { throw "uploaded ICO favicon is missing" }
   if ($homePage -match 'rel="icon"') { throw "homepage still overrides the stable favicon" }
   if ($player -notmatch "media-player-glass__control--active" -or $player -notmatch "media-player-glass__control--accent") { throw "media player active accents are not explicit" }
   if ($styles -notmatch "linear-gradient\(135deg, rgb\(13 148 136" -or $styles -notmatch "linear-gradient\(90deg, rgb\(13 148 136\), rgb\(37 99 235\)\)") { throw "media player teal-blue accent palette is incomplete" }
@@ -452,6 +452,59 @@ Add-Check "TV Display maps final santri schema and avatar fallback" {
   if ($text -notmatch "resolveAvatarUrl") { throw "TV display does not resolve avatar paths" }
   if ($text -match "class:id_kelas") { throw "TV display still uses legacy id_kelas relation" }
   if ($text -notmatch "order\('sort_order'") { throw "TV display does not order classes by final sort_order column" }
+}
+
+Add-Check "profile avatars open an accessible shared preview" {
+  $guru = Read-Text "src/components/dashboard/GuruDashboard.jsx"
+  $santri = Read-Text "src/components/dashboard/SantriDashboard.jsx"
+  $preview = Read-Text "src/components/dashboard/shared/AvatarPreviewDialog.jsx"
+  if ($guru -notmatch "isOwnAvatarPreviewOpen" -or $guru -notmatch "Lihat foto profil guru") { throw "guru profile avatar preview is missing" }
+  if ($santri -notmatch "isAvatarPreviewOpen" -or $santri -notmatch "Lihat foto profil santri") { throw "santri profile avatar preview is missing" }
+  if ($preview -notmatch "DialogDescription" -or $preview -notmatch "Foto profil.*pengguna") { throw "shared avatar preview is not accessible" }
+}
+
+Add-Check "guru profile includes constellation and permanent jilid controls" {
+  $guru = Read-Text "src/components/dashboard/GuruDashboard.jsx"
+  if ($guru -notmatch "ProfileConstellationScene") { throw "guru constellation scene is missing" }
+  if ($guru -notmatch "<Suspense fallback=\{null\}><ProfileConstellationScene") { throw "guru constellation is not lazy rendered" }
+  if ($guru -match 'flex gap-1 opacity-0 group-hover:opacity-100') { throw "jilid controls are still hover-only" }
+  if ($guru -notmatch 'title="Naik Jilid"' -or $guru -notmatch 'title="Turun Jilid"') { throw "jilid controls are missing" }
+}
+
+Add-Check "guru password inputs have safe visibility toggles" {
+  $dashboard = Read-Text "src/components/dashboard/GuruDashboard.jsx"
+  $management = Read-Text "src/components/dashboard/admin/GuruManagement.jsx"
+  if ($dashboard -notmatch "type=\{showPassword \? 'text' : 'password'\}") { throw "guru self-edit password toggle is missing" }
+  if ($dashboard -notmatch "Toggle hanya menampilkan password baru") { throw "guru password visibility scope is unclear" }
+  if ($management -notmatch 'type=\{showPassword \? "text" : "password"\}') { throw "admin guru password toggle is missing" }
+  if ($management -notmatch "Password Auth lama tidak dapat dibaca kembali") { throw "admin password visibility scope is unclear" }
+}
+
+Add-Check "all avatar uploads are converted to bounded WebP" {
+  $storage = Read-Text "src/lib/storageAdapters.js"
+  if ($storage -notmatch "compressAvatarToWebp") { throw "WebP compression helper is missing" }
+  if ($storage -notmatch "canvas\.toBlob" -or $storage -notmatch "'image/webp'") { throw "avatar conversion does not create WebP" }
+  if ($storage -notmatch "MAX_AVATAR_DIMENSION") { throw "avatar dimensions are not bounded" }
+  if ($storage -notmatch "file: webpFile") { throw "signed upload does not receive compressed WebP" }
+  if ($storage -notmatch "file: webpFile \}\)") { throw "direct upload does not receive compressed WebP" }
+  if ($storage -notmatch "profile\.webp") { throw "deterministic WebP path changed" }
+}
+
+Add-Check "uploaded ICO is the document favicon" {
+  $html = Read-Text "index.html"
+  if (-not (Test-Path "public/logoalmuhajirun.ico")) { throw "uploaded favicon asset is missing" }
+  if ($html -notmatch 'type="image/x-icon" href="/logoalmuhajirun\.ico') { throw "document does not reference uploaded ICO" }
+}
+
+Add-Check "level configuration saves with verified readback and drives digital attendance" {
+  $configuration = Read-Text "src/components/dashboard/admin/GameConfiguration.jsx"
+  $attendance = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  $resolver = Read-Text "src/lib/santriLevel.js"
+  if ($configuration -notmatch "saveWebsiteContentItem\(\{ key: 'level_config'") { throw "level settings bypass the official content adapter" }
+  if ($configuration -notmatch "saved\?\.content\?\.male" -or $configuration -notmatch "saved\?\.content\?\.female") { throw "saved level settings are not read back" }
+  if ($configuration -notmatch "\{ id: 'levels', label: 'Konfigurasi Level'" ) { throw "level settings tab is unavailable" }
+  if ($attendance -notmatch "resolveSantriLevel\(\{ points, gender, config: levelConfig \}\)") { throw "digital attendance does not use the shared level resolver" }
+  if ($resolver -notmatch "cardBorderThickness" -or $resolver -notmatch "avatarBorderThickness") { throw "shared resolver omits profile-card visual settings" }
 }
 
 $passed = @($checks | Where-Object { $_.Status -eq "PASS" }).Count

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,7 +16,7 @@ import GuruAttendanceRecap from '@/components/dashboard/admin/GuruAttendanceReca
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2 } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2 } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
@@ -39,6 +39,9 @@ import {
 } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
+import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
+
+const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
 const jilidOptions = [
   'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
@@ -53,15 +56,18 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
     const { updateUserPassword } = useAuth();
     const photoInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    useEffect(() => { setFormData({ ...guruData, password: '' }); }, [guruData]);
+    useEffect(() => {
+      setFormData({ ...guruData, password: '' });
+      setShowPassword(false);
+    }, [guruData, isOpen]);
     const handleInputChange = (e) => { const { id, value } = e.target; setFormData(prev => ({...prev, [id]: value })); };
     const handlePhotoUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (!validTypes.includes(file.type)) { toast({ title: "Format Salah", description: "Hanya file JPG, PNG, atau WebP yang diperbolehkan.", variant: "destructive" }); return; }
-        if (file.size > 2 * 1024 * 1024) { toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 2 MB.", variant: "destructive" }); return; }
         setIsUploading(true);
         try {
           const { path, signedUrl } = await uploadAvatar({ ownerType: 'guru', ownerId: formData.id, file });
@@ -125,7 +131,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
                             {isUploading && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
                             <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-md transition-transform group-hover:scale-110"><Upload className="w-5 h-5 text-primary"/></div>
                         </div>
-                        <div className="w-full space-y-2"><label className="text-sm font-semibold">URL Foto Profil</label><div className="flex flex-wrap gap-2"><Input id="foto_url" value={formData.foto_url} onChange={handleInputChange} placeholder="https://..." className="bg-background" /><Button type="button" size="sm" variant="outline" onClick={triggerPhotoUpload} disabled={isUploading}>{isUploading ? "Uploading..." : "Pilih File"}</Button><Button type="button" size="sm" variant="outline" onClick={handleDeletePhoto} disabled={isUploading || !formData.foto_url}>Hapus</Button></div><p className="text-xs text-muted-foreground">Klik foto untuk mengganti (Max 2 MB)</p></div>
+                        <div className="w-full space-y-2"><label className="text-sm font-semibold">URL Foto Profil</label><div className="flex flex-wrap gap-2"><Input id="foto_url" value={formData.foto_url} onChange={handleInputChange} placeholder="https://..." className="bg-background" /><Button type="button" size="sm" variant="outline" onClick={triggerPhotoUpload} disabled={isUploading}>{isUploading ? "Mengompres..." : "Pilih File"}</Button><Button type="button" size="sm" variant="outline" onClick={handleDeletePhoto} disabled={isUploading || !formData.foto_url}>Hapus</Button></div><p className="text-xs text-muted-foreground">JPG, PNG, atau WebP hingga 12 MB akan dikompres otomatis menjadi WebP.</p></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="nama">Nama Lengkap</label><Input id="nama" type="text" value={formData.nama || ''} onChange={handleInputChange} required className="border-border focus:ring-2" /></div>
@@ -133,7 +139,16 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="email">Username (Email)</label><Input id="email" type="text" value={formData.email || ''} onChange={handleInputChange} required /></div>
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="no_hp">No. HP</label><Input id="no_hp" type="tel" value={formData.no_hp || ''} onChange={handleInputChange} required /></div>
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="tanggal_lahir">Tanggal Lahir</label><Input id="tanggal_lahir" type="date" value={formData.tanggal_lahir || ''} onChange={handleInputChange} /></div>
-                        <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="password">Password Baru</label><Input id="password" type="password" placeholder="Isi jika ingin ganti" onChange={handleInputChange} /></div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-muted-foreground" htmlFor="password">Password Baru</label>
+                          <div className="relative">
+                            <Input id="password" type={showPassword ? 'text' : 'password'} value={formData.password || ''} placeholder="Isi jika ingin ganti" onChange={handleInputChange} className="pr-11" />
+                            <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={showPassword ? 'Sembunyikan password baru' : 'Tampilkan password baru'}>
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Toggle hanya menampilkan password baru yang sedang Anda ketik.</p>
+                        </div>
                     </div>
                     <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="alamat">Alamat</label><Textarea id="alamat" value={formData.alamat || ''} onChange={handleInputChange} required className="min-h-[80px]" /></div>
                     <DialogFooter><Button type="submit" className={cn("text-white shadow-lg border-0 bg-gradient-to-r", themeColor)}>Simpan Perubahan</Button></DialogFooter>
@@ -157,6 +172,7 @@ const GuruDashboard = () => {
   const [isMurojaahOpen, setIsMurojaahOpen] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState(null);
   const [previewAvatar, setPreviewAvatar] = useState(null);
+  const [isOwnAvatarPreviewOpen, setIsOwnAvatarPreviewOpen] = useState(false);
   const [selectedHafalan, setSelectedHafalan] = useState({ category: '', programScope: 'TPQ', items: [] });
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
   const [currentSubmission, setCurrentSubmission] = useState(null);
@@ -426,10 +442,13 @@ const GuruDashboard = () => {
         </div>
         {guruData && (
           <section className="relative mb-8 overflow-hidden rounded-2xl border border-white/80 bg-slate-100 text-slate-900 shadow-[14px_14px_32px_rgba(15,23,42,0.16),-12px_-12px_28px_rgba(255,255,255,0.92)] dark:border-white/10 dark:bg-slate-950 dark:text-white dark:shadow-[14px_14px_32px_rgba(0,0,0,0.5),-10px_-10px_26px_rgba(30,41,59,0.3)]">
-            <div className={cn('absolute inset-x-0 top-0 h-1 bg-gradient-to-r', isFemale ? 'from-cyan-400 via-teal-400 to-violet-400' : 'from-cyan-500 via-blue-500 to-violet-500')} />
-            <div className="relative grid gap-7 p-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:p-8">
+            <Suspense fallback={null}><ProfileConstellationScene accentColor={isFemale ? '#14b8a6' : '#3b82f6'} points={myClasses.length * 7} /></Suspense>
+            <div className={cn('absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r', isFemale ? 'from-cyan-400 via-teal-400 to-violet-400' : 'from-cyan-500 via-blue-500 to-violet-500')} />
+            <div className="relative z-10 grid gap-7 p-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:p-8">
               <div className="mx-auto rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)] md:mx-0">
-                <Avatar className="h-28 w-28 border-4 border-white shadow-lg dark:border-slate-800 md:h-32 md:w-32"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="bg-slate-200 text-4xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
+                <button type="button" onClick={() => setIsOwnAvatarPreviewOpen(true)} className="block rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label="Lihat foto profil guru">
+                  <Avatar className="h-28 w-28 border-4 border-white shadow-lg dark:border-slate-800 md:h-32 md:w-32"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="bg-slate-200 text-4xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
+                </button>
               </div>
               <div className="min-w-0 space-y-3 text-center md:text-left">
                 <p className={cn('text-xs font-black uppercase tracking-[0.18em]', isFemale ? 'text-teal-600 dark:text-teal-300' : 'text-blue-600 dark:text-blue-300')}>Profil pengajar</p>
@@ -510,7 +529,7 @@ const GuruDashboard = () => {
                                                 </td>
                                                 <td className="py-3 px-4 flex items-center gap-2 group">
                                                     <span className={cn("px-2 py-1 rounded text-xs font-bold bg-primary/10 text-primary")}>{santri.jilid}</span>
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex gap-1 opacity-100">
                                                         <Button onClick={() => initiateJilidChange(santri, 'up')} size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-green-100 rounded-full" title="Naik Jilid"><ChevronUp className="h-4 w-4 text-green-600" /></Button>
                                                         <Button onClick={() => initiateJilidChange(santri, 'down')} size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-red-100 rounded-full" title="Turun Jilid"><ChevronDown className="h-4 w-4 text-red-600" /></Button>
                                                     </div>
@@ -563,6 +582,7 @@ const GuruDashboard = () => {
           </DialogHeader>
         </DialogContent>
       </Dialog>
+      <AvatarPreviewDialog open={isOwnAvatarPreviewOpen} onOpenChange={setIsOwnAvatarPreviewOpen} imageUrl={guruData?.foto_url} name={guruData?.nama} description="Foto profil guru yang sedang digunakan." />
       <SantriDetailModal santri={selectedSantri} isOpen={isDetailOpen} onOpenChange={setIsDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
       {selectedSantri && (
         <Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}>

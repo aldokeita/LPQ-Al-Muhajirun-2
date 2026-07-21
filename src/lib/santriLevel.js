@@ -33,6 +33,11 @@ export const resolveSantriLevel = ({ points = 0, gender, config }) => {
     max: Number(matched.max ?? Number.POSITIVE_INFINITY),
     accentColor,
     textColor: matched.textColor || accentColor,
+    cardBgColor: matched.cardBgColor || '#ffffff',
+    cardBorderThickness: matched.cardDepth ?? matched.cardBorderThickness ?? 8,
+    avatarBorderThickness: matched.avatarDepth ?? matched.avatarBorderThickness ?? 4,
+    enableGradient: matched.enableGradient ?? true,
+    textGradient: matched.textGradient ?? true,
   };
 };
 

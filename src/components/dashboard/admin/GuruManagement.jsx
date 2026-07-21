@@ -79,9 +79,10 @@ const GuruManagement = () => {
     setEditingGuru(null);
   };
 
-  const handleAdd = () => { resetForm(); setIsDialogOpen(true); };
+  const handleAdd = () => { resetForm(); setShowPassword(false); setIsDialogOpen(true); };
 
   const handleEdit = (guru) => {
+    setShowPassword(false);
     setEditingGuru(guru);
     setFormData({
         ...guru,
@@ -185,11 +186,6 @@ const GuruManagement = () => {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
         toast({ title: "Format Salah", description: "Hanya file JPG, PNG, atau WebP yang diperbolehkan.", variant: "destructive" });
-        return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-        toast({ title: "File Terlalu Besar", description: "Maksimal ukuran file adalah 2 MB.", variant: "destructive" });
         return;
     }
 
@@ -478,7 +474,7 @@ const GuruManagement = () => {
                            <Button type="button" onClick={triggerPhotoUpload} variant="secondary" className="bg-white dark:bg-slate-800 shadow-sm" disabled={isUploading || !editingGuru?.id}>
                                {isUploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Mengunggah...</> : <><Upload className="w-4 h-4 mr-2"/> Upload Foto Profil</>}
                            </Button>
-                           <span className="text-xs text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</span>
+                           <span className="text-xs text-muted-foreground">JPG, PNG, WebP hingga 12 MB dikompres otomatis. Simpan akun baru sebelum upload.</span>
                            <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
                       </div>
                       <div className="relative">
@@ -531,7 +527,7 @@ const GuruManagement = () => {
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Syarat: Min 6 karakter, 1 huruf besar, 1 huruf kecil, 1 angka, 1 simbol.
+                    Toggle menampilkan password yang sedang diketik. Password Auth lama tidak dapat dibaca kembali.
                   </p>
                 </div>
 
