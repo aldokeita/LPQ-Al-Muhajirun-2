@@ -2,11 +2,11 @@ export const JAKARTA_TIME_ZONE = 'Asia/Jakarta';
 export const LATE_GRACE_MINUTES = 15;
 
 export const DEFAULT_SESSION_TIMES = {
-  Pagi: { start: '08:00', end: '11:00', defaultQuota: 60 },
-  'Pagi 2': { start: '08:00', end: '11:00', defaultQuota: 60 },
-  Siang: { start: '13:00', end: '15:30', defaultQuota: 80 },
-  Sore: { start: '16:00', end: '18:00', defaultQuota: 80 },
-  Malam: { start: '18:30', end: '23:00', defaultQuota: 50 },
+  Pagi: { open: '06:00', start: '07:45', onTimeUntil: '08:00', end: '09:15', defaultQuota: 60 },
+  'Pagi 2': { open: '09:15', start: '10:00', onTimeUntil: '10:15', end: '11:30', defaultQuota: 60 },
+  Siang: { open: '12:00', start: '13:45', onTimeUntil: '14:00', end: '15:15', defaultQuota: 80 },
+  Sore: { open: '15:00', start: '15:45', onTimeUntil: '16:00', end: '17:15', defaultQuota: 80 },
+  Malam: { open: '17:45', start: '18:30', onTimeUntil: '18:45', end: '23:00', defaultQuota: 50 },
 };
 
 const SESSION_NAME_BY_VALUE = {
@@ -51,12 +51,97 @@ export const normalizeAttendanceSessionName = (sesiName) => {
 export const getSessionStartTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
   sessionTimes?.[normalizeAttendanceSessionName(sesiName)]?.start || DEFAULT_SESSION_TIMES[normalizeAttendanceSessionName(sesiName)]?.start || null;
 
+export const getSessionOpenTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
+  sessionTimes?.[normalizeAttendanceSessionName(sesiName)]?.open || DEFAULT_SESSION_TIMES[normalizeAttendanceSessionName(sesiName)]?.open || null;
+
+export const getSessionOnTimeDeadline = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
+  sessionTimes?.[normalizeAttendanceSessionName(sesiName)]?.onTimeUntil || DEFAULT_SESSION_TIMES[normalizeAttendanceSessionName(sesiName)]?.onTimeUntil || null;
+
 export const getSessionEndTime = (sesiName, sessionTimes = DEFAULT_SESSION_TIMES) =>
   sessionTimes?.[normalizeAttendanceSessionName(sesiName)]?.end || DEFAULT_SESSION_TIMES[normalizeAttendanceSessionName(sesiName)]?.end || null;
 
 export const buildSessionStartTimestamp = (dateStr, sesiName, sessionTimes = DEFAULT_SESSION_TIMES) => {
   const startTime = getSessionStartTime(sesiName, sessionTimes);
   return startTime ? buildJakartaTimestamp(dateStr, startTime) : null;
+};
+
+export const buildSessionOpenTimestamp = (dateStr, sesiName, sessionTimes = DEFAULT_SESSION_TIMES) => {
+  const openTime = getSessionOpenTime(sesiName, sessionTimes);
+  return openTime ? buildJakartaTimestamp(dateStr, openTime) : null;
+};
+
+export const buildSessionDeadlineTimestamp = (dateStr, sesiName, sessionTimes = DEFAULT_SESSION_TIMES) => {
+  const deadline = getSessionOnTimeDeadline(sesiName, sessionTimes);
+  return deadline ? buildJakartaTimestamp(dateStr, deadline) : null;
+};
+
+export const buildSessionEndTimestamp = (dateStr, sesiName, sessionTimes = DEFAULT_SESSION_TIMES) => {
+  const endTime = getSessionEndTime(sesiName, sessionTimes);
+  return endTime ? buildJakartaTimestamp(dateStr, endTime) : null;
+};
+
+export const evaluateAttendanceWindow = ({
+  timestamp = new Date(),
+  dateStr = getJakartaDateString(timestamp),
+  sesi,
+  sessionTimes = DEFAULT_SESSION_TIMES,
+} = {}) => {
+  const normalizedSession = normalizeAttendanceSessionName(sesi);
+  const config = sessionTimes?.[normalizedSession] || DEFAULT_SESSION_TIMES[normalizedSession];
+
+  if (!normalizedSession || !config) {
+    return { canRecord: false, phase: 'invalid', status: null, message: `Sesi ${sesi || '-'} tidak valid.` };
+  }
+
+  const current = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const openAt = new Date(buildSessionOpenTimestamp(dateStr, normalizedSession, sessionTimes));
+  const deadlineAt = new Date(buildSessionDeadlineTimestamp(dateStr, normalizedSession, sessionTimes));
+  const endAt = new Date(buildSessionEndTimestamp(dateStr, normalizedSession, sessionTimes));
+
+  if ([current, openAt, deadlineAt, endAt].some(value => Number.isNaN(value.getTime()))) {
+    return { canRecord: false, phase: 'invalid', status: null, message: `Konfigurasi waktu sesi ${normalizedSession} tidak valid.` };
+  }
+
+  const currentMinute = Math.floor(current.getTime() / 60000);
+  const openMinute = Math.floor(openAt.getTime() / 60000);
+  const deadlineMinute = Math.floor(deadlineAt.getTime() / 60000);
+  const endMinute = Math.floor(endAt.getTime() / 60000);
+
+  if (currentMinute < openMinute) {
+    return {
+      canRecord: false,
+      phase: 'too_early',
+      status: null,
+      message: `Absensi sesi ${normalizedSession} baru dibuka pukul ${config.open}.`,
+      openAt: openAt.toISOString(),
+      deadlineAt: deadlineAt.toISOString(),
+      endAt: endAt.toISOString(),
+    };
+  }
+
+  if (currentMinute > endMinute) {
+    return {
+      canRecord: false,
+      phase: 'ended',
+      status: null,
+      message: `Absensi sesi ${normalizedSession} sudah berakhir pukul ${config.end}.`,
+      openAt: openAt.toISOString(),
+      deadlineAt: deadlineAt.toISOString(),
+      endAt: endAt.toISOString(),
+    };
+  }
+
+  const status = currentMinute > deadlineMinute ? 'Terlambat' : 'Hadir';
+
+  return {
+    canRecord: true,
+    phase: status === 'Hadir' ? 'on_time' : 'late',
+    status,
+    message: '',
+    openAt: openAt.toISOString(),
+    deadlineAt: deadlineAt.toISOString(),
+    endAt: endAt.toISOString(),
+  };
 };
 
 export const determineAttendanceStatus = (checkInTimestamp, sessionStartTime, graceMinutes = LATE_GRACE_MINUTES) => {

@@ -16,7 +16,12 @@ import {
     normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
-import { buildSessionStartTimestamp, DEFAULT_SESSION_TIMES, determineAttendanceStatus, getJakartaTimeString } from '@/utils/AttendanceStatusLogic';
+import {
+    DEFAULT_SESSION_TIMES,
+    evaluateAttendanceWindow,
+    getJakartaTimeString,
+    normalizeAttendanceSessionName,
+} from '@/utils/AttendanceStatusLogic';
 
 const sessionTimes = DEFAULT_SESSION_TIMES;
 
@@ -102,30 +107,15 @@ const DigitalAttendance = () => {
         }
     };
 
-    const canCheckIn = (sesi, role) => {
-        const today = new Date();
+    const canCheckIn = (sesi, role, timestamp = new Date()) => {
+        const today = timestamp;
         const dayOfWeek = today.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) { return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' }; }
-
-        const sessionStartTime = sessionTimes[sesi]?.start;
-        if (!sessionStartTime) return { can: false, message: `Sesi ${sesi} tidak valid.` };
-
-        if (role === 'santri') {
-            return { can: true, message: '' };
+        if (role === 'guru' && (dayOfWeek === 0 || dayOfWeek === 6)) {
+            return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' };
         }
 
-        const now = new Date();
-        const [hours, minutes] = sessionStartTime.split(':');
-        const startTime = new Date();
-        startTime.setHours(hours, minutes, 0, 0);
-
-        const oneHourBefore = new Date(startTime.getTime() - 60 * 60 * 1000);
-
-        if (now < oneHourBefore) {
-            const timeString = oneHourBefore.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-            return { can: false, message: `Absensi sesi ${sesi} baru dibuka pukul ${timeString}.` };
-        }
-        return { can: true, message: '' };
+        const windowState = evaluateAttendanceWindow({ timestamp, sesi, sessionTimes });
+        return { can: windowState.canRecord, ...windowState };
     };
 
     const processScan = async (tagToProcess) => {
@@ -136,29 +126,13 @@ const DigitalAttendance = () => {
              if (tag === lastScan.rfid) {
                  setIsLoading(true);
                  try {
-                    const now = new Date();
-                    const nowTime = getJakartaTimeString(now);
-                    const timestamp = now.toISOString();
-                    const sessionStartTime = buildSessionStartTimestamp(lastScan.attendanceDate, lastScan.sesi);
-                    const status = determineAttendanceStatus(timestamp, sessionStartTime);
-
-                    const { error } = await supabase
-                        .from('attendance')
-                        .update({
-                            check_in_time: nowTime,
-                            check_in_timestamp: timestamp,
-                            status,
-                        })
-                        .eq('id', lastScan.attendanceId);
-
-                    if (error) throw error;
-
                     setLastScan({
                         type: 'success',
-                        message: `Absensi berhasil diperbarui!`,
+                        message: 'Absensi sudah tercatat.',
                         name: lastScan.name,
                         photo: lastScan.photo,
-                        time: nowTime
+                        time: lastScan.time,
+                        status: lastScan.status,
                     });
                  } catch (err) {
                     setLastScan({ type: 'error', message: err.message, name: 'Error' });
@@ -186,17 +160,42 @@ const DigitalAttendance = () => {
             if (guruData) {
                 user = guruData; userRole = 'guru';
                 const now = new Date();
-                for (const sesi of ['Sore', 'Siang', 'Pagi']) {
-                    const sessionStartTime = sessionTimes[sesi]?.start;
-                    if(!sessionStartTime) continue;
-                    const [hours, minutes] = sessionStartTime.split(':');
-                    const startTime = new Date(); startTime.setHours(hours, minutes, 0);
-                    const thirtyMinutesBefore = new Date(startTime.getTime() - 30 * 60 * 1000);
-                    const [endHours, endMinutes] = sessionTimes[sesi].end.split(':');
-                    const endTime = new Date(); endTime.setHours(endHours, endMinutes, 0, 0);
-                    if (now >= thirtyMinutesBefore && now <= endTime) { sesiUser = sesi; break; }
-                }
+                const { data: assignedClasses } = await supabase
+                    .from('classes')
+                    .select('sesi')
+                    .eq('id_guru', user.id)
+                    .eq('is_active', true);
+                const assignedSessions = [...new Set((assignedClasses || []).map(item => normalizeAttendanceSessionName(item.sesi)).filter(Boolean))];
+                const matchingSessions = assignedSessions
+                    .map(sesi => ({ sesi, window: evaluateAttendanceWindow({ timestamp: now, dateStr: today, sesi, sessionTimes }) }))
+                    .filter(item => item.window.canRecord)
+                    .sort((a, b) => new Date(b.window.openAt) - new Date(a.window.openAt));
+                sesiUser = matchingSessions[0]?.sesi || '';
+
                 if (!sesiUser) {
+                     const { data: previousAttendance } = assignedSessions.length > 0
+                         ? await supabase
+                             .from('attendance')
+                             .select('check_in_time, status, sesi')
+                             .eq('user_id', user.id)
+                             .eq('attendance_date', today)
+                             .in('sesi', assignedSessions)
+                             .order('check_in_timestamp', { ascending: false })
+                             .limit(1)
+                             .maybeSingle()
+                         : { data: null };
+
+                     if (previousAttendance) {
+                         setLastScan({
+                             type: 'success',
+                             message: 'Absensi sudah tercatat.',
+                             name: user.nama,
+                             photo: user.foto_url,
+                             time: previousAttendance.check_in_time,
+                             status: previousAttendance.status,
+                         });
+                         return;
+                     }
                      setLastScan({ type: 'warning', message: 'Tidak ada sesi mengajar yang sedang berlangsung.', name: user.nama, photo: user.foto_url });
                      return;
                 }
@@ -230,9 +229,6 @@ const DigitalAttendance = () => {
 
             if (!user) { setLastScan({ type: 'error', message: 'RFID tidak dikenal. Tidak ada absensi yang dibuat.', name: 'Tidak Dikenal' }); return; }
 
-            const checkInStatus = canCheckIn(sesiUser, userRole);
-            if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url }); return; }
-
             const { data: existingAttendance } = await supabase
                 .from('attendance')
                 .select('id, check_in_time, check_in_timestamp, status')
@@ -244,7 +240,7 @@ const DigitalAttendance = () => {
             if (existingAttendance) {
                 setLastScan({
                     type: 'success',
-                    message: `${userRole === 'santri' ? 'Santri' : 'Pengguna'} sudah tercatat hadir pada sesi ini. Waktu hadir pertama tetap dipakai.`,
+                    message: 'Absensi sudah tercatat.',
                     name: user.nama || user.nama_lengkap,
                     photo: user.foto_url,
                     time: existingAttendance.check_in_time,
@@ -253,9 +249,13 @@ const DigitalAttendance = () => {
                 return;
             }
 
-            const timestamp = new Date();
+            const now = new Date();
+            const checkInStatus = canCheckIn(sesiUser, userRole, now);
+            if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url }); return; }
+
+            const timestamp = now;
             const newAttendance = userRole === 'santri'
-                ? buildSantriAttendancePayload({ santri: user, timestamp })
+                ? buildSantriAttendancePayload({ santri: user, timestamp, status: checkInStatus.status })
                 : {
                     user_id: user.id,
                     role: userRole,
@@ -264,7 +264,7 @@ const DigitalAttendance = () => {
                     check_in_timestamp: timestamp.toISOString(),
                     class_id: null,
                     sesi: sesiUser,
-                    status: 'Hadir',
+                    status: checkInStatus.status || 'Hadir',
                     source: 'rfid',
                 };
             const { error: insertError } = await supabase.from('attendance').insert(newAttendance);

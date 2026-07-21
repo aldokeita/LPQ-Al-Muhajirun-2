@@ -23,7 +23,7 @@ import BirthdayGreeting from '@/components/BirthdayGreeting';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { buildSessionStartTimestamp, calculateTimeDifference, determineAttendanceStatus } from '@/utils/AttendanceStatusLogic';
 import {
   buildHafalanScoreMap,
   DEVELOPMENT_SCORE_OPTIONS,
@@ -46,18 +46,7 @@ const jilidOptions = [
   'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
 ];
 
-const sessionTimes = {
-  'Pagi': { start: '08:00' },
-  'Siang': { start: '13:00' },
-  'Sore': { start: '16:00' },
-  'Malam': { start: '18:30' },
-};
-
-const getSessionStartTimestamp = (dateStr, sesiName) => {
-    if (!sesiName || !sessionTimes[sesiName]) return null;
-    const { start } = sessionTimes[sesiName];
-    return new Date(`${dateStr}T${start}:00`).toISOString();
-};
+const getSessionStartTimestamp = (dateStr, sesiName) => buildSessionStartTimestamp(dateStr, sesiName);
 
 const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate, themeColor }) => {
     const [formData, setFormData] = useState(guruData);

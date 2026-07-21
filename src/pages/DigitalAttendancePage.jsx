@@ -33,7 +33,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import MediaPlayerWidget from '@/components/MediaPlayerWidget';
-import { buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference, getJakartaTimeString } from '@/utils/AttendanceStatusLogic';
+import {
+  DEFAULT_SESSION_TIMES,
+  buildSessionStartTimestamp,
+  calculateTimeDifference,
+  determineAttendanceStatus,
+  evaluateAttendanceWindow,
+  getJakartaTimeString,
+  normalizeAttendanceSessionName,
+} from '@/utils/AttendanceStatusLogic';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import {
   buildSantriAttendancePayload,
@@ -47,12 +55,7 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 
 // --- Data (unchanged) ---
-const sessionTimes = {
-  'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
-  'Siang': { start: '13:00', end: '15:30', defaultQuota: 80 },
-  'Sore': { start: '16:00', end: '18:00', defaultQuota: 80 },
-  'Malam': { start: '18:30', end: '23:00', defaultQuota: 50 },
-};
+const sessionTimes = DEFAULT_SESSION_TIMES;
 
 const guruQuotes = [
     "Mengajar adalah belajar dua kali.",
@@ -178,30 +181,17 @@ const getSantriHafalanCount = async (santriId) => {
 };
 
 // --- Business logic (unchanged) ---
-const canCheckIn = (sesi, userRole, isPentashih = false) => {
+const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date()) => {
     if (isPentashih) return { can: true, message: '' };
-    if (userRole === 'santri') return { can: true, message: '' };
 
-    const today = new Date();
+    const today = timestamp;
     const dayOfWeek = today.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' };
-
-    const now = new Date();
-    const sessionConfig = sessionTimes[sesi];
-    if (!sessionConfig) {
-         return { can: false, message: `Sesi ${sesi} tidak valid saat ini.` };
+    if (userRole === 'guru' && (dayOfWeek === 0 || dayOfWeek === 6)) {
+      return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' };
     }
 
-    const [hours, minutes] = sessionConfig.start.split(':');
-    const startTime = new Date();
-    startTime.setHours(hours, minutes, 0, 0);
-    const sixtyMinutesBefore = new Date(startTime.getTime() - 60 * 60 * 1000);
-
-    if (now < sixtyMinutesBefore) {
-        const timeString = sixtyMinutesBefore.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        return { can: false, message: `Absensi sesi ${sesi} baru dibuka pukul ${timeString}.` };
-    }
-    return { can: true, message: '' };
+    const windowState = evaluateAttendanceWindow({ timestamp, sesi, sessionTimes });
+    return { can: windowState.canRecord, ...windowState };
 };
 
 // --- Digital Clock Component ---
@@ -363,12 +353,8 @@ const DigitalAttendancePage = () => {
                  if (updErr) throw updErr;
                  setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, message: 'Absensi MMQ diperbarui!', quote: lastScan.pendingQuote }));
             } else {
-                const sessionStartTime = buildSessionStartTimestamp(lastScan.attendanceDate, lastScan.sesi, sessionTimes);
-                const status = determineAttendanceStatus(timestamp, sessionStartTime);
-                const { error } = await supabase.from('attendance').update({ check_in_time: nowTime, check_in_timestamp: timestamp, status }).eq('id', lastScan.attendanceId);
-                if (error) throw error;
                 const levelInfo = (lastScan.role === 'santri' && lastScan.kategori !== 'Dewasa') ? getLevelInfo(lastScan.points, lastScan.gender) : null;
-                setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, status, levelInfo, message: 'Absensi berhasil diperbarui!', quote: lastScan.pendingQuote }));
+                setLastScan(prev => ({ ...prev, type: 'success', levelInfo, message: 'Absensi sudah tercatat.', quote: lastScan.pendingQuote }));
             }
           } catch (err) { setLastScan({ type: 'error', message: err.message, name: 'Error' }); }
           finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return; }
@@ -383,7 +369,7 @@ const DigitalAttendancePage = () => {
         const todayDate = new Date();
         const todayStr = getLocalDateString(todayDate);
 
-        let user = null, userRole = '', sesiUser = '', kategori = '';
+        let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [];
         let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
 
         // Check MMQ Schedule if it's a Guru
@@ -513,16 +499,44 @@ const DigitalAttendancePage = () => {
             }
 
             // Normal Guru Attendance Session Assignment
-            const now = new Date();
-            for (const sesi of ['Sore', 'Siang', 'Pagi', 'Malam']) {
-                const sessionStartTime = sessionTimes[sesi]?.start;
-                if (!sessionStartTime) continue;
-                const [hours, minutes] = sessionStartTime.split(':');
-                const startTime = new Date(); startTime.setHours(hours, minutes, 0);
-                const oneHourBefore = new Date(startTime.getTime() - 60 * 60 * 1000);
-                const [endHours, endMinutes] = sessionTimes[sesi].end.split(':');
-                const endTime = new Date(); endTime.setHours(endHours, endMinutes, 0, 0);
-                if (now >= oneHourBefore && now <= endTime) { sesiUser = sesi; break; }
+            const { data: assignedClasses } = await supabase
+              .from('classes')
+              .select('*, santri(id, nama_lengkap, jilid, foto_url)')
+              .eq('id_guru', user.id)
+              .eq('is_active', true);
+            guruClasses = assignedClasses || [];
+            const assignedSessions = [...new Set(guruClasses.map(item => normalizeAttendanceSessionName(item.sesi)).filter(Boolean))];
+            const matchingSessions = assignedSessions
+              .map(sesi => ({ sesi, window: evaluateAttendanceWindow({ timestamp: todayDate, dateStr: todayStr, sesi, sessionTimes }) }))
+              .filter(item => item.window.canRecord)
+              .sort((a, b) => new Date(b.window.openAt) - new Date(a.window.openAt));
+            sesiUser = matchingSessions[0]?.sesi || '';
+
+            if (!sesiUser && assignedSessions.length > 0) {
+              const { data: previousAttendance } = await supabase
+                .from('attendance')
+                .select('id, check_in_time, status, sesi')
+                .eq('user_id', user.id)
+                .eq('attendance_date', todayStr)
+                .in('sesi', assignedSessions)
+                .order('check_in_timestamp', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (previousAttendance) {
+                setLastScan({
+                  type: 'success',
+                  role: 'guru',
+                  name: user.nama,
+                  photo: user.foto_url,
+                  rfid: tag,
+                  sesi: normalizeAttendanceSessionName(previousAttendance.sesi),
+                  time: previousAttendance.check_in_time,
+                  status: previousAttendance.status,
+                  message: 'Absensi sudah tercatat.',
+                });
+                return;
+              }
             }
         } else {
           let { data: santriData } = await supabase
@@ -554,11 +568,11 @@ const DigitalAttendancePage = () => {
         if (!user) { setLastScan({ type: 'error', message: 'RFID tidak dikenal. Tidak ada absensi yang dibuat.', name: 'Tidak Dikenal' }); return; }
 
         const isPentashih = userRole === 'guru' && ((user.roles && user.roles.includes('Pentashih')) || (user.jabatan && user.jabatan.toLowerCase().includes('pentashih')));
-        const checkInStatus = canCheckIn(sesiUser, userRole, isPentashih);
-
-        if (userRole === 'guru' && (!sesiUser || !checkInStatus.can) && !isPentashih) {
+        if (userRole === 'guru' && !sesiUser && !isPentashih) {
               const [classesResult, attendanceCountResult, historyResult] = await Promise.all([
-                  supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', user.id).order('sesi'),
+                  guruClasses.length > 0
+                    ? Promise.resolve({ data: guruClasses })
+                    : supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', user.id).order('sesi'),
                   supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
                   supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30)
               ]);
@@ -586,8 +600,6 @@ const DigitalAttendancePage = () => {
               return;
         }
 
-        if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, rfid: tag }); return; }
-
         let existingAttendance = null;
         if (userRole === 'guru') {
              const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
@@ -602,16 +614,6 @@ const DigitalAttendancePage = () => {
         const successData = { type: 'success', role: userRole, kategori, name: user.nama || user.nama_lengkap, photo: user.foto_url, quote: randomQuote, points: user.points, jilid: user.jilid, jabatan: user.jabatan, no_hp: user.no_hp, rfid: tag, gender: user.jenis_kelamin, isPentashih, sesi: sesiUser };
 
         if (existingAttendance) {
-          if (isPentashih) {
-             const now = new Date();
-             const nowTime = getJakartaTimeString(now);
-             const timestamp = now.toISOString();
-             const sessionStartTime = buildSessionStartTimestamp(todayStr, sesiUser, sessionTimes);
-             const status = determineAttendanceStatus(timestamp, sessionStartTime);
-             await supabase.from('attendance').update({ check_in_time: nowTime, check_in_timestamp: timestamp, status }).eq('id', existingAttendance.id);
-             setLastScan({ ...successData, message: 'Absensi diperbarui!', time: nowTime, status });
-             return;
-          }
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
              const [monthlyStats, hafalanCount] = await Promise.all([
@@ -620,7 +622,7 @@ const DigitalAttendancePage = () => {
              ]);
              setLastScan({
                 ...successData,
-                message: `Selamat, kamu udah berhasil melakukan absensi pada sesi ${sesiUser || 'belajar'} ini.`,
+                 message: 'Absensi sudah tercatat.',
                 time: existingAttendance.check_in_time,
                 status: existingAttendance.status,
                 levelInfo,
@@ -629,13 +631,18 @@ const DigitalAttendancePage = () => {
              });
              return;
           }
-          setLastScan({ type: 'confirmation', role: userRole, kategori, message: 'Konfirmasi Kehadiran', name: user.nama || user.nama_lengkap, photo: user.foto_url, rfid: tag, attendanceId: existingAttendance.id, attendanceDate: todayStr, sesi: sesiUser, pendingQuote: randomQuote, points: user.points, jilid: user.jilid, gender: user.jenis_kelamin, jabatan: user.jabatan, no_hp: user.no_hp });
+          setLastScan({ ...successData, message: 'Absensi sudah tercatat.', time: existingAttendance.check_in_time, status: existingAttendance.status });
+          return;
+        }
+
+        const checkInStatus = canCheckIn(sesiUser, userRole, isPentashih, todayDate);
+        if (!checkInStatus.can) {
+          setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, rfid: tag });
           return;
         }
 
         const timestamp = new Date().toISOString();
-        const sessionStartTime = buildSessionStartTimestamp(todayStr, sesiUser, sessionTimes);
-        const attendanceStatusText = determineAttendanceStatus(timestamp, sessionStartTime);
+        const attendanceStatusText = checkInStatus.status || 'Hadir';
 
         const newAttendance = userRole === 'santri'
           ? buildSantriAttendancePayload({ santri: user, timestamp: new Date(), status: attendanceStatusText })
@@ -655,7 +662,10 @@ const DigitalAttendancePage = () => {
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
           let newPoints = user.points || 0;
-          if (userRole === 'santri' && !isAdult) { await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 }); newPoints += 1; }
+          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir') {
+            await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
+            newPoints += 1;
+          }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
           const [monthlyStats, hafalanCount] = userRole === 'santri'
             ? await Promise.all([

@@ -21,7 +21,7 @@ import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDeta
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import DashboardDisclosure from '@/components/dashboard/shared/DashboardDisclosure';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
-import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { buildSessionStartTimestamp, calculateTimeDifference, determineAttendanceStatus } from '@/utils/AttendanceStatusLogic';
 import {
   createMurojaahSubmission,
   DEVELOPMENT_SCORE_OPTIONS,
@@ -84,18 +84,9 @@ const getGoogleDriveThumbnail = (embedCode) => {
     return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w640` : null;
 };
 
-const sessionTimes = {
-  'Pagi': { start: '08:00' },
-  'Siang': { start: '13:00' },
-  'Sore': { start: '16:00' },
-  'Malam': { start: '18:30' },
-};
-
 const getSessionStartTimestamp = (dateStr, sesiName) => {
     const normalizedSession = getSessionName(sesiName);
-    if (!normalizedSession || !sessionTimes[normalizedSession]) return null;
-    const { start } = sessionTimes[normalizedSession];
-    return new Date(`${dateStr}T${start}:00`).toISOString();
+    return normalizedSession ? buildSessionStartTimestamp(dateStr, normalizedSession) : null;
 };
 
 const scoreToneClasses = {

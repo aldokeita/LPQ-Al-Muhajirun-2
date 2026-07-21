@@ -46,10 +46,10 @@ Add-Check "media player settings is active and uses restored storage/table" {
   if ($text -notmatch "from\('music_files'\)") { throw "settings dialog does not persist playlist rows" }
 }
 
-Add-Check "digital attendance mounts media player while other deferred shortcuts stay gated" {
+Add-Check "digital attendance mounts media player while game shortcuts stay feature gated" {
   $text = Read-Text "src/pages/DigitalAttendancePage.jsx"
   if ($text -notmatch "<MediaPlayerWidget />") { throw "media player widget is not mounted" }
-  if ($text -notmatch "enableDeferredFeatures &&") { throw "other deferred attendance shortcuts are not still gated" }
+  if ($text -notmatch "enableGameFeatures &&") { throw "game attendance shortcuts are not feature gated" }
 }
 
 Add-Check "website content helper always sends non-null content field" {
@@ -175,8 +175,8 @@ Add-Check "attendance recap can mark present records as absent" {
 Add-Check "digital attendance duplicate scan keeps first timestamp and avatar card" {
   $page = Read-Text "src/pages/DigitalAttendancePage.jsx"
   $admin = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"
-  if ($page -notmatch "Waktu hadir pertama tetap dipakai") { throw "public digital attendance does not preserve first timestamp on duplicate" }
-  if ($admin -notmatch "Waktu hadir pertama tetap dipakai") { throw "admin digital attendance does not preserve first timestamp on duplicate" }
+  if ($page -notmatch "message: 'Absensi sudah tercatat\.'") { throw "public digital attendance does not preserve first timestamp on duplicate" }
+  if ($admin -notmatch "message: 'Absensi sudah tercatat\.'") { throw "admin digital attendance does not preserve first timestamp on duplicate" }
   if ($page -notmatch "avatar_path" -or $admin -notmatch "avatar_path") { throw "digital attendance does not select avatar_path" }
   if ($page -notmatch "resolveAvatarUrl" -or $admin -notmatch "resolveAvatarUrl") { throw "digital attendance does not resolve avatar URLs" }
 }
@@ -204,13 +204,47 @@ Add-Check "attendance helper accepts numeric session values from santri data" {
   $js = @'
 import { buildSessionStartTimestamp, determineAttendanceStatus } from './src/utils/AttendanceStatusLogic.js';
 const start = buildSessionStartTimestamp('2026-06-25', '3');
-if (start !== '2026-06-25T16:00:00+07:00') throw new Error(`numeric Sore session was not normalized: ${start}`);
+if (start !== '2026-06-25T15:45:00+07:00') throw new Error(`numeric Sore session was not normalized: ${start}`);
 const late = determineAttendanceStatus('2026-06-25T16:16:00+07:00', start);
 if (late !== 'Terlambat') throw new Error('numeric session did not produce late status');
 console.log('ok');
 '@
   $output = & node --input-type=module -e $js
   if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "numeric session late helper failed" }
+}
+
+Add-Check "RFID attendance enforces the final session windows" {
+  $js = @'
+import { evaluateAttendanceWindow } from './src/utils/AttendanceStatusLogic.js';
+const cases = [
+  ['Pagi', '2026-07-21T05:59:00+07:00', false, null],
+  ['Pagi', '2026-07-21T06:00:00+07:00', true, 'Hadir'],
+  ['Pagi', '2026-07-21T08:00:59+07:00', true, 'Hadir'],
+  ['Pagi', '2026-07-21T08:01:00+07:00', true, 'Terlambat'],
+  ['Pagi', '2026-07-21T09:15:59+07:00', true, 'Terlambat'],
+  ['Pagi', '2026-07-21T09:16:00+07:00', false, null],
+  ['Siang', '2026-07-21T15:05:00+07:00', true, 'Terlambat'],
+  ['Sore', '2026-07-21T15:05:00+07:00', true, 'Hadir'],
+];
+for (const [sesi, timestamp, canRecord, status] of cases) {
+  const result = evaluateAttendanceWindow({ timestamp, dateStr: '2026-07-21', sesi });
+  if (result.canRecord !== canRecord || result.status !== status) {
+    throw new Error(`${sesi} ${timestamp}: ${JSON.stringify(result)}`);
+  }
+}
+console.log('ok');
+'@
+  $output = & node --input-type=module -e $js
+  if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "final attendance window rules failed" }
+}
+
+Add-Check "duplicate scans preserve first attendance and late santri receive no point" {
+  $publicPage = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  $adminPage = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"
+  if ($publicPage -notmatch "attendanceStatusText === 'Hadir'") { throw "point increment is not limited to on-time santri" }
+  if ($publicPage -notmatch "message: 'Absensi sudah tercatat\.'") { throw "public duplicate scan message missing" }
+  if ($adminPage -notmatch "message: 'Absensi sudah tercatat\.'") { throw "admin duplicate scan message missing" }
+  if ($publicPage -match "message: 'Absensi berhasil diperbarui!'") { throw "normal duplicate scan can still overwrite first attendance" }
 }
 
 Add-Check "attendance recap and manual edit use shared late helper" {

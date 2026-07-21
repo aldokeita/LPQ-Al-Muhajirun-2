@@ -1,6 +1,5 @@
 import {
-    buildSessionStartTimestamp,
-    determineAttendanceStatus,
+    evaluateAttendanceWindow,
     getJakartaDateString,
     getJakartaTimeString,
 } from '@/utils/AttendanceStatusLogic';
@@ -22,8 +21,8 @@ export const getSantriSession = (santri, fallback = 'Pagi') => (
 export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), status = null }) => {
     const attendanceDate = getLocalDateString(timestamp);
     const sesi = getSantriSession(santri);
-    const sessionStart = buildSessionStartTimestamp(attendanceDate, sesi);
     const checkInTimestamp = timestamp.toISOString();
+    const windowState = evaluateAttendanceWindow({ timestamp, dateStr: attendanceDate, sesi });
 
     return {
         user_id: santri.id,
@@ -33,7 +32,7 @@ export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), s
         check_in_timestamp: checkInTimestamp,
         class_id: santri.current_class_id,
         sesi,
-        status: status || determineAttendanceStatus(checkInTimestamp, sessionStart),
+        status: status || windowState.status || 'Terlambat',
         source: 'rfid',
     };
 };
