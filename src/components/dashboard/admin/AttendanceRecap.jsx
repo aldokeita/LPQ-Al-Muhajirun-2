@@ -13,7 +13,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import AttendanceStatusIcon from '../shared/AttendanceStatusIcon';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
-import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, resolveAttendanceRecordStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
@@ -210,8 +210,9 @@ const AttendanceRecap = () => {
             return;
         }
 
-        const timestamp = record?.check_in_timestamp || record?.created_at;
-        const computedStatus = determineAttendanceStatus(timestamp, sessionStartTime);
+        const isStoredPresent = ['hadir', 'terlambat'].includes(String(record?.status || '').trim().toLowerCase());
+        const timestamp = record?.check_in_timestamp || (isStoredPresent ? record?.created_at : null);
+        const computedStatus = resolveAttendanceRecordStatus(record, sessionStartTime);
         const diff = calculateTimeDifference(timestamp, sessionStartTime);
 
         setAttendanceDetails({
@@ -281,9 +282,13 @@ const AttendanceRecap = () => {
                 });
 
                 if (isPast) {
-                    attendanceByDate[day] = attendanceRecord ? 'H' : 'A';
+                    const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const sessionStart = getSessionStartTimestamp(dateStr, user.sesi_mengaji || 'Pagi');
+                    const recordStatus = resolveAttendanceRecordStatus(attendanceRecord, sessionStart);
+                    const isPresent = recordStatus === 'Hadir' || recordStatus === 'Terlambat';
+                    attendanceByDate[day] = isPresent ? 'H' : 'A';
                     attendanceByDate[`${day}_record`] = attendanceRecord;
-                    if (attendanceRecord) totalHadir++;
+                    if (isPresent) totalHadir++;
                 } else {
                     attendanceByDate[day] = 'F';
                 }
@@ -512,7 +517,7 @@ const AttendanceRecap = () => {
                                             let displayStatus = status === 'H' ? 'Hadir' : (status === 'A' ? 'Tidak Hadir' : 'Future');
 
                                             if (status === 'H' && record) {
-                                                displayStatus = determineAttendanceStatus(record.check_in_timestamp || record.created_at, sessionStart);
+                                                displayStatus = resolveAttendanceRecordStatus(record, sessionStart);
                                             }
 
                                             return (
@@ -539,7 +544,7 @@ const AttendanceRecap = () => {
                                 ))}
                                 {recapData.userRecap.length === 0 && (
                                     <tr>
-                                        <td colSpan={recapData.weekdaysInMonth.length + 6} className="text-center py-10 text-slate-500 bg-slate-50/50 dark:bg-slate-900/20">
+                                        <td colSpan={recapData.weekdaysInMonth.length + 5} className="text-center py-10 text-slate-500 bg-slate-50/50 dark:bg-slate-900/20">
                                             Tidak ada data santri ditemukan.
                                         </td>
                                     </tr>

@@ -71,6 +71,23 @@ export const determineAttendanceStatus = (checkInTimestamp, sessionStartTime, gr
   return diffMinutes > graceMinutes ? 'Terlambat' : 'Hadir';
 };
 
+const EXPLICIT_ABSENCE_STATUSES = new Set(['tidak hadir', 'alpha', 'alpa']);
+
+export const resolveAttendanceRecordStatus = (record, sessionStartTime, graceMinutes = LATE_GRACE_MINUTES) => {
+  if (!record) return 'Tidak Hadir';
+
+  const storedStatus = String(record.status || '').trim().toLowerCase();
+  if (EXPLICIT_ABSENCE_STATUSES.has(storedStatus)) return 'Tidak Hadir';
+  if (storedStatus === 'izin') return 'Izin';
+  if (storedStatus === 'sakit') return 'Sakit';
+
+  // Older imported present records can lack check_in_timestamp. Only those
+  // records may fall back to created_at; corrected absences must stay absent.
+  const isStoredPresent = storedStatus === 'hadir' || storedStatus === 'terlambat';
+  const timestamp = record.check_in_timestamp || (isStoredPresent ? record.created_at : null);
+  return determineAttendanceStatus(timestamp, sessionStartTime, graceMinutes);
+};
+
 export const determineAttendanceStatusFromTimestamp = determineAttendanceStatus; // Alias for backward compatibility if requested
 
 export const calculateTimeDifference = (checkInTimestamp, sessionStartTime) => {
