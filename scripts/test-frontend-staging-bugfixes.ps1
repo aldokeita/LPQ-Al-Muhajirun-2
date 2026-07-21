@@ -310,6 +310,19 @@ Add-Check "attendance recap and manual edit use shared late helper" {
   if ($santriRecap -notmatch "buildSessionStartTimestamp") { throw "santri recap does not use shared helper" }
 }
 
+Add-Check "santri management and attendance recap paginate ten records server-side" {
+  $santri = Read-Text "src/components/dashboard/admin/SantriManagement.jsx"
+  $recap = Read-Text "src/components/dashboard/admin/AttendanceRecap.jsx"
+  $pagination = Read-Text "src/components/dashboard/shared/DataPagination.jsx"
+
+  if ($santri -notmatch "const PAGE_SIZE = 10") { throw "santri page size is not ten" }
+  if ($santri -notmatch "\.range\(from, to\)") { throw "santri query is not paginated at Supabase" }
+  if ($recap -notmatch "const PAGE_SIZE = 10") { throw "attendance recap page size is not ten" }
+  if ($recap -notmatch "\.in\('user_id', santriIds\)") { throw "attendance recap does not limit attendance to current page users" }
+  if ($recap -notmatch "\.range\(from, to\)") { throw "attendance recap santri query is not paginated" }
+  if ($pagination -notmatch "Halaman \{safePage\} dari \{totalPages\}") { throw "pagination status is missing" }
+}
+
 Add-Check "payment proof reloads stored payment record before generating receipt" {
   $text = Read-Text "src/components/dashboard/admin/PaymentProofModal.jsx"
   if ($text -notmatch "from\('payments'\)") { throw "proof modal does not read stored payment" }

@@ -16,8 +16,10 @@ import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
 import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, resolveAttendanceRecordStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
+import DataPagination from '@/components/dashboard/shared/DataPagination';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const PAGE_SIZE = 10;
 
 const sessionTimes = DEFAULT_SESSION_TIMES;
 
@@ -112,9 +114,21 @@ const AttendanceRecap = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [holidays, setHolidays] = useState(new Set());
     const [activeTab, setActiveTab] = useState('tpq');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalUsers, setTotalUsers] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
 
     const [previewImage, setPreviewImage] = useState(null);
     const [attendanceDetails, setAttendanceDetails] = useState(null);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+        return () => window.clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedYear, selectedMonth, selectedClass, activeTab, debouncedSearch, sortKey, sortOrder]);
 
     const fetchAllData = useCallback(async () => {
         setIsLoading(true);
@@ -124,43 +138,78 @@ const AttendanceRecap = () => {
         const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
         try {
-            const { data: attendance, error: attError } = await supabase
-                .from('attendance')
-                .select('*')
-                .gte('attendance_date', startDate)
-                .lte('attendance_date', endDate)
-                .range(0, 4999);
-
-            const { data: santri, error: sanError } = await supabase
-                .from('santri')
-                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, avatar_path, kategori, status');
-            const { data: guru, error: guruError } = await supabase.from('guru').select('id, nama, foto_url');
-
             let classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, is_active').eq('is_active', true);
             if (role === 'guru') {
                 classQuery = classQuery.eq('id_guru', user?.id);
             }
-            const { data: classData, error: classError } = await classQuery;
 
             const calendarStartDate = `${selectedYear}-01-01`;
             const calendarEndDate = `${selectedYear}-12-31`;
-            const { data: calendarData, error: calError } = await supabase.from('academic_calendar').select('date, is_holiday').gte('date', calendarStartDate).lte('date', calendarEndDate).eq('is_holiday', true);
+            const [classResult, calendarResult] = await Promise.all([
+                classQuery,
+                supabase.from('academic_calendar').select('date, is_holiday').gte('date', calendarStartDate).lte('date', calendarEndDate).eq('is_holiday', true),
+            ]);
+            const { data: classData, error: classError } = classResult;
+            const { data: calendarData, error: calError } = calendarResult;
 
-            if (attError || sanError || guruError || classError || calError) {
+            if (classError || calError) throw new Error('Gagal mengambil konfigurasi rekap absensi');
+
+            const from = (currentPage - 1) * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            const normalizedSearch = debouncedSearch.replace(/[%_,().]/g, ' ').trim();
+            let santriQuery = supabase
+                .from('santri')
+                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, avatar_path, kategori, status', { count: 'exact' })
+                .is('deleted_at', null)
+                .or('status.is.null,status.ilike.aktif,status.ilike.active');
+
+            if (activeTab === 'dewasa') santriQuery = santriQuery.ilike('kategori', 'Dewasa');
+            else santriQuery = santriQuery.or('kategori.is.null,kategori.neq.Dewasa');
+
+            if (selectedClass !== 'all') {
+                santriQuery = santriQuery.eq('current_class_id', selectedClass);
+            } else if (role === 'guru') {
+                const classIds = (classData || []).map((item) => item.id);
+                if (classIds.length === 0) {
+                    setAttendanceData([]);
+                    setAllUsers([]);
+                    setTotalUsers(0);
+                    setClasses(classData || []);
+                    setHolidays(new Set((calendarData || []).map(c => c.date)));
+                    return;
+                }
+                santriQuery = santriQuery.in('current_class_id', classIds);
+            }
+
+            if (normalizedSearch) santriQuery = santriQuery.ilike('nama_lengkap', `%${normalizedSearch}%`);
+            santriQuery = santriQuery.order('nama_lengkap', { ascending: true }).range(from, to);
+
+            const { data: santri, error: sanError, count } = await santriQuery;
+            const santriIds = (santri || []).map((item) => item.id);
+            const attendanceResult = santriIds.length > 0
+                ? await supabase
+                    .from('attendance')
+                    .select('*')
+                    .in('user_id', santriIds)
+                    .gte('attendance_date', startDate)
+                    .lte('attendance_date', endDate)
+                    .range(0, 4999)
+                : { data: [], error: null };
+            const { data: attendance, error: attError } = attendanceResult;
+
+            if (attError || sanError) {
                 throw new Error("Gagal mengambil data dari database");
             }
 
-            const [resolvedSantri, resolvedGuru] = await Promise.all([
-                resolveAvatarRecords(santri, { ownerType: 'santri' }),
-                resolveAvatarRecords(guru, { ownerType: 'guru' }),
-            ]);
+            const resolvedSantri = await resolveAvatarRecords(santri, { ownerType: 'santri' });
 
             setAttendanceData(attendance || []);
-            setAllUsers([
-                ...resolvedSantri.map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })),
-                ...resolvedGuru.map(g => ({ ...g, name: g.nama, role: 'guru' }))
-            ]);
+            setAllUsers(resolvedSantri.map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })));
+            setTotalUsers(count || 0);
             setClasses(classData || []);
+
+            const totalPages = Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
+            if (currentPage > totalPages) setCurrentPage(totalPages);
 
             // Auto-select class for guru if they have one and 'all' is selected
             if (role === 'guru' && classData && classData.length > 0 && selectedClass === 'all') {
@@ -180,7 +229,7 @@ const AttendanceRecap = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedYear, selectedMonth, role, user?.id, selectedClass]);
+    }, [activeTab, currentPage, debouncedSearch, selectedYear, selectedMonth, role, user?.id, selectedClass]);
 
     useEffect(() => {
         fetchAllData();
@@ -422,7 +471,7 @@ const AttendanceRecap = () => {
             </div>
 
             <div className="admin-form-section">
-                <h3 className="text-lg font-semibold flex items-center gap-2 mb-4" style={{ color: 'hsl(var(--admin-text-primary))' }}><BarChart className="w-5 h-5" style={{ color: 'hsl(var(--admin-accent))' }}/>Statistik Kehadiran Harian ({months[selectedMonth]} {selectedYear})</h3>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-4" style={{ color: 'hsl(var(--admin-text-primary))' }}><BarChart className="w-5 h-5" style={{ color: 'hsl(var(--admin-accent))' }}/>Statistik Kehadiran Halaman Ini ({months[selectedMonth]} {selectedYear})</h3>
                 <div className="h-72 w-full">
                     <ResponsiveContainer>
                         <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
@@ -501,7 +550,7 @@ const AttendanceRecap = () => {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {recapData.userRecap.map((user, index) => (
                                     <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group h-14">
-                                        <td className="px-3 py-2 text-center text-muted-foreground sticky left-0 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 border-r border-slate-100 dark:border-slate-800">{index + 1}</td>
+                                        <td className="px-3 py-2 text-center text-muted-foreground sticky left-0 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10 border-r border-slate-100 dark:border-slate-800">{((currentPage - 1) * PAGE_SIZE) + index + 1}</td>
                                         <td className="px-3 py-2 sticky left-12 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 z-10">
                                             <Avatar className="w-8 h-8 border border-slate-200 cursor-pointer hover:scale-110 transition-transform shadow-sm" onClick={() => setPreviewImage(user.photo)}>
                                                 <AvatarImage src={user.photo} className="object-cover" />
@@ -562,6 +611,13 @@ const AttendanceRecap = () => {
                             </tbody>
                         </table>
                     </div>
+                    <DataPagination
+                        currentPage={currentPage}
+                        totalItems={totalUsers}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setCurrentPage}
+                        itemLabel="santri"
+                    />
                 </TabsContent>
             </Tabs>
         </div>

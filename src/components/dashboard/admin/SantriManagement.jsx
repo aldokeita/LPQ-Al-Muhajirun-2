@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -25,6 +25,9 @@ import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArchiveAdapters';
 import { copyTextToClipboard } from '@/lib/clipboardUtils';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
+import DataPagination from '@/components/dashboard/shared/DataPagination';
+
+const PAGE_SIZE = 10;
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -40,7 +43,7 @@ const jilidOptions = [
 
 const ptptTargetOptions = ['Juz 1', 'Juz 2', 'Juz 28', 'Juz 29', 'Juz 30'];
 
-const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
+const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at, deleted_at';
 const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
 
 const getSelectedClassId = (input) => input?.current_class_id || input?.id_kelas || null;
@@ -505,6 +508,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
   const [birthdayStudents, setBirthdayStudents] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalSantri, setTotalSantri] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
@@ -512,27 +518,60 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   });
 
   useEffect(() => {
-      loadData(subCategory);
-  }, [subCategory]);
-
-  useEffect(() => {
       setBirthdayCount(getBirthdaysThisMonth(birthdayStudents).length);
   }, [birthdayStudents]);
 
-  const loadData = async (currentTab = subCategory) => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(filters.search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [filters.search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedSantri(new Set());
+  }, [subCategory, filters.sesi, filters.jilid, filters.rfid, debouncedSearch, sortConfig]);
+
+  const loadData = useCallback(async (currentTab = subCategory) => {
     setIsLoadingData(true);
     setFetchError(null);
     try {
-      const fetchSantri = async (selectColumns = SANTRI_EXTENDED_SELECT) =>
-        supabase
-          .from('santri')
-          .select(selectColumns)
-          .order('nama_lengkap');
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const normalizedSearch = debouncedSearch.replace(/[%_,().]/g, ' ').trim();
+      const categoryValues = currentTab === 'ptpt' ? ['PTPT', 'ptpt'] : ['Anak', 'anak', 'TPQ', 'tpq'];
+      const sortColumn = ['nama_lengkap', 'tanggal_pendaftaran', 'jenis_kelamin', 'jilid', 'sesi_mengaji'].includes(sortConfig.key)
+        ? sortConfig.key
+        : 'nama_lengkap';
 
-      const [santriRes, classesRes, configRes] = await Promise.all([
+      const fetchSantri = async (selectColumns = SANTRI_EXTENDED_SELECT) => {
+        let query = supabase
+          .from('santri')
+          .select(selectColumns, { count: 'exact' })
+          .is('deleted_at', null)
+          .in('kategori', categoryValues)
+          .or('status.is.null,status.ilike.aktif,status.ilike.active');
+
+        if (normalizedSearch) {
+          query = query.or(`nama_lengkap.ilike.%${normalizedSearch}%,nama_panggilan.ilike.%${normalizedSearch}%,nama_ayah.ilike.%${normalizedSearch}%,rfid_tag.ilike.%${normalizedSearch}%`);
+        }
+        if (filters.sesi !== 'all') query = query.in('sesi_mengaji', [String(getSessionNumber(filters.sesi)), filters.sesi]);
+        if (filters.jilid !== 'all') query = query.eq('jilid', filters.jilid);
+        if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
+        if (filters.rfid === 'unassigned') query = query.or('rfid_tag.is.null,rfid_tag.eq.');
+
+        return query
+          .order(sortColumn, { ascending: sortConfig.direction === 'ascending', nullsFirst: false })
+          .range(from, to);
+      };
+
+      const [santriRes, classesRes, birthdayRes] = await Promise.all([
         fetchSantri(),
         supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
-        supabase.from('website_content').select('content').eq('key', 'anakSessionConfig').maybeSingle()
+        supabase
+          .from('santri')
+          .select('id, nama_lengkap, tanggal_lahir, no_hp_ortu, foto_url, avatar_path')
+          .is('deleted_at', null)
+          .or('status.is.null,status.ilike.aktif,status.ilike.active')
       ]);
 
       const resolvedSantriRes = isMissingSantriExtendedColumn(santriRes.error)
@@ -553,18 +592,25 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               });
               return mapSantriForLegacyUi({ ...item, foto_url });
           }));
-          const activeSantri = mappedSantri.filter((s) => (
-              !s.deleted_at && (!s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()))
-          ));
-          setBirthdayStudents(activeSantri);
-          const filteredSantri = mappedSantri.filter(s => {
-              const cat = (s.kategori || 'anak').toLowerCase();
-              const isActive = !s.deleted_at && (!s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active');
-              if (currentTab === 'tpq') return (cat === 'anak' || cat === 'tpq') && isActive;
-              if (currentTab === 'ptpt') return cat === 'ptpt' && isActive;
-              return false;
-          });
-          setSantriList(filteredSantri);
+          setSantriList(mappedSantri);
+          setTotalSantri(resolvedSantriRes.count || 0);
+
+          const totalPages = Math.max(1, Math.ceil((resolvedSantriRes.count || 0) / PAGE_SIZE));
+          if (currentPage > totalPages) setCurrentPage(totalPages);
+      }
+
+      if (!birthdayRes.error) {
+        const birthdaysThisMonth = getBirthdaysThisMonth(birthdayRes.data || []);
+        const resolvedBirthdays = await Promise.all(birthdaysThisMonth.map(async (item) => ({
+          ...item,
+          foto_url: await resolveAvatarUrl({
+            ownerType: 'santri',
+            ownerId: item.id,
+            avatarPath: item.avatar_path,
+            fallbackUrl: item.foto_url,
+          }),
+        })));
+        setBirthdayStudents(resolvedBirthdays);
       }
 
       if (classesRes.error) {
@@ -585,7 +631,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [currentPage, debouncedSearch, filters.jilid, filters.rfid, filters.sesi, sortConfig, subCategory]);
+
+  useEffect(() => {
+    loadData(subCategory);
+  }, [loadData, subCategory]);
   
   const classGuruMap = useMemo(() => {
     return classesList.reduce((acc, cls) => {
@@ -603,17 +653,41 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       });
   };
 
-  const handleDownloadData = () => {
-    const dataToExport = santriList.map(s => ({
-        'Nama Lengkap': s.nama_lengkap, 'Nama Panggilan': s.nama_panggilan, 'Jilid': s.jilid, 'Tempat Lahir': s.tempat_lahir,
-        'Tanggal Lahir': s.tanggal_lahir, 'Jenis Kelamin': s.jenis_kelamin, 'Alamat': s.alamat, 'Sesi': getSessionName(s.sesi_mengaji),
-        'Tanggal Masuk': s.tanggal_pendaftaran, 'Nama Ibu': s.nama_ibu, 'Nama Ayah': s.nama_ayah, 'No. HP Wali': s.no_hp_ortu,
-        'No. KK': s.no_kk, 'No. NIK': s.no_nik, 'No. Induk Qiroati': s.nomor_induk_qiroati, 'Status': s.status, 'RFID': s.rfid_tag, 'Kategori': s.kategori
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `Data Santri ${subCategory.toUpperCase()}`);
-    XLSX.writeFile(workbook, `Data_Santri_${subCategory.toUpperCase()}.xlsx`);
+  const handleDownloadData = async () => {
+    try {
+      const normalizedSearch = filters.search.replace(/[%_,().]/g, ' ').trim();
+      const categoryValues = subCategory === 'ptpt' ? ['PTPT', 'ptpt'] : ['Anak', 'anak', 'TPQ', 'tpq'];
+      let query = supabase
+        .from('santri')
+        .select(SANTRI_EXTENDED_SELECT)
+        .is('deleted_at', null)
+        .in('kategori', categoryValues)
+        .or('status.is.null,status.ilike.aktif,status.ilike.active');
+
+      if (normalizedSearch) {
+        query = query.or(`nama_lengkap.ilike.%${normalizedSearch}%,nama_panggilan.ilike.%${normalizedSearch}%,nama_ayah.ilike.%${normalizedSearch}%,rfid_tag.ilike.%${normalizedSearch}%`);
+      }
+      if (filters.sesi !== 'all') query = query.in('sesi_mengaji', [String(getSessionNumber(filters.sesi)), filters.sesi]);
+      if (filters.jilid !== 'all') query = query.eq('jilid', filters.jilid);
+      if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
+      if (filters.rfid === 'unassigned') query = query.or('rfid_tag.is.null,rfid_tag.eq.');
+
+      const { data, error } = await query.order('nama_lengkap').range(0, 4999);
+      if (error) throw error;
+
+      const dataToExport = (data || []).map(mapSantriForLegacyUi).map(s => ({
+          'Nama Lengkap': s.nama_lengkap, 'Nama Panggilan': s.nama_panggilan, 'Jilid': s.jilid, 'Tempat Lahir': s.tempat_lahir,
+          'Tanggal Lahir': s.tanggal_lahir, 'Jenis Kelamin': s.jenis_kelamin, 'Alamat': s.alamat, 'Sesi': getSessionName(s.sesi_mengaji),
+          'Tanggal Masuk': s.tanggal_pendaftaran, 'Nama Ibu': s.nama_ibu, 'Nama Ayah': s.nama_ayah, 'No. HP Wali': s.no_hp_ortu,
+          'No. KK': s.no_kk, 'No. NIK': s.no_nik, 'No. Induk Qiroati': s.nomor_induk_qiroati, 'Status': s.status, 'RFID': s.rfid_tag, 'Kategori': s.kategori
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, `Data Santri ${subCategory.toUpperCase()}`);
+      XLSX.writeFile(workbook, `Data_Santri_${subCategory.toUpperCase()}.xlsx`);
+    } catch (error) {
+      toast({ title: 'Export gagal', description: error.message || 'Data santri tidak dapat diekspor.', variant: 'destructive' });
+    }
   };
 
   const handlePhotoUpload = async (e) => {
@@ -1119,7 +1193,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
             {sortedAndFilteredSantri.map((santri, index) => (
               <tr key={santri.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors group">
                 <td className="p-3"><Checkbox onCheckedChange={() => toggleSelect(santri.id)} checked={selectedSantri.has(santri.id)} /></td>
-                <td className="p-3 text-muted-foreground font-mono text-xs">{index + 1}</td>
+                <td className="p-3 text-muted-foreground font-mono text-xs">{((currentPage - 1) * PAGE_SIZE) + index + 1}</td>
                 <td className="p-3">
                     <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9 border border-slate-200 dark:border-slate-700 cursor-pointer hover:scale-105 transition-transform" onClick={() => setPreviewImage(santri.foto_url)}>
@@ -1168,6 +1242,16 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
             </div>
         )}
         </div>
+        <DataPagination
+          currentPage={currentPage}
+          totalItems={totalSantri}
+          pageSize={PAGE_SIZE}
+          onPageChange={(page) => {
+            setSelectedSantri(new Set());
+            setCurrentPage(page);
+          }}
+          itemLabel="santri"
+        />
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
