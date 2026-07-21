@@ -16,7 +16,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const [isLoadingPayment, setIsLoadingPayment] = useState(false);
     const [completePayment, setCompletePayment] = useState(null);
     const [qrCodeDataURL, setQrCodeDataURL] = useState('');
-    const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo.png');
+    const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
 
     useEffect(() => {
         const fetchCompletePayment = async () => {
@@ -51,7 +51,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
         let active = true;
         const loadReceiptLogo = async () => {
             if (!isOpen) return;
-            const logoUrl = await fetchReceiptLogoDataUrl('/logo.png');
+            const logoUrl = await fetchReceiptLogoDataUrl('/lpq-mark.svg');
             if (active) setReceiptLogoUrl(logoUrl);
         };
         loadReceiptLogo();
@@ -91,7 +91,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
                 cacheBust: true,
                 backgroundColor: '#ffffff',
                 pixelRatio: 2,
-                imagePlaceholder: '/logo.png',
+                imagePlaceholder: '/lpq-mark.svg',
             });
             const link = document.createElement('a');
             const santriName = studentName.replace(/\s+/g, '_') || 'Santri';

@@ -90,7 +90,7 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState('');
   const [scrolled, setScrolled] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('/logo.png');
+  const [logoUrl, setLogoUrl] = useState('/lpq-mark.svg');
   const [logoFailed, setLogoFailed] = useState(false);
   const { user, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();

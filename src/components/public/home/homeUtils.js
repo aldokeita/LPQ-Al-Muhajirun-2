@@ -1,5 +1,5 @@
 export const BRAND_NAME = 'LPQ Al-Muhajirun Metode Qiroati Baturaja';
-export const LOCAL_LOGO = '/logo.png';
+export const LOCAL_LOGO = '/lpq-mark.svg';
 
 export const defaultContent = {
   logoUrl: LOCAL_LOGO,

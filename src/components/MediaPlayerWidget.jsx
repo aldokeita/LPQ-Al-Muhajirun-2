@@ -83,7 +83,7 @@ const MediaPlayerWidget = () => {
                              <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className={cn("media-player-glass__control h-8 w-8 rounded-full", isCrossfade ? "text-purple-500 bg-purple-50 dark:bg-purple-900/30" : "text-slate-400")}
+                                className={cn("media-player-glass__control h-8 w-8 rounded-full", isCrossfade && "media-player-glass__control--accent")}
                                 onClick={toggleCrossfade}
                                 title="Crossfade"
                             >
@@ -119,7 +119,7 @@ const MediaPlayerWidget = () => {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={cn("media-player-glass__control h-9 w-9 rounded-full transition-colors", isShuffle ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30" : "text-slate-400 hover:text-slate-600")}
+                            className={cn("media-player-glass__control h-9 w-9 rounded-full transition-colors", isShuffle && "media-player-glass__control--active")}
                             onClick={toggleShuffle}
                             title="Acak (Shuffle)"
                         >
@@ -144,7 +144,7 @@ const MediaPlayerWidget = () => {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={cn("media-player-glass__control h-9 w-9 rounded-full transition-colors", isLoop ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30" : "text-slate-400 hover:text-slate-600")}
+                            className={cn("media-player-glass__control h-9 w-9 rounded-full transition-colors", isLoop && "media-player-glass__control--active")}
                             onClick={toggleLoop}
                             title="Ulang (Loop)"
                         >

@@ -110,14 +110,15 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         fetchData();
     }, [selectedYear]);
 
-    const handleSaveAttendance = async () => {
+    const handleSaveAttendance = async ({ markAbsent = false } = {}) => {
         if (!editModal.data) return;
         setIsSubmitting(true);
 
         const { guruId, dateStr, sesi, record } = editModal.data;
         const normalizedSession = normalizeAttendanceSessionName(sesi);
         const sessionStart = buildSessionStartTimestamp(dateStr, normalizedSession);
-        const checkInTs = editTime ? buildJakartaTimestamp(dateStr, editTime) : null;
+        const attendanceTime = markAbsent ? '' : editTime;
+        const checkInTs = attendanceTime ? buildJakartaTimestamp(dateStr, attendanceTime) : null;
 
         let newStatus = 'Tidak Hadir';
         if (checkInTs) {
@@ -129,25 +130,30 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             let mutation;
             if (record?.id) {
                 mutation = await supabase.from('attendance').update({
-                    check_in_time: editTime || null,
+                    check_in_time: attendanceTime || null,
                     check_in_timestamp: checkInTs,
                     status: newStatus
-                }).eq('id', record.id);
+                }).eq('id', record.id).select('id').single();
             } else {
                 mutation = await supabase.from('attendance').insert({
                     user_id: guruId,
                     role: 'guru',
                     attendance_date: dateStr,
-                    check_in_time: editTime || null,
+                    check_in_time: attendanceTime || null,
                     check_in_timestamp: checkInTs,
                     sesi: normalizedSession,
                     status: newStatus
-                });
+                }).select('id').single();
             }
 
             if (mutation.error) throw mutation.error;
 
-            toast({ title: "Berhasil", description: "Kehadiran guru diperbarui." });
+            toast({
+                title: "Berhasil",
+                description: markAbsent
+                    ? "Guru telah ditandai tidak hadir."
+                    : "Kehadiran guru diperbarui."
+            });
             setEditModal({ isOpen: false, data: null });
             fetchData();
         } catch (err) {
@@ -597,13 +603,23 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                     {isReadOnlyMode ? 'Tutup' : 'Batal'}
                                 </Button>
                                 {!isReadOnlyMode && (
-                                    <Button
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                        onClick={handleSaveAttendance}
-                                        disabled={isSubmitting}
-                                    >
-                                        {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
-                                    </Button>
+                                    <>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={() => handleSaveAttendance({ markAbsent: true })}
+                                            disabled={isSubmitting || computedStatusForModal === 'Tidak Hadir'}
+                                        >
+                                            <XCircle className="w-4 h-4 mr-2" />
+                                            Tandai Tidak Hadir
+                                        </Button>
+                                        <Button
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            onClick={() => handleSaveAttendance()}
+                                            disabled={isSubmitting}
+                                        >
+                                            {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                        </Button>
+                                    </>
                                 )}
                             </DialogFooter>
                         </DialogContent>

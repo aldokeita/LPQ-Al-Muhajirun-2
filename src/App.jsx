@@ -52,7 +52,7 @@ const RouteLogger = () => {
 
 /* ------------------------------------------------------------------ */
 /* Dynamic logo crossfade helper                                      */
-/* Shows local /logo.png first, then crossfades to a Supabase logo.  */
+/* Shows the local LPQ mark first, then crossfades to a Supabase logo. */
 /* ------------------------------------------------------------------ */
 const DynamicLogo = ({ className = '', width = 48, height = 48 }) => {
   const [dynamicUrl, setDynamicUrl] = useState(null);
@@ -69,7 +69,7 @@ const DynamicLogo = ({ className = '', width = 48, height = 48 }) => {
           .select('content')
           .eq('key', 'logoUrl')
           .maybeSingle();
-        if (!cancelled && data?.content && data.content !== '/logo.png') {
+        if (!cancelled && data?.content && data.content !== '/lpq-mark.svg') {
           // Preload the dynamic logo in background before crossfading
           const img = new Image();
           img.onload = () => {
@@ -96,7 +96,7 @@ const DynamicLogo = ({ className = '', width = 48, height = 48 }) => {
     <span className={`relative inline-block ${className}`} style={{ width, height }}>
       {/* Local logo — always present */}
       <img
-        src="/logo.png"
+        src="/lpq-mark.svg"
         alt="Logo LPQ Al-Muhajirun"
         width={width}
         height={height}

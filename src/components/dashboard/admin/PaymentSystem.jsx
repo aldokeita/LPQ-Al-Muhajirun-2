@@ -194,7 +194,7 @@ const PaymentSystem = () => {
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo.png');
+  const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
   const [historyProofPayment, setHistoryProofPayment] = useState(null);
   
   const location = useLocation();
@@ -263,7 +263,7 @@ const PaymentSystem = () => {
     let active = true;
     const loadReceiptLogo = async () => {
       if (!isReceiptOpen) return;
-      const logoUrl = await fetchReceiptLogoDataUrl('/logo.png');
+      const logoUrl = await fetchReceiptLogoDataUrl('/lpq-mark.svg');
       if (active) setReceiptLogoUrl(logoUrl);
     };
     loadReceiptLogo();
@@ -440,7 +440,7 @@ const PaymentSystem = () => {
         cacheBust: true,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        imagePlaceholder: '/logo.png',
+        imagePlaceholder: '/lpq-mark.svg',
       });
       
       const link = document.createElement('a');

@@ -219,8 +219,8 @@ const MediaPlayerSettings = ({
                                             {playlist.map((track) => (
                                                 <div key={track.id} className="media-settings-glass__track flex items-center justify-between p-3 rounded-xl transition-all">
                                                     <div className="flex items-center gap-3 overflow-hidden">
-                                                        <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
-                                                            <Music className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                                        <div className="media-settings-glass__track-icon p-2 rounded-full">
+                                                            <Music className="w-4 h-4" />
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="font-medium truncate">{track.title}</p>

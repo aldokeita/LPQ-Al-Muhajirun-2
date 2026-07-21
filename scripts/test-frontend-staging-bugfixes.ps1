@@ -201,11 +201,34 @@ Add-Check "attendance profile shows late accent and combined monthly stats" {
   if ($card -notmatch "Sesi \{getSessionName\(sesi\)\}") { throw "student session label is missing below the name" }
   if ($page -notmatch "select\('attendance_date, status'\)") { throw "monthly attendance query does not load status" }
   if ($page -notmatch "return \{ present, late, absent \}") { throw "monthly attendance result does not separate late records" }
+  if ($card -notmatch "Karakter Unggulan" -or $card -notmatch "Kategori Terkuat") { throw "student attendance insight tiles are missing" }
+  if ($page -notmatch "from\('santri_character_strengths'\)") { throw "attendance profile does not load the selected character strength" }
+  if ($page -notmatch "right\.average - left\.average" -or $page -notmatch "right\.completed - left\.completed") { throw "strongest hafalan category ranking is incomplete" }
+}
+
+Add-Check "favicon and media player use stable cohesive assets" {
+  $index = Read-Text "index.html"
+  $homePage = Read-Text "src/pages/HomePage.jsx"
+  $player = Read-Text "src/components/MediaPlayerWidget.jsx"
+  $styles = Read-Text "src/styles/admin-dashboard.css"
+  if ($index -notmatch "/lpq-mark\.svg\?v=2" -or -not (Test-Path "public/lpq-mark.svg")) { throw "stable SVG favicon is missing" }
+  if ($homePage -match 'rel="icon"') { throw "homepage still overrides the stable favicon" }
+  if ($player -notmatch "media-player-glass__control--active" -or $player -notmatch "media-player-glass__control--accent") { throw "media player active accents are not explicit" }
+  if ($styles -notmatch "linear-gradient\(135deg, rgb\(13 148 136" -or $styles -notmatch "linear-gradient\(90deg, rgb\(13 148 136\), rgb\(37 99 235\)\)") { throw "media player teal-blue accent palette is incomplete" }
 }
 
 Add-Check "admin dashboard counts active santri status variants" {
   $text = Read-Text "src/components/dashboard/AdminDashboard.jsx"
   if ($text -notmatch "\.in\('status', \['Aktif', 'active'\]\)") { throw "active santri stat does not include Aktif and active variants" }
+}
+
+Add-Check "admin can mark guru attendance absent from detail modal" {
+  $recap = Read-Text "src/components/dashboard/admin/GuruAttendanceRecap.jsx"
+  if ($recap -notmatch "Tandai Tidak Hadir") { throw "explicit absent action is missing from guru attendance detail" }
+  if ($recap -notmatch "handleSaveAttendance\(\{ markAbsent: true \}\)") { throw "absent action does not use the forced absent mutation" }
+  if ($recap -notmatch "check_in_time: attendanceTime \|\| null") { throw "absent mutation does not clear check-in time" }
+  if ($recap -notmatch "check_in_timestamp: checkInTs") { throw "absent mutation does not clear check-in timestamp" }
+  if ($recap -notmatch "\.select\('id'\)\.single\(\)") { throw "guru attendance mutation does not verify the saved row" }
 }
 
 Add-Check "attendance late boundary uses one 15-minute helper" {
@@ -417,7 +440,7 @@ Add-Check "payment proof uses uploaded website logo as embeddable image" {
   if ($helper -notmatch "readAsDataURL") { throw "receipt logo is not embedded for html-to-image" }
   if ($modal -notmatch "fetchReceiptLogoDataUrl") { throw "payment proof modal does not load uploaded logo" }
   if ($system -notmatch "fetchReceiptLogoDataUrl") { throw "payment system receipt does not load uploaded logo" }
-  if ($modal -notmatch "imagePlaceholder: '/logo.png'" -or $system -notmatch "imagePlaceholder: '/logo.png'") { throw "receipt image generation lacks local image fallback" }
+  if ($modal -notmatch "imagePlaceholder: '/lpq-mark.svg'" -or $system -notmatch "imagePlaceholder: '/lpq-mark.svg'") { throw "receipt image generation lacks local image fallback" }
   if ($helper -notmatch "waitForImagesToLoad") { throw "receipt image helper does not wait for embedded logo/images" }
   if ($modal -notmatch "waitForImagesToLoad\(receiptRef\.current\)" -or $system -notmatch "waitForImagesToLoad\(receiptRef\.current\)") { throw "receipt export does not wait for images before rendering" }
 }

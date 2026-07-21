@@ -14,6 +14,8 @@ import {
   Briefcase,
   Fingerprint,
   Calendar,
+  Award,
+  Sparkles,
 } from 'lucide-react';
 import { getSessionName } from '@/utils/sessionMapping';
 
@@ -35,6 +37,8 @@ const AttendanceProfileCard = ({
   levelInfo,
   monthlyStats,
   hafalanCount,
+  characterStrength,
+  strongestHafalanCategory,
   jabatan,
   guruStats,
   quote,
@@ -209,6 +213,12 @@ const AttendanceProfileCard = ({
             {hafalanCount !== undefined && hafalanCount !== null && (
               <DetailItem icon={<Book className="w-4 h-4" />} label="Hafalan" value={hafalanCount} pointAccent={pointAccent} />
             )}
+            {characterStrength && (
+              <DetailItem icon={<Sparkles className="w-4 h-4" />} label="Karakter Unggulan" value={characterStrength} pointAccent={pointAccent} />
+            )}
+            {strongestHafalanCategory && (
+              <DetailItem icon={<Award className="w-4 h-4" />} label="Kategori Terkuat" value={strongestHafalanCategory} pointAccent={pointAccent} />
+            )}
             {monthlyStats && (
               <AttendanceSummary monthlyStats={monthlyStats} />
             )}
@@ -283,6 +293,7 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
       <span
         className={`attendance-profile-card__detail-value ${mono ? 'font-mono' : ''}`}
         style={pointAccent ? { color: pointAccent.color } : amber ? { color: 'var(--att-amber)' } : undefined}
+        title={String(value)}
       >
         {value}
       </span>

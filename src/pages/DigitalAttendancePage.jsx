@@ -185,17 +185,63 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
     return { present, late, absent };
 };
 
-const getSantriHafalanCount = async (santriId) => {
-    if (!santriId) return 0;
+const getSantriLearningHighlights = async (santriId) => {
+    if (!santriId) {
+        return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null };
+    }
 
-    const { count, error } = await supabase
-        .from('hafalan_progress')
-        .select('id', { count: 'exact', head: true })
-        .eq('santri_id', santriId)
-        .eq('status', 'lulus');
+    const [progressResult, strengthResult] = await Promise.all([
+        supabase
+            .from('hafalan_progress')
+            .select('category,status,score,nilai')
+            .eq('santri_id', santriId),
+        supabase
+            .from('santri_character_strengths')
+            .select('strength_key')
+            .eq('santri_id', santriId)
+            .order('selected_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+    ]);
 
-    if (error) return 0;
-    return count || 0;
+    const rows = progressResult.error ? [] : (progressResult.data || []);
+    const scoredRows = rows.map((row) => {
+        const rawScore = Number(row.score ?? row.nilai);
+        const score = Number.isFinite(rawScore) && rawScore >= 1 && rawScore <= 4
+            ? rawScore
+            : row.status === 'lulus' ? 4 : null;
+        return { ...row, score };
+    });
+    const hafalanCount = scoredRows.filter((row) => row.status === 'lulus' || row.score === 4).length;
+    const categoryStats = new Map();
+
+    scoredRows.forEach((row) => {
+        const category = String(row.category || '').trim();
+        if (!category || row.score === null) return;
+        const current = categoryStats.get(category) || { category, total: 0, assessed: 0, completed: 0 };
+        current.total += row.score;
+        current.assessed += 1;
+        if (row.status === 'lulus' || row.score === 4) current.completed += 1;
+        categoryStats.set(category, current);
+    });
+
+    const strongest = [...categoryStats.values()]
+        .map((item) => ({ ...item, average: item.total / item.assessed }))
+        .sort((left, right) => (
+            right.average - left.average
+            || right.completed - left.completed
+            || right.assessed - left.assessed
+            || left.category.localeCompare(right.category, 'id')
+        ))[0];
+    const averageLabel = strongest
+        ? strongest.average.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+        : null;
+
+    return {
+        hafalanCount,
+        characterStrength: strengthResult.error ? null : (strengthResult.data?.strength_key || null),
+        strongestHafalanCategory: strongest ? `${strongest.category} · ${averageLabel}` : null,
+    };
 };
 
 // --- Business logic (unchanged) ---
@@ -635,9 +681,9 @@ const DigitalAttendancePage = () => {
         if (existingAttendance && !shouldRestoreAbsentAttendance) {
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
-             const [monthlyStats, hafalanCount] = await Promise.all([
+             const [monthlyStats, learningHighlights] = await Promise.all([
                  getSantriMonthlyAttendanceStats(user.id),
-                 getSantriHafalanCount(user.id),
+                 getSantriLearningHighlights(user.id),
              ]);
              setLastScan({
                 ...successData,
@@ -646,7 +692,7 @@ const DigitalAttendancePage = () => {
                 status: existingAttendance.status,
                 levelInfo,
                 monthlyStats,
-                hafalanCount
+                ...learningHighlights
              });
              return;
           }
@@ -711,12 +757,12 @@ const DigitalAttendancePage = () => {
             newPoints += 1;
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
-          const [monthlyStats, hafalanCount] = userRole === 'santri'
+          const [monthlyStats, learningHighlights] = userRole === 'santri'
             ? await Promise.all([
                 getSantriMonthlyAttendanceStats(user.id),
-                getSantriHafalanCount(user.id),
+                getSantriLearningHighlights(user.id),
               ])
-            : [undefined, undefined];
+            : [undefined, {}];
           let adultStats = null;
           if (isAdult) {
               const { count: daysCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
@@ -748,7 +794,7 @@ const DigitalAttendancePage = () => {
             points: newPoints,
             levelInfo,
             monthlyStats,
-            hafalanCount,
+            ...learningHighlights,
             adultStats,
             guruStats,
           });
@@ -1005,6 +1051,8 @@ const DigitalAttendancePage = () => {
             points={scan.points}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
+            characterStrength={scan.characterStrength}
+            strongestHafalanCategory={scan.strongestHafalanCategory}
             sesi={scan.sesi}
             message={scan.message}
             quote={scan.quote}
@@ -1029,6 +1077,8 @@ const DigitalAttendancePage = () => {
             levelInfo={scan.levelInfo}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
+            characterStrength={scan.characterStrength}
+            strongestHafalanCategory={scan.strongestHafalanCategory}
             sesi={scan.sesi}
             message={scan.message}
             quote={scan.quote}

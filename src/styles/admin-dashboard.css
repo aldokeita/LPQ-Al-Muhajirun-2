@@ -4915,8 +4915,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   border: 1px solid rgb(255 255 255 / 0.72);
   border-radius: 1.5rem;
   background:
-    radial-gradient(circle at 12% 0%, rgb(56 189 248 / 0.17), transparent 36%),
-    radial-gradient(circle at 88% 100%, rgb(99 102 241 / 0.14), transparent 38%),
+    radial-gradient(circle at 12% 0%, rgb(45 212 191 / 0.16), transparent 36%),
+    radial-gradient(circle at 88% 100%, rgb(59 130 246 / 0.13), transparent 38%),
     rgb(255 255 255 / 0.38);
   box-shadow:
     inset 1px 1px 0 rgb(255 255 255 / 0.82),
@@ -4950,17 +4950,17 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background: rgb(255 255 255 / 0.42) !important;
   box-shadow:
     inset 1px 1px 0 rgb(255 255 255 / 0.78),
-    0 8px 18px -12px rgb(37 99 235 / 0.45);
+    0 8px 18px -12px rgb(13 148 136 / 0.42);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
 .media-player-glass__art--playing {
-  border-color: rgb(191 219 254 / 0.62);
-  background: rgb(37 99 235 / 0.78) !important;
+  border-color: rgb(153 246 228 / 0.7);
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.9), rgb(37 99 235 / 0.86)) !important;
   box-shadow:
     inset 1px 1px 0 rgb(255 255 255 / 0.42),
-    0 10px 20px -12px rgb(37 99 235 / 0.7);
+    0 10px 22px -12px rgb(14 116 144 / 0.72);
 }
 
 .media-player-glass__control {
@@ -4975,32 +4975,61 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .media-player-glass__control:hover {
-  color: hsl(221 83% 53%) !important;
+  color: rgb(15 118 110) !important;
   background: rgb(255 255 255 / 0.58) !important;
   box-shadow:
     inset 2px 2px 5px rgb(148 163 184 / 0.14),
     inset -2px -2px 5px rgb(255 255 255 / 0.72);
 }
 
+.media-player-glass__control--active {
+  border-color: rgb(45 212 191 / 0.42) !important;
+  color: rgb(15 118 110) !important;
+  background: linear-gradient(135deg, rgb(204 251 241 / 0.76), rgb(219 234 254 / 0.72)) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.82),
+    0 8px 18px -12px rgb(13 148 136 / 0.56);
+}
+
+.media-player-glass__control--accent {
+  border-color: rgb(125 211 252 / 0.5) !important;
+  color: rgb(3 105 161) !important;
+  background: linear-gradient(135deg, rgb(207 250 254 / 0.72), rgb(224 231 255 / 0.76)) !important;
+}
+
 .media-player-glass__play {
-  border: 1px solid rgb(191 219 254 / 0.68);
-  background: rgb(37 99 235 / 0.82) !important;
+  border: 1px solid rgb(153 246 228 / 0.72);
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.94), rgb(37 99 235 / 0.9)) !important;
   box-shadow:
     inset 1px 1px 0 rgb(255 255 255 / 0.42),
-    0 13px 26px -13px rgb(37 99 235 / 0.72);
+    0 13px 28px -13px rgb(14 116 144 / 0.74);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
 .media-player-glass__play:hover {
-  background: rgb(29 78 216 / 0.9) !important;
+  background: linear-gradient(135deg, rgb(15 118 110), rgb(29 78 216)) !important;
   transform: translateY(-1px) scale(1.04);
 }
 
 .media-player-glass__slider [role="slider"] {
   border-color: rgb(255 255 255 / 0.78);
-  background: rgb(37 99 235 / 0.92);
-  box-shadow: 0 4px 10px -5px rgb(37 99 235 / 0.7);
+  background: rgb(14 116 144);
+  box-shadow: 0 4px 10px -5px rgb(13 148 136 / 0.72);
+}
+
+.media-player-glass__slider > span:first-child {
+  background: rgb(203 213 225 / 0.58) !important;
+}
+
+.media-player-glass__slider > span:first-child > span {
+  background: linear-gradient(90deg, rgb(13 148 136), rgb(37 99 235)) !important;
+}
+
+.media-settings-glass__track-icon {
+  border: 1px solid rgb(45 212 191 / 0.32);
+  color: rgb(15 118 110);
+  background: linear-gradient(135deg, rgb(204 251 241 / 0.72), rgb(219 234 254 / 0.68));
 }
 
 .media-settings-glass {
@@ -5141,8 +5170,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 .dark .media-player-glass {
   border-color: rgb(255 255 255 / 0.12);
   background:
-    radial-gradient(circle at 12% 0%, rgb(34 211 238 / 0.13), transparent 36%),
-    radial-gradient(circle at 88% 100%, rgb(139 92 246 / 0.12), transparent 38%),
+    radial-gradient(circle at 12% 0%, rgb(45 212 191 / 0.12), transparent 36%),
+    radial-gradient(circle at 88% 100%, rgb(59 130 246 / 0.12), transparent 38%),
     rgb(15 23 42 / 0.48);
   box-shadow:
     inset 1px 1px 0 rgb(255 255 255 / 0.08),
@@ -5163,6 +5192,24 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   border-color: rgb(255 255 255 / 0.1);
   background: rgb(255 255 255 / 0.055) !important;
   box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.dark .media-player-glass__control--active {
+  border-color: rgb(45 212 191 / 0.3) !important;
+  color: rgb(94 234 212) !important;
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.22), rgb(37 99 235 / 0.2)) !important;
+}
+
+.dark .media-player-glass__control--accent {
+  border-color: rgb(56 189 248 / 0.28) !important;
+  color: rgb(125 211 252) !important;
+  background: linear-gradient(135deg, rgb(8 145 178 / 0.2), rgb(79 70 229 / 0.18)) !important;
+}
+
+.dark .media-settings-glass__track-icon {
+  border-color: rgb(45 212 191 / 0.24);
+  color: rgb(94 234 212);
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.18), rgb(37 99 235 / 0.16));
 }
 
 .dark .media-settings-glass {

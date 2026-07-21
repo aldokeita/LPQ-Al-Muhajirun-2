@@ -15,7 +15,7 @@ import HeroSection from '@/components/public/home/HeroSection';
 import InstitutionalValues from '@/components/public/home/InstitutionalValues';
 import ProgramBento from '@/components/public/home/ProgramBento';
 import TestimonialsFaq from '@/components/public/home/TestimonialsFaq';
-import { BRAND_NAME, defaultContent, LOCAL_LOGO, safeArray } from '@/components/public/home/homeUtils';
+import { BRAND_NAME, defaultContent, safeArray } from '@/components/public/home/homeUtils';
 import '@/styles/homepage.css';
 
 const friendlyPublicError = (error) => {
@@ -125,7 +125,6 @@ const HomePage = () => {
       <Helmet>
         <title>{BRAND_NAME}</title>
         <meta name="description" content="Website resmi LPQ Al-Muhajirun Metode Qiroati Baturaja: pendaftaran, berita, pengumuman, feedback, dan portal pendidikan Al-Qur'an." />
-        <link rel="icon" type="image/png" href={content.logoUrl || LOCAL_LOGO} sizes="any" />
       </Helmet>
 
       <main className="home-page">
