@@ -14,18 +14,26 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import GuruPerformanceSummary from './GuruPerformanceSummary';
-import { determineAttendanceStatus, calculateTimeDifference, formatTimestamp } from '@/utils/AttendanceStatusLogic';
+import {
+    buildJakartaTimestamp,
+    buildSessionStartTimestamp,
+    calculateTimeDifference,
+    determineAttendanceStatus,
+    formatTimestamp,
+    normalizeAttendanceSessionName,
+    resolveAttendanceRecordStatus,
+} from '@/utils/AttendanceStatusLogic';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-// Hardcoded for fallback
-const defaultSessionTimes = {
-  'Pagi': '08:00',
-  'Siang': '14:00',
-  'Sore': '16:00',
-  'Malam': '18:30',
-};
+const normalizeSessionList = (sessions = []) => [
+    ...new Set(sessions.map(normalizeAttendanceSessionName).filter(Boolean)),
+];
+
+const isPresentStatus = (status) => ['hadir', 'terlambat', 'on_time'].includes(
+    String(status || '').trim().toLowerCase(),
+);
 
 const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     const { role, user } = useAuth();
@@ -107,8 +115,9 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         setIsSubmitting(true);
 
         const { guruId, dateStr, sesi, record } = editModal.data;
-        const sessionStart = `${dateStr}T${defaultSessionTimes[sesi] || '08:00'}:00`;
-        const checkInTs = editTime ? `${dateStr}T${editTime}` : null;
+        const normalizedSession = normalizeAttendanceSessionName(sesi);
+        const sessionStart = buildSessionStartTimestamp(dateStr, normalizedSession);
+        const checkInTs = editTime ? buildJakartaTimestamp(dateStr, editTime) : null;
 
         let newStatus = 'Tidak Hadir';
         if (checkInTs) {
@@ -117,23 +126,26 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
         try {
             // Save to attendance table
+            let mutation;
             if (record?.id) {
-                await supabase.from('attendance').update({
+                mutation = await supabase.from('attendance').update({
                     check_in_time: editTime || null,
                     check_in_timestamp: checkInTs,
                     status: newStatus
                 }).eq('id', record.id);
             } else {
-                await supabase.from('attendance').insert({
+                mutation = await supabase.from('attendance').insert({
                     user_id: guruId,
                     role: 'guru',
                     attendance_date: dateStr,
                     check_in_time: editTime || null,
                     check_in_timestamp: checkInTs,
-                    sesi: sesi,
+                    sesi: normalizedSession,
                     status: newStatus
                 });
             }
+
+            if (mutation.error) throw mutation.error;
 
             toast({ title: "Berhasil", description: "Kehadiran guru diperbarui." });
             setEditModal({ isOpen: false, data: null });
@@ -147,7 +159,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
     const handleEditSessions = (guru) => {
         const guruClasses = classes.filter(c => c.id_guru === guru.id);
-        const derivedSessions = [...new Set(guruClasses.map(c => c.sesi).filter(s => s))];
+        const derivedSessions = normalizeSessionList(guruClasses.map(c => c.sesi));
         const existingOverride = overriddenSessions[guru.id];
 
         setSessionEditGuru(guru);
@@ -206,10 +218,10 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             let assignedSessions = [];
 
             if (overriddenSessions[guru.id]) {
-                assignedSessions = overriddenSessions[guru.id];
+                assignedSessions = normalizeSessionList(overriddenSessions[guru.id]);
             } else {
                 const guruClasses = classes.filter(c => c.id_guru === guru.id);
-                assignedSessions = [...new Set(guruClasses.map(c => c.sesi).filter(s => s))];
+                assignedSessions = normalizeSessionList(guruClasses.map(c => c.sesi));
             }
 
             assignedSessions.sort();
@@ -233,22 +245,15 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                     const attendanceRecord = attendanceData.find(a =>
                         a.user_id === guru.id &&
                         a.attendance_date === dateStr &&
-                        a.sesi === sesi
+                        normalizeAttendanceSessionName(a.sesi) === sesi
                     );
 
-                    let computedRecordStatus = 'Tidak Hadir';
-                    const sessionStartTs = `${dateStr}T${defaultSessionTimes[sesi] || '08:00'}:00`;
-
-                    if (attendanceRecord) {
-                        if (attendanceRecord.check_in_timestamp) {
-                            computedRecordStatus = determineAttendanceStatus(attendanceRecord.check_in_timestamp, sessionStartTs);
-                        } else {
-                            computedRecordStatus = attendanceRecord.status;
-                        }
-                    }
+                    const sessionStartTs = buildSessionStartTimestamp(dateStr, sesi);
+                    const computedRecordStatus = resolveAttendanceRecordStatus(attendanceRecord, sessionStartTs);
+                    const isPresent = isPresentStatus(computedRecordStatus);
 
                     dailyDetails[day][sesi] = {
-                        isPresent: !!attendanceRecord,
+                        isPresent,
                         id: attendanceRecord?.id || null,
                         record: attendanceRecord || null,
                         computedStatus: computedRecordStatus,
@@ -256,7 +261,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                         isPast: isPast
                     };
 
-                    if(attendanceRecord && isPast) {
+                    if(isPresent && isPast) {
                         totalSessionsAttended++;
                         sessionBreakdown[sesi] = (sessionBreakdown[sesi] || 0) + 1;
                     }
@@ -327,8 +332,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
     // Derived modal data values
     const isReadOnlyMode = editModal.data?.readOnly;
-    const sessionStartTs = editModal.data ? `${editModal.data.dateStr}T${defaultSessionTimes[editModal.data.sesi] || '08:00'}:00` : null;
-    const checkInTs = editTime && editModal.data ? `${editModal.data.dateStr}T${editTime}` : null;
+    const sessionStartTs = editModal.data ? buildSessionStartTimestamp(editModal.data.dateStr, editModal.data.sesi) : null;
+    const checkInTs = editTime && editModal.data ? buildJakartaTimestamp(editModal.data.dateStr, editTime) : null;
     const computedStatusForModal = isReadOnlyMode
         ? (editModal.data?.computedStatus || 'Tidak Hadir')
         : (checkInTs ? determineAttendanceStatus(checkInTs, sessionStartTs) : 'Tidak Hadir');
@@ -454,14 +459,18 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
                                                         let bgClass = "bg-red-100 text-red-700 dark:bg-red-900/30 border-red-200";
                                                         let label = 'Tidak Hadir';
 
-                                                        if (statusStr.includes('hadir') || statusStr === 'on_time') {
-                                                            icon = <CheckCircle2 className="w-3 h-3 text-green-500" />;
-                                                            bgClass = "bg-green-100 text-green-700 dark:bg-green-900/30 border-green-200";
-                                                            label = 'Hadir';
-                                                        } else if (statusStr.includes('terlambat')) {
+                                                        if (statusStr === 'terlambat') {
                                                             icon = <Clock className="w-3 h-3 text-amber-500" />;
                                                             bgClass = "bg-amber-100 text-amber-700 dark:bg-amber-900/30 border-amber-200";
                                                             label = 'Terlambat';
+                                                        } else if (statusStr === 'hadir' || statusStr === 'on_time') {
+                                                            icon = <CheckCircle2 className="w-3 h-3 text-green-500" />;
+                                                            bgClass = "bg-green-100 text-green-700 dark:bg-green-900/30 border-green-200";
+                                                            label = 'Hadir';
+                                                        } else if (statusStr === 'izin' || statusStr === 'sakit') {
+                                                            icon = <Clock className="w-3 h-3 text-blue-500" />;
+                                                            bgClass = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 border-blue-200";
+                                                            label = statusStr === 'izin' ? 'Izin' : 'Sakit';
                                                         }
 
                                                         return (

@@ -25,7 +25,7 @@ export const PAYMENT_DETAIL_SELECT = `
     catatan,
     transaction_id,
     created_at,
-    santri:santri_id(id, nama_lengkap, nomor_induk_qiroati, no_hp_ortu)
+    santri:santri_id(id, nama_lengkap, nomor_induk_qiroati, kategori, no_hp_ortu)
 `;
 
 export const PAYMENT_HISTORY_SELECT = `
@@ -66,6 +66,15 @@ export const selectedMonthToNumber = (value) => {
 export const formatPaymentPeriod = (bulan, tahun) => {
     if (!bulan && !tahun) return '-';
     return `${bulan ? monthNumberToName(bulan) : '-'} ${tahun || ''}`.trim();
+};
+
+export const formatSantriCategory = (value) => {
+    const category = String(value || '').trim();
+    if (!category) return 'TPQ';
+    if (category.toUpperCase() === 'PTPT') return 'PTPT';
+    if (category.toLowerCase() === 'dewasa') return 'Dewasa';
+    if (category.toLowerCase() === 'anak' || category.toUpperCase() === 'TPQ') return 'TPQ';
+    return category;
 };
 
 export const validatePaymentAmount = (amount) => Number.isFinite(Number(amount)) && Number(amount) >= 0;

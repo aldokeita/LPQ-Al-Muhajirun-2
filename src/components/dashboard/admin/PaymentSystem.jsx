@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import QRCode from 'qrcode';
-import { Search, Printer, Book, Wallet, Shirt, WalletCards as IdCard, BookOpen, X, Trash2, Briefcase, MessageSquare, ScanLine, Edit, Users, Check, Banknote, Loader2, AlertTriangle, Building, RotateCcw, Plus, Minus, ShoppingCart, Download } from 'lucide-react';
+import { Search, Printer, Book, Wallet, Shirt, WalletCards as IdCard, BookOpen, X, Trash2, Briefcase, MessageSquare, ScanLine, Edit, Users, Check, Banknote, Loader2, AlertTriangle, Building, RotateCcw, Plus, Minus, ShoppingCart, Download, FileText } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,6 +19,7 @@ import { toPng } from 'html-to-image';
 import {
   MONTH_NAMES,
   PAYMENT_HISTORY_SELECT,
+  formatSantriCategory,
   getPaymentErrorMessage,
   getSharedDefaultSppAmount,
   monthNameToNumber,
@@ -28,6 +29,7 @@ import {
 } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
+import PaymentProofModal from './PaymentProofModal';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -63,7 +65,7 @@ const SantriSelectorModal = ({ santriList, onSelect, open, onOpenChange, selecte
                 <Avatar className="w-20 h-20 mb-2"><AvatarImage src={santri.foto_url} /><AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback></Avatar>
                 <p className="text-sm font-medium leading-tight">{santri.nama_lengkap}</p>
                 <Badge variant={santri.kategori === 'Dewasa' ? 'secondary' : 'outline'} className="mt-1 text-[10px]">
-                    {santri.kategori === 'Dewasa' ? 'Dewasa' : 'TPQ'}
+                    {formatSantriCategory(santri.kategori)}
                 </Badge>
               </div>
             ))}
@@ -193,6 +195,7 @@ const PaymentSystem = () => {
   const [resetKey, setResetKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo.png');
+  const [historyProofPayment, setHistoryProofPayment] = useState(null);
   
   const location = useLocation();
 
@@ -202,7 +205,7 @@ const PaymentSystem = () => {
     const fetchSantri = async () => {
       const { data, error } = await supabase
         .from('santri')
-        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, default_spp_amount')
+        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, default_spp_amount, no_hp_ortu')
         .eq('status', 'Aktif')
         .order('nama_lengkap');
       if (error) toast({ title: "Error", description: "Gagal memuat data santri.", variant: "destructive" });
@@ -456,8 +459,8 @@ const PaymentSystem = () => {
   };
 
   const handleSendWhatsApp = () => {
-    if (!receiptData || selectedSantri.length === 0) return;
-    const santriWithPhone = selectedSantri.find(s => s.no_hp_ortu);
+    if (!receiptData || !receiptData.santri?.length) return;
+    const santriWithPhone = receiptData.santri.find(s => String(s.no_hp_ortu || '').trim());
     if (!santriWithPhone) { toast({ title: "Gagal", description: "Tidak ada nomor HP wali murid yang ditemukan.", variant: "destructive" }); return; }
     let phoneNumber = santriWithPhone.no_hp_ortu.replace(/\D/g, '');
     if (phoneNumber.startsWith('0')) phoneNumber = '62' + phoneNumber.substring(1);
@@ -471,11 +474,9 @@ const PaymentSystem = () => {
         return `- ${name}: Rp${subTotal.toLocaleString('id-ID')}`;
     }).join('\n');
 
-    const santriNames = selectedSantri.map(s => s.nama_lengkap).join(', ');
+    const santriNames = receiptData.santri.map(s => s.nama_lengkap).join(', ');
     const totalAmount = receiptData.total; 
-    let credentialsText = "";
-    selectedSantri.forEach(s => { const username = s.email || s.nama_panggilan || '-'; const password = s.password || '-'; credentialsText += `Username: ${username}\nPassword: ${password}\n\n`; });
-    const message = `Assalamualaikum Wr. Wb.\n\nTerima kasih. Telah diterima pembayaran dari ananda *${santriNames}* pada tanggal ${receiptData.timestamp.toLocaleDateString('id-ID')} dengan rincian:\n${itemsText}\n\n*Total: Rp${totalAmount.toLocaleString('id-ID')}*\n\nStatus: *LUNAS* via ${receiptData.method}\n\nCek status pembayaran: https://lpqalmuhajirun.id/login\n\n${credentialsText}Terima kasih,\nAdmin LPQ Al-Muhajirun`;
+    const message = `Assalamualaikum Wr. Wb.\n\nTerima kasih. Telah diterima pembayaran dari ananda *${santriNames}* pada tanggal ${receiptData.timestamp.toLocaleDateString('id-ID')} dengan rincian:\n${itemsText}\n\n*Total: Rp${totalAmount.toLocaleString('id-ID')}*\n\nStatus: *LUNAS* via ${receiptData.method}\n\nCek status pembayaran: https://lpqalmuhajirun.id/login\n\nTerima kasih,\nAdmin LPQ Al-Muhajirun`;
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -559,7 +560,7 @@ const PaymentSystem = () => {
                     <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-xl">Riwayat Bayar Santri</h3><div className="flex gap-2 items-center"><span className="text-xs font-medium mr-1">Filter Tagihan:</span><Select value={historyFilter.year.toString()} onValueChange={val => setHistoryFilter(f => ({...f, year: val === 'all' ? 'all' : Number(val)}))}><SelectTrigger className="w-[100px] h-8"><SelectValue placeholder="Tahun" /></SelectTrigger><SelectContent><SelectItem value="all">Semua</SelectItem>{availableYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select><Select value={historyFilter.month.toString()} onValueChange={val => setHistoryFilter(f => ({...f, month: val === 'all' ? 'all' : Number(val)}))}><SelectTrigger className="w-[120px] h-8"><SelectValue placeholder="Bulan" /></SelectTrigger><SelectContent><SelectItem value="all">Semua</SelectItem>{monthsList.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}</SelectContent></Select>{selectedHistory.length > 0 && <Button onClick={confirmDelete} variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-2"/> Hapus ({selectedHistory.length})</Button>}</div></div>
                     <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2">
                     {filteredHistory.length > 0 && (<div className="flex items-center px-2"><Checkbox id="selectAllHistory" checked={selectedHistory.length === filteredHistory.length && filteredHistory.length > 0} onCheckedChange={checked => checked ? setSelectedHistory(filteredHistory.map(p => p.id)) : setSelectedHistory([])} /><label htmlFor="selectAllHistory" className="ml-2 text-sm font-medium">Pilih Semua</label></div>)}
-                    {filteredHistory.map(p => (<div key={p.id} className="flex items-center justify-between p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"><div className="flex items-center gap-3 w-full overflow-hidden"><Checkbox id={`history-${p.id}`} checked={selectedHistory.includes(p.id)} onCheckedChange={() => handleSelectHistory(p.id)} className="flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-semibold truncate text-sm">{p.catatan}</p><div className="flex flex-wrap items-center gap-2 text-xs text-gray-500"><span>{new Date(p.tanggal_pembayaran).toLocaleString('id-ID')}</span>{p.bulan && <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-[10px]">Tagihan: {monthNumberToName(p.bulan)} {p.tahun}</span>}</div></div><p className="font-bold whitespace-nowrap text-sm text-primary">Rp{Number(p.jumlah || 0).toLocaleString('id-ID')}</p></div></div>))}
+                    {filteredHistory.map(p => (<div key={p.id} className="flex items-center justify-between gap-2 p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"><div className="flex items-center gap-3 min-w-0 flex-1"><Checkbox id={`history-${p.id}`} checked={selectedHistory.includes(p.id)} onCheckedChange={() => handleSelectHistory(p.id)} className="flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-semibold truncate text-sm">{p.catatan}</p><div className="flex flex-wrap items-center gap-2 text-xs text-gray-500"><span>{new Date(p.tanggal_pembayaran).toLocaleString('id-ID')}</span>{p.bulan && <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-[10px]">Tagihan: {monthNumberToName(p.bulan)} {p.tahun}</span>}</div></div><p className="font-bold whitespace-nowrap text-sm text-primary">Rp{Number(p.jumlah || 0).toLocaleString('id-ID')}</p></div><Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40" onClick={() => setHistoryProofPayment(p)} title="Buka bukti pembayaran" aria-label="Buka bukti pembayaran"><FileText className="h-4 w-4" /></Button></div>))}
                     {filteredHistory.length === 0 && <p className="text-center text-gray-500 py-4">Tidak ada riwayat untuk periode ini.</p>}</div>
                 </div>
                 )}
@@ -656,6 +657,11 @@ const PaymentSystem = () => {
         </Dialog>
 
         <DeleteConfirmationDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} onConfirm={handleDeleteHistory} count={selectedHistory.length} />
+        <PaymentProofModal
+          isOpen={Boolean(historyProofPayment)}
+          onClose={() => setHistoryProofPayment(null)}
+          payment={historyProofPayment}
+        />
       </div>
     </>
   );
