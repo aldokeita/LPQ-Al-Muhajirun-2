@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
-import { Award, Edit, Trash2, Clock, CalendarDays, History, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Minus, FileText, Download, Loader2, PieChart as PieChartIcon, BookOpen } from 'lucide-react';
+import { Award, Edit, Trash2, Clock, CalendarDays, History, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Minus, FileText, Download, Loader2, PieChart as PieChartIcon, BookOpen, ArrowRightLeft } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,7 @@ const jilidOptions = [
     'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
 ];
 
-const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }) => {
+const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote, onCategoryChanged }) => {
     const { user, role } = useAuth();
     const [notes, setNotes] = useState([]);
     const [newNote, setNewNote] = useState('');
@@ -51,7 +51,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const [raporYear, setRaporYear] = useState(new Date().getFullYear().toString());
     const [isGeneratingRapor, setIsGeneratingRapor] = useState(false);
     const [isLoadingReportData, setIsLoadingReportData] = useState(false);
+    const [isMigratingCategory, setIsMigratingCategory] = useState(false);
     const isPtpt = String(santri?.kategori || '').toUpperCase() === 'PTPT';
+    const isTpq = ['', 'ANAK', 'TPQ'].includes(String(santri?.kategori || '').toUpperCase());
     const reportHafalanItems = isPtpt ? hafalanData?.tahfizh?.items : hafalanData?.surat?.items;
 
     const fetchNotes = useCallback(async () => {
@@ -196,6 +198,46 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
 
+    const handleCategoryMigration = async () => {
+        const targetCategory = isPtpt ? 'Anak' : 'PTPT';
+        const targetLabel = isPtpt ? 'TPQ' : 'PTPT';
+        const confirmed = window.confirm(
+            `Migrasikan ${santri.nama_lengkap} ke ${targetLabel}? Kelas aktif saat ini akan dilepas agar santri dapat ditempatkan ke kelas ${targetLabel}.`,
+        );
+        if (!confirmed) return;
+
+        setIsMigratingCategory(true);
+        try {
+            const { data, error } = await supabase.rpc('change_santri_category', {
+                p_santri_id: santri.id,
+                p_target_category: targetCategory,
+                p_reason: `Migrasi kategori ${isPtpt ? 'PTPT ke TPQ' : 'TPQ ke PTPT'} melalui detail santri`,
+            });
+            if (error) throw error;
+
+            const result = Array.isArray(data) ? data[0] : data;
+            toast({
+                title: 'Migrasi berhasil',
+                description: result?.message || `${santri.nama_lengkap} berhasil dipindahkan ke ${targetLabel}.`,
+            });
+            onCategoryChanged?.({
+                ...santri,
+                kategori: targetCategory,
+                current_class_id: null,
+                class: null,
+            });
+            onOpenChange(false);
+        } catch (error) {
+            toast({
+                title: 'Migrasi gagal',
+                description: error?.message || 'Kategori santri belum dapat dipindahkan.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsMigratingCategory(false);
+        }
+    };
+
     if (!santri) return null;
 
     // Helper for year options
@@ -215,6 +257,17 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <DialogDescription>Informasi lengkap & catatan perkembangan akademik.</DialogDescription>
                             </div>
                             <div className="flex flex-wrap gap-2">
+                                {role === 'admin' && (isTpq || isPtpt) && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleCategoryMigration}
+                                        disabled={isMigratingCategory}
+                                        className="border-cyan-300 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/50"
+                                    >
+                                        {isMigratingCategory ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRightLeft className="w-4 h-4 mr-2" />}
+                                        Migrasi ke {isPtpt ? 'TPQ' : 'PTPT'}
+                                    </Button>
+                                )}
                                 <Button
                                     variant="outline"
                                     onClick={fetchReportViewData}

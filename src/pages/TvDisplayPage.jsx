@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useTheme } from '@/contexts/ThemeContext';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
-import { buildSantriAttendancePayload, getLocalDateString, getLocalTimeString } from '@/lib/attendanceAdapters';
+import { buildSantriAttendancePayload, getLocalDateString, getLocalTimeString, isExplicitAbsentAttendance } from '@/lib/attendanceAdapters';
 import { DEFAULT_SESSION_TIMES, resolveSantriAttendanceSession } from '@/utils/AttendanceStatusLogic';
 
 const sessionTimes = {
@@ -250,9 +250,12 @@ const TvDisplayPage = () => {
         if (!user) return; 
 
         // Check existing attendance
-        const { data: existing } = await supabase.from('attendance').select('id').eq('user_id', user.id).eq('attendance_date', today).maybeSingle();
-        
-        if (!existing) {
+        const { data: existing } = await supabase.from('attendance').select('id, status').eq('user_id', user.id).eq('attendance_date', today).maybeSingle();
+        const shouldRestoreAbsentAttendance = userRole === 'santri'
+            && existing
+            && isExplicitAbsentAttendance(existing.status);
+
+        if (!existing || shouldRestoreAbsentAttendance) {
             const now = new Date();
             const santriSession = userRole === 'santri'
                 ? resolveSantriAttendanceSession({
@@ -283,8 +286,27 @@ const TvDisplayPage = () => {
                     status: 'Hadir',
                     source: 'rfid',
                 };
-            await supabase.from('attendance').insert(payload);
-            setDailyAttendance(prev => [...prev, { user_id: user.id, check_in_time: payload.check_in_time, class_id: payload.class_id, status: payload.status }]);
+            if (shouldRestoreAbsentAttendance) {
+                await supabase
+                    .from('attendance')
+                    .update({
+                        check_in_time: payload.check_in_time,
+                        check_in_timestamp: payload.check_in_timestamp,
+                        class_id: payload.class_id,
+                        attended_session: payload.attended_session,
+                        status: payload.status,
+                        source: 'rfid',
+                    })
+                    .eq('id', existing.id);
+                setDailyAttendance(prev => prev.map(record => (
+                    record.user_id === user.id
+                        ? { ...record, check_in_time: payload.check_in_time, class_id: payload.class_id, status: payload.status }
+                        : record
+                )));
+            } else {
+                await supabase.from('attendance').insert(payload);
+                setDailyAttendance(prev => [...prev, { user_id: user.id, check_in_time: payload.check_in_time, class_id: payload.class_id, status: payload.status }]);
+            }
         }
 
         setPopupScan({ name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, jilid: user.jilid });

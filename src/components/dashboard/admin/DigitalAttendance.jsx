@@ -14,6 +14,7 @@ import {
     getSantriAttendanceSuccessMessage,
     getSantriSession,
     isActiveSantri,
+    isExplicitAbsentAttendance,
     normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
@@ -235,7 +236,11 @@ const DigitalAttendance = () => {
                 .eq('sesi', sesiUser)
                 .maybeSingle();
 
-            if (existingAttendance) {
+            const shouldRestoreAbsentAttendance = userRole === 'santri'
+                && existingAttendance
+                && isExplicitAbsentAttendance(existingAttendance.status);
+
+            if (existingAttendance && !shouldRestoreAbsentAttendance) {
                 setLastScan({
                     type: 'success',
                     message: 'Absensi sudah tercatat.',
@@ -277,7 +282,20 @@ const DigitalAttendance = () => {
                     status: checkInStatus.status || 'Hadir',
                     source: 'rfid',
                 };
-            const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
+            const attendanceMutation = shouldRestoreAbsentAttendance
+                ? supabase
+                    .from('attendance')
+                    .update({
+                        check_in_time: newAttendance.check_in_time,
+                        check_in_timestamp: newAttendance.check_in_timestamp,
+                        class_id: newAttendance.class_id,
+                        attended_session: newAttendance.attended_session,
+                        status: newAttendance.status,
+                        source: 'rfid',
+                    })
+                    .eq('id', existingAttendance.id)
+                : supabase.from('attendance').insert(newAttendance);
+            const { error: insertError } = await attendanceMutation;
 
             if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url });
             } else {

@@ -351,6 +351,7 @@ const AdminDashboard = () => {
         santri={selectedSantri}
         isOpen={isSantriModalOpen}
         onOpenChange={setIsSantriModalOpen}
+        onCategoryChanged={setSelectedSantri}
       />
     </div>
   );

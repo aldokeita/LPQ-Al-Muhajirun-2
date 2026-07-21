@@ -947,7 +947,17 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           </DialogContent>
         </Dialog>
 
-        <SantriDetailModal santri={selectedSantri} isOpen={isSantriDetailOpen} onOpenChange={setIsSantriDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
+        <SantriDetailModal
+          santri={selectedSantri}
+          isOpen={isSantriDetailOpen}
+          onOpenChange={setIsSantriDetailOpen}
+          onPromote={() => initiateJilidChange(selectedSantri, 'up')}
+          onDemote={() => initiateJilidChange(selectedSantri, 'down')}
+          onCategoryChanged={() => {
+            setSelectedSantri(null);
+            fetchAllData();
+          }}
+        />
         <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori={kategori} />
         <ClassPerformanceModal isOpen={isPerformanceOpen} onClose={() => setIsPerformanceOpen(false)} classItem={selectedClass} />
         <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} />

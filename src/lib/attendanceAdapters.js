@@ -6,10 +6,15 @@ import {
 } from '@/utils/AttendanceStatusLogic';
 
 const ACTIVE_STATUS = new Set(['aktif', 'active']);
+const EXPLICIT_ABSENT_STATUSES = new Set(['tidak hadir', 'alpha', 'ghaib', 'absen']);
 
 export const normalizeRfidTag = (value) => String(value || '').trim();
 
 export const isActiveSantri = (status) => ACTIVE_STATUS.has(String(status || '').trim().toLowerCase());
+
+export const isExplicitAbsentAttendance = (status) => (
+    EXPLICIT_ABSENT_STATUSES.has(String(status || '').trim().toLowerCase())
+);
 
 export const getLocalDateString = (date = new Date()) => getJakartaDateString(date);
 

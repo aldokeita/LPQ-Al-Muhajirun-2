@@ -51,6 +51,7 @@ import {
   getSantriAttendanceSuccessMessage,
   getSantriSession,
   isActiveSantri,
+  isExplicitAbsentAttendance,
   normalizeRfidTag,
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
@@ -627,7 +628,11 @@ const DigitalAttendancePage = () => {
         const randomQuote = (userRole === 'guru' || isAdult) ? (isAdult ? adultQuotes[Math.floor(Math.random() * adultQuotes.length)] : guruQuotes[Math.floor(Math.random() * guruQuotes.length)]) : motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
         const successData = { type: 'success', role: userRole, kategori, name: user.nama || user.nama_lengkap, photo: user.foto_url, quote: randomQuote, points: user.points, jilid: user.jilid, jabatan: user.jabatan, no_hp: user.no_hp, rfid: tag, gender: user.jenis_kelamin, isPentashih, sesi: sesiUser };
 
-        if (existingAttendance) {
+        const shouldRestoreAbsentAttendance = userRole === 'santri'
+          && existingAttendance
+          && isExplicitAbsentAttendance(existingAttendance.status);
+
+        if (existingAttendance && !shouldRestoreAbsentAttendance) {
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
              const [monthlyStats, hafalanCount] = await Promise.all([
@@ -683,12 +688,25 @@ const DigitalAttendancePage = () => {
               status: attendanceStatusText,
               source: 'rfid',
           };
-        const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
+        const attendanceMutation = shouldRestoreAbsentAttendance
+          ? supabase
+              .from('attendance')
+              .update({
+                check_in_time: newAttendance.check_in_time,
+                check_in_timestamp: newAttendance.check_in_timestamp,
+                class_id: newAttendance.class_id,
+                attended_session: newAttendance.attended_session,
+                status: newAttendance.status,
+                source: 'rfid',
+              })
+              .eq('id', existingAttendance.id)
+          : supabase.from('attendance').insert(newAttendance);
+        const { error: insertError } = await attendanceMutation;
 
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
           let newPoints = user.points || 0;
-          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir') {
+          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
             await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
             newPoints += 1;
           }

@@ -323,6 +323,39 @@ Add-Check "santri management and attendance recap paginate ten records server-si
   if ($pagination -notmatch "Halaman \{safePage\} dari \{totalPages\}") { throw "pagination status is missing" }
 }
 
+Add-Check "attendance recap filters santri by registered session" {
+  $recap = Read-Text "src/components/dashboard/admin/AttendanceRecap.jsx"
+  if ($recap -notmatch "selectedSession") { throw "attendance recap session state is missing" }
+  if ($recap -notmatch "getSessionNumber\(selectedSession\)") { throw "attendance recap does not normalize numeric session values" }
+  if ($recap -notmatch "Semua Sesi") { throw "attendance recap session filter UI is missing" }
+}
+
+Add-Check "admin detail can migrate TPQ and PTPT through guarded RPC" {
+  $modal = Read-Text "src/components/dashboard/shared/SantriDetailModal.jsx"
+  $migration = Read-Text "supabase/migrations/20260721000300_change_santri_category_ptpt.sql"
+  if ($modal -notmatch "Migrasi ke \{isPtpt \? 'TPQ' : 'PTPT'\}") { throw "TPQ/PTPT migration button is missing" }
+  if ($modal -notmatch "rpc\('change_santri_category'") { throw "category migration does not use the atomic RPC" }
+  if ($modal -notmatch "role === 'admin'") { throw "category migration control is not admin-only" }
+  if ($migration -notmatch "when 'PTPT' then 'PTPT'") { throw "category RPC migration does not support PTPT" }
+  if ($migration -notmatch "set search_path = public, pg_temp") { throw "category RPC lacks an explicit search path" }
+}
+
+Add-Check "RFID scan restores an explicit absence without duplicating attendance" {
+  $adapter = Read-Text "src/lib/attendanceAdapters.js"
+  $publicPage = Read-Text "src/pages/DigitalAttendancePage.jsx"
+  $adminPage = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"
+  $tvPage = Read-Text "src/pages/TvDisplayPage.jsx"
+
+  if ($adapter -notmatch "isExplicitAbsentAttendance") { throw "explicit absence helper is missing" }
+  if ($adapter -notmatch "tidak hadir.*alpha.*ghaib.*absen") { throw "explicit absence statuses are incomplete" }
+  foreach ($source in @($publicPage, $adminPage, $tvPage)) {
+    if ($source -notmatch "shouldRestoreAbsentAttendance") { throw "a digital attendance surface does not restore absence" }
+    if ($source -notmatch "\.update\(\{") { throw "absence restoration does not update the existing record" }
+    if ($source -notmatch "\.eq\('id', existingAttendance\.id\)|\.eq\('id', existing\.id\)") { throw "absence restoration is not scoped to the existing record" }
+  }
+  if ($publicPage -notmatch "!shouldRestoreAbsentAttendance") { throw "restored absence can award duplicate gamification points" }
+}
+
 Add-Check "payment proof reloads stored payment record before generating receipt" {
   $text = Read-Text "src/components/dashboard/admin/PaymentProofModal.jsx"
   if ($text -notmatch "from\('payments'\)") { throw "proof modal does not read stored payment" }

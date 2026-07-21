@@ -17,6 +17,7 @@ import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, resolveAttendanceRec
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
 import DataPagination from '@/components/dashboard/shared/DataPagination';
+import { getAllSessions, getSessionNumber } from '@/utils/sessionMapping';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const PAGE_SIZE = 10;
@@ -106,6 +107,7 @@ const AttendanceRecap = () => {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedClass, setSelectedClass] = useState('all');
+    const [selectedSession, setSelectedSession] = useState('all');
     const [availableYears, setAvailableYears] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortKey, setSortKey] = useState('name');
@@ -128,7 +130,7 @@ const AttendanceRecap = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedYear, selectedMonth, selectedClass, activeTab, debouncedSearch, sortKey, sortOrder]);
+    }, [selectedYear, selectedMonth, selectedClass, selectedSession, activeTab, debouncedSearch, sortKey, sortOrder]);
 
     const fetchAllData = useCallback(async () => {
         setIsLoading(true);
@@ -181,6 +183,13 @@ const AttendanceRecap = () => {
                 santriQuery = santriQuery.in('current_class_id', classIds);
             }
 
+            if (selectedSession !== 'all') {
+                santriQuery = santriQuery.in('sesi_mengaji', [
+                    String(getSessionNumber(selectedSession)),
+                    selectedSession,
+                ]);
+            }
+
             if (normalizedSearch) santriQuery = santriQuery.ilike('nama_lengkap', `%${normalizedSearch}%`);
             santriQuery = santriQuery.order('nama_lengkap', { ascending: true }).range(from, to);
 
@@ -229,7 +238,7 @@ const AttendanceRecap = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, currentPage, debouncedSearch, selectedYear, selectedMonth, role, user?.id, selectedClass]);
+    }, [activeTab, currentPage, debouncedSearch, selectedYear, selectedMonth, role, user?.id, selectedClass, selectedSession]);
 
     useEffect(() => {
         fetchAllData();
@@ -466,6 +475,15 @@ const AttendanceRecap = () => {
                     <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{availableYears.map(year => <SelectItem key={year} value={year.toString()}>{year}</SelectItem>)}</SelectContent></Select>
                     <Select value={selectedMonth.toString()} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((month, index) => <SelectItem key={month} value={index.toString()}>{month}</SelectItem>)}</SelectContent></Select>
                     <Select value={selectedClass} onValueChange={setSelectedClass}><SelectTrigger className="w-[180px]"><SelectValue placeholder="Semua Kelas" /></SelectTrigger><SelectContent><SelectItem value="all">{role === 'guru' ? 'Semua Kelas Saya' : 'Semua Kelas'}</SelectItem>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.nama_kelas}</SelectItem>)}</SelectContent></Select>
+                    <Select value={selectedSession} onValueChange={setSelectedSession}>
+                        <SelectTrigger className="w-[150px]"><SelectValue placeholder="Semua Sesi" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Sesi</SelectItem>
+                            {getAllSessions().map(session => (
+                                <SelectItem key={session.id} value={session.name}>{session.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Button onClick={fetchAllData} variant="outline" size="icon" title="Refresh Data"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}/></Button>
                 </div>
             </div>
