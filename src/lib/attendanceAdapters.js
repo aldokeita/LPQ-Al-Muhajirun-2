@@ -2,6 +2,7 @@ import {
     evaluateAttendanceWindow,
     getJakartaDateString,
     getJakartaTimeString,
+    normalizeAttendanceSessionName,
 } from '@/utils/AttendanceStatusLogic';
 
 const ACTIVE_STATUS = new Set(['aktif', 'active']);
@@ -18,7 +19,7 @@ export const getSantriSession = (santri, fallback = 'Pagi') => (
     santri?.sesi_mengaji || santri?.class?.sesi || fallback
 );
 
-export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), status = null }) => {
+export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), status = null, attendedSession = null }) => {
     const attendanceDate = getLocalDateString(timestamp);
     const sesi = getSantriSession(santri);
     const checkInTimestamp = timestamp.toISOString();
@@ -32,9 +33,21 @@ export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), s
         check_in_timestamp: checkInTimestamp,
         class_id: santri.current_class_id,
         sesi,
+        attended_session: normalizeAttendanceSessionName(attendedSession) || sesi,
         status: status || windowState.status || 'Terlambat',
         source: 'rfid',
     };
+};
+
+export const getSantriAttendanceSuccessMessage = ({ assignedSession, attendedSession }) => {
+    const registered = normalizeAttendanceSessionName(assignedSession);
+    const actual = normalizeAttendanceSessionName(attendedSession) || registered;
+
+    if (registered && actual && registered !== actual) {
+        return `Absensi sesi ${actual} berhasil. Kehadiran tercatat untuk sesi ${registered}.`;
+    }
+
+    return `Absensi sesi ${actual || registered || 'belajar'} berhasil.`;
 };
 
 export const getAttendanceErrorMessage = (error) => {

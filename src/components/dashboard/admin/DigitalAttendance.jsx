@@ -11,6 +11,7 @@ import {
     buildSantriAttendancePayload,
     getAttendanceErrorMessage,
     getLocalDateString,
+    getSantriAttendanceSuccessMessage,
     getSantriSession,
     isActiveSantri,
     normalizeRfidTag,
@@ -21,6 +22,7 @@ import {
     evaluateAttendanceWindow,
     getJakartaTimeString,
     normalizeAttendanceSessionName,
+    resolveSantriAttendanceSession,
 } from '@/utils/AttendanceStatusLogic';
 
 const sessionTimes = DEFAULT_SESSION_TIMES;
@@ -246,12 +248,24 @@ const DigitalAttendance = () => {
             }
 
             const now = new Date();
-            const checkInStatus = canCheckIn(sesiUser, userRole, now);
+            const checkInStatus = userRole === 'santri'
+                ? resolveSantriAttendanceSession({
+                    timestamp: now,
+                    dateStr: today,
+                    assignedSession: sesiUser,
+                    sessionTimes,
+                })
+                : canCheckIn(sesiUser, userRole, now);
             if (!checkInStatus.can) { setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url }); return; }
 
             const timestamp = now;
             const newAttendance = userRole === 'santri'
-                ? buildSantriAttendancePayload({ santri: user, timestamp, status: checkInStatus.status })
+                ? buildSantriAttendancePayload({
+                    santri: user,
+                    timestamp,
+                    status: checkInStatus.status,
+                    attendedSession: checkInStatus.attendedSession,
+                })
                 : {
                     user_id: user.id,
                     role: userRole,
@@ -266,7 +280,18 @@ const DigitalAttendance = () => {
             const { error: insertError } = await supabase.from('attendance').insert(newAttendance);
 
             if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url });
-            } else { setLastScan({ type: 'success', message: `Absensi sesi ${sesiUser} berhasil!`, name: user.nama || user.nama_lengkap, photo: user.foto_url, time: newAttendance.check_in_time, status: newAttendance.status }); }
+            } else {
+                setLastScan({
+                    type: 'success',
+                    message: userRole === 'santri'
+                        ? getSantriAttendanceSuccessMessage({ assignedSession: sesiUser, attendedSession: newAttendance.attended_session })
+                        : `Absensi sesi ${sesiUser} berhasil!`,
+                    name: user.nama || user.nama_lengkap,
+                    photo: user.foto_url,
+                    time: newAttendance.check_in_time,
+                    status: newAttendance.status,
+                });
+            }
         } finally {
             setIsLoading(false);
             setRfidTag('');

@@ -112,7 +112,9 @@ with expected_migrations(version) as (
     ('20260717000100'),
     ('20260717000200'),
     ('20260717000300'),
-    ('20260717000400')
+    ('20260717000400'),
+    ('20260721000100'),
+    ('20260721000200')
 ),
 sensitive_tables(table_name) as (
   values
@@ -146,7 +148,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 30 and not exists (
+       (count(sm.version) = 32 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -163,6 +165,18 @@ select 'no public application password columns',
 from information_schema.columns
 where table_schema = 'public'
   and column_name ilike '%password%'
+
+union all
+select 'attendance stores actual session separately',
+       exists (
+         select 1
+         from information_schema.columns
+         where table_schema = 'public'
+           and table_name = 'attendance'
+           and column_name = 'attended_session'
+           and data_type = 'text'
+       )::text,
+       'column=attendance.attended_session'
 
 union all
 select 'santri nomor induk is text',

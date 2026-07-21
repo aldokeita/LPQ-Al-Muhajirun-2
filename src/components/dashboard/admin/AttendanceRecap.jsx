@@ -190,7 +190,9 @@ const AttendanceRecap = () => {
 
     const handleIconClick = (record, day, user) => {
         const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const sessionStartTime = getSessionStartTimestamp(dateStr, user.sesi_mengaji || 'Pagi');
+        const registeredSession = user.sesi_mengaji || 'Pagi';
+        const attendedSession = record?.attended_session || registeredSession;
+        const sessionStartTime = getSessionStartTimestamp(dateStr, attendedSession);
 
         if (!record && user[day] !== 'H') {
             // Unrecorded past day
@@ -204,6 +206,7 @@ const AttendanceRecap = () => {
                 user_id: user.id,
                 attendance_date: dateStr,
                 sesi: user.sesi_mengaji || 'Pagi',
+                attended_session: registeredSession,
                 class_id: user.current_class_id || user.id_kelas,
                 user_role: user.role
             });
@@ -224,6 +227,7 @@ const AttendanceRecap = () => {
             user_id: user.id,
             attendance_date: dateStr,
             sesi: user.sesi_mengaji || 'Pagi',
+            attended_session: attendedSession,
             class_id: user.current_class_id || user.id_kelas,
             user_role: user.role
         });
@@ -283,7 +287,10 @@ const AttendanceRecap = () => {
 
                 if (isPast) {
                     const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const sessionStart = getSessionStartTimestamp(dateStr, user.sesi_mengaji || 'Pagi');
+                    const sessionStart = getSessionStartTimestamp(
+                        dateStr,
+                        attendanceRecord?.attended_session || user.sesi_mengaji || 'Pagi',
+                    );
                     const recordStatus = resolveAttendanceRecordStatus(attendanceRecord, sessionStart);
                     const isPresent = recordStatus === 'Hadir' || recordStatus === 'Terlambat';
                     attendanceByDate[day] = isPresent ? 'H' : 'A';
@@ -513,7 +520,10 @@ const AttendanceRecap = () => {
                                             const status = user[day];
                                             const record = user[`${day}_record`];
                                             const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                                            const sessionStart = getSessionStartTimestamp(dateStr, user.sesi_mengaji || 'Pagi');
+                                            const sessionStart = getSessionStartTimestamp(
+                                                dateStr,
+                                                record?.attended_session || user.sesi_mengaji || 'Pagi',
+                                            );
                                             let displayStatus = status === 'H' ? 'Hadir' : (status === 'A' ? 'Tidak Hadir' : 'Future');
 
                                             if (status === 'H' && record) {

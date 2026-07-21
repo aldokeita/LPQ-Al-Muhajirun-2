@@ -144,6 +144,61 @@ export const evaluateAttendanceWindow = ({
   };
 };
 
+export const resolveSantriAttendanceSession = ({
+  timestamp = new Date(),
+  dateStr = getJakartaDateString(timestamp),
+  assignedSession,
+  sessionTimes = DEFAULT_SESSION_TIMES,
+} = {}) => {
+  const normalizedAssignedSession = normalizeAttendanceSessionName(assignedSession);
+  const assignedWindow = evaluateAttendanceWindow({
+    timestamp,
+    dateStr,
+    sesi: normalizedAssignedSession,
+    sessionTimes,
+  });
+
+  if (assignedWindow.canRecord) {
+    return {
+      can: true,
+      ...assignedWindow,
+      assignedSession: normalizedAssignedSession,
+      attendedSession: normalizedAssignedSession,
+      isAlternateSession: false,
+    };
+  }
+
+  const activeSessions = Object.keys(sessionTimes || {})
+    .map(sesi => ({
+      sesi: normalizeAttendanceSessionName(sesi),
+      window: evaluateAttendanceWindow({ timestamp, dateStr, sesi, sessionTimes }),
+    }))
+    .filter(item => item.window.canRecord)
+    .sort((a, b) => new Date(b.window.openAt) - new Date(a.window.openAt));
+
+  const actualSession = activeSessions[0];
+  if (actualSession) {
+    return {
+      can: true,
+      ...actualSession.window,
+      assignedSession: normalizedAssignedSession,
+      attendedSession: actualSession.sesi,
+      isAlternateSession: actualSession.sesi !== normalizedAssignedSession,
+    };
+  }
+
+  return {
+    can: false,
+    canRecord: false,
+    phase: 'outside_all_sessions',
+    status: null,
+    assignedSession: normalizedAssignedSession,
+    attendedSession: null,
+    isAlternateSession: false,
+    message: 'Tidak ada sesi absensi yang sedang dibuka saat ini.',
+  };
+};
+
 export const determineAttendanceStatus = (checkInTimestamp, sessionStartTime, graceMinutes = LATE_GRACE_MINUTES) => {
   if (!checkInTimestamp) return 'Tidak Hadir';
   if (!sessionStartTime) return 'Hadir';
@@ -165,6 +220,8 @@ export const resolveAttendanceRecordStatus = (record, sessionStartTime, graceMin
   if (EXPLICIT_ABSENCE_STATUSES.has(storedStatus)) return 'Tidak Hadir';
   if (storedStatus === 'izin') return 'Izin';
   if (storedStatus === 'sakit') return 'Sakit';
+  if (record.attended_session && storedStatus === 'terlambat') return 'Terlambat';
+  if (record.attended_session && ['hadir', 'tepat waktu'].includes(storedStatus)) return 'Hadir';
 
   // Older imported present records can lack check_in_timestamp. Only those
   // records may fall back to created_at; corrected absences must stay absent.

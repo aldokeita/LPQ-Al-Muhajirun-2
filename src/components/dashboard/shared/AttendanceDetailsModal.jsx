@@ -75,6 +75,7 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
           check_in_timestamp: checkInTimestamp,
           class_id: details.class_id,
           sesi: details.sesi,
+          attended_session: details.attended_session || details.sesi,
           status: newStatus
         };
         const { error } = await supabase.from('attendance').insert(newAttendance);

@@ -16,6 +16,7 @@ import { Helmet } from 'react-helmet';
 import { useTheme } from '@/contexts/ThemeContext';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { buildSantriAttendancePayload, getLocalDateString, getLocalTimeString } from '@/lib/attendanceAdapters';
+import { DEFAULT_SESSION_TIMES, resolveSantriAttendanceSession } from '@/utils/AttendanceStatusLogic';
 
 const sessionTimes = {
   'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
@@ -253,8 +254,24 @@ const TvDisplayPage = () => {
         
         if (!existing) {
             const now = new Date();
+            const santriSession = userRole === 'santri'
+                ? resolveSantriAttendanceSession({
+                    timestamp: now,
+                    dateStr: today,
+                    assignedSession: sesiUser,
+                    sessionTimes: DEFAULT_SESSION_TIMES,
+                })
+                : null;
+
+            if (santriSession && !santriSession.can) return;
+
             const payload = userRole === 'santri'
-                ? buildSantriAttendancePayload({ santri: user, timestamp: now })
+                ? buildSantriAttendancePayload({
+                    santri: user,
+                    timestamp: now,
+                    status: santriSession.status,
+                    attendedSession: santriSession.attendedSession,
+                })
                 : {
                     user_id: user.id,
                     role: userRole,

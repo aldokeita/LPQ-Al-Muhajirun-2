@@ -41,12 +41,14 @@ import {
   evaluateAttendanceWindow,
   getJakartaTimeString,
   normalizeAttendanceSessionName,
+  resolveSantriAttendanceSession,
 } from '@/utils/AttendanceStatusLogic';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import {
   buildSantriAttendancePayload,
   getAttendanceErrorMessage,
   getLocalDateString,
+  getSantriAttendanceSuccessMessage,
   getSantriSession,
   isActiveSantri,
   normalizeRfidTag,
@@ -647,17 +649,29 @@ const DigitalAttendancePage = () => {
           return;
         }
 
-        const checkInStatus = canCheckIn(sesiUser, userRole, isPentashih, todayDate);
+        const checkInStatus = userRole === 'santri'
+          ? resolveSantriAttendanceSession({
+              timestamp: todayDate,
+              dateStr: todayStr,
+              assignedSession: sesiUser,
+              sessionTimes,
+            })
+          : canCheckIn(sesiUser, userRole, isPentashih, todayDate);
         if (!checkInStatus.can) {
           setLastScan({ type: 'warning', message: checkInStatus.message, name: user.nama || user.nama_lengkap, photo: user.foto_url, role: userRole, rfid: tag });
           return;
         }
 
-        const timestamp = new Date().toISOString();
+        const timestamp = todayDate.toISOString();
         const attendanceStatusText = checkInStatus.status || 'Hadir';
 
         const newAttendance = userRole === 'santri'
-          ? buildSantriAttendancePayload({ santri: user, timestamp: new Date(), status: attendanceStatusText })
+          ? buildSantriAttendancePayload({
+              santri: user,
+              timestamp: todayDate,
+              status: attendanceStatusText,
+              attendedSession: checkInStatus.attendedSession,
+            })
           : {
               user_id: user.id,
               role: userRole,
@@ -706,7 +720,20 @@ const DigitalAttendancePage = () => {
               streak++;
               guruStats = { hours: hoursTaught, streak, session: sesiUser };
           }
-          setLastScan({ ...successData, message: userRole === 'santri' ? `Selamat, kamu udah berhasil melakukan absensi pada sesi ${sesiUser || 'belajar'} ini.` : `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`, time: newAttendance.check_in_time, status: newAttendance.status, points: newPoints, levelInfo, monthlyStats, hafalanCount, adultStats, guruStats });
+          setLastScan({
+            ...successData,
+            message: userRole === 'santri'
+              ? getSantriAttendanceSuccessMessage({ assignedSession: sesiUser, attendedSession: newAttendance.attended_session })
+              : `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`,
+            time: newAttendance.check_in_time,
+            status: newAttendance.status,
+            points: newPoints,
+            levelInfo,
+            monthlyStats,
+            hafalanCount,
+            adultStats,
+            guruStats,
+          });
         }
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };

@@ -21,7 +21,7 @@ import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDeta
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import DashboardDisclosure from '@/components/dashboard/shared/DashboardDisclosure';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
-import { buildSessionStartTimestamp, calculateTimeDifference, determineAttendanceStatus } from '@/utils/AttendanceStatusLogic';
+import { buildSessionStartTimestamp, calculateTimeDifference, resolveAttendanceRecordStatus } from '@/utils/AttendanceStatusLogic';
 import {
   createMurojaahSubmission,
   DEVELOPMENT_SCORE_OPTIONS,
@@ -458,8 +458,10 @@ const SantriDashboard = ({ isAdult = false }) => {
   const sessionName = getSessionName(santriData.sesi_mengaji || santriData.class?.sesi) || '-';
   const levelInfo = resolveSantriLevel({ points: santriData.points, gender: santriData.jenis_kelamin, config: levelConfig });
 
+  const attendanceSessionName = myAttendanceRecord?.attended_session || sessionName;
+  const attendanceSessionStart = getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), attendanceSessionName);
   const myStatus = myAttendanceRecord
-    ? determineAttendanceStatus(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName))
+    ? resolveAttendanceRecordStatus(myAttendanceRecord, attendanceSessionStart)
     : 'Tidak Hadir';
 
   const myAttendanceDetails = {
@@ -469,10 +471,11 @@ const SantriDashboard = ({ isAdult = false }) => {
       status: myStatus,
       attendance_date: new Date().toLocaleDateString('en-CA'),
       sesi: sessionName,
+      attended_session: attendanceSessionName,
       class_id: santriData.id_kelas,
       checkInTimestamp: myAttendanceRecord?.check_in_timestamp,
-      sessionStartTime: getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName),
-      lateMinutes: myAttendanceRecord ? calculateTimeDifference(myAttendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), sessionName)) : 0
+      sessionStartTime: attendanceSessionStart,
+      lateMinutes: myAttendanceRecord ? calculateTimeDifference(myAttendanceRecord.check_in_timestamp, attendanceSessionStart) : 0
   };
 
   return (

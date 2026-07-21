@@ -260,6 +260,37 @@ console.log('ok');
   if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "final attendance window rules failed" }
 }
 
+Add-Check "santri may attend a different active session" {
+  $js = @'
+import { resolveSantriAttendanceSession } from './src/utils/AttendanceStatusLogic.js';
+const cases = [
+  ['Pagi', '2026-07-21T15:05:00+07:00', true, 'Sore', 'Hadir'],
+  ['Pagi', '2026-07-21T16:01:00+07:00', true, 'Sore', 'Terlambat'],
+  ['Siang', '2026-07-21T15:05:00+07:00', true, 'Siang', 'Terlambat'],
+  ['Malam', '2026-07-21T07:00:00+07:00', true, 'Pagi', 'Hadir'],
+  ['Pagi', '2026-07-21T11:45:00+07:00', false, null, null],
+];
+for (const [assignedSession, timestamp, can, attendedSession, status] of cases) {
+  const result = resolveSantriAttendanceSession({
+    timestamp,
+    dateStr: '2026-07-21',
+    assignedSession,
+  });
+  if (result.can !== can || result.attendedSession !== attendedSession || result.status !== status) {
+    throw new Error(`${assignedSession} ${timestamp}: ${JSON.stringify(result)}`);
+  }
+}
+console.log('ok');
+'@
+  $output = & node --input-type=module -e $js
+  if ($LASTEXITCODE -ne 0 -or $output -notmatch "ok") { throw "alternate santri session resolution failed" }
+
+  $adapter = Read-Text "src/lib/attendanceAdapters.js"
+  $migration = Read-Text "supabase/migrations/20260721000200_attendance_actual_session.sql"
+  if ($adapter -notmatch "attended_session") { throw "attendance payload does not store actual session" }
+  if ($migration -notmatch "add column if not exists attended_session text") { throw "actual session migration is missing" }
+}
+
 Add-Check "duplicate scans preserve first attendance and late santri receive no point" {
   $publicPage = Read-Text "src/pages/DigitalAttendancePage.jsx"
   $adminPage = Read-Text "src/components/dashboard/admin/DigitalAttendance.jsx"

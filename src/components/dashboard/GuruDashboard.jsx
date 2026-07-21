@@ -23,7 +23,7 @@ import BirthdayGreeting from '@/components/BirthdayGreeting';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { buildSessionStartTimestamp, calculateTimeDifference, determineAttendanceStatus } from '@/utils/AttendanceStatusLogic';
+import { buildSessionStartTimestamp, calculateTimeDifference, resolveAttendanceRecordStatus } from '@/utils/AttendanceStatusLogic';
 import {
   buildHafalanScoreMap,
   DEVELOPMENT_SCORE_OPTIONS,
@@ -358,10 +358,12 @@ const GuruDashboard = () => {
 
   const openAttendanceModal = (santri, cls, attendanceRecord) => {
       const todayStr = new Date().toLocaleDateString('en-CA');
-      const sessionStart = getSessionStartTimestamp(todayStr, santri.sesi_mengaji || cls.sesi);
+      const registeredSession = santri.sesi_mengaji || cls.sesi;
+      const attendedSession = attendanceRecord?.attended_session || registeredSession;
+      const sessionStart = getSessionStartTimestamp(todayStr, attendedSession);
 
       const computedStatus = attendanceRecord
-          ? determineAttendanceStatus(attendanceRecord.check_in_timestamp, sessionStart)
+          ? resolveAttendanceRecordStatus(attendanceRecord, sessionStart)
           : 'Tidak Hadir';
 
       setAttendanceDetails({
@@ -370,7 +372,8 @@ const GuruDashboard = () => {
           user_role: 'santri',
           status: computedStatus,
           attendance_date: todayStr,
-          sesi: santri.sesi_mengaji || cls.sesi,
+          sesi: registeredSession,
+          attended_session: attendedSession,
           class_id: cls.id,
           checkInTimestamp: attendanceRecord?.check_in_timestamp,
           sessionStartTime: sessionStart,
@@ -469,7 +472,15 @@ const GuruDashboard = () => {
                                 <tbody>
                                     {(cls.santri || []).map((santri, index) => {
                                         const attendanceRecord = dailyAttendance.find(a => a.user_id === santri.id);
-                                        const status = attendanceRecord ? determineAttendanceStatus(attendanceRecord.check_in_timestamp, getSessionStartTimestamp(new Date().toLocaleDateString('en-CA'), santri.sesi_mengaji || cls.sesi)) : 'Tidak Hadir';
+                                        const status = attendanceRecord
+                                            ? resolveAttendanceRecordStatus(
+                                                attendanceRecord,
+                                                getSessionStartTimestamp(
+                                                    new Date().toLocaleDateString('en-CA'),
+                                                    attendanceRecord.attended_session || santri.sesi_mengaji || cls.sesi,
+                                                ),
+                                            )
+                                            : 'Tidak Hadir';
 
                                         return (
                                             <tr key={santri.id} className="border-b border-border/50 last:border-0 hover:bg-secondary/5 transition-colors duration-200">

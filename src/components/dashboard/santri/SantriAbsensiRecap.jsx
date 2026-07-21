@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Percent, Calendar as CalendarIcon, Clock, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
-import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
+import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, resolveAttendanceRecordStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 
 const getSessionStartTimestamp = (dateStr, sesiName) => buildSessionStartTimestamp(dateStr, sesiName, DEFAULT_SESSION_TIMES);
 
@@ -26,16 +26,10 @@ const normalizeStatus = (rawStatus) => {
     return 'Hadir'; // Fallback for unexpected valid values
 };
 
-// Helper strictly using timestamp comparison if available
 const getComputedStatus = (record, sessionStart) => {
     if (!record) return 'Tidak Hadir';
-    
-    if (record.check_in_timestamp) {
-        return determineAttendanceStatus(record.check_in_timestamp, sessionStart);
-    }
-    
-    // Fallback to raw status if no timestamp is provided
-    return normalizeStatus(record.status);
+    if (!record.check_in_timestamp) return normalizeStatus(record.status);
+    return resolveAttendanceRecordStatus(record, sessionStart);
 };
 
 const SantriAbsensiRecap = () => {
@@ -62,7 +56,7 @@ const SantriAbsensiRecap = () => {
         try {
             const [attendanceRes, calendarRes, santriRes] = await Promise.all([
                 supabase.from('attendance')
-                    .select('id, user_id, attendance_date, check_in_timestamp, check_in_time, status, role, class_id, sesi')
+                    .select('id, user_id, attendance_date, check_in_timestamp, check_in_time, status, role, class_id, sesi, attended_session')
                     .eq('user_id', user.id)
                     .order('attendance_date', { ascending: true }),
                 supabase.from('academic_calendar').select('date').eq('is_holiday', true),
@@ -119,7 +113,10 @@ const SantriAbsensiRecap = () => {
                     totalSessions++;
                     
                     const record = attendance.find(a => a.attendance_date === dateStr);
-                    const sessionStart = getSessionStartTimestamp(dateStr, santriData?.sesi_mengaji || santriData?.class?.sesi);
+                    const sessionStart = getSessionStartTimestamp(
+                        dateStr,
+                        record?.attended_session || santriData?.sesi_mengaji || santriData?.class?.sesi,
+                    );
                     const computedStatus = getComputedStatus(record, sessionStart);
 
                     if (computedStatus === 'Hadir') {
@@ -166,7 +163,9 @@ const SantriAbsensiRecap = () => {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const record = attendance.find(a => a.attendance_date === dateStr);
         
-        const sessionStart = getSessionStartTimestamp(dateStr, santriData?.sesi_mengaji || santriData?.class?.sesi);
+        const registeredSession = santriData?.sesi_mengaji || santriData?.class?.sesi;
+        const attendedSession = record?.attended_session || registeredSession;
+        const sessionStart = getSessionStartTimestamp(dateStr, attendedSession);
         const finalStatus = getComputedStatus(record, sessionStart);
 
         setModalDetails({
@@ -178,7 +177,8 @@ const SantriAbsensiRecap = () => {
             checkInTimestamp: record?.check_in_timestamp,
             sessionStartTime: sessionStart,
             lateMinutes: record ? calculateTimeDifference(record.check_in_timestamp, sessionStart) : 0,
-            sesi: santriData?.sesi_mengaji || santriData?.class?.sesi,
+            sesi: registeredSession,
+            attended_session: attendedSession,
             class_id: santriData?.current_class_id,
         });
         setIsModalOpen(true);
