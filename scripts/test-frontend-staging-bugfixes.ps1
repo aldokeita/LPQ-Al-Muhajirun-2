@@ -506,8 +506,13 @@ Add-Check "level configuration saves with verified readback and drives digital a
   if ($attendance -notmatch "resolveSantriLevel\(\{ points, gender, config: levelConfig \}\)") { throw "digital attendance does not use the shared level resolver" }
   if ($resolver -notmatch "cardBorderThickness" -or $resolver -notmatch "avatarBorderThickness") { throw "shared resolver omits profile-card visual settings" }
   if ($configuration -notmatch "const \[isSaving, setIsSaving\]" -or $configuration -notmatch 'type="button" onClick=\{saveLevelConfig\}') { throw "level save button can remain locked by initial loading" }
-  if ($resolver -notmatch "name: 'Pemula'" -or $attendance -notmatch "label: 'Pemula'") { throw "level fallback is inconsistent with configuration defaults" }
-  if ($resolver -notmatch "typeof config !== 'string'" -or $resolver -notmatch "Object\.values\(value\)" -or $resolver -notmatch "parsed\.putra") { throw "legacy string/object level settings are not normalized" }
+  foreach ($stage in @('Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Mythic')) {
+    if ($resolver -notmatch "name: '$stage'") { throw "level stage $stage is missing from the shared defaults" }
+  }
+  if ($attendance -notmatch "label: 'Bronze'") { throw "attendance fallback is inconsistent with the Bronze stage" }
+  if ($resolver -notmatch "typeof config !== 'string'" -or $resolver -notmatch "Object\.entries\(value\)" -or $resolver -notmatch "parsed\.putra") { throw "legacy string/object level settings are not normalized" }
+  if ($resolver -notmatch "isLegacyLevelCollection" -or $resolver -notmatch "createDefaultSantriLevelConfig") { throw "legacy A/B/C/S levels are not upgraded to the six-stage configuration" }
+  if ($configuration -notmatch "id: index \+ 1" -or $configuration -notmatch "level\.id === id") { throw "editable levels do not have isolated stable ids" }
 }
 
 Add-Check "admin guru edit resets Auth password through the guarded function" {

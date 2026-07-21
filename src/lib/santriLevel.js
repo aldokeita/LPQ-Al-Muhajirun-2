@@ -1,8 +1,36 @@
-const FALLBACK_LEVELS = [
-  { name: 'Pemula', min: 0, max: 100, color: '#3b82f6' },
-  { name: 'Menengah', min: 101, max: 300, color: '#22c55e' },
-  { name: 'Mahir', min: 301, max: Number.POSITIVE_INFINITY, color: '#eab308' },
+const LEVEL_STAGES = [
+  { name: 'Bronze', min: 0, max: 50 },
+  { name: 'Silver', min: 51, max: 150 },
+  { name: 'Gold', min: 151, max: 300 },
+  { name: 'Platinum', min: 301, max: 500 },
+  { name: 'Diamond', min: 501, max: 800 },
+  { name: 'Mythic', min: 801, max: 1000 },
 ];
+
+const LEVEL_COLORS = {
+  male: ['#b7793f', '#64748b', '#d49a00', '#0891b2', '#2563eb', '#7c3aed'],
+  female: ['#c56b48', '#7c7f93', '#d89a16', '#0d9488', '#6366f1', '#db2777'],
+};
+
+export const createDefaultSantriLevelConfig = () => Object.fromEntries(
+  Object.entries(LEVEL_COLORS).map(([gender, colors]) => [
+    gender,
+    LEVEL_STAGES.map((stage, index) => ({
+      id: index + 1,
+      ...stage,
+      color: colors[index],
+      accentColor: colors[index],
+      cardBgColor: '#ffffff',
+      textColor: colors[index],
+      cardBorderThickness: Math.min(8 + index, 12),
+      avatarBorderThickness: Math.min(4 + Math.floor(index / 2), 6),
+      enableGradient: true,
+      textGradient: true,
+    })),
+  ]),
+);
+
+const FALLBACK_LEVELS = createDefaultSantriLevelConfig().male;
 
 const normalizeGenderKey = (gender) => {
   const value = String(gender || '').toLowerCase();
@@ -23,8 +51,16 @@ const parseLevelConfig = (config) => {
 const toLevelArray = (value) => {
   if (Array.isArray(value)) return value.filter((level) => level && typeof level === 'object');
   if (!value || typeof value !== 'object') return [];
-  return Object.values(value).filter((level) => level && typeof level === 'object' && !Array.isArray(level));
+  return Object.entries(value)
+    .filter(([, level]) => level && typeof level === 'object' && !Array.isArray(level))
+    .map(([key, level]) => ({ ...level, name: level.name || level.label || key }));
 };
+
+const LEGACY_LEVEL_NAMES = new Set(['pemula', 'menengah', 'mahir', 'newbie', 'intermediate', 'advanced', 'master', 'a', 'b', 'c', 's']);
+
+const isLegacyLevelCollection = (levels) => levels.length > 0
+  && levels.length <= 4
+  && levels.every((level) => LEGACY_LEVEL_NAMES.has(String(level.name || level.label || '').trim().toLowerCase()));
 
 export const normalizeLevelConfigShape = (config) => {
   const parsed = parseLevelConfig(config);
@@ -32,6 +68,7 @@ export const normalizeLevelConfigShape = (config) => {
 
   if (Array.isArray(parsed)) {
     const sharedLevels = toLevelArray(parsed);
+    if (isLegacyLevelCollection(sharedLevels)) return createDefaultSantriLevelConfig();
     return { male: sharedLevels, female: sharedLevels };
   }
 
@@ -39,10 +76,13 @@ export const normalizeLevelConfigShape = (config) => {
     .some((key) => Object.prototype.hasOwnProperty.call(parsed, key));
   const sharedLevels = hasGenderGroups ? [] : toLevelArray(parsed);
 
-  return {
-    male: toLevelArray(parsed.male ?? parsed.putra ?? parsed.laki_laki ?? sharedLevels),
-    female: toLevelArray(parsed.female ?? parsed.putri ?? parsed.perempuan ?? sharedLevels),
-  };
+  const male = toLevelArray(parsed.male ?? parsed.putra ?? parsed.laki_laki ?? sharedLevels);
+  const female = toLevelArray(parsed.female ?? parsed.putri ?? parsed.perempuan ?? sharedLevels);
+  if (isLegacyLevelCollection(male) || isLegacyLevelCollection(female)) {
+    return createDefaultSantriLevelConfig();
+  }
+
+  return { male, female };
 };
 
 export const resolveSantriLevel = ({ points = 0, gender, config }) => {
@@ -61,7 +101,7 @@ export const resolveSantriLevel = ({ points = 0, gender, config }) => {
   const accentColor = matched.accentColor || matched.color || '#0ea5e9';
 
   return {
-    name: matched.name || 'Pemula',
+    name: matched.name || matched.label || 'Bronze',
     min: Number(matched.min ?? 0),
     max: Number(matched.max ?? Number.POSITIVE_INFINITY),
     accentColor,

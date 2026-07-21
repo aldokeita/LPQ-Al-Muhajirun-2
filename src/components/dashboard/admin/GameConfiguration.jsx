@@ -14,7 +14,7 @@ import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
-import { normalizeLevelConfigShape } from '@/lib/santriLevel';
+import { createDefaultSantriLevelConfig, normalizeLevelConfigShape } from '@/lib/santriLevel';
 import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, saveWhatsAppTemplates } from '@/lib/whatsappTemplateAdapters';
 
 const GameConfiguration = () => {
@@ -384,18 +384,7 @@ const QuizSettings = () => {
     );
 };
 
-const createDefaultLevelConfig = () => ({
-    male: [
-        { id: 1, name: 'Pemula', min: 0, max: 100, color: '#3b82f6', cardBgColor: '#ffffff', textColor: '#3b82f6', cardBorderThickness: 8, avatarBorderThickness: 4, enableGradient: true, textGradient: true },
-        { id: 2, name: 'Menengah', min: 101, max: 300, color: '#22c55e', cardBgColor: '#ffffff', textColor: '#22c55e', cardBorderThickness: 10, avatarBorderThickness: 5, enableGradient: true, textGradient: true },
-        { id: 3, name: 'Mahir', min: 301, max: 1000, color: '#eab308', cardBgColor: '#ffffff', textColor: '#eab308', cardBorderThickness: 12, avatarBorderThickness: 6, enableGradient: true, textGradient: true }
-    ],
-    female: [
-        { id: 1, name: 'Pemula', min: 0, max: 100, color: '#ec4899', cardBgColor: '#ffffff', textColor: '#ec4899', cardBorderThickness: 8, avatarBorderThickness: 4, enableGradient: true, textGradient: true },
-        { id: 2, name: 'Menengah', min: 101, max: 300, color: '#a855f7', cardBgColor: '#ffffff', textColor: '#a855f7', cardBorderThickness: 10, avatarBorderThickness: 5, enableGradient: true, textGradient: true },
-        { id: 3, name: 'Mahir', min: 301, max: 1000, color: '#f43f5e', cardBgColor: '#ffffff', textColor: '#f43f5e', cardBorderThickness: 12, avatarBorderThickness: 6, enableGradient: true, textGradient: true }
-    ]
-});
+const createDefaultLevelConfig = () => createDefaultSantriLevelConfig();
 
 const normalizeLevel = (level, fallbackColor = '#3b82f6') => {
     const color = level.color || level.accentColor || fallbackColor;
@@ -417,9 +406,9 @@ const normalizeEditableLevelConfig = (content) => {
     const normalized = normalizeLevelConfigShape(content);
     return {
         male: (normalized.male.length > 0 ? normalized.male : defaults.male)
-            .map((level) => normalizeLevel(level, '#3b82f6')),
+            .map((level, index) => normalizeLevel({ ...level, id: index + 1, name: level.name || level.label || `Level ${index + 1}` }, '#3b82f6')),
         female: (normalized.female.length > 0 ? normalized.female : defaults.female)
-            .map((level) => normalizeLevel(level, '#ec4899')),
+            .map((level, index) => normalizeLevel({ ...level, id: index + 1, name: level.name || level.label || `Level ${index + 1}` }, '#ec4899')),
     };
 };
 
