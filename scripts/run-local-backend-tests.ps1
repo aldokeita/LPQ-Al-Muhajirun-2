@@ -114,7 +114,9 @@ with expected_migrations(version) as (
     ('20260717000300'),
     ('20260717000400'),
     ('20260721000100'),
-    ('20260721000200')
+    ('20260721000200'),
+    ('20260721000300'),
+    ('20260723000100')
 ),
 sensitive_tables(table_name) as (
   values
@@ -148,7 +150,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 32 and not exists (
+       (count(sm.version) = 34 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -343,6 +345,24 @@ select 'move santri to class rpc exists',
            and p.proname = 'move_santri_to_class'
        )::text,
        'rpc=move_santri_to_class'
+
+union all
+select 'guru transfer option rpc is authenticated only',
+       (
+         to_regprocedure('public.get_guru_transfer_class_options(uuid)') is not null
+         and has_function_privilege('authenticated', 'public.get_guru_transfer_class_options(uuid)', 'EXECUTE')
+         and not has_function_privilege('anon', 'public.get_guru_transfer_class_options(uuid)', 'EXECUTE')
+       )::text,
+       'rpc=get_guru_transfer_class_options scope=authenticated'
+
+union all
+select 'guru atomic transfer rpc is authenticated only',
+       (
+         to_regprocedure('public.transfer_santri_to_class_by_guru(uuid,uuid,text)') is not null
+         and has_function_privilege('authenticated', 'public.transfer_santri_to_class_by_guru(uuid,uuid,text)', 'EXECUTE')
+         and not has_function_privilege('anon', 'public.transfer_santri_to_class_by_guru(uuid,uuid,text)', 'EXECUTE')
+       )::text,
+       'rpc=transfer_santri_to_class_by_guru scope=authenticated'
 
 union all
 select 'change santri category rpc exists',
@@ -1001,6 +1021,146 @@ rollback;
   }
 }
 
+function Invoke-GuruStudentTransferTests {
+  $sql = @'
+begin;
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+
+do $$
+begin
+  begin
+    perform * from public.get_guru_transfer_class_options('10000000-0000-0000-0000-000000000101');
+    raise exception 'outside teacher options were accepted';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$$;
+
+select 'guru outside source class cannot list transfer targets', 'true', 'access=denied';
+
+do $$
+begin
+  begin
+    perform * from public.transfer_santri_to_class_by_guru(
+      '10000000-0000-0000-0000-000000000102',
+      '20000000-0000-0000-0000-000000000002',
+      'RUNNER unauthorized transfer'
+    );
+    raise exception 'outside teacher transfer was accepted';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$$;
+
+select 'guru outside source class cannot transfer santri', 'true', 'access=denied';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+
+select 'guru transfer options include safe same-category classes',
+       (
+         count(*) = 2
+         and count(*) filter (where is_current and not is_selectable) = 1
+         and count(*) filter (where not is_current and is_selectable) = 1
+         and count(*) filter (where upper(coalesce(category, '')) = 'PTPT') = 0
+       )::text,
+       'options=' || count(*)::text
+from public.get_guru_transfer_class_options('10000000-0000-0000-0000-000000000101');
+
+do $$
+begin
+  begin
+    perform * from public.transfer_santri_to_class_by_guru(
+      '10000000-0000-0000-0000-000000000101',
+      '20000000-0000-0000-0000-000000000003',
+      'RUNNER category mismatch'
+    );
+    raise exception 'cross-category transfer was accepted';
+  exception
+    when invalid_parameter_value then null;
+  end;
+end
+$$;
+
+select 'guru transfer rejects a different class category', 'true', 'category=denied';
+
+do $$
+begin
+  perform * from public.transfer_santri_to_class_by_guru(
+    '10000000-0000-0000-0000-000000000101',
+    '20000000-0000-0000-0000-000000000002',
+    'RUNNER guru class transfer'
+  );
+end
+$$;
+
+reset role;
+
+select 'guru transfer leaves one active membership',
+       (count(*) = 1)::text,
+       'active=' || count(*)::text
+from public.class_memberships
+where santri_id = '10000000-0000-0000-0000-000000000101'
+  and status = 'active';
+
+select 'guru transfer synchronizes santri class session and order',
+       (
+         s.current_class_id = cm.class_id
+         and s.current_class_id = '20000000-0000-0000-0000-000000000002'::uuid
+         and s.sesi_mengaji is not distinct from c.sesi
+         and s.order_in_class is not distinct from cm.order_in_class
+       )::text,
+       'class=' || coalesce(s.current_class_id::text, 'null')
+from public.santri s
+join public.class_memberships cm on cm.santri_id = s.id and cm.status = 'active'
+join public.classes c on c.id = cm.class_id
+where s.id = '10000000-0000-0000-0000-000000000101';
+
+select 'guru transfer closes the previous membership',
+       exists (
+         select 1
+         from public.class_memberships
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and class_id = '20000000-0000-0000-0000-000000000001'
+           and status = 'moved'
+           and end_date = current_date
+       )::text,
+       'previous=moved';
+
+select 'guru transfer records actor and reason in mutation history',
+       exists (
+         select 1
+         from public.class_mutations
+         where santri_id = '10000000-0000-0000-0000-000000000101'
+           and from_class_id = '20000000-0000-0000-0000-000000000001'
+           and to_class_id = '20000000-0000-0000-0000-000000000002'
+           and created_by = '10000000-0000-0000-0000-000000000002'
+           and reason = 'RUNNER guru class transfer'
+       )::text,
+       'actor=guru-a';
+
+rollback;
+'@
+
+  $output = $sql | docker exec -i $DbContainer psql -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -F "|"
+  if ($LASTEXITCODE -ne 0) {
+    Add-TestResult "guru student transfer role matrix" $false "psql exited with $LASTEXITCODE"
+    return
+  }
+
+  foreach ($line in $output) {
+    if (-not $line) { continue }
+    $parts = $line -split "\|", 3
+    if ($parts.Count -lt 3) { continue }
+    Add-TestResult $parts[0] ($parts[1] -eq "true") $parts[2]
+  }
+}
+
 function Invoke-SmokeTests {
   $output = & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run-local-runtime-smoke-tests.ps1") -SupabaseUrl $SupabaseUrl 2>&1
   $exitCode = $LASTEXITCODE
@@ -1047,6 +1207,7 @@ try {
   Invoke-SchemaChecks
   Invoke-PaymentPeriodUniquenessTests
   Invoke-DevelopmentScoringTests
+  Invoke-GuruStudentTransferTests
   Invoke-SmokeTests
 
   Write-Host "SUMMARY passed=$script:Passed failed=$script:Failed"

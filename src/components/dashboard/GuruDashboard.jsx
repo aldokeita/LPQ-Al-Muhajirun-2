@@ -15,8 +15,9 @@ import MmqSection from '@/components/dashboard/guru/MmqSection';
 import GuruAttendanceRecap from '@/components/dashboard/admin/GuruAttendanceRecap';
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
+import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2 } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
@@ -40,6 +41,7 @@ import {
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -171,6 +173,7 @@ const GuruDashboard = () => {
   const [isHafalanOpen, setIsHafalanOpen] = useState(false);
   const [isMurojaahOpen, setIsMurojaahOpen] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState(null);
+  const [transferSantri, setTransferSantri] = useState(null);
   const [previewAvatar, setPreviewAvatar] = useState(null);
   const [isOwnAvatarPreviewOpen, setIsOwnAvatarPreviewOpen] = useState(false);
   const [selectedHafalan, setSelectedHafalan] = useState({ category: '', programScope: 'TPQ', items: [] });
@@ -269,6 +272,9 @@ const GuruDashboard = () => {
   };
 
   const openDetailModal = (santri) => { setSelectedSantri(santri); setIsDetailOpen(true); };
+  const openTransferModal = (santri, kelas) => {
+      setTransferSantri({ ...santri, id_kelas: kelas.id, class: kelas });
+  };
   const openHafalanModal = (santri, category) => {
       const programScope = getHafalanProgramScope(santri);
       const filteredItems = hafalanItems.filter((item) => (
@@ -550,6 +556,23 @@ const GuruDashboard = () => {
                                                 <td className="py-3 px-4">
                                                     <div className="flex items-center gap-1">
                                                         <Button size="sm" variant="ghost" onClick={() => openDetailModal(santri)} className={cn("text-primary hover:text-primary hover:bg-primary/10")}>Detail</Button>
+                                                        <TooltipProvider delayDuration={250}>
+                                                          <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                              <Button
+                                                                type="button"
+                                                                size="icon"
+                                                                variant="outline"
+                                                                onClick={() => openTransferModal(santri, cls)}
+                                                                className="h-10 w-10 shrink-0 border-emerald-200 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:ring-emerald-500 dark:border-emerald-400/25 dark:text-emerald-300 dark:hover:bg-emerald-950/35"
+                                                                aria-label={`Transfer kelas ${santri.nama_lengkap}`}
+                                                              >
+                                                                <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
+                                                              </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">Transfer kelas</TooltipContent>
+                                                          </Tooltip>
+                                                        </TooltipProvider>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -731,6 +754,12 @@ const GuruDashboard = () => {
       {guruData && <EditGuruProfileModal isOpen={isEditProfileOpen} onOpenChange={setIsEditProfileOpen} guruData={guruData} onProfileUpdate={fetchGuruData} themeColor={themeGradient} />}
       <Dialog open={isRecapOpen} onOpenChange={setIsRecapOpen}><DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Rekap Absensi Guru</DialogTitle></DialogHeader><div className="mt-4"><GuruAttendanceRecap isReadOnly={true} /></div></DialogContent></Dialog>
       <AttendanceDetailsModal isOpen={isAttendanceModalOpen} onClose={() => { setIsAttendanceModalOpen(false); setAttendanceDetails(null); }} details={attendanceDetails} onSuccess={fetchGuruData} />
+      <StudentTransferModal
+        isOpen={Boolean(transferSantri)}
+        onClose={() => setTransferSantri(null)}
+        santri={transferSantri}
+        onTransferSuccess={fetchGuruData}
+      />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={allMySantri} />
       <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} variant={confirmDialog.variant || "destructive"} confirmText={confirmDialog.confirmText || "Ya, Lanjutkan"} />
       <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Anak" />

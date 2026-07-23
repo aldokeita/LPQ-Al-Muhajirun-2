@@ -406,6 +406,31 @@ Add-Check "admin edit and table selection can migrate TPQ PTPT and adult" {
   if ($migration -notmatch "set search_path = public, pg_temp") { throw "category RPC lacks an explicit search path" }
 }
 
+Add-Check "guru class transfer restores an accessible atomic workflow" {
+  $dashboard = Read-Text "src/components/dashboard/GuruDashboard.jsx"
+  $modal = Read-Text "src/components/dashboard/guru/StudentTransferModal.jsx"
+  $adapter = Read-Text "src/lib/classTransferAdapters.js"
+  $migration = Read-Text "supabase/migrations/20260723000100_guru_student_class_transfer.sql"
+
+  if ($dashboard -notmatch "StudentTransferModal") { throw "transfer modal is not mounted in GuruDashboard" }
+  if ($dashboard -notmatch 'aria-label={`Transfer kelas \$\{santri\.nama_lengkap\}`}') { throw "student-specific transfer aria label is missing" }
+  if ($dashboard -notmatch 'h-10 w-10') { throw "transfer action does not meet the minimum touch target" }
+  if ($dashboard -notmatch '<TooltipContent side="top">Transfer kelas</TooltipContent>') { throw "transfer tooltip is missing" }
+  if ($modal -notmatch "isConfirmation") { throw "transfer confirmation state is missing" }
+  if ($modal -notmatch "status === 'loading'" -or $modal -notmatch "status === 'error'") { throw "loading or error state is missing" }
+  if ($modal -notmatch "Belum ada kelas tujuan") { throw "empty state is missing" }
+  if ($modal -notmatch "is_current" -or $modal -notmatch "is_selectable") { throw "current and disabled class state is missing" }
+  if ($modal -notmatch "aria-pressed") { throw "keyboard-accessible selected state is missing" }
+  if ($adapter -notmatch "get_guru_transfer_class_options") { throw "safe class option RPC is not used" }
+  if ($adapter -notmatch "transfer_santri_to_class_by_guru") { throw "atomic guru transfer RPC is not used" }
+  if ($adapter -notmatch "Fitur transfer kelas belum diterapkan") { throw "backend-not-applied error is not mapped" }
+  if ($adapter -notmatch "Koneksi ke server terganggu") { throw "network error is not mapped" }
+  if ($migration -notmatch "security definer" -or $migration -notmatch "set search_path = public, pg_temp") { throw "RPC hardening is incomplete" }
+  if ($migration -notmatch "v_membership.id_guru is distinct from v_actor") { throw "teacher ownership check is missing" }
+  if ($migration -notmatch "v_target_category is distinct from v_santri_category") { throw "category protection is missing" }
+  if ($migration -notmatch "class_memberships" -or $migration -notmatch "class_mutations") { throw "membership or mutation transaction is missing" }
+}
+
 Add-Check "RFID scan restores an explicit absence without duplicating attendance" {
   $adapter = Read-Text "src/lib/attendanceAdapters.js"
   $publicPage = Read-Text "src/pages/DigitalAttendancePage.jsx"

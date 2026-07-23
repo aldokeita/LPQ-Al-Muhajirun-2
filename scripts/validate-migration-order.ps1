@@ -42,7 +42,8 @@ $expectedNames = @(
   "20260717000400_ptpt_tahfizh_curriculum.sql",
   "20260721000100_guru_avatar_path.sql",
   "20260721000200_attendance_actual_session.sql",
-  "20260721000300_change_santri_category_ptpt.sql"
+  "20260721000300_change_santri_category_ptpt.sql",
+  "20260723000100_guru_student_class_transfer.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }
