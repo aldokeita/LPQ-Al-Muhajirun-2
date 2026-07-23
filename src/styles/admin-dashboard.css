@@ -5502,3 +5502,757 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     transition: none !important;
   }
 }
+
+/* Guru student transfer: LPQ Aurora Neo-Glass */
+.guru-transfer-trigger {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.78) !important;
+  border-radius: 0.85rem !important;
+  color: rgb(13 116 144) !important;
+  background:
+    radial-gradient(circle at 18% 12%, rgb(45 212 191 / 0.28), transparent 45%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.82), rgb(226 232 240 / 0.48)) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.95),
+    inset -1px -1px 0 rgb(148 163 184 / 0.12),
+    0 8px 20px -13px rgb(8 145 178 / 0.65) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.25);
+  backdrop-filter: blur(12px) saturate(1.25);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.9, 0.25, 1.25),
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 220ms ease !important;
+}
+
+.guru-transfer-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(120deg, transparent 20%, rgb(255 255 255 / 0.62) 48%, transparent 72%);
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 180ms ease, transform 320ms ease;
+}
+
+.guru-transfer-trigger:hover {
+  transform: translateY(-2px) scale(1.03);
+  color: rgb(8 47 73) !important;
+  border-color: rgb(103 232 249 / 0.78) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.96),
+    0 13px 28px -14px rgb(8 145 178 / 0.78),
+    0 0 0 1px rgb(45 212 191 / 0.12) !important;
+}
+
+.guru-transfer-trigger:hover::before {
+  opacity: 1;
+  transform: translateX(50%);
+}
+
+.guru-transfer-trigger:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow:
+    inset 3px 3px 8px rgb(15 23 42 / 0.12),
+    inset -2px -2px 7px rgb(255 255 255 / 0.72) !important;
+}
+
+.guru-transfer-trigger:focus-visible {
+  outline: 2px solid rgb(6 182 212) !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgb(6 182 212 / 0.2) !important;
+}
+
+.dark .guru-transfer-trigger {
+  border-color: rgb(103 232 249 / 0.2) !important;
+  color: rgb(165 243 252) !important;
+  background:
+    radial-gradient(circle at 18% 12%, rgb(20 184 166 / 0.22), transparent 46%),
+    linear-gradient(145deg, rgb(30 41 59 / 0.72), rgb(2 6 23 / 0.74)) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.11),
+    inset -1px -1px 0 rgb(0 0 0 / 0.35),
+    0 10px 24px -14px rgb(34 211 238 / 0.72) !important;
+}
+
+.dark .guru-transfer-trigger:hover {
+  color: white !important;
+  border-color: rgb(103 232 249 / 0.46) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.16),
+    0 14px 30px -14px rgb(34 211 238 / 0.78),
+    0 0 22px -12px rgb(139 92 246 / 0.8) !important;
+}
+
+.guru-transfer-glass {
+  --transfer-ink: 8 47 73;
+  --transfer-muted: 71 85 105;
+  --transfer-panel: 255 255 255;
+  position: fixed;
+  isolation: isolate;
+  border: 1px solid rgb(255 255 255 / 0.76) !important;
+  border-radius: 1.65rem !important;
+  color: rgb(var(--transfer-ink));
+  background:
+    radial-gradient(circle at 7% -4%, rgb(45 212 191 / 0.2), transparent 34%),
+    radial-gradient(circle at 96% 8%, rgb(56 189 248 / 0.19), transparent 35%),
+    radial-gradient(circle at 78% 105%, rgb(139 92 246 / 0.14), transparent 38%),
+    rgb(248 250 252 / 0.78) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.96),
+    inset -1px -1px 0 rgb(148 163 184 / 0.1),
+    0 34px 90px -32px rgb(15 23 42 / 0.62),
+    0 14px 36px -24px rgb(8 145 178 / 0.5) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(1.34) !important;
+  backdrop-filter: blur(30px) saturate(1.34) !important;
+}
+
+.guru-transfer-glass::before,
+.guru-transfer-glass::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.guru-transfer-glass::before {
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(118deg, rgb(255 255 255 / 0.48), transparent 31% 68%, rgb(255 255 255 / 0.2)),
+    radial-gradient(circle at 50% 0%, rgb(34 211 238 / 0.09), transparent 48%);
+}
+
+.guru-transfer-glass::after {
+  z-index: 4;
+  inset: 1px;
+  border: 1px solid rgb(255 255 255 / 0.36);
+  box-shadow: inset 0 0 28px rgb(255 255 255 / 0.08);
+}
+
+.guru-transfer-glass > button.absolute {
+  z-index: 8;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.62);
+  border-radius: 0.75rem;
+  color: rgb(71 85 105);
+  background: rgb(255 255 255 / 0.36);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.guru-transfer-glass > button.absolute:hover {
+  color: rgb(8 47 73);
+  background: rgb(255 255 255 / 0.7);
+  transform: translateY(-1px);
+}
+
+.guru-transfer-glass__header {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  border-bottom: 1px solid rgb(255 255 255 / 0.54);
+  background:
+    linear-gradient(112deg, rgb(204 251 241 / 0.5), rgb(224 242 254 / 0.36) 54%, rgb(237 233 254 / 0.42));
+  box-shadow: inset 0 -1px 0 rgb(148 163 184 / 0.09);
+}
+
+.guru-transfer-glass__header::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -70% 38%;
+  height: 9rem;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgb(34 211 238 / 0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.guru-transfer-glass__hero-icon {
+  border: 1px solid rgb(103 232 249 / 0.46);
+  color: rgb(8 145 178);
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.76), rgb(207 250 254 / 0.45));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.92),
+    0 10px 24px -14px rgb(8 145 178 / 0.68);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.guru-transfer-glass__profile-wrap {
+  position: relative;
+  z-index: 2;
+  border-bottom: 1px solid rgb(148 163 184 / 0.14);
+}
+
+.guru-transfer-glass__profile,
+.guru-transfer-glass__state,
+.guru-transfer-glass__path-card,
+.guru-transfer-glass__selection-summary {
+  border: 1px solid rgb(255 255 255 / 0.66);
+  border-radius: 1.15rem;
+  background: rgb(var(--transfer-panel) / 0.46);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.78),
+    inset -1px -1px 0 rgb(148 163 184 / 0.08),
+    0 14px 30px -24px rgb(15 23 42 / 0.38);
+  -webkit-backdrop-filter: blur(16px) saturate(1.18);
+  backdrop-filter: blur(16px) saturate(1.18);
+}
+
+.guru-transfer-glass__avatar {
+  border: 2px solid rgb(255 255 255 / 0.86);
+  box-shadow:
+    0 0 0 2px rgb(34 211 238 / 0.2),
+    0 12px 24px -15px rgb(8 145 178 / 0.78);
+}
+
+.guru-transfer-glass__profile-meta > span {
+  max-width: 100%;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgb(148 163 184 / 0.16);
+  border-radius: 999px;
+  color: rgb(var(--transfer-muted));
+  background: rgb(255 255 255 / 0.4);
+}
+
+.guru-transfer-glass__scroll,
+.guru-transfer-glass__body {
+  position: relative;
+  z-index: 2;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(6 182 212 / 0.55) transparent;
+}
+
+.guru-transfer-glass__scroll::-webkit-scrollbar,
+.guru-transfer-glass__body::-webkit-scrollbar {
+  width: 0.55rem;
+}
+
+.guru-transfer-glass__scroll::-webkit-scrollbar-thumb,
+.guru-transfer-glass__body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(rgb(20 184 166 / 0.62), rgb(59 130 246 / 0.58)) padding-box;
+}
+
+.guru-transfer-glass__state {
+  border-style: dashed;
+  border-color: rgb(14 165 233 / 0.2);
+}
+
+.guru-transfer-glass__state--error {
+  border-style: solid;
+  border-color: rgb(244 63 94 / 0.24);
+  background: rgb(255 241 242 / 0.64);
+}
+
+.guru-transfer-glass__class-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.72);
+  border-radius: 1.05rem;
+  color: rgb(var(--transfer-ink));
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.7), rgb(241 245 249 / 0.4));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.9),
+    inset -1px -1px 0 rgb(148 163 184 / 0.1),
+    0 12px 26px -22px rgb(15 23 42 / 0.48);
+  -webkit-backdrop-filter: blur(14px) saturate(1.18);
+  backdrop-filter: blur(14px) saturate(1.18);
+  transition:
+    transform 240ms cubic-bezier(0.2, 0.9, 0.25, 1.2),
+    border-color 200ms ease,
+    box-shadow 240ms ease,
+    background 200ms ease;
+}
+
+.guru-transfer-glass__class-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 10% 0%, rgb(45 212 191 / 0.2), transparent 44%),
+    radial-gradient(circle at 100% 100%, rgb(139 92 246 / 0.18), transparent 48%);
+  transition: opacity 200ms ease;
+}
+
+.guru-transfer-glass__class-card:not(.is-current):hover {
+  z-index: 2;
+  transform: translateY(-3px);
+  border-color: rgb(103 232 249 / 0.64);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.96),
+    0 18px 34px -20px rgb(8 145 178 / 0.65);
+}
+
+.guru-transfer-glass__class-card:not(.is-current):hover::before,
+.guru-transfer-glass__class-card.is-selected::before {
+  opacity: 1;
+}
+
+.guru-transfer-glass__class-card:active:not(.is-current) {
+  transform: translateY(-1px) scale(0.985);
+}
+
+.guru-transfer-glass__class-card:focus-visible {
+  outline: 2px solid rgb(6 182 212);
+  outline-offset: 3px;
+}
+
+.guru-transfer-glass__class-card.is-selected {
+  z-index: 3;
+  transform: translateY(-4px) scale(1.012);
+  border-color: rgb(34 211 238 / 0.88);
+  background:
+    linear-gradient(145deg, rgb(236 254 255 / 0.82), rgb(237 233 254 / 0.55));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.96),
+    0 0 0 1px rgb(45 212 191 / 0.2),
+    0 18px 42px -20px rgb(8 145 178 / 0.72),
+    0 0 32px -20px rgb(124 58 237 / 0.72);
+}
+
+.guru-transfer-glass__class-card.is-selected:hover {
+  transform: translateY(-4px) scale(1.012);
+}
+
+.guru-transfer-glass__class-card.is-current {
+  border-color: rgb(148 163 184 / 0.16);
+  color: rgb(100 116 139);
+  background: rgb(226 232 240 / 0.46);
+  box-shadow: inset 3px 3px 9px rgb(15 23 42 / 0.06);
+  filter: saturate(0.65);
+  opacity: 0.72;
+}
+
+.guru-transfer-glass__selected-mark {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgb(45 212 191 / 0.44);
+  border-radius: 999px;
+  color: rgb(13 116 144);
+  background: rgb(207 250 254 / 0.64);
+}
+
+.guru-transfer-glass__path-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.guru-transfer-glass__path-card.is-origin {
+  color: rgb(71 85 105);
+  background: rgb(241 245 249 / 0.54);
+  filter: saturate(0.76);
+}
+
+.guru-transfer-glass__path-card.is-target {
+  border-color: rgb(103 232 249 / 0.54);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(139 92 246 / 0.13), transparent 50%),
+    linear-gradient(145deg, rgb(236 254 255 / 0.74), rgb(240 253 250 / 0.56));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.94),
+    0 17px 38px -22px rgb(8 145 178 / 0.72);
+}
+
+.guru-transfer-glass__eyebrow {
+  color: rgb(8 145 178);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.guru-transfer-glass__path-card.is-origin .guru-transfer-glass__eyebrow {
+  color: rgb(100 116 139);
+}
+
+.guru-transfer-glass__path-arrow {
+  border: 1px solid rgb(103 232 249 / 0.42);
+  color: rgb(8 145 178);
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.72), rgb(207 250 254 / 0.5));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.88),
+    0 10px 24px -15px rgb(8 145 178 / 0.72);
+}
+
+.guru-transfer-glass__textarea {
+  border-color: rgb(148 163 184 / 0.22) !important;
+  background: rgb(255 255 255 / 0.42) !important;
+  box-shadow:
+    inset 2px 2px 8px rgb(15 23 42 / 0.06),
+    inset -1px -1px 0 rgb(255 255 255 / 0.84);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.guru-transfer-glass__textarea:focus-visible {
+  border-color: rgb(34 211 238 / 0.7) !important;
+  box-shadow: 0 0 0 3px rgb(34 211 238 / 0.16) !important;
+}
+
+.guru-transfer-glass__footer {
+  position: relative;
+  z-index: 5;
+  display: block !important;
+  border-top: 1px solid rgb(255 255 255 / 0.58);
+  background: rgb(248 250 252 / 0.5);
+  box-shadow: 0 -12px 30px -26px rgb(15 23 42 / 0.48);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  backdrop-filter: blur(20px) saturate(1.2);
+}
+
+.guru-transfer-glass__selection-summary {
+  max-width: 18rem;
+  padding: 0.65rem 0.85rem;
+  color: rgb(100 116 139);
+  opacity: 0.76;
+  transform: translateY(2px);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.9, 0.25, 1.2),
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.guru-transfer-glass__selection-summary.is-visible {
+  border-color: rgb(103 232 249 / 0.48);
+  color: rgb(8 47 73);
+  opacity: 1;
+  transform: translateY(0);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.9),
+    0 11px 26px -20px rgb(8 145 178 / 0.72);
+}
+
+.guru-transfer-glass__selection-summary > span {
+  color: rgb(8 145 178);
+}
+
+.guru-transfer-glass__primary,
+.guru-transfer-glass__secondary {
+  min-height: 2.65rem;
+  border-radius: 0.85rem !important;
+  transition:
+    transform 210ms cubic-bezier(0.2, 0.9, 0.25, 1.2),
+    box-shadow 200ms ease,
+    border-color 180ms ease,
+    background 180ms ease !important;
+}
+
+.guru-transfer-glass__primary {
+  border: 1px solid rgb(103 232 249 / 0.66) !important;
+  color: white !important;
+  background: linear-gradient(118deg, rgb(13 148 136), rgb(8 145 178) 52%, rgb(79 70 229)) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.36),
+    0 13px 28px -14px rgb(8 145 178 / 0.75) !important;
+}
+
+.guru-transfer-glass__primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.42),
+    0 17px 34px -14px rgb(8 145 178 / 0.82),
+    0 0 28px -16px rgb(124 58 237 / 0.75) !important;
+}
+
+.guru-transfer-glass__primary:active:not(:disabled),
+.guru-transfer-glass__secondary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.guru-transfer-glass__primary:disabled {
+  border-color: rgb(148 163 184 / 0.22) !important;
+  color: rgb(100 116 139 / 0.72) !important;
+  background: rgb(226 232 240 / 0.52) !important;
+  box-shadow: inset 2px 2px 7px rgb(15 23 42 / 0.07) !important;
+}
+
+.guru-transfer-glass__secondary {
+  border-color: rgb(255 255 255 / 0.7) !important;
+  color: rgb(51 65 85) !important;
+  background: rgb(255 255 255 / 0.42) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.82),
+    0 8px 20px -16px rgb(15 23 42 / 0.5) !important;
+}
+
+.guru-transfer-glass__secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgb(103 232 249 / 0.42) !important;
+  background: rgb(255 255 255 / 0.68) !important;
+}
+
+.guru-transfer-glass__primary:focus-visible,
+.guru-transfer-glass__secondary:focus-visible {
+  outline: 2px solid rgb(6 182 212) !important;
+  outline-offset: 3px;
+}
+
+.dark .guru-transfer-glass {
+  --transfer-ink: 241 245 249;
+  --transfer-muted: 148 163 184;
+  --transfer-panel: 15 23 42;
+  border-color: rgb(165 243 252 / 0.13) !important;
+  background:
+    radial-gradient(circle at 5% -4%, rgb(20 184 166 / 0.18), transparent 34%),
+    radial-gradient(circle at 96% 7%, rgb(14 165 233 / 0.17), transparent 35%),
+    radial-gradient(circle at 76% 108%, rgb(124 58 237 / 0.17), transparent 40%),
+    rgb(2 6 23 / 0.86) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.08),
+    inset -1px -1px 0 rgb(0 0 0 / 0.42),
+    0 38px 100px -32px rgb(0 0 0 / 0.84),
+    0 15px 42px -28px rgb(34 211 238 / 0.52) !important;
+}
+
+.dark .guru-transfer-glass::after {
+  border-color: rgb(255 255 255 / 0.05);
+}
+
+.dark .guru-transfer-glass > button.absolute {
+  border-color: rgb(255 255 255 / 0.1);
+  color: rgb(148 163 184);
+  background: rgb(15 23 42 / 0.48);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.dark .guru-transfer-glass > button.absolute:hover {
+  color: white;
+  background: rgb(30 41 59 / 0.72);
+}
+
+.dark .guru-transfer-glass__header {
+  border-bottom-color: rgb(103 232 249 / 0.11);
+  background:
+    linear-gradient(112deg, rgb(13 148 136 / 0.14), rgb(14 116 144 / 0.1) 52%, rgb(91 33 182 / 0.14));
+}
+
+.dark .guru-transfer-glass__hero-icon {
+  border-color: rgb(103 232 249 / 0.24);
+  color: rgb(165 243 252);
+  background: linear-gradient(145deg, rgb(30 41 59 / 0.74), rgb(8 47 73 / 0.55));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.1),
+    0 12px 28px -15px rgb(34 211 238 / 0.62);
+}
+
+.dark .guru-transfer-glass__profile-wrap {
+  border-bottom-color: rgb(255 255 255 / 0.07);
+}
+
+.dark .guru-transfer-glass__profile,
+.dark .guru-transfer-glass__state,
+.dark .guru-transfer-glass__path-card,
+.dark .guru-transfer-glass__selection-summary {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(var(--transfer-panel) / 0.5);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.07),
+    inset -1px -1px 0 rgb(0 0 0 / 0.3),
+    0 16px 34px -24px rgb(0 0 0 / 0.72);
+}
+
+.dark .guru-transfer-glass__profile-meta > span {
+  border-color: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.dark .guru-transfer-glass__state--error {
+  border-color: rgb(251 113 133 / 0.2);
+  background: rgb(76 5 25 / 0.26);
+}
+
+.dark .guru-transfer-glass__class-card {
+  border-color: rgb(255 255 255 / 0.09);
+  background: linear-gradient(145deg, rgb(30 41 59 / 0.58), rgb(2 6 23 / 0.48));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.07),
+    inset -1px -1px 0 rgb(0 0 0 / 0.32),
+    0 14px 30px -24px rgb(0 0 0 / 0.72);
+}
+
+.dark .guru-transfer-glass__class-card:not(.is-current):hover {
+  border-color: rgb(103 232 249 / 0.34);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.1),
+    0 20px 40px -22px rgb(34 211 238 / 0.55);
+}
+
+.dark .guru-transfer-glass__class-card.is-selected {
+  border-color: rgb(103 232 249 / 0.64);
+  background: linear-gradient(145deg, rgb(8 47 73 / 0.72), rgb(46 16 101 / 0.46));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.12),
+    0 0 0 1px rgb(45 212 191 / 0.13),
+    0 21px 44px -20px rgb(34 211 238 / 0.58),
+    0 0 34px -18px rgb(139 92 246 / 0.54);
+}
+
+.dark .guru-transfer-glass__class-card.is-current {
+  color: rgb(100 116 139);
+  background: rgb(15 23 42 / 0.42);
+  box-shadow: inset 3px 3px 10px rgb(0 0 0 / 0.3);
+}
+
+.dark .guru-transfer-glass__selected-mark {
+  border-color: rgb(103 232 249 / 0.26);
+  color: rgb(165 243 252);
+  background: rgb(8 47 73 / 0.64);
+}
+
+.dark .guru-transfer-glass__path-card.is-origin {
+  color: rgb(100 116 139);
+  background: rgb(15 23 42 / 0.42);
+}
+
+.dark .guru-transfer-glass__path-card.is-target {
+  border-color: rgb(103 232 249 / 0.26);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(124 58 237 / 0.16), transparent 50%),
+    linear-gradient(145deg, rgb(8 47 73 / 0.58), rgb(15 23 42 / 0.46));
+}
+
+.dark .guru-transfer-glass__path-arrow {
+  border-color: rgb(103 232 249 / 0.2);
+  color: rgb(165 243 252);
+  background: linear-gradient(145deg, rgb(30 41 59 / 0.78), rgb(8 47 73 / 0.62));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.08),
+    0 12px 28px -16px rgb(34 211 238 / 0.5);
+}
+
+.dark .guru-transfer-glass__textarea {
+  border-color: rgb(255 255 255 / 0.09) !important;
+  color: rgb(241 245 249);
+  background: rgb(2 6 23 / 0.34) !important;
+  box-shadow:
+    inset 3px 3px 10px rgb(0 0 0 / 0.32),
+    inset -1px -1px 0 rgb(255 255 255 / 0.05);
+}
+
+.dark .guru-transfer-glass__footer {
+  border-top-color: rgb(255 255 255 / 0.08);
+  background: rgb(2 6 23 / 0.46);
+  box-shadow: 0 -14px 34px -24px rgb(0 0 0 / 0.72);
+}
+
+.dark .guru-transfer-glass__selection-summary.is-visible {
+  border-color: rgb(103 232 249 / 0.25);
+  color: rgb(241 245 249);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.08),
+    0 13px 30px -21px rgb(34 211 238 / 0.56);
+}
+
+.dark .guru-transfer-glass__selection-summary > span {
+  color: rgb(103 232 249);
+}
+
+.dark .guru-transfer-glass__secondary {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  color: rgb(226 232 240) !important;
+  background: rgb(255 255 255 / 0.045) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.07),
+    0 10px 24px -18px rgb(0 0 0 / 0.72) !important;
+}
+
+.dark .guru-transfer-glass__secondary:hover:not(:disabled) {
+  border-color: rgb(103 232 249 / 0.22) !important;
+  background: rgb(255 255 255 / 0.08) !important;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .guru-transfer-trigger,
+  .guru-transfer-glass__profile,
+  .guru-transfer-glass__state,
+  .guru-transfer-glass__path-card,
+  .guru-transfer-glass__class-card,
+  .guru-transfer-glass__selection-summary,
+  .guru-transfer-glass__footer {
+    background-color: rgb(248 250 252) !important;
+  }
+
+  .guru-transfer-glass {
+    background-color: rgb(241 245 249) !important;
+  }
+
+  .dark .guru-transfer-trigger,
+  .dark .guru-transfer-glass__profile,
+  .dark .guru-transfer-glass__state,
+  .dark .guru-transfer-glass__path-card,
+  .dark .guru-transfer-glass__class-card,
+  .dark .guru-transfer-glass__selection-summary,
+  .dark .guru-transfer-glass__footer {
+    background-color: rgb(15 23 42) !important;
+  }
+
+  .dark .guru-transfer-glass {
+    background-color: rgb(2 6 23) !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .guru-transfer-glass {
+    border-radius: 1.2rem !important;
+  }
+
+  .guru-transfer-glass > button.absolute {
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .guru-transfer-glass__header {
+    padding-right: 3.4rem !important;
+  }
+
+  .guru-transfer-glass__profile-meta > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .guru-transfer-glass__selection-summary {
+    max-width: none;
+  }
+
+  .guru-transfer-glass__primary,
+  .guru-transfer-glass__secondary {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guru-transfer-trigger,
+  .guru-transfer-trigger::before,
+  .guru-transfer-glass__class-card,
+  .guru-transfer-glass__class-card::before,
+  .guru-transfer-glass__selection-summary,
+  .guru-transfer-glass__primary,
+  .guru-transfer-glass__secondary {
+    transition: none !important;
+  }
+
+  .guru-transfer-trigger:hover,
+  .guru-transfer-glass__class-card:not(.is-current):hover,
+  .guru-transfer-glass__class-card.is-selected,
+  .guru-transfer-glass__primary:hover:not(:disabled),
+  .guru-transfer-glass__secondary:hover:not(:disabled) {
+    transform: none !important;
+  }
+}

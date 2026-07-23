@@ -22,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -126,10 +125,10 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
-      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col overflow-hidden border-white/70 bg-background/95 p-0 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
-        <DialogHeader className="border-b border-border/70 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 px-5 py-5 text-left dark:from-emerald-950/35 dark:via-slate-950 dark:to-cyan-950/25 sm:px-7">
+      <DialogContent className="guru-transfer-glass flex h-[min(94dvh,760px)] min-h-0 w-[calc(100%-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:w-full">
+        <DialogHeader className="guru-transfer-glass__header px-4 py-5 text-left sm:px-7 sm:py-6">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-white/80 text-emerald-700 shadow-sm dark:border-emerald-400/20 dark:bg-white/5 dark:text-emerald-300">
+            <span className="guru-transfer-glass__hero-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
               <ArrowRightLeft className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -145,17 +144,17 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
           </div>
         </DialogHeader>
 
-        <div className="border-b border-border/60 px-5 py-4 sm:px-7">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-14 w-14 shrink-0 border-2 border-white shadow-md dark:border-slate-800">
+        <div className="guru-transfer-glass__profile-wrap px-4 py-4 sm:px-7">
+          <div className="guru-transfer-glass__profile flex items-center gap-3 p-3.5 sm:gap-4 sm:p-4">
+            <Avatar className="guru-transfer-glass__avatar h-14 w-14 shrink-0 sm:h-16 sm:w-16">
               <AvatarImage src={santri.foto_url} className="object-cover" />
-              <AvatarFallback className="bg-emerald-100 font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+              <AvatarFallback className="bg-cyan-100 font-black text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100">
                 {santri.nama_lengkap?.charAt(0) || 'S'}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-black text-foreground sm:text-lg">{santri.nama_lengkap}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
+              <div className="guru-transfer-glass__profile-meta mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold sm:text-xs">
                 <span>{santri.jilid || 'Jilid belum diatur'}</span>
                 <span className="inline-flex items-center gap-1"><School className="h-3.5 w-3.5" />{currentClass?.nama_kelas || 'Kelas asal tidak ditemukan'}</span>
                 <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />Sesi {santri.sesi_mengaji || currentClass?.sesi || '-'}</span>
@@ -165,16 +164,18 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
         </div>
 
         {isConfirmation ? (
-          <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
-            <div className="grid items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-              <div className="rounded-lg border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-400/20 dark:bg-rose-950/20">
-                <p className="text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-300">Kelas asal</p>
+          <div className="guru-transfer-glass__body guru-transfer-glass__confirmation min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
+            <div className="guru-transfer-glass__path grid items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+              <div className="guru-transfer-glass__path-card is-origin p-4 sm:p-5">
+                <p className="guru-transfer-glass__eyebrow">Kelas asal</p>
                 <p className="mt-2 font-black">{currentClass?.nama_kelas || '-'}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Sesi {currentClass?.sesi || santri.sesi_mengaji || '-'}</p>
               </div>
-              <ArrowRight className="mx-auto h-5 w-5 rotate-90 text-muted-foreground sm:rotate-0" aria-hidden="true" />
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50/80 p-4 dark:border-emerald-400/25 dark:bg-emerald-950/25">
-                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Kelas tujuan</p>
+              <span className="guru-transfer-glass__path-arrow mx-auto flex h-10 w-10 items-center justify-center rounded-full" aria-hidden="true">
+                <ArrowRight className="h-5 w-5 rotate-90 sm:rotate-0" />
+              </span>
+              <div className="guru-transfer-glass__path-card is-target p-4 sm:p-5">
+                <p className="guru-transfer-glass__eyebrow">Kelas tujuan</p>
                 <p className="mt-2 font-black">{selectedClass?.nama_kelas}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Sesi {selectedClass?.sesi || '-'} · {selectedClass?.guru_name || 'Guru belum ditentukan'}</p>
               </div>
@@ -187,31 +188,35 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                 value={reason}
                 onChange={(event) => setReason(event.target.value.slice(0, 500))}
                 placeholder="Contoh: Penyesuaian jadwal belajar"
-                className="min-h-[88px] resize-none"
+                className="guru-transfer-glass__textarea min-h-[96px] resize-none"
                 disabled={status === 'submitting'}
               />
               <p className="text-right text-xs text-muted-foreground">{reason.length}/500</p>
             </div>
 
             {errorMessage && (
-              <div role="alert" className="mt-4 flex gap-3 rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+              <div role="alert" className="guru-transfer-glass__state guru-transfer-glass__state--error mt-4 flex gap-3 p-3 text-sm text-destructive">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>{errorMessage}</p>
               </div>
             )}
           </div>
         ) : (
-          <ScrollArea className="min-h-0 flex-1">
+          <div
+            tabIndex={0}
+            aria-label="Pilihan kelas tujuan"
+            className="guru-transfer-glass__scroll min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500"
+          >
             <div className="px-5 py-5 sm:px-7">
               {status === 'loading' && (
-                <div role="status" className="flex min-h-52 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                <div role="status" className="guru-transfer-glass__state flex min-h-52 flex-col items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
                   <p>Memuat pilihan kelas aktif...</p>
                 </div>
               )}
 
               {status === 'error' && (
-                <div role="alert" className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
+                <div role="alert" className="guru-transfer-glass__state guru-transfer-glass__state--error flex min-h-52 flex-col items-center justify-center gap-3 p-6 text-center">
                   <AlertCircle className="h-8 w-8 text-destructive" />
                   <div><p className="font-bold">Pilihan kelas belum dapat dimuat</p><p className="mt-1 max-w-md text-sm text-muted-foreground">{errorMessage}</p></div>
                   <Button type="button" variant="outline" onClick={loadClasses}><RefreshCw className="mr-2 h-4 w-4" />Coba lagi</Button>
@@ -219,7 +224,7 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
               )}
 
               {status === 'ready' && selectableClasses.length === 0 && (
-                <div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border p-6 text-center">
+                <div className="guru-transfer-glass__state flex min-h-52 flex-col items-center justify-center gap-3 p-6 text-center">
                   <School className="h-9 w-9 text-muted-foreground" />
                   <div><p className="font-bold">Belum ada kelas tujuan</p><p className="mt-1 text-sm text-muted-foreground">Tidak ditemukan kelas aktif lain dengan kategori yang sama.</p></div>
                 </div>
@@ -238,15 +243,14 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                         onClick={() => setSelectedClassId(kelas.id)}
                         aria-pressed={isSelected}
                         className={cn(
-                          'min-h-[112px] rounded-lg border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2',
-                          isDisabled && 'cursor-not-allowed border-border bg-muted/60 opacity-60',
-                          !isDisabled && !isSelected && 'border-border bg-card hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:hover:border-emerald-400/40',
-                          isSelected && 'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500 dark:bg-emerald-950/25',
+                          'guru-transfer-glass__class-card min-h-[116px] p-4 text-left focus-visible:outline-none',
+                          isDisabled && 'is-current cursor-not-allowed',
+                          isSelected && 'is-selected',
                         )}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0"><p className="truncate font-black">{kelas.nama_kelas}</p><Badge variant="outline" className="mt-2">Sesi {kelas.sesi || '-'}</Badge></div>
-                          {isSelected && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />}
+                          {isSelected && <span className="guru-transfer-glass__selected-mark inline-flex shrink-0 items-center gap-1 text-[10px] font-black uppercase"><CheckCircle2 className="h-4 w-4" />Dipilih</span>}
                           {isDisabled && <Badge variant="secondary" className="shrink-0">Kelas asal</Badge>}
                         </div>
                         <p className="mt-3 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><User className="h-3.5 w-3.5" />{kelas.guru_name || 'Guru belum ditentukan'}</p>
@@ -256,24 +260,30 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
 
-        <DialogFooter className="border-t border-border/70 bg-muted/30 px-5 py-4 sm:px-7">
+        <DialogFooter className="guru-transfer-glass__footer px-4 py-4 sm:px-7">
           {isConfirmation ? (
-            <>
-              <Button type="button" variant="outline" onClick={() => { setIsConfirmation(false); setStatus('ready'); setErrorMessage(''); }} disabled={status === 'submitting'}>Kembali</Button>
-              <Button type="button" onClick={submitTransfer} disabled={status === 'submitting'} className="min-w-[150px] bg-emerald-700 text-white hover:bg-emerald-800">
+            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" className="guru-transfer-glass__secondary" onClick={() => { setIsConfirmation(false); setStatus('ready'); setErrorMessage(''); }} disabled={status === 'submitting'}>Kembali</Button>
+              <Button type="button" onClick={submitTransfer} disabled={status === 'submitting'} className="guru-transfer-glass__primary min-w-[168px]">
                 {status === 'submitting' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memindahkan...</> : <><ArrowRightLeft className="mr-2 h-4 w-4" />Konfirmasi transfer</>}
               </Button>
-            </>
+            </div>
           ) : (
-            <>
-              <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
-              <Button type="button" onClick={() => setIsConfirmation(true)} disabled={!selectedClassId || status !== 'ready'} className="min-w-[140px] bg-emerald-700 text-white hover:bg-emerald-800">
-                Lanjutkan <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </>
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className={cn('guru-transfer-glass__selection-summary min-w-0', selectedClass && 'is-visible')} aria-live="polite">
+                <span className="block text-[10px] font-black uppercase tracking-[0.16em]">Tujuan dipilih</span>
+                <strong className="mt-0.5 block truncate text-sm">{selectedClass ? `${selectedClass.nama_kelas} · Sesi ${selectedClass.sesi || '-'}` : 'Pilih salah satu kelas tujuan'}</strong>
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <Button type="button" variant="outline" className="guru-transfer-glass__secondary" onClick={closeModal}>Batal</Button>
+                <Button type="button" onClick={() => setIsConfirmation(true)} disabled={!selectedClassId || status !== 'ready'} className="guru-transfer-glass__primary min-w-[148px]">
+                  Lanjutkan <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>

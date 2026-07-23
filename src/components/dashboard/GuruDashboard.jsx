@@ -564,7 +564,7 @@ const GuruDashboard = () => {
                                                                 size="icon"
                                                                 variant="outline"
                                                                 onClick={() => openTransferModal(santri, cls)}
-                                                                className="h-10 w-10 shrink-0 border-emerald-200 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:ring-emerald-500 dark:border-emerald-400/25 dark:text-emerald-300 dark:hover:bg-emerald-950/35"
+                                                                className="guru-transfer-trigger h-10 w-10 shrink-0"
                                                                 aria-label={`Transfer kelas ${santri.nama_lengkap}`}
                                                               >
                                                                 <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />

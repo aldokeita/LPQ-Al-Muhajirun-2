@@ -411,6 +411,7 @@ Add-Check "guru class transfer restores an accessible atomic workflow" {
   $modal = Read-Text "src/components/dashboard/guru/StudentTransferModal.jsx"
   $adapter = Read-Text "src/lib/classTransferAdapters.js"
   $migration = Read-Text "supabase/migrations/20260723000100_guru_student_class_transfer.sql"
+  $styles = Read-Text "src/styles/admin-dashboard.css"
 
   if ($dashboard -notmatch "StudentTransferModal") { throw "transfer modal is not mounted in GuruDashboard" }
   if ($dashboard -notmatch 'aria-label={`Transfer kelas \$\{santri\.nama_lengkap\}`}') { throw "student-specific transfer aria label is missing" }
@@ -421,6 +422,15 @@ Add-Check "guru class transfer restores an accessible atomic workflow" {
   if ($modal -notmatch "Belum ada kelas tujuan") { throw "empty state is missing" }
   if ($modal -notmatch "is_current" -or $modal -notmatch "is_selectable") { throw "current and disabled class state is missing" }
   if ($modal -notmatch "aria-pressed") { throw "keyboard-accessible selected state is missing" }
+  if ($modal -notmatch 'h-\[min\(94dvh,760px\)\]') { throw "transfer modal viewport height is not bounded" }
+  if ($modal -notmatch 'aria-label="Pilihan kelas tujuan"') { throw "transfer destination list lacks an accessible scroll region" }
+  if ($modal -notmatch 'overflow-y-auto') { throw "transfer destination list does not support native scrolling" }
+  if ($dashboard -notmatch 'guru-transfer-trigger') { throw "transfer trigger does not use the focused Neo-Glass control" }
+  if ($modal -notmatch 'guru-transfer-glass__selection-summary' -or $modal -notmatch 'aria-live="polite"') { throw "selected destination summary is missing" }
+  if ($modal -notmatch 'is-selected' -or $modal -notmatch 'guru-transfer-glass__path') { throw "selected or confirmation path styling is missing" }
+  if ($styles -notmatch '@supports not' -or $styles -notmatch 'prefers-reduced-motion: reduce') { throw "Neo-Glass fallback or reduced-motion support is missing" }
+  if ($styles -notmatch '\.dark \.guru-transfer-glass' -or $styles -notmatch '\.guru-transfer-glass__class-card\.is-selected') { throw "dark theme or selected card treatment is missing" }
+  if ($styles -notmatch '@media \(max-width: 639px\)' -or $modal -notmatch 'touch-pan-y') { throw "mobile transfer modal treatment is missing" }
   if ($adapter -notmatch "get_guru_transfer_class_options") { throw "safe class option RPC is not used" }
   if ($adapter -notmatch "transfer_santri_to_class_by_guru") { throw "atomic guru transfer RPC is not used" }
   if ($adapter -notmatch "Fitur transfer kelas belum diterapkan") { throw "backend-not-applied error is not mapped" }
