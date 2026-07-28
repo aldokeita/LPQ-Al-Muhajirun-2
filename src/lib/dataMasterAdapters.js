@@ -20,10 +20,23 @@ export const normalizeDefaultSppAmount = (value) => {
   return Number.isFinite(amount) ? amount : null;
 };
 
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export const pickSantriProfileFields = (input) => {
   const nomorInduk = normalizeNomorIndukQiroati(input.nomor_induk_qiroati);
+  const santriId = input.id || generateUUID();
 
   return {
+    id: santriId,
     nomor_induk_qiroati: nomorInduk,
     nama_lengkap: input.nama_lengkap?.trim(),
     nama_panggilan: input.nama_panggilan?.trim() || null,
