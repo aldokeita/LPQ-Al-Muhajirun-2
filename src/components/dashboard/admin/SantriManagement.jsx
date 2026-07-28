@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen, CheckCircle } from 'lucide-react';
+import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen, CheckCircle, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -277,11 +277,11 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
   );
 };
 
-const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
+const UploadReportModal = ({ isOpen, onClose, report, onConfirm, isUploading = false }) => {
   if (!report) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={isUploading ? undefined : onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Laporan Validasi Data</DialogTitle>
@@ -341,9 +341,13 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
         )}
 
         <DialogFooter className="gap-2 sm:gap-0 mt-4">
-            <Button variant="outline" onClick={onClose}>Batal</Button>
-            <Button onClick={onConfirm} disabled={report.validCount === 0} className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="w-4 h-4 mr-2"/> Simpan {report.validCount} Data Valid
+            <Button variant="outline" onClick={onClose} disabled={isUploading}>Batal</Button>
+            <Button onClick={onConfirm} disabled={report.validCount === 0 || isUploading} className="bg-green-600 hover:bg-green-700">
+                {isUploading ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Menyimpan...</>
+                ) : (
+                    <><CheckCircle className="w-4 h-4 mr-2"/> Simpan {report.validCount} Data Valid</>
+                )}
             </Button>
         </DialogFooter>
       </DialogContent>
@@ -645,12 +649,112 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   }, [classesList]);
   
   const confirmBulkUpload = async () => {
-      if (!uploadReport?.validData) return;
-      toast({
-          title: "Import massal ditunda",
-          description: "Pembuatan akun santri massal perlu operasi backend atomik agar Auth, profil, alias login, dan membership tetap konsisten.",
-          variant: "destructive"
+    if (!uploadReport?.validData || uploadReport.validData.length === 0) return;
+    setIsUploading(true);
+
+    try {
+      const itemsToInsert = uploadReport.validData.map((item) => {
+        const cleanItem = { ...item };
+        if (!cleanItem.status) cleanItem.status = 'Aktif';
+        if (!cleanItem.kategori) cleanItem.kategori = subCategory === 'ptpt' ? 'PTPT' : 'Anak';
+        if (cleanItem.points === undefined) cleanItem.points = 0;
+        return cleanItem;
       });
+
+      let successCount = 0;
+      let failedCount = 0;
+      const errorMessages = [];
+
+      if (enableEdgeFunctions) {
+        for (const santriItem of itemsToInsert) {
+          try {
+            const { data, error: edgeErr } = await supabase.functions.invoke('manage-user', {
+              body: {
+                action: 'create',
+                role: 'santri',
+                profile: santriItem,
+                initial_password: santriItem.password || santriItem.nomor_induk_qiroati || '1234',
+              },
+            });
+
+            if (edgeErr || !data?.ok) {
+              const { error: insertErr } = await supabase.from('santri').insert([santriItem]);
+              if (insertErr) {
+                failedCount++;
+                errorMessages.push(`${santriItem.nama_lengkap}: ${insertErr.message}`);
+              } else {
+                successCount++;
+              }
+            } else {
+              successCount++;
+            }
+          } catch (itemErr) {
+            const { error: insertErr } = await supabase.from('santri').insert([santriItem]);
+            if (insertErr) {
+              failedCount++;
+              errorMessages.push(`${santriItem.nama_lengkap}: ${itemErr.message}`);
+            } else {
+              successCount++;
+            }
+          }
+        }
+      } else {
+        const { data: insertedData, error: bulkErr } = await supabase
+          .from('santri')
+          .insert(itemsToInsert)
+          .select('id');
+
+        if (bulkErr) {
+          for (const santriItem of itemsToInsert) {
+            const { error: rowErr } = await supabase.from('santri').insert([santriItem]);
+            if (rowErr) {
+              failedCount++;
+              errorMessages.push(`${santriItem.nama_lengkap}: ${rowErr.message}`);
+            } else {
+              successCount++;
+            }
+          }
+        } else {
+          successCount = insertedData?.length || itemsToInsert.length;
+        }
+      }
+
+      if (failedCount > 0 && successCount === 0) {
+        toast({
+          title: "Impor Massal Gagal",
+          description: errorMessages[0] || "Terjadi kesalahan saat menyimpan data santri ke database.",
+          variant: "destructive"
+        });
+      } else if (failedCount > 0 && successCount > 0) {
+        toast({
+          title: "Impor Massal Parsial",
+          description: `${successCount} santri berhasil disimpan, ${failedCount} gagal.`,
+        });
+        setIsReportOpen(false);
+        setIsBulkUploadOpen(false);
+        setUploadReport(null);
+        await loadData(subCategory);
+        window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
+      } else {
+        toast({
+          title: "Berhasil!",
+          description: `${successCount} data santri berhasil disimpan ke database.`,
+        });
+        setIsReportOpen(false);
+        setIsBulkUploadOpen(false);
+        setUploadReport(null);
+        await loadData(subCategory);
+        window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
+      }
+    } catch (error) {
+      toast({
+        title: "Gagal Menyimpan",
+        description: error.message || "Gagal mengimpor data santri.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDownloadData = async () => {
@@ -1444,7 +1548,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       </Dialog>
 
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
-      <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
+      <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} isUploading={isUploading} />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
       <SantriArchiveDialog
         open={isArchiveOpen}
