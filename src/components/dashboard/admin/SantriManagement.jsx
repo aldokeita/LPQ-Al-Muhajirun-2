@@ -654,11 +654,14 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
     try {
       const itemsToInsert = uploadReport.validData.map((item) => {
-        const cleanItem = { ...item };
-        if (!cleanItem.status) cleanItem.status = 'Aktif';
-        if (!cleanItem.kategori) cleanItem.kategori = subCategory === 'ptpt' ? 'PTPT' : 'Anak';
-        if (cleanItem.points === undefined) cleanItem.points = 0;
-        return cleanItem;
+        const initialPassword = item.nomor_induk_qiroati || item.password || item.nama_panggilan || '1234';
+        const profile = pickSantriProfileFields({
+          ...item,
+          status: item.status || 'Aktif',
+          kategori: item.kategori || (subCategory === 'ptpt' ? 'PTPT' : 'Anak'),
+          points: item.points ?? 0,
+        });
+        return { profile, initialPassword };
       });
 
       let successCount = 0;
@@ -666,22 +669,23 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       const errorMessages = [];
 
       if (enableEdgeFunctions) {
-        for (const santriItem of itemsToInsert) {
+        for (const entry of itemsToInsert) {
+          const { profile, initialPassword } = entry;
           try {
             const { data, error: edgeErr } = await supabase.functions.invoke('manage-user', {
               body: {
                 action: 'create',
                 role: 'santri',
-                profile: santriItem,
-                initial_password: santriItem.password || santriItem.nomor_induk_qiroati || '1234',
+                profile: profile,
+                initial_password: initialPassword,
               },
             });
 
             if (edgeErr || !data?.ok) {
-              const { error: insertErr } = await supabase.from('santri').insert([santriItem]);
+              const { error: insertErr } = await supabase.from('santri').insert([profile]);
               if (insertErr) {
                 failedCount++;
-                errorMessages.push(`${santriItem.nama_lengkap}: ${insertErr.message}`);
+                errorMessages.push(`${profile.nama_lengkap}: ${insertErr.message}`);
               } else {
                 successCount++;
               }
@@ -689,33 +693,34 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               successCount++;
             }
           } catch (itemErr) {
-            const { error: insertErr } = await supabase.from('santri').insert([santriItem]);
+            const { error: insertErr } = await supabase.from('santri').insert([profile]);
             if (insertErr) {
               failedCount++;
-              errorMessages.push(`${santriItem.nama_lengkap}: ${itemErr.message}`);
+              errorMessages.push(`${profile.nama_lengkap}: ${itemErr.message}`);
             } else {
               successCount++;
             }
           }
         }
       } else {
+        const profilesArray = itemsToInsert.map((e) => e.profile);
         const { data: insertedData, error: bulkErr } = await supabase
           .from('santri')
-          .insert(itemsToInsert)
+          .insert(profilesArray)
           .select('id');
 
         if (bulkErr) {
-          for (const santriItem of itemsToInsert) {
-            const { error: rowErr } = await supabase.from('santri').insert([santriItem]);
+          for (const profile of profilesArray) {
+            const { error: rowErr } = await supabase.from('santri').insert([profile]);
             if (rowErr) {
               failedCount++;
-              errorMessages.push(`${santriItem.nama_lengkap}: ${rowErr.message}`);
+              errorMessages.push(`${profile.nama_lengkap}: ${rowErr.message}`);
             } else {
               successCount++;
             }
           }
         } else {
-          successCount = insertedData?.length || itemsToInsert.length;
+          successCount = insertedData?.length || profilesArray.length;
         }
       }
 

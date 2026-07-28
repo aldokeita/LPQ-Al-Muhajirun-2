@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -381,7 +381,8 @@ const SantriDewasaManagement = () => {
 
   const confirmBulkUpload = async () => {
       if (!uploadReport?.validData) return;
-      const { error } = await supabase.from('santri').insert(uploadReport.validData);
+      const cleanData = uploadReport.validData.map((item) => pickSantriProfileFields(item));
+      const { error } = await supabase.from('santri').insert(cleanData);
       if (error) {
           toast({ title: "Gagal Menyimpan", description: error.message, variant: "destructive" });
       } else {
