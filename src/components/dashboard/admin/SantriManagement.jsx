@@ -650,90 +650,71 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   
   const confirmBulkUpload = async () => {
     if (!uploadReport?.validData || uploadReport.validData.length === 0) return;
+
+    if (!enableEdgeFunctions) {
+      toast({
+        title: 'Impor Massal Tidak Tersedia',
+        description: 'Impor massal santri memerlukan Edge Function yang belum aktif di environment ini. Aktifkan VITE_ENABLE_EDGE_FUNCTIONS=true.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsUploading(true);
 
+    let successCount = 0;
+    let failedCount = 0;
+    const failedNames = [];
+
     try {
-      const itemsToInsert = uploadReport.validData.map((item) => {
-        const initialPassword = item.nomor_induk_qiroati || item.password || item.nama_panggilan || '1234';
-        const profile = pickSantriProfileFields({
-          ...item,
-          status: item.status || 'Aktif',
-          kategori: item.kategori || (subCategory === 'ptpt' ? 'PTPT' : 'Anak'),
-          points: item.points ?? 0,
-        });
-        return { profile, initialPassword };
-      });
+      for (const item of uploadReport.validData) {
+        const initialPassword = item.nomor_induk_qiroati || item.nama_panggilan || '1234';
+        const kategori = item.kategori || (subCategory === 'ptpt' ? 'PTPT' : 'Anak');
 
-      let successCount = 0;
-      let failedCount = 0;
-      const errorMessages = [];
-
-      if (enableEdgeFunctions) {
-        for (const entry of itemsToInsert) {
-          const { profile, initialPassword } = entry;
-          try {
-            const { data, error: edgeErr } = await supabase.functions.invoke('manage-user', {
-              body: {
-                action: 'create',
-                role: 'santri',
-                profile: profile,
-                initial_password: initialPassword,
+        try {
+          const { data, error: edgeErr } = await supabase.functions.invoke('manage-user', {
+            body: {
+              action: 'create',
+              role: 'santri',
+              profile: {
+                nama_lengkap: item.nama_lengkap,
+                nama_panggilan: item.nama_panggilan || null,
+                nomor_induk_qiroati: item.nomor_induk_qiroati || '',
+                kategori,
+                jenis_kelamin: item.jenis_kelamin || null,
+                tanggal_lahir: item.tanggal_lahir || null,
+                tempat_lahir: item.tempat_lahir || null,
+                alamat: item.alamat || null,
+                no_hp_ortu: item.no_hp_ortu || null,
+                nama_ayah: item.nama_ayah || null,
+                nama_ibu: item.nama_ibu || null,
+                no_kk: item.no_kk || null,
+                no_nik: item.no_nik || null,
+                sesi_mengaji: item.sesi_mengaji || null,
+                jilid: item.jilid || null,
+                tanggal_pendaftaran: item.tanggal_pendaftaran || null,
+                points: item.points ?? 0,
               },
-            });
+              initial_password: initialPassword,
+            },
+          });
 
-            if (edgeErr || !data?.ok) {
-              const { error: insertErr } = await supabase.from('santri').insert([profile]);
-              if (insertErr) {
-                failedCount++;
-                errorMessages.push(`${profile.nama_lengkap}: ${insertErr.message}`);
-              } else {
-                successCount++;
-              }
-            } else {
-              successCount++;
-            }
-          } catch (itemErr) {
-            const { error: insertErr } = await supabase.from('santri').insert([profile]);
-            if (insertErr) {
-              failedCount++;
-              errorMessages.push(`${profile.nama_lengkap}: ${itemErr.message}`);
-            } else {
-              successCount++;
-            }
-          }
-        }
-      } else {
-        const profilesArray = itemsToInsert.map((e) => e.profile);
-        const { data: insertedData, error: bulkErr } = await supabase
-          .from('santri')
-          .insert(profilesArray)
-          .select('id');
+          if (edgeErr) throw new Error(edgeErr.message || 'Edge Function error');
+          if (!data?.ok) throw new Error(data?.error || data?.message || 'Gagal membuat akun santri');
 
-        if (bulkErr) {
-          for (const profile of profilesArray) {
-            const { error: rowErr } = await supabase.from('santri').insert([profile]);
-            if (rowErr) {
-              failedCount++;
-              errorMessages.push(`${profile.nama_lengkap}: ${rowErr.message}`);
-            } else {
-              successCount++;
-            }
-          }
-        } else {
-          successCount = insertedData?.length || profilesArray.length;
+          successCount++;
+        } catch (itemErr) {
+          failedCount++;
+          failedNames.push(`${item.nama_lengkap}: ${itemErr.message}`);
         }
       }
 
-      if (failedCount > 0 && successCount === 0) {
+      if (successCount > 0) {
         toast({
-          title: "Impor Massal Gagal",
-          description: errorMessages[0] || "Terjadi kesalahan saat menyimpan data santri ke database.",
-          variant: "destructive"
-        });
-      } else if (failedCount > 0 && successCount > 0) {
-        toast({
-          title: "Impor Massal Parsial",
-          description: `${successCount} santri berhasil disimpan, ${failedCount} gagal.`,
+          title: failedCount > 0 ? 'Impor Massal Parsial' : 'Berhasil!',
+          description: failedCount > 0
+            ? `${successCount} santri berhasil disimpan, ${failedCount} gagal.`
+            : `${successCount} data santri berhasil disimpan ke database.`,
         });
         setIsReportOpen(false);
         setIsBulkUploadOpen(false);
@@ -742,20 +723,16 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       } else {
         toast({
-          title: "Berhasil!",
-          description: `${successCount} data santri berhasil disimpan ke database.`,
+          title: 'Impor Massal Gagal',
+          description: failedNames[0] || 'Semua data gagal disimpan.',
+          variant: 'destructive',
         });
-        setIsReportOpen(false);
-        setIsBulkUploadOpen(false);
-        setUploadReport(null);
-        await loadData(subCategory);
-        window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       }
     } catch (error) {
       toast({
-        title: "Gagal Menyimpan",
-        description: error.message || "Gagal mengimpor data santri.",
-        variant: "destructive"
+        title: 'Gagal Menyimpan',
+        description: error.message || 'Gagal mengimpor data santri.',
+        variant: 'destructive',
       });
     } finally {
       setIsUploading(false);
