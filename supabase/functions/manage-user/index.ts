@@ -238,6 +238,20 @@ Deno.serve(async (req) => {
       return fail(req, "VALIDATION_ERROR", "Arsip dan pemulihan akun hanya tersedia untuk santri.", 400);
     }
 
+    // --- Permanent delete: remove auth.users → cascades to all related tables ---
+    if (action === "delete") {
+      if (role !== "santri") {
+        return fail(req, "VALIDATION_ERROR", "Penghapusan permanen hanya tersedia untuk santri.", 400);
+      }
+      const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId);
+      if (deleteError) {
+        logSafe("error", "manage_user_delete_failed", { request_id: rid, target_user_id: targetUserId });
+        return fail(req, "DELETE_FAILED", "Penghapusan permanen santri gagal.", 400);
+      }
+      logSafe("info", "manage_user_deleted_permanent", { request_id: rid, target_user_id: targetUserId, actor: user.id });
+      return ok(req, { user_id: targetUserId, deleted: true });
+    }
+
     if (action === "deactivate") {
       await admin.from("user_profiles").update({ status: "inactive", updated_by: user.id }).eq("id", targetUserId);
       await admin.auth.admin.updateUserById(targetUserId, { ban_duration: "876000h" });
@@ -391,22 +405,6 @@ Deno.serve(async (req) => {
     }).eq("id", targetUserId);
 
     return ok(req, { user_id: targetUserId, updated: true });
-  }
-
-  // --- Permanent delete: remove auth.users → cascades to all related tables ---
-  if (action === "delete") {
-    if (role !== "santri") {
-      return fail(req, "VALIDATION_ERROR", "Penghapusan permanen hanya tersedia untuk santri.", 400);
-    }
-    const deleteTargetId = requireString(body.target_user_id, "Target user id");
-    const { error: deleteError } = await admin.auth.admin.deleteUser(deleteTargetId);
-    if (deleteError) {
-      logSafe("error", "manage_user_delete_failed", { request_id: rid, target_user_id: deleteTargetId });
-      return fail(req, "DELETE_FAILED", "Penghapusan permanen santri gagal.", 400);
-    }
-    logSafe("info", "manage_user_deleted_permanent", { request_id: rid, target_user_id: deleteTargetId, actor: user.id });
-    return ok(req, { user_id: deleteTargetId, deleted: true });
-  }
 
   } catch (error) {
     logSafe("error", "manage_user_error", { request_id: rid, message: String(error) });
