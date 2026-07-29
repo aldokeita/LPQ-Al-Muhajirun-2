@@ -84,3 +84,18 @@ export const archiveSantriAccounts = async (santriIds, reason) => {
     await setSantriArchived({ santriId, archived: true, reason });
   }
 };
+
+export const deleteSantriPermanent = async (santriId) => {
+  const fallback = 'Penghapusan permanen santri gagal.';
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: {
+      action: 'delete',
+      role: 'santri',
+      target_user_id: santriId,
+    },
+  });
+
+  if (error) throw new Error(await getFunctionErrorMessage(error, fallback));
+  if (!data?.ok) throw new Error(data?.error?.message || fallback);
+  return data.data;
+};
