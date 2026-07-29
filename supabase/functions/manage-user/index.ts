@@ -245,8 +245,8 @@ Deno.serve(async (req) => {
       }
       const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId);
       if (deleteError) {
-        logSafe("error", "manage_user_delete_failed", { request_id: rid, target_user_id: targetUserId });
-        return fail(req, "DELETE_FAILED", "Penghapusan permanen santri gagal.", 400);
+        logSafe("error", "manage_user_delete_failed", { request_id: rid, target_user_id: targetUserId, error: deleteError });
+        return fail(req, "DELETE_FAILED", `Penghapusan permanen santri gagal: ${deleteError.message || JSON.stringify(deleteError)}`, 400);
       }
       logSafe("info", "manage_user_deleted_permanent", { request_id: rid, target_user_id: targetUserId, actor: user.id });
       return ok(req, { user_id: targetUserId, deleted: true });

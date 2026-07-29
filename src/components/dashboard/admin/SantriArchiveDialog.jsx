@@ -81,7 +81,9 @@ const SantriArchiveDialog = ({ open, onOpenChange, categories, title = 'Arsip Sa
         setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
       } catch (err) {
         failedCount++;
-        failedNames.push(item?.nama_lengkap || id);
+        const errorMessage = err.message || 'Error tidak diketahui';
+        failedNames.push(`${item?.nama_lengkap || id} (${errorMessage})`);
+        console.error('[Delete Permanent Error]', id, err);
       }
     }
 
