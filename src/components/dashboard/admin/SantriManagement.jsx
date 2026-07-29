@@ -668,8 +668,12 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
     try {
       for (const item of uploadReport.validData) {
-        const initialPassword = item.nomor_induk_qiroati || item.nama_panggilan || '1234';
+        // Generate nomor induk otomatis jika kosong (wajib untuk santri Anak/PTPT)
         const kategori = item.kategori || (subCategory === 'ptpt' ? 'PTPT' : 'Anak');
+        const nomorInduk = item.nomor_induk_qiroati
+          ? String(item.nomor_induk_qiroati).trim()
+          : `IMPOR-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+        const initialPassword = nomorInduk;
 
         try {
           const { data, error: edgeErr } = await supabase.functions.invoke('manage-user', {
@@ -679,7 +683,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               profile: {
                 nama_lengkap: item.nama_lengkap,
                 nama_panggilan: item.nama_panggilan || null,
-                nomor_induk_qiroati: item.nomor_induk_qiroati || '',
+                nomor_induk_qiroati: nomorInduk,
                 kategori,
                 jenis_kelamin: item.jenis_kelamin || null,
                 tanggal_lahir: item.tanggal_lahir || null,
@@ -699,8 +703,17 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
             },
           });
 
-          if (edgeErr) throw new Error(edgeErr.message || 'Edge Function error');
-          if (!data?.ok) throw new Error(data?.error || data?.message || 'Gagal membuat akun santri');
+          if (edgeErr) {
+            // Coba ekstrak pesan error sebenarnya dari response body
+            let errMsg = edgeErr.message || 'Edge Function error';
+            try {
+              const body = await edgeErr.context?.json?.();
+              if (body?.message) errMsg = body.message;
+              else if (body?.error) errMsg = body.error;
+            } catch (_) { /* ignore parse error */ }
+            throw new Error(errMsg);
+          }
+          if (!data?.ok) throw new Error(data?.message || data?.error || 'Gagal membuat akun santri');
 
           successCount++;
         } catch (itemErr) {
@@ -722,11 +735,15 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         await loadData(subCategory);
         window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       } else {
+        // Tampilkan error pertama yang terjadi dengan detail yang jelas
+        const firstError = failedNames[0] || 'Semua data gagal disimpan.';
         toast({
           title: 'Impor Massal Gagal',
-          description: failedNames[0] || 'Semua data gagal disimpan.',
+          description: firstError,
           variant: 'destructive',
         });
+        // Log semua error ke console untuk debugging
+        if (failedNames.length > 1) console.warn('[BulkImport] Semua error:', failedNames);
       }
     } catch (error) {
       toast({
