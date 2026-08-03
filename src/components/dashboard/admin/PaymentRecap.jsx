@@ -1,18 +1,17 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Sector } from 'recharts';
-import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, Search, Calendar, TrendingUp, PieChart as PieChartIcon, ListChecks, DollarSign } from 'lucide-react';
+import { CheckCircle, XCircle, Search, Calendar, TrendingUp, PieChart as PieChartIcon, ListChecks, DollarSign, CalendarDays } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from '@/components/ui/skeleton';
-import { motion, AnimatePresence } from 'framer-motion';
 import { MONTH_NAMES, monthNumberToName, selectedMonthToNumber } from '@/lib/paymentAdapters';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
+import DailyPaymentRecap from './DailyPaymentRecap';
 
 const months = MONTH_NAMES;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF19A3'];
@@ -72,6 +71,7 @@ const PaymentRecap = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [activeTab, setActiveTab] = useState("status");
+  const [recapView, setRecapView] = useState('monthly');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,14 +79,14 @@ const PaymentRecap = () => {
       try {
         const { data: paymentData, error: paymentError } = await supabase
           .from('payments')
-          .select('id, santri_id, jumlah, tanggal_pembayaran, catatan, bulan, tahun, status')
+          .select('id, santri_id, jumlah, tanggal_pembayaran, catatan, bulan, tahun, status, metode_pembayaran, transaction_id, created_at, deleted_at')
           .eq('status', 'paid')
           .is('deleted_at', null)
           .order('tanggal_pembayaran', { ascending: false });
         
         const { data: santriData, error: santriError } = await supabase
           .from('santri')
-          .select('id, nama_lengkap, status, sesi_mengaji, foto_url, avatar_path, rfid_tag');
+          .select('id, nama_lengkap, nomor_induk_qiroati, status, sesi_mengaji, foto_url, avatar_path, rfid_tag, current_class:classes!santri_current_class_id_fkey(nama_kelas)');
 
         if (paymentError || santriError) {
           toast({ title: "Error", description: "Gagal memuat data.", variant: "destructive" });
@@ -102,7 +102,7 @@ const PaymentRecap = () => {
         if (!years.includes(currentYear)) years.unshift(currentYear);
         setAvailableYears([...new Set(years)]);
         
-        if(!years.includes(selectedYear)) setSelectedYear(years[0] || currentYear);
+        setSelectedYear((current) => years.includes(current) ? current : (years[0] || currentYear));
         
       } catch (error) {
         toast({ title: "Error", description: "Terjadi kesalahan tidak terduga.", variant: "destructive" });
@@ -242,10 +242,10 @@ const PaymentRecap = () => {
                 <div className="admin-panel-header-icon"><DollarSign /></div>
                 <div className="admin-panel-header-text">
                     <h2>Rekap Pembayaran</h2>
-                    <p>Monitor status pembayaran SPP dan rekap per item.</p>
+                    <p>Monitor status bulanan, rincian item, dan pemasukan SPP harian.</p>
                 </div>
             </div>
-            <div className="admin-panel-header-actions">
+            {recapView === 'monthly' && <div className="admin-panel-header-actions">
                 <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}>
                     <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{availableYears.map(year => <SelectItem key={year} value={year.toString()}>{year}</SelectItem>)}</SelectContent>
@@ -257,9 +257,23 @@ const PaymentRecap = () => {
                         {months.map((month, index) => <SelectItem key={month} value={index.toString()}>{month}</SelectItem>)}
                     </SelectContent>
                 </Select>
-            </div>
+            </div>}
         </div>
 
+        <div className="flex justify-center">
+          <div className="admin-segmented-control" role="tablist" aria-label="Jenis rekap pembayaran">
+            <button type="button" role="tab" aria-selected={recapView === 'monthly'} onClick={() => setRecapView('monthly')} className={`admin-segmented-control-item ${recapView === 'monthly' ? 'active' : ''}`}>
+              <PieChartIcon className="h-4 w-4" aria-hidden="true" />Rekap Bulanan
+            </button>
+            <button type="button" role="tab" aria-selected={recapView === 'daily'} onClick={() => setRecapView('daily')} className={`admin-segmented-control-item ${recapView === 'daily' ? 'active' : ''}`}>
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />Rekap SPP per Hari
+            </button>
+          </div>
+        </div>
+
+        {recapView === 'daily' ? (
+          <DailyPaymentRecap payments={allPayments} santri={allSantri} />
+        ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center mb-6">
                 <div className="admin-segmented-control">
@@ -392,6 +406,7 @@ const PaymentRecap = () => {
                 )}
             </TabsContent>
         </Tabs>
+        )}
     </div>
   );
 };

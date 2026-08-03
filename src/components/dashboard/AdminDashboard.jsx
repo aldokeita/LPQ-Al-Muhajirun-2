@@ -160,7 +160,7 @@ const AdminDashboard = () => {
     { value: 'salary', label: 'Bisyaroh', icon: Calculator, group: 'akademik' },
     { value: 'academic-calendar', label: 'Kalender', icon: Calendar, group: 'akademik' },
     { value: 'payment', label: 'Pembayaran', icon: DollarSign, group: 'keuangan' },
-    { value: 'recap', label: 'Rekap SPP', icon: PieChart, group: 'keuangan' },
+    { value: 'recap', label: 'Rekap Pembayaran', icon: PieChart, group: 'keuangan' },
     { value: 'history', label: 'Riwayat Bayar', icon: FileText, group: 'keuangan' },
     { value: 'expense', label: 'Pengeluaran', icon: TrendingDown, group: 'keuangan' },
     { value: 'content', label: 'Konten', icon: FileText, group: 'konten' },
