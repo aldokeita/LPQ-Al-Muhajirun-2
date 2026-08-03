@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare, Eye } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
+import ClassAttendanceLiveEditor from './ClassAttendanceLiveEditor';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 import { createDefaultSantriLevelConfig, normalizeLevelConfigShape } from '@/lib/santriLevel';
@@ -21,6 +22,7 @@ const GameConfiguration = () => {
     const [activeTab, setActiveTab] = useState('attendance');
     const tabs = [
         { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
+        { id: 'attendance-editor', label: 'Live Editor Absensi', icon: Eye },
         { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
         { id: 'whatsapp', label: 'Pesan WhatsApp', icon: MessageSquare },
         ...(enableGameFeatures ? [
@@ -69,6 +71,10 @@ const GameConfiguration = () => {
                 
                 <TabsContent value="attendance" className="animate-in fade-in slide-in-from-bottom-2">
                     <AttendanceConfiguration />
+                </TabsContent>
+
+                <TabsContent value="attendance-editor" className="animate-in fade-in slide-in-from-bottom-2">
+                    <ClassAttendanceLiveEditor />
                 </TabsContent>
 
                 <TabsContent value="gatcha" className="animate-in fade-in slide-in-from-bottom-2">
@@ -438,19 +444,26 @@ const LevelSettings = () => {
     const saveLevelConfig = async () => {
         setIsSaving(true);
         try {
-            const normalizedConfig = {
-                male: levelConfig.male.map((level) => normalizeLevel(level, '#3b82f6')).sort((a, b) => a.min - b.min),
-                female: levelConfig.female.map((level) => normalizeLevel(level, '#ec4899')).sort((a, b) => a.min - b.min)
-            };
-            for (const [gender, levels] of Object.entries(normalizedConfig)) {
+            for (const [gender, levels] of Object.entries(levelConfig)) {
                 if (levels.length === 0) throw new Error(`Minimal satu level santri ${gender === 'male' ? 'putra' : 'putri'} wajib tersedia.`);
                 levels.forEach((level) => {
                     if (!level.name?.trim()) throw new Error('Nama level tidak boleh kosong.');
-                    if (!Number.isFinite(Number(level.min)) || !Number.isFinite(Number(level.max)) || Number(level.min) > Number(level.max)) {
+                    if (
+                        String(level.min ?? '').trim() === ''
+                        || String(level.max ?? '').trim() === ''
+                        || !Number.isFinite(Number(level.min))
+                        || !Number.isFinite(Number(level.max))
+                        || Number(level.min) > Number(level.max)
+                    ) {
                         throw new Error(`Rentang poin level ${level.name} tidak valid.`);
                     }
                 });
             }
+
+            const normalizedConfig = {
+                male: levelConfig.male.map((level) => normalizeLevel({ ...level, min: Number(level.min), max: Number(level.max) }, '#3b82f6')).sort((a, b) => a.min - b.min),
+                female: levelConfig.female.map((level) => normalizeLevel({ ...level, min: Number(level.min), max: Number(level.max) }, '#ec4899')).sort((a, b) => a.min - b.min)
+            };
 
             const saved = await saveWebsiteContentItem({ key: 'level_config', content: normalizedConfig, isPublic: true });
             const savedConfig = normalizeLevelConfigShape(saved?.content);
@@ -467,36 +480,14 @@ const LevelSettings = () => {
     };
 
     const updateLevel = (gender, id, field, value) => {
+        const synchronizedField = ['name', 'min', 'max'].includes(field);
         setLevelConfig((previous) => ({
-            ...previous,
-            [gender]: previous[gender].map((level) => level.id === id ? { ...level, [field]: value } : level)
-        }));
-    };
-
-    const addLevel = (gender) => {
-        const newId = Math.max(0, ...levelConfig[gender].map((level) => level.id)) + 1;
-        const color = gender === 'female' ? '#ec4899' : '#3b82f6';
-        setLevelConfig((previous) => ({
-            ...previous,
-            [gender]: [
-                ...previous[gender],
-                normalizeLevel({
-                    id: newId,
-                    name: 'Level Baru',
-                    min: 0,
-                    max: 0,
-                    color,
-                    cardBorderThickness: 8,
-                    avatarBorderThickness: 4
-                }, color)
-            ]
-        }));
-    };
-
-    const removeLevel = (gender, id) => {
-        setLevelConfig((previous) => ({
-            ...previous,
-            [gender]: previous[gender].filter((level) => level.id !== id)
+            male: previous.male.map((level) => (
+                level.id === id && (gender === 'male' || synchronizedField) ? { ...level, [field]: value } : level
+            )),
+            female: previous.female.map((level) => (
+                level.id === id && (gender === 'female' || synchronizedField) ? { ...level, [field]: value } : level
+            )),
         }));
     };
 
@@ -532,20 +523,15 @@ const LevelSettings = () => {
                         </div>
                         <div className="md:col-span-2">
                             <Label className="text-xs font-semibold">Min Poin</Label>
-                            <Input type="number" value={level.min} onChange={(event) => updateLevel(gender, level.id, 'min', Number.parseInt(event.target.value, 10) || 0)} />
+                            <Input type="number" value={level.min} onChange={(event) => updateLevel(gender, level.id, 'min', event.target.value === '' ? '' : Number(event.target.value))} />
                         </div>
                         <div className="md:col-span-2">
                             <Label className="text-xs font-semibold">Max Poin</Label>
-                            <Input type="number" value={level.max} onChange={(event) => updateLevel(gender, level.id, 'max', Number.parseInt(event.target.value, 10) || 0)} />
+                            <Input type="number" value={level.max} onChange={(event) => updateLevel(gender, level.id, 'max', event.target.value === '' ? '' : Number(event.target.value))} />
                         </div>
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-4">
                             <Label className="text-xs font-semibold">Warna Aksen</Label>
                             <Input type="color" value={level.color} onChange={(event) => updateLevel(gender, level.id, 'color', event.target.value)} className="h-10 cursor-pointer w-full" />
-                        </div>
-                        <div className="md:col-span-1 flex justify-center">
-                            <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50" onClick={() => removeLevel(gender, level.id)} aria-label="Hapus level">
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
                         </div>
                         <div className="md:col-span-6">
                             <div className="game-level-depth-control">
@@ -586,9 +572,6 @@ const LevelSettings = () => {
                     </div>
                 </div>
             ))}
-            <Button variant="outline" onClick={() => addLevel(gender)} className="game-level-add w-full">
-                <Plus className="w-4 h-4 mr-2" /> Tambah Level
-            </Button>
         </div>
     );
 

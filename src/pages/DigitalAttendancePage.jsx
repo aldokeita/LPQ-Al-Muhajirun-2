@@ -315,7 +315,7 @@ const DigitalAttendancePage = () => {
 
   const getLevelInfo = (points = 0, gender) => {
       const defaultInfo = {
-          label: 'Bronze',
+          label: 'Bronze I',
           color: '#b7793f',
           badgeIcon: <Book className="w-8 h-8 text-[#b7793f]" />,
           enableGradient: true,
@@ -326,13 +326,11 @@ const DigitalAttendancePage = () => {
           textGradient: true
       };
 
-      if (!levelConfig) return defaultInfo;
-
       const resolvedLevel = resolveSantriLevel({ points, gender, config: levelConfig });
       const accentColor = resolvedLevel.accentColor || defaultInfo.color;
       let icon = <Book className="w-8 h-8" style={{ color: accentColor }} />;
       const levelName = String(resolvedLevel.name || '').toLowerCase();
-      if (levelName.includes('diamond') || levelName.includes('mythic') || levelName.includes('mahir') || levelName.includes('legend')) {
+      if (levelName.includes('diamond') || levelName.includes('heroic') || levelName.includes('master') || levelName.includes('mythic') || levelName.includes('mahir') || levelName.includes('legend')) {
           icon = <Crown className="w-10 h-10" style={{ color: accentColor }} />;
       } else if (levelName.includes('gold') || levelName.includes('platinum') || levelName.includes('menengah') || levelName.includes('super')) {
           icon = <Globe2 className="w-10 h-10" style={{ color: accentColor }} />;
