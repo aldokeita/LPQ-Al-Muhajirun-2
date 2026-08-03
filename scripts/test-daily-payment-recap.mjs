@@ -5,7 +5,7 @@ import {
   filterDailyPayments,
   getDailyPaymentDateKey,
   getPaymentDateParts,
-  isSppPayment,
+  getPaymentCategory,
   normalizePaymentMethod,
 } from '../src/lib/dailyPaymentRecap.js';
 
@@ -22,12 +22,12 @@ assert.deepEqual(getPaymentDateParts('2026-08-03'), { year: 2026, month: 8, day:
 assert.equal(getDailyPaymentDateKey({ day: 3, month: 8, year: 2026 }), '2026-08-03');
 assert.equal(normalizePaymentMethod('Tunai'), 'cash');
 assert.equal(normalizePaymentMethod('Transfer Bank'), 'transfer');
-assert.equal(isSppPayment(payments[0]), true);
-assert.equal(isSppPayment(payments[2]), false);
+assert.equal(getPaymentCategory(payments[0].catatan), 'SPP');
+assert.equal(getPaymentCategory(payments[2].catatan), 'Buku Prestasi');
 
 const allForDay = filterDailyPayments(payments, { day: 3, month: 8, year: 2026, method: 'all' });
-assert.deepEqual(allForDay.map((payment) => payment.id), ['transfer', 'cash']);
-assert.deepEqual(buildDailyPaymentSummary(allForDay), { total: 150000, cash: 100000, transfer: 50000, other: 0, count: 2 });
+assert.deepEqual(allForDay.map((payment) => payment.id), ['non-spp', 'transfer', 'cash']);
+assert.deepEqual(buildDailyPaymentSummary(allForDay), { total: 175000, cash: 125000, transfer: 50000, other: 0, count: 3 });
 
 const transfers = filterDailyPayments(payments, { day: 3, month: 8, year: 2026, method: 'transfer' });
 assert.deepEqual(transfers.map((payment) => payment.id), ['transfer']);
@@ -36,8 +36,8 @@ const detailed = enrichDailyPayments(allForDay, [
   { id: 's1', nama_lengkap: 'Santri Satu', nomor_induk_qiroati: 'TEST001', current_class: { nama_kelas: 'Pagi A' } },
   { id: 's2', nama_lengkap: 'Santri Dua', nomor_induk_qiroati: 'TEST002', current_class: null },
 ]);
-assert.equal(detailed[0].nama_santri, 'Santri Dua');
-assert.equal(detailed[1].kelas, 'Pagi A');
-assert.equal(detailed[1].periode, 'Agustus 2026');
+assert.equal(detailed[0].nama_santri, 'Santri Satu');
+assert.equal(detailed[1].kelas, '-');
+assert.equal(detailed[2].periode, 'Agustus 2026');
 
 console.log('Daily payment recap tests: 12/12 passed');

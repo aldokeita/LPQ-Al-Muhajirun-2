@@ -242,7 +242,7 @@ const PaymentRecap = () => {
                 <div className="admin-panel-header-icon"><DollarSign /></div>
                 <div className="admin-panel-header-text">
                     <h2>Rekap Pembayaran</h2>
-                    <p>Monitor status bulanan, rincian item, dan pemasukan SPP harian.</p>
+                    <p>Monitor status SPP bulanan, rincian item, dan seluruh pemasukan harian.</p>
                 </div>
             </div>
             {recapView === 'monthly' && <div className="admin-panel-header-actions">
@@ -266,7 +266,7 @@ const PaymentRecap = () => {
               <PieChartIcon className="h-4 w-4" aria-hidden="true" />Rekap Bulanan
             </button>
             <button type="button" role="tab" aria-selected={recapView === 'daily'} onClick={() => setRecapView('daily')} className={`admin-segmented-control-item ${recapView === 'daily' ? 'active' : ''}`}>
-              <CalendarDays className="h-4 w-4" aria-hidden="true" />Rekap SPP per Hari
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />Rekap Harian
             </button>
           </div>
         </div>

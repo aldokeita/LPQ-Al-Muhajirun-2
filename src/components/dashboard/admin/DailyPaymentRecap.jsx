@@ -84,7 +84,7 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
           <div>
             <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
               <CalendarDays className="h-5 w-5" aria-hidden="true" />
-              <h3 id="daily-payment-heading" className="text-lg font-bold text-slate-950 dark:text-white">Rekap SPP per Hari</h3>
+              <h3 id="daily-payment-heading" className="text-lg font-bold text-slate-950 dark:text-white">Rekap Harian</h3>
             </div>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Ringkasan transaksi berdasarkan tanggal pembayaran, bukan periode tagihan.</p>
           </div>
@@ -141,7 +141,7 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <article className="admin-stat-card admin-stat-card--accent">
-          <p className="admin-stat-card-label">Total SPP Hari Ini</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
+          <p className="admin-stat-card-label">Total Pemasukan Harian</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
         </article>
         <article className="admin-stat-card">
           <p className="admin-stat-card-label">Cash</p><p className="admin-stat-card-value">{formatRupiah(summary.cash)}</p>
@@ -163,16 +163,17 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
       <div className="admin-table-shell">
         <div className="admin-table-scroll" style={{ maxHeight: '560px' }}>
           <table>
-            <thead><tr><th>No</th><th>Waktu</th><th>Nama Santri</th><th>Kelas</th><th>Periode SPP</th><th>Metode</th><th>Nominal</th><th>ID Transaksi</th></tr></thead>
+            <thead><tr><th>No</th><th>Waktu</th><th>Nama Santri</th><th>Kelas</th><th>Kategori</th><th>Periode</th><th>Metode</th><th>Nominal</th><th>ID Transaksi</th></tr></thead>
             <tbody>
               {detailedPayments.length === 0 ? (
-                <tr><td colSpan="8"><div className="flex min-h-48 flex-col items-center justify-center px-4 text-center"><Receipt className="mb-3 h-9 w-9 text-slate-400" aria-hidden="true" /><p className="font-semibold text-slate-800 dark:text-slate-100">Belum ada pembayaran</p><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tidak ada transaksi untuk {periodLabel} dengan filter {methodLabel.toLowerCase()}.</p></div></td></tr>
+                <tr><td colSpan="9"><div className="flex min-h-48 flex-col items-center justify-center px-4 text-center"><Receipt className="mb-3 h-9 w-9 text-slate-400" aria-hidden="true" /><p className="font-semibold text-slate-800 dark:text-slate-100">Belum ada pembayaran</p><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tidak ada transaksi untuk {periodLabel} dengan filter {methodLabel.toLowerCase()}.</p></div></td></tr>
               ) : detailedPayments.map((payment, index) => (
                 <tr key={payment.id}>
                   <td>{index + 1}</td>
                   <td className="font-mono">{payment.waktu} WIB</td>
                   <td><div className="font-semibold">{payment.nama_santri}</div><div className="text-xs text-muted-foreground">{payment.nomor_induk}</div></td>
                   <td>{payment.kelas}</td>
+                  <td className="font-medium">{payment.kategori_pembayaran}</td>
                   <td>{payment.periode}</td>
                   <td><span className={`admin-status-badge ${payment.metode_label === 'Transfer' ? 'admin-status-badge--info' : 'admin-status-badge--success'}`}>{payment.metode_label}</span></td>
                   <td className="whitespace-nowrap text-right font-semibold">{formatRupiah(payment.jumlah)}</td>

@@ -37,10 +37,11 @@ export const normalizePaymentMethod = (value) => {
   return 'other';
 };
 
-export const isSppPayment = (payment) => String(payment?.catatan || '')
-  .trim()
-  .toLowerCase()
-  .includes('spp');
+export const getPaymentCategory = (value) => {
+  const note = String(value || '').trim();
+  if (!note) return 'Lainnya';
+  return note.replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Lainnya';
+};
 
 const amountToCents = (value) => {
   const normalized = String(value ?? '0').trim().replace(',', '.');
@@ -78,7 +79,7 @@ export const filterDailyPayments = (payments = [], filters = {}) => {
 
   return payments
     .filter((payment) => {
-      if (payment?.deleted_at || payment?.status !== 'paid' || !isSppPayment(payment)) return false;
+      if (payment?.deleted_at || payment?.status !== 'paid') return false;
       const dateParts = getPaymentDateParts(payment.tanggal_pembayaran);
       if (!dateParts) return false;
       const dateMatches = dateParts.day === Number(filters.day)
@@ -122,6 +123,7 @@ export const enrichDailyPayments = (payments = [], santri = []) => {
       nomor_induk: owner?.nomor_induk_qiroati || '-',
       kelas: owner?.current_class?.nama_kelas || '-',
       periode: formatPaymentPeriod(payment.bulan, payment.tahun),
+      kategori_pembayaran: getPaymentCategory(payment.catatan),
       waktu: formatJakartaTime(payment.created_at),
       metode_label: normalizePaymentMethod(payment.metode_pembayaran) === 'cash'
         ? 'Cash'
