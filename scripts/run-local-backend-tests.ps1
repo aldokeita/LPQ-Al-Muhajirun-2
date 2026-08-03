@@ -116,7 +116,8 @@ with expected_migrations(version) as (
     ('20260721000100'),
     ('20260721000200'),
     ('20260721000300'),
-    ('20260723000100')
+    ('20260723000100'),
+    ('20260803000100')
 ),
 sensitive_tables(table_name) as (
   values
@@ -150,7 +151,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 34 and not exists (
+       (count(sm.version) = 35 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version
@@ -363,6 +364,15 @@ select 'guru atomic transfer rpc is authenticated only',
          and not has_function_privilege('anon', 'public.transfer_santri_to_class_by_guru(uuid,uuid,text)', 'EXECUTE')
        )::text,
        'rpc=transfer_santri_to_class_by_guru scope=authenticated'
+
+union all
+select 'santri points rpc is authenticated only',
+       (
+         to_regprocedure('public.increment_santri_points(uuid,integer)') is not null
+         and has_function_privilege('authenticated', 'public.increment_santri_points(uuid,integer)', 'EXECUTE')
+         and not has_function_privilege('anon', 'public.increment_santri_points(uuid,integer)', 'EXECUTE')
+       )::text,
+       'rpc=increment_santri_points scope=authenticated'
 
 union all
 select 'change santri category rpc exists',
@@ -1161,6 +1171,105 @@ rollback;
   }
 }
 
+function Invoke-SantriPointsTests {
+  $sql = @'
+begin;
+
+update public.santri
+set points = 0
+where id = '10000000-0000-0000-0000-000000000101';
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+
+select 'admin atomically adds santri points',
+       (
+         public.increment_santri_points('10000000-0000-0000-0000-000000000101', 5) = 5
+         and (select points from public.santri where id = '10000000-0000-0000-0000-000000000101') = 5
+       )::text,
+       'amount=5 total=5';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+
+select 'guru adds points inside assigned class',
+       (
+         public.increment_santri_points('10000000-0000-0000-0000-000000000101', 3) = 8
+         and (select points from public.santri where id = '10000000-0000-0000-0000-000000000101') = 8
+       )::text,
+       'guru=A santri=A1 total=8';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+
+do $$
+begin
+  begin
+    perform public.increment_santri_points('10000000-0000-0000-0000-000000000101', 1);
+    raise exception 'outside-class guru point update was accepted';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$$;
+
+select 'guru outside assigned class cannot change points', 'true', 'access=denied';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000101","role":"authenticated"}', true);
+
+do $$
+begin
+  begin
+    perform public.increment_santri_points('10000000-0000-0000-0000-000000000101', 1);
+    raise exception 'santri point update was accepted';
+  exception
+    when insufficient_privilege then null;
+  end;
+end
+$$;
+
+select 'santri cannot change points', 'true', 'access=denied';
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+
+do $$
+begin
+  begin
+    perform public.increment_santri_points('10000000-0000-0000-0000-000000000101', -9);
+    raise exception 'negative total points were accepted';
+  exception
+    when numeric_value_out_of_range then null;
+  end;
+end
+$$;
+
+select 'point deduction cannot produce a negative total',
+       ((select points from public.santri where id = '10000000-0000-0000-0000-000000000101') = 8)::text,
+       'total_remains=8';
+
+rollback;
+'@
+
+  $output = $sql | docker exec -i $DbContainer psql -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -F "|"
+  if ($LASTEXITCODE -ne 0) {
+    Add-TestResult "santri points role matrix" $false "psql exited with $LASTEXITCODE"
+    return
+  }
+
+  foreach ($line in $output) {
+    if (-not $line) { continue }
+    $parts = $line -split "\|", 3
+    if ($parts.Count -lt 3) { continue }
+    Add-TestResult $parts[0] ($parts[1] -eq "true") $parts[2]
+  }
+}
+
 function Invoke-SmokeTests {
   $output = & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run-local-runtime-smoke-tests.ps1") -SupabaseUrl $SupabaseUrl 2>&1
   $exitCode = $LASTEXITCODE
@@ -1208,6 +1317,7 @@ try {
   Invoke-PaymentPeriodUniquenessTests
   Invoke-DevelopmentScoringTests
   Invoke-GuruStudentTransferTests
+  Invoke-SantriPointsTests
   Invoke-SmokeTests
 
   Write-Host "SUMMARY passed=$script:Passed failed=$script:Failed"

@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
+import { adjustSantriPoints, getSantriPointsErrorMessage } from '@/lib/santriPointsAdapters';
 
 // --- Particle Component for Background ---
 const FloatingParticle = ({ delay, isDark }) => (
@@ -57,6 +58,7 @@ const RandomNamePage = () => {
     const [finalSelected, setFinalSelected] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isShuffling, setIsShuffling] = useState(false);
+    const [isUpdatingPoints, setIsUpdatingPoints] = useState(false);
 
     // Search State
     const [searchTerm, setSearchTerm] = useState("");
@@ -220,18 +222,23 @@ const RandomNamePage = () => {
 
     // --- Points Logic ---
     const updatePoints = async (amount) => {
-        if (!finalSelected) return;
+        if (!finalSelected || isUpdatingPoints) return;
 
-        try {
-            const { error } = await supabase.rpc('increment_santri_points', { 
-                p_santri_id: finalSelected.id, 
-                p_amount: amount 
+        if (role !== 'admin' && role !== 'guru') {
+            toast({
+                title: 'Akses ditolak',
+                description: 'Hanya admin atau guru pengampu yang dapat mengubah poin santri.',
+                variant: 'destructive'
             });
+            return;
+        }
 
-            if (error) throw error;
-
-            const updatedPoints = (finalSelected.points || 0) + amount;
-            
+        setIsUpdatingPoints(true);
+        try {
+            const updatedPoints = await adjustSantriPoints({
+                santriId: finalSelected.id,
+                amount
+            });
             const updatedSantri = { ...finalSelected, points: updatedPoints };
             setFinalSelected(updatedSantri);
             setDisplaySantri(updatedSantri);
@@ -247,7 +254,13 @@ const RandomNamePage = () => {
                     : "bg-gradient-to-r from-green-500 to-emerald-600 text-white border-none shadow-lg"
             });
         } catch (error) {
-            toast({ title: "Gagal", description: error.message, variant: "destructive" });
+            toast({
+                title: 'Gagal memperbarui poin',
+                description: getSantriPointsErrorMessage(error),
+                variant: 'destructive'
+            });
+        } finally {
+            setIsUpdatingPoints(false);
         }
     };
 
@@ -372,7 +385,7 @@ const RandomNamePage = () => {
                 {/* Right Actions */}
                 <div className="flex gap-2 shrink-0">
                     {/* Settings Modal */}
-                    <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+                    {role === 'admin' && <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                         <DialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="rounded-full text-slate-600 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5">
                                 <Settings className="w-5 h-5" />
@@ -428,7 +441,7 @@ const RandomNamePage = () => {
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
-                    </Dialog>
+                    </Dialog>}
 
                     <Button
                         variant="ghost"
@@ -597,6 +610,7 @@ const RandomNamePage = () => {
                                             transition={{ delay: 0.2 }}
                                             className="w-full space-y-6"
                                         >
+                                            {(role === 'admin' || role === 'guru') && <>
                                             {/* Addition Buttons */}
                                             <div className="grid grid-cols-3 gap-3 w-full">
                                                 {pointSettings.additions.map((val, idx) => {
@@ -607,7 +621,9 @@ const RandomNamePage = () => {
                                                             whileHover={{ scale: 1.05 }}
                                                             whileTap={{ scale: 0.95 }}
                                                             onClick={() => updatePoints(val)}
-                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                                            disabled={isUpdatingPoints}
+                                                            aria-label={`Tambahkan ${val} poin untuk ${finalSelected.nama_lengkap}`}
+                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:cursor-wait disabled:opacity-60"
                                                         >
                                                             <div className={`absolute inset-0 bg-gradient-to-br ${color.from} ${color.to} opacity-10 group-hover:opacity-20 transition-opacity`} />
                                                             <div className="relative z-10 flex flex-col items-center gap-1">
@@ -628,7 +644,9 @@ const RandomNamePage = () => {
                                                             whileHover={{ scale: 1.05 }}
                                                             whileTap={{ scale: 0.95 }}
                                                             onClick={() => updatePoints(val)}
-                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                                            disabled={isUpdatingPoints}
+                                                            aria-label={`Kurangi ${Math.abs(val)} poin dari ${finalSelected.nama_lengkap}`}
+                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:cursor-wait disabled:opacity-60"
                                                         >
                                                             <div className={`absolute inset-0 bg-gradient-to-br ${color.from} ${color.to} opacity-10 group-hover:opacity-20 transition-opacity`} />
                                                             <div className="relative z-10 flex flex-col items-center gap-1">
@@ -638,6 +656,7 @@ const RandomNamePage = () => {
                                                     );
                                                 })}
                                             </div>
+                                            </>}
 
                                             <div className="pt-4 border-t border-slate-200 dark:border-white/5">
                                                 <Button 
