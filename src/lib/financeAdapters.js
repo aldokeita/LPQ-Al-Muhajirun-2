@@ -164,17 +164,15 @@ const sumAmounts = (rows) => rows.reduce((totalCents, row) => {
 export const fetchCashflowSummary = async ({ year, month = 'all' }) => {
     const selectedYear = Number(year);
     const selectedMonth = month === 'all' ? 'all' : Number(month);
+    const { startDate, endDate } = getPeriodDateRange({ year: selectedYear, month: selectedMonth });
 
-    let paymentsQuery = supabase
+    const paymentsQuery = supabase
         .from('payments')
-        .select('jumlah,bulan,tahun,status,deleted_at')
-        .eq('tahun', selectedYear)
+        .select('jumlah,tanggal_pembayaran,status,deleted_at')
         .eq('status', 'paid')
-        .is('deleted_at', null);
-
-    if (selectedMonth !== 'all') {
-        paymentsQuery = paymentsQuery.eq('bulan', selectedMonth);
-    }
+        .is('deleted_at', null)
+        .gte('tanggal_pembayaran', startDate)
+        .lte('tanggal_pembayaran', endDate);
 
     const [paymentsResult, expenses] = await Promise.all([
         paymentsQuery,

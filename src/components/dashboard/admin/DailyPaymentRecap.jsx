@@ -141,7 +141,7 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <article className="admin-stat-card admin-stat-card--accent">
-          <p className="admin-stat-card-label">Total Hari Ini</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
+          <p className="admin-stat-card-label">Total SPP Hari Ini</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
         </article>
         <article className="admin-stat-card">
           <p className="admin-stat-card-label">Cash</p><p className="admin-stat-card-value">{formatRupiah(summary.cash)}</p>

@@ -37,6 +37,11 @@ export const normalizePaymentMethod = (value) => {
   return 'other';
 };
 
+export const isSppPayment = (payment) => String(payment?.catatan || '')
+  .trim()
+  .toLowerCase()
+  .includes('spp');
+
 const amountToCents = (value) => {
   const normalized = String(value ?? '0').trim().replace(',', '.');
   const match = normalized.match(/^(-?\d+)(?:\.(\d{1,2}))?/);
@@ -73,7 +78,7 @@ export const filterDailyPayments = (payments = [], filters = {}) => {
 
   return payments
     .filter((payment) => {
-      if (payment?.deleted_at || payment?.status !== 'paid') return false;
+      if (payment?.deleted_at || payment?.status !== 'paid' || !isSppPayment(payment)) return false;
       const dateParts = getPaymentDateParts(payment.tanggal_pembayaran);
       if (!dateParts) return false;
       const dateMatches = dateParts.day === Number(filters.day)

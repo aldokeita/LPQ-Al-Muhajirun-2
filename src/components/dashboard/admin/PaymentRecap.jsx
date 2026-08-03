@@ -302,11 +302,11 @@ const PaymentRecap = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                     <div className="admin-stat-card admin-stat-card--accent">
-                        <p className="admin-stat-card-label">Sudah Bayar SPP</p>
+                        <p className="admin-stat-card-label">Santri Sudah Bayar SPP</p>
                         <p className="admin-stat-card-value">{totalPaid}</p>
                     </div>
                     <div className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
-                        <p className="admin-stat-card-label">Belum Bayar SPP</p>
+                        <p className="admin-stat-card-label">Santri Belum Bayar SPP</p>
                         <p className="admin-stat-card-value">{totalUnpaid}</p>
                     </div>
                     <div className="admin-stat-card admin-stat-card--amber">

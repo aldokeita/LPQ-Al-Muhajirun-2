@@ -251,7 +251,7 @@ const AdminDashboard = () => {
               variant="students"
             />
             <AdminStatCard
-              label="Pemasukan"
+              label="Pemasukan Bulan Ini"
               value={stats.totalPemasukanBulanIni}
               icon={DollarSign}
               variant="income"
