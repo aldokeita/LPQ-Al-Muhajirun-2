@@ -52,13 +52,12 @@ const COLUMN_FIELDS = [
   ['phoneColumn', 'Nomor HP'],
   ['monthColumn', 'Bulan'],
   ['progressColumn', 'Jilid & halaman'],
+  ['percentageColumn', 'Persentase'],
   ['teacherAttendanceLabel', 'Absensi guru'],
 ];
 
 const FOOTER_FIELDS = [
   ['notesLabel', 'Catatan'],
-  ['absenceLabel', 'Absen'],
-  ['substituteLabel', 'Menggantikan'],
   ['printButtonLabel', 'Tombol cetak'],
 ];
 
@@ -82,6 +81,10 @@ const sampleClass = {
     jilid: `${(index % 6) + 1}${index % 2 ? 'B' : 'A'}`,
     no_hp_ortu: `0812 3456 ${String(index + 1).padStart(4, '0')}`,
   })),
+};
+
+const sampleSessionTimes = {
+  Sore: { open: '15:00', start: '15:45', onTimeUntil: '16:00', end: '17:15', defaultQuota: 80 },
 };
 
 const LabeledSwitch = ({ checked, description, id, label, onCheckedChange }) => (
@@ -255,6 +258,8 @@ const ClassAttendanceLiveEditor = ({
             <div className="attendance-live-editor__panel" role="tabpanel">
               <div className="attendance-editor-section">
                 <div className="attendance-editor-section__title"><FileText aria-hidden="true" /><div><strong>Header dokumen</strong><span>Identitas utama yang tampil di atas lembar.</span></div></div>
+                <Label htmlFor="attendance-yayasan">Nama yayasan</Label>
+                <Input id="attendance-yayasan" value={config.content.yayasanName} onChange={(event) => updateSection('content', 'yayasanName', event.target.value)} />
                 <Label htmlFor="attendance-eyebrow">Nama kategori lembaga</Label>
                 <Input id="attendance-eyebrow" value={config.content.institutionEyebrow} onChange={(event) => updateSection('content', 'institutionEyebrow', event.target.value)} />
                 <Label htmlFor="attendance-title">Header absensi</Label>
@@ -300,6 +305,8 @@ const ClassAttendanceLiveEditor = ({
                   <SelectContent>{Object.entries(CLASS_ATTENDANCE_HEADER_FONTS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
                 </Select>
                 <RangeControl label="Ukuran judul utama" value={config.typography.titleSize} min={12} max={30} onChange={(value) => updateSection('typography', 'titleSize', value)} />
+                <RangeControl label="Ukuran nama yayasan" value={config.typography.yayasanSize} min={6} max={18} onChange={(value) => updateSection('typography', 'yayasanSize', value)} />
+                <RangeControl label="Posisi vertikal nama yayasan" value={config.typography.yayasanOffsetY} min={-12} max={12} unit="mm" onChange={(value) => updateSection('typography', 'yayasanOffsetY', value)} />
                 <Label htmlFor="attendance-title-weight">Ketebalan judul</Label>
                 <Select value={String(config.typography.titleWeight)} onValueChange={(value) => updateSection('typography', 'titleWeight', Number(value))}>
                   <SelectTrigger id="attendance-title-weight"><SelectValue /></SelectTrigger>
@@ -371,7 +378,7 @@ const ClassAttendanceLiveEditor = ({
             <div><Eye aria-hidden="true" /><span><strong>Pratinjau langsung</strong><small>Contoh data · A4 landscape</small></span></div>
             <em>Perubahan belum tersimpan</em>
           </div>
-          <AttendancePaperPreview appearance={appearance} classItem={sampleClass} dateSlots={dateSlots} monthLabel={monthLabel} />
+          <AttendancePaperPreview appearance={appearance} classItem={sampleClass} dateSlots={dateSlots} monthLabel={monthLabel} sessionTimes={sampleSessionTimes} />
         </div>
       </div>
     </section>

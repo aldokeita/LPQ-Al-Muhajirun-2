@@ -27,6 +27,7 @@ export const CLASS_ATTENDANCE_HEADER_FONTS = {
 export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
   version: 1,
   content: {
+    yayasanName: 'YAYASAN GRIYA MUDA QUR\u2019ANI',
     institutionEyebrow: 'LEMBAGA PENDIDIKAN QURAN',
     institutionName: 'LPQ AL-MUHAJIRUN',
     address: 'Jl. R. Suprapto No. 195, Kemalaraja, Baturaja, Sumatera Selatan',
@@ -41,7 +42,8 @@ export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
     levelColumn: 'JILID',
     phoneColumn: 'NO HP',
     monthColumn: 'BULAN',
-    progressColumn: 'JILID & HAL\nAWAL–AKHIR',
+    progressColumn: 'JILID & HAL\nAWAL\u2013AKHIR',
+    percentageColumn: 'PERSENTASE',
     teacherAttendanceLabel: 'ABSEN GURU',
     notesLabel: 'Catatan:',
     absenceLabel: 'Absen:',
@@ -51,6 +53,8 @@ export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
   },
   typography: {
     headerFont: 'serif',
+    yayasanSize: 10,
+    yayasanOffsetY: 0,
     titleSize: 19,
     titleWeight: 700,
     titleItalic: false,
@@ -120,6 +124,8 @@ export const normalizeClassAttendancePrintConfig = (value) => {
       headerFont: Object.hasOwn(CLASS_ATTENDANCE_HEADER_FONTS, typography.headerFont)
         ? typography.headerFont
         : defaults.typography.headerFont,
+      yayasanSize: normalizeNumber(typography.yayasanSize, defaults.typography.yayasanSize, 6, 18),
+      yayasanOffsetY: normalizeNumber(typography.yayasanOffsetY, defaults.typography.yayasanOffsetY, -12, 12),
       titleSize: normalizeNumber(typography.titleSize, defaults.typography.titleSize, 12, 30),
       titleWeight: normalizeWeight(typography.titleWeight, defaults.typography.titleWeight),
       titleItalic: typography.titleItalic === true,

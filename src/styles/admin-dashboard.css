@@ -7454,6 +7454,15 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   transform: translateY(var(--attendance-preview-header-offset-y, 0mm));
 }
 
+.class-attendance-paper__institution-copy .yayasan-line {
+  margin: 0 0 0.15rem;
+  font-family: var(--attendance-preview-header-font, Georgia, serif);
+  font-size: var(--attendance-preview-yayasan-size, 10pt);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  transform: translateY(var(--attendance-preview-yayasan-offset-y, 0mm));
+}
+
 .class-attendance-paper__header p {
   margin: 0;
   font-family: var(--attendance-preview-header-font, Georgia, serif);
@@ -7550,7 +7559,11 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .class-attendance-paper .progress-column {
-  width: 7.4rem;
+  width: 6rem;
+}
+
+.class-attendance-paper .percentage-column {
+  width: 3.2rem;
 }
 
 .class-attendance-paper .date-column {
@@ -7574,16 +7587,15 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .class-attendance-paper footer {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 1rem;
+  display: block;
   margin-top: 0.55rem;
   font-size: 0.5rem;
 }
 
 .class-attendance-paper footer span {
+  display: flex;
   min-height: 1.4rem;
-  border-bottom: 1px solid #64748b;
+  align-items: flex-end;
 }
 
 .class-attendance-preview-note {
