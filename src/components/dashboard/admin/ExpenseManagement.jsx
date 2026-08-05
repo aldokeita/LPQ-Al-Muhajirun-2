@@ -354,24 +354,13 @@ const ExpenseManagement = () => {
                                     const categories = new Set(dayExpenses.map((expense) => expense.kategori || 'Lainnya'));
                                     return (
                                         <tr key={row.tanggal}>
-                                            <td>{row.tanggal}</td>
+                                            <td className="font-medium">{row.tanggal}</td>
                                             <td className="font-bold text-foreground">{formatRupiah(row.total)}</td>
-                                            <td>{categories.size} kategori</td>
+                                            <td className="text-muted-foreground">{categories.size} kategori</td>
                                             <td>
-                                                <div className="flex gap-1.5">
-                                                    <Button size="sm" variant="outline" onClick={() => handleOpenDetail(row.tanggal)} aria-label="Lihat detail pengeluaran harian">
-                                                        <FolderSearch className="w-3.5 h-3.5" /> Detail
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" onClick={() => handleExportDayPdf(row.tanggal)} aria-label="Unduh PDF pengeluaran harian">
-                                                        <Download className="w-3.5 h-3.5" /> PDF
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" onClick={() => handleExportDayExcel(row.tanggal)} aria-label="Unduh Excel pengeluaran harian">
-                                                        <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" onClick={() => handlePrintDay(row.tanggal)} aria-label="Cetak pengeluaran harian">
-                                                        <Printer className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </div>
+                                                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handleOpenDetail(row.tanggal)}>
+                                                    <FolderSearch className="w-3.5 h-3.5" /> Detail
+                                                </Button>
                                             </td>
                                         </tr>
                                     );
@@ -515,49 +504,66 @@ const ExpenseManagement = () => {
             <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Detail Pengeluaran Harian — {detailDate || ''}</DialogTitle>
-                        <DialogDescription>Semua pengeluaran pada tanggal tersebut. Dapat diexport ke PDF/Excel atau dicetak.</DialogDescription>
+                        <DialogTitle>Detail Pengeluaran Harian</DialogTitle>
+                        <DialogDescription>
+                            {detailDate
+                                ? new Date(`${detailDate}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+                                : 'Semua pengeluaran pada tanggal tersebut.'}
+                        </DialogDescription>
                     </DialogHeader>
                     {detailDate && (() => {
                         const dayExpenses = getDayExpenses(detailDate);
                         const dayTotal = getDayTotal(dayExpenses);
                         return (
                             <div className="space-y-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="text-sm">
-                                        <span className="font-bold text-foreground">{formatRupiah(dayTotal)}</span>
-                                        <span className="text-muted-foreground"> · {dayExpenses.length} transaksi</span>
+                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                                    <div className="flex items-center gap-4">
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Pengeluaran</p>
+                                            <p className="text-lg font-bold text-foreground">{formatRupiah(dayTotal)}</p>
+                                        </div>
+                                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Transaksi</p>
+                                            <p className="text-lg font-bold text-foreground">{dayExpenses.length}</p>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button size="sm" variant="outline" onClick={() => handleExportDayPdf(detailDate)}>
+                                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handleExportDayPdf(detailDate)}>
                                             <Download className="w-3.5 h-3.5" /> PDF
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => handleExportDayExcel(detailDate)}>
+                                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handleExportDayExcel(detailDate)}>
                                             <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => handlePrintDay(detailDate)}>
+                                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handlePrintDay(detailDate)}>
                                             <Printer className="w-3.5 h-3.5" /> Cetak
                                         </Button>
                                     </div>
                                 </div>
-                                <div className="admin-table-scroll max-h-80">
+                                <div className="admin-table-scroll max-h-[340px] rounded-lg border border-slate-200 dark:border-slate-800">
                                     <table>
                                         <thead>
                                             <tr>
+                                                <th className="w-10">No</th>
                                                 <th>Kategori</th>
                                                 <th>Keterangan</th>
-                                                <th>Jumlah</th>
+                                                <th className="text-right">Jumlah</th>
                                                 <th>Bukti</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {dayExpenses.length === 0 ? (
-                                                <tr><td colSpan="4" className="text-center py-6 text-muted-foreground">Tidak ada pengeluaran pada tanggal ini.</td></tr>
-                                            ) : dayExpenses.map((expense) => (
+                                                <tr><td colSpan="5" className="text-center py-8 text-muted-foreground">Tidak ada pengeluaran pada tanggal ini.</td></tr>
+                                            ) : dayExpenses.map((expense, idx) => (
                                                 <tr key={expense.id}>
-                                                    <td>{expense.kategori}</td>
+                                                    <td className="text-muted-foreground">{idx + 1}</td>
+                                                    <td>
+                                                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                                            {expense.kategori}
+                                                        </span>
+                                                    </td>
                                                     <td className="font-medium">{expense.deskripsi}</td>
-                                                    <td>{formatRupiah(expense.jumlah)}</td>
+                                                    <td className="text-right font-semibold">{formatRupiah(expense.jumlah)}</td>
                                                     <td>
                                                         {expense.bukti_url ? (
                                                             <a
@@ -566,7 +572,7 @@ const ExpenseManagement = () => {
                                                                 rel="noopener noreferrer"
                                                                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                                                             >
-                                                                <Eye className="w-3.5 h-3.5" /> Lihat bukti
+                                                                <Eye className="w-3.5 h-3.5" /> Lihat
                                                             </a>
                                                         ) : (
                                                             <span className="text-xs text-muted-foreground">—</span>
