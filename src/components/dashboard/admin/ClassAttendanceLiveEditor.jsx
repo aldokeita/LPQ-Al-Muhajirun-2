@@ -460,8 +460,31 @@ const ClassAttendanceLiveEditor = ({
                 <div className="attendance-editor-field-grid">
                   <ColorControl label="Garis header & teks metadata" value={config.branding.headerColor} onChange={(value) => updateSection('branding', 'headerColor', value)} />
                   <ColorControl label="Aksen kategori" value={config.branding.accentColor} onChange={(value) => updateSection('branding', 'accentColor', value)} />
-                  <ColorControl label="Latar header kolom" value={config.branding.tableHeaderBackground} onChange={(value) => updateSection('branding', 'tableHeaderBackground', value)} />
+                  <ColorControl label="Latar header kolom (default)" value={config.branding.tableHeaderBackground} onChange={(value) => updateSection('branding', 'tableHeaderBackground', value)} />
                   <ColorControl label="Teks header kolom" value={config.branding.tableHeaderText} onChange={(value) => updateSection('branding', 'tableHeaderText', value)} />
+                </div>
+              </div>
+
+              <div className="attendance-editor-section">
+                <div className="attendance-editor-section__title"><Palette aria-hidden="true" /><div><strong>Warna header per sesi</strong><span>Warna latar header kolom untuk setiap sesi absensi.</span></div></div>
+                <div className="attendance-editor-field-grid">
+                  {Object.entries(config.branding.sessionHeaderColors || {}).map(([sessionName, color]) => (
+                    <ColorControl key={sessionName} label={sessionName} value={color} onChange={(value) => {
+                      setAppearance((current) => ({
+                        ...current,
+                        config: {
+                          ...current.config,
+                          branding: {
+                            ...current.config.branding,
+                            sessionHeaderColors: {
+                              ...current.config.branding.sessionHeaderColors,
+                              [sessionName]: value,
+                            },
+                          },
+                        },
+                      }));
+                    }} />
+                  ))}
                 </div>
               </div>
             </div>

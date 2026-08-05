@@ -112,6 +112,8 @@ export const AttendancePaperPreview = ({
   const [firstPage] = createClassAttendancePages(classItem.roster);
   const config = normalizeClassAttendancePrintConfig(appearance?.config);
   const { branding, content, typography, columnWidths } = config;
+  const sessionKey = String(classItem.sesi || '').trim();
+  const sessionHeaderBg = branding.sessionHeaderColors?.[sessionKey] || branding.tableHeaderBackground;
   const previewStyle = {
     '--attendance-preview-header-font': getClassAttendanceHeaderFontStack(typography.headerFont),
     '--attendance-preview-yayasan-font': getClassAttendanceHeaderFontStack(typography.yayasanFont),
@@ -138,7 +140,7 @@ export const AttendancePaperPreview = ({
     '--attendance-preview-header-color': branding.headerColor,
     '--attendance-preview-header-text-color': branding.headerTextColor,
     '--attendance-preview-accent': branding.accentColor,
-    '--attendance-preview-table-head': branding.tableHeaderBackground,
+    '--attendance-preview-table-head': sessionHeaderBg,
     '--attendance-preview-table-head-text': branding.tableHeaderText,
     '--attendance-preview-lpq-logo-size': `${branding.lpqLogoSize}mm`,
     '--attendance-preview-qiroati-logo-size': `${branding.qiroatiLogoSize}mm`,

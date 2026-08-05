@@ -258,6 +258,8 @@ export const buildClassAttendanceHtml = ({
   const titleTransform = typography.titleUppercase ? 'uppercase' : 'none';
   const tableHeaderTransform = typography.tableHeaderUppercase ? 'uppercase' : 'none';
   const cw = columnWidths;
+  const sessionKey = String(classData.sesi || '').trim();
+  const sessionHeaderBg = branding.sessionHeaderColors?.[sessionKey] || branding.tableHeaderBackground;
 
   return `<!doctype html>
 <html lang="id">
@@ -292,7 +294,7 @@ export const buildClassAttendanceHtml = ({
       --attendance-body-weight: ${typography.bodyWeight};
       --attendance-accent: ${branding.accentColor};
       --attendance-header-text: ${branding.headerTextColor};
-      --attendance-table-head: ${branding.tableHeaderBackground};
+      --attendance-table-head: ${sessionHeaderBg};
       --attendance-table-head-text: ${branding.tableHeaderText};
     }
     * { box-sizing: border-box; }

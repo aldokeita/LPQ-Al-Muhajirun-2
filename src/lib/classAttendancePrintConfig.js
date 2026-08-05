@@ -94,6 +94,13 @@ export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
     accentColor: '#0369a1',
     tableHeaderBackground: '#22b8e6',
     tableHeaderText: '#082f49',
+    sessionHeaderColors: {
+      Pagi: '#16a34a',
+      'Pagi 2': '#0d9488',
+      Siang: '#2563eb',
+      Sore: '#ea580c',
+      Malam: '#374151',
+    },
   },
 };
 
@@ -183,6 +190,15 @@ export const normalizeClassAttendancePrintConfig = (value) => {
       accentColor: normalizeColor(branding.accentColor, defaults.branding.accentColor),
       tableHeaderBackground: normalizeColor(branding.tableHeaderBackground, defaults.branding.tableHeaderBackground),
       tableHeaderText: normalizeColor(branding.tableHeaderText, defaults.branding.tableHeaderText),
+      sessionHeaderColors: Object.fromEntries(
+        Object.entries(defaults.branding.sessionHeaderColors).map(([name, fallback]) => [
+          name,
+          normalizeColor(
+            branding.sessionHeaderColors?.[name],
+            normalizeColor(branding.tableHeaderBackground, fallback),
+          ),
+        ]),
+      ),
     },
   };
 };
