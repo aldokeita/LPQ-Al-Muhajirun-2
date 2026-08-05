@@ -775,55 +775,38 @@ const SantriDewasaManagement = () => {
                 </div>
             </div>
 
-            <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="santri-glass-tabs">
-                    <TabsTrigger value="personal" className="santri-glass-tab">
-                        <span className="santri-glass-tab-pill" data-hidden />
-                        <span className="santri-glass-tab-label"><User className="w-4 h-4"/> Data Diri &amp; Kontak</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="academic" className="santri-glass-tab">
-                        <span className="santri-glass-tab-pill" data-hidden />
-                        <span className="santri-glass-tab-label"><GraduationCap className="w-4 h-4"/> Data Akademik</span>
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="personal" className="mt-4">
-                    <div className="santri-glass-card">
-                        <div className="santri-glass-card-header">
-                            <h4 className="santri-glass-card-title">Informasi Pribadi &amp; Kontak</h4>
-                        </div>
-                        <div className="santri-glass-card-body">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="santri-glass-label">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
-                                <div><label className="santri-glass-label"><span className="santri-glass-label-icon"><User className="w-3 h-3" /> Username (Login)</span></label><Input type="text" value={formData.nama_panggilan || ''} onChange={(e) => setFormData({ ...formData, nama_panggilan: e.target.value })} required /></div>
-                                <div><label className="santri-glass-label">Nomor Induk Qiroati <span className="normal-case opacity-70">(opsional)</span></label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} /></div>
-                                <div><label className="santri-glass-label"><span className="santri-glass-label-icon"><Key className="w-3 h-3" /> Password Awal</span></label><Input type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} disabled={Boolean(editingSantri)} placeholder={editingSantri ? 'Kelola melalui reset password' : 'Masukkan password awal'} /></div>
-                                <div><label className="santri-glass-label">Nomor HP (WA)</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
-                                <div><label className="santri-glass-label">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
-                                <div><label className="santri-glass-label">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
-                                <div><label className="santri-glass-label">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} /></div>
-                                <div className="md:col-span-2"><label className="santri-glass-label">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} /></div>
-                            </div>
-                        </div>
+            <div className="santri-glass-card">
+                <div className="santri-glass-card-header">
+                    <h4 className="santri-glass-card-title">Informasi Pribadi &amp; Kontak</h4>
+                </div>
+                <div className="santri-glass-card-body">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="santri-glass-label">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
+                        <div><label className="santri-glass-label"><span className="santri-glass-label-icon"><User className="w-3 h-3" /> Username (Login)</span></label><Input type="text" value={formData.nama_panggilan || ''} onChange={(e) => setFormData({ ...formData, nama_panggilan: e.target.value })} required /></div>
+                        <div><label className="santri-glass-label">Nomor Induk Qiroati <span className="normal-case opacity-70">(opsional)</span></label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} /></div>
+                        <div><label className="santri-glass-label"><span className="santri-glass-label-icon"><Key className="w-3 h-3" /> Password Awal</span></label><Input type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} disabled={Boolean(editingSantri)} placeholder={editingSantri ? 'Kelola melalui reset password' : 'Masukkan password awal'} /></div>
+                        <div><label className="santri-glass-label">Nomor HP (WA)</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
+                        <div><label className="santri-glass-label">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
+                        <div><label className="santri-glass-label">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} /></div>
+                        <div className="md:col-span-2"><label className="santri-glass-label">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} /></div>
                     </div>
-                </TabsContent>
+                </div>
+            </div>
 
-                <TabsContent value="academic" className="mt-4">
-                    <div className="santri-glass-card">
-                        <div className="santri-glass-card-header">
-                            <h4 className="santri-glass-card-title">Data Akademik</h4>
-                        </div>
-                        <div className="santri-glass-card-body">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="santri-glass-label">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
-                                <div><label className="santri-glass-label">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                                <div><label className="santri-glass-label">Kelas Dewasa</label><Select value={formData.id_kelas || 'none'} onValueChange={val => setFormData({ ...formData, id_kelas: val === 'none' ? null : val })}><SelectTrigger><SelectValue placeholder="Pilih Kelas" /></SelectTrigger><SelectContent><SelectItem value="none">Belum Masuk Kelas</SelectItem>{classesList.map(c => <SelectItem key={c.id} value={c.id}>{c.nama_kelas}</SelectItem>)}</SelectContent></Select></div>
-                                <div><label className="santri-glass-label">Token RFID</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
-                            </div>
-                        </div>
+            <div className="santri-glass-card">
+                <div className="santri-glass-card-header">
+                    <h4 className="santri-glass-card-title">Data Akademik</h4>
+                </div>
+                <div className="santri-glass-card-body">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="santri-glass-label">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Kelas Dewasa</label><Select value={formData.id_kelas || 'none'} onValueChange={val => setFormData({ ...formData, id_kelas: val === 'none' ? null : val })}><SelectTrigger><SelectValue placeholder="Pilih Kelas" /></SelectTrigger><SelectContent><SelectItem value="none">Belum Masuk Kelas</SelectItem>{classesList.map(c => <SelectItem key={c.id} value={c.id}>{c.nama_kelas}</SelectItem>)}</SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Token RFID</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
                     </div>
-                </TabsContent>
-            </Tabs>
+                </div>
+            </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 {editingSantri ? (
