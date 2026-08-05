@@ -1468,153 +1468,163 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader><DialogTitle>{editingSantri ? `Edit Data Santri ${subCategory.toUpperCase()}` : `Tambah Santri ${subCategory.toUpperCase()} Baru`}</DialogTitle></DialogHeader>
+        <DialogContent className="santri-glass-modal max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader><DialogTitle className="text-lg font-extrabold tracking-tight">{editingSantri ? `Edit Data Santri ${subCategory.toUpperCase()}` : `Tambah Santri ${subCategory.toUpperCase()} Baru`}</DialogTitle></DialogHeader>
           
-          <form onSubmit={handleSubmit} className="admin-edit-shell">
-            <div className="admin-edit-body">
+          <form onSubmit={handleSubmit} className="santri-glass-modal-scroll overflow-y-auto pr-1">
+            <div className="space-y-6">
             
                 {/* 1. Header & Photo Section */}
-                <div className="admin-edit-photo-area">
-                    <Avatar className="w-20 h-20 border-2 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" style={{ borderColor: 'hsl(var(--admin-border))' }} onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
+                <div className="santri-glass-avatar-section sm:flex-row sm:items-center">
+                    <Avatar className="santri-glass-avatar w-20 h-20 cursor-pointer flex-shrink-0" onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
                         <AvatarImage src={formData.foto_url} />
-                        <AvatarFallback style={{ backgroundColor: 'hsl(var(--admin-accent-soft))', color: 'hsl(var(--admin-accent))' }}><Upload className="w-6 h-6" /></AvatarFallback>
+                        <AvatarFallback><Upload className="w-6 h-6" /></AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 w-full space-y-2">
+                    <div className="flex-1 w-full space-y-2.5">
                         <div className="flex gap-2 flex-wrap">
-                             <Button type="button" onClick={triggerPhotoUpload} variant="outline" size="sm" disabled={isUploading || !editingSantri?.id} title={!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined}>{isUploading ? 'Mengunggah...' : 'Upload Foto'}</Button>
+                             <button type="button" className="santri-glass-avatar-upload" onClick={triggerPhotoUpload} disabled={isUploading || !editingSantri?.id} title={!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined}><Upload className="w-3.5 h-3.5" /> {isUploading ? 'Mengunggah...' : 'Upload Foto'}</button>
                              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
                         </div>
-                        <p className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
+                        <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
                         <div className="relative">
-                            <Input type="text" placeholder="https://example.com/foto.jpg" value={formData.foto_url || ''} onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })} className="pl-9 text-xs" />
-                            <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'hsl(var(--admin-text-muted))' }}/>
+                            <Input type="text" placeholder="https://example.com/foto.jpg" value={formData.foto_url || ''} onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })} className="santri-glass-avatar-input pl-9 text-xs" />
+                            <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>
                         </div>
                     </div>
                 </div>
 
                 {/* 2. Personal Information Section */}
-                <div className="admin-edit-section">
-                    <div className="admin-edit-section-header"><User /> Informasi Pribadi</div>
-                    <div className="admin-edit-field-grid">
-                        <div className="admin-edit-field"><label>Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
-                        <div className="admin-edit-field"><label>Nama Panggilan</label><Input type="text" value={formData.nama_panggilan || ''} onChange={handleNicknameChange} /></div>
-                        <div className="admin-edit-field"><label>Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
-                        <div className="admin-edit-field"><label>Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
-                        <div className="admin-edit-field"><label>Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} required /></div>
-                        <div className="admin-edit-field"><label>Tanggal Masuk</label><Input type="date" value={formData.tanggal_pendaftaran || ''} onChange={(e) => setFormData({ ...formData, tanggal_pendaftaran: e.target.value })} /></div>
+                <div className="santri-glass-card">
+                    <div className="santri-glass-card-header"><h4 className="santri-glass-card-title flex items-center gap-2"><User className="w-4 h-4" /> Informasi Pribadi</h4></div>
+                    <div className="santri-glass-card-body">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="santri-glass-label">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
+                            <div><label className="santri-glass-label">Nama Panggilan</label><Input type="text" value={formData.nama_panggilan || ''} onChange={handleNicknameChange} /></div>
+                            <div><label className="santri-glass-label">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content"><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
+                            <div><label className="santri-glass-label">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
+                            <div><label className="santri-glass-label">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} required /></div>
+                            <div><label className="santri-glass-label">Tanggal Masuk</label><Input type="date" value={formData.tanggal_pendaftaran || ''} onChange={(e) => setFormData({ ...formData, tanggal_pendaftaran: e.target.value })} /></div>
+                        </div>
                     </div>
                 </div>
 
                 {/* 3. Family & Contact Section */}
-                <div className="admin-edit-section">
-                    <div className="admin-edit-section-header"><Users /> Keluarga & Kontak</div>
-                    <div className="admin-edit-field-grid">
-                        <div className="admin-edit-field"><label>Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} onChange={(e) => setFormData({ ...formData, nama_ayah: e.target.value })} /></div>
-                        <div className="admin-edit-field"><label>Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} onChange={(e) => setFormData({ ...formData, nama_ibu: e.target.value })} /></div>
-                        <div className="admin-edit-field"><label>No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
-                        <div className="admin-edit-field"><label>No. KK</label><Input type="text" value={formData.no_kk || ''} onChange={(e) => setFormData({ ...formData, no_kk: e.target.value })} /></div>
-                        <div className="admin-edit-field"><label>No. NIK</label><Input type="text" value={formData.no_nik || ''} onChange={(e) => setFormData({ ...formData, no_nik: e.target.value })} /></div>
-                        <div className="admin-edit-field admin-edit-field-full"><label>Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" /></div>
+                <div className="santri-glass-card">
+                    <div className="santri-glass-card-header"><h4 className="santri-glass-card-title flex items-center gap-2"><Users className="w-4 h-4" /> Keluarga & Kontak</h4></div>
+                    <div className="santri-glass-card-body">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="santri-glass-label">Nama Ayah</label><Input type="text" value={formData.nama_ayah || ''} onChange={(e) => setFormData({ ...formData, nama_ayah: e.target.value })} /></div>
+                            <div><label className="santri-glass-label">Nama Ibu</label><Input type="text" value={formData.nama_ibu || ''} onChange={(e) => setFormData({ ...formData, nama_ibu: e.target.value })} /></div>
+                            <div><label className="santri-glass-label">No. HP Wali</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
+                            <div><label className="santri-glass-label">No. KK</label><Input type="text" value={formData.no_kk || ''} onChange={(e) => setFormData({ ...formData, no_kk: e.target.value })} /></div>
+                            <div><label className="santri-glass-label">No. NIK</label><Input type="text" value={formData.no_nik || ''} onChange={(e) => setFormData({ ...formData, no_nik: e.target.value })} /></div>
+                            <div className="md:col-span-2"><label className="santri-glass-label">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} className="min-h-[60px]" /></div>
+                        </div>
                     </div>
                 </div>
 
                 {/* 4. Academic Section */}
-                <div className="admin-edit-section">
-                    <div className="admin-edit-section-header"><GraduationCap /> Akademik & Sistem</div>
-                    <div className="admin-edit-field-grid">
-                        <div className="admin-edit-field"><label>No. Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={handleQiroatiIdChange} required={!editingSantri} /></div>
-                        <div className="admin-edit-field"><label>RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
-                        <div className="admin-edit-field"><label>Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
-                        <div className="admin-edit-field"><label>Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                        {subCategory === 'ptpt' ? (
-                            <div className="admin-edit-field admin-edit-field-full">
-                                <label>Hafalan Juz (1-30) <span className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(centang juz yang sudah dihafal)</span></label>
-                                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5 max-h-52 overflow-y-auto pr-1">
-                                    {ALL_JUZ.map(juz => {
-                                        const checked = Array.isArray(formData.juz_hafalan) && formData.juz_hafalan.includes(juz);
-                                        const surahPreview = getSurahNamesForJuz(juz).slice(0, 3).join(', ');
-                                        return (
-                                            <label
-                                                key={juz}
-                                                className={`flex items-start gap-2 rounded-md border px-2 py-1.5 text-sm cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-emerald-500/60 ${
-                                                    checked
-                                                        ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40'
-                                                        : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
-                                                }`}
-                                            >
-                                                <Checkbox
-                                                    checked={checked}
-                                                    onCheckedChange={(value) => toggleJuzHafalan(juz, Boolean(value))}
-                                                    className="mt-0.5"
-                                                />
-                                                <span className="min-w-0">
-                                                    <span className="block font-medium leading-tight">{juz}</span>
-                                                    <span className="block text-[10px] leading-tight text-muted-foreground truncate" title={getSurahNamesForJuz(juz).join(', ')}>{surahPreview}{getSurahNamesForJuz(juz).length > 3 ? '…' : ''}</span>
-                                                </span>
-                                            </label>
-                                        );
-                                    })}
+                <div className="santri-glass-card">
+                    <div className="santri-glass-card-header"><h4 className="santri-glass-card-title flex items-center gap-2"><GraduationCap className="w-4 h-4" /> Akademik & Sistem</h4></div>
+                    <div className="santri-glass-card-body">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="santri-glass-label">No. Induk Qiroati</label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={handleQiroatiIdChange} required={!editingSantri} /></div>
+                            <div><label className="santri-glass-label">RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
+                            <div><label className="santri-glass-label">Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content"><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
+                            <div><label className="santri-glass-label">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content">{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                            {subCategory === 'ptpt' ? (
+                                <div className="md:col-span-2">
+                                    <label className="santri-glass-label">Hafalan Juz (1-30) <span className="normal-case opacity-70">(centang juz yang sudah dihafal)</span></label>
+                                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5 max-h-52 overflow-y-auto pr-1">
+                                        {ALL_JUZ.map(juz => {
+                                            const checked = Array.isArray(formData.juz_hafalan) && formData.juz_hafalan.includes(juz);
+                                            const surahPreview = getSurahNamesForJuz(juz).slice(0, 3).join(', ');
+                                            return (
+                                                <label
+                                                    key={juz}
+                                                    className={`flex items-start gap-2 rounded-md border px-2 py-1.5 text-sm cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-emerald-500/60 ${
+                                                        checked
+                                                            ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40'
+                                                            : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
+                                                    }`}
+                                                >
+                                                    <Checkbox
+                                                        checked={checked}
+                                                        onCheckedChange={(value) => toggleJuzHafalan(juz, Boolean(value))}
+                                                        className="mt-0.5"
+                                                    />
+                                                    <span className="min-w-0">
+                                                        <span className="block font-medium leading-tight">{juz}</span>
+                                                        <span className="block text-[10px] leading-tight text-muted-foreground truncate" title={getSurahNamesForJuz(juz).join(', ')}>{surahPreview}{getSurahNamesForJuz(juz).length > 3 ? '…' : ''}</span>
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div><label className="santri-glass-label">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content">{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                            )}
+                            <div><label className="santri-glass-label">Kelas Aktif <span className="normal-case text-[10px] opacity-70">(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger className="santri-glass-select"><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent className="santri-glass-select-content">{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
+                            <div><label className="santri-glass-label">Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
+                            <div>
+                                <label className="santri-glass-label">Default SPP Bulanan</label>
+                                <Input type="number" min="10000" step="1000" value={formData.default_spp_amount ?? ''} onChange={(e) => setFormData({ ...formData, default_spp_amount: e.target.value })} placeholder="Contoh: 70000" />
+                                <span className="text-[10px] text-muted-foreground mt-1 block">Opsional. Nominal ini otomatis dipilih saat pembayaran SPP.</span>
+                            </div>
+                            <div>
+                                <label className="santri-glass-label flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
+                                <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
+                            </div>
+                        </div>
+
+                        <div className="santri-glass-card mt-4">
+                            <div className="santri-glass-card-header"><h4 className="santri-glass-card-title flex items-center gap-2"><Lock className="w-4 h-4" /> Akses Login</h4></div>
+                            <div className="santri-glass-card-body">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="santri-glass-label">Username</label><Input type="text" value={formData.nama_panggilan || ''} readOnly style={{ opacity: 0.7 }} /></div>
+                                    <div><label className="santri-glass-label">Password</label><Input type="text" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} disabled={Boolean(editingSantri)} required={!editingSantri} placeholder={editingSantri ? 'Reset password melalui alur admin terpisah' : ''} /></div>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="admin-edit-field"><label>Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
-                        )}
-                        <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
-                        <div className="admin-edit-field">
-                            <label>Default SPP Bulanan</label>
-                            <Input type="number" min="10000" step="1000" value={formData.default_spp_amount ?? ''} onChange={(e) => setFormData({ ...formData, default_spp_amount: e.target.value })} placeholder="Contoh: 70000" />
-                            <span className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>Opsional. Nominal ini otomatis dipilih saat pembayaran SPP.</span>
-                        </div>
-                        <div className="admin-edit-field">
-                            <label className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
-                            <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
-                        </div>
-                    </div>
-
-                    <div className="admin-edit-access-card mt-4">
-                        <h4><Lock /> Akses Login</h4>
-                        <div className="admin-edit-field-grid">
-                            <div className="admin-edit-field"><label>Username</label><Input type="text" value={formData.nama_panggilan || ''} readOnly style={{ opacity: 0.7 }} /></div>
-                            <div className="admin-edit-field"><label>Password</label><Input type="text" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} disabled={Boolean(editingSantri)} required={!editingSantri} placeholder={editingSantri ? 'Reset password melalui alur admin terpisah' : ''} /></div>
                         </div>
                     </div>
                 </div>
 
                 {/* 5. Document Section */}
-                <div className="admin-edit-section">
-                     <div className="admin-edit-section-header"><FileText /> Kelengkapan Berkas</div>
-                     <div className="admin-edit-field-grid">
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_foto" checked={Boolean(formData.berkas_foto)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_foto: Boolean(checked) })} /><label htmlFor="berkas_foto" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Foto</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_akta" checked={Boolean(formData.berkas_akta)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_akta: Boolean(checked) })} /><label htmlFor="berkas_akta" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Akta Kelahiran</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_kk" checked={Boolean(formData.berkas_kk)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_kk: Boolean(checked) })} /><label htmlFor="berkas_kk" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Kartu Keluarga</label></div>
-                        <div className="flex items-center space-x-2"><Checkbox id="berkas_form" checked={Boolean(formData.berkas_form)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_form: Boolean(checked) })} /><label htmlFor="berkas_form" className="text-sm" style={{ color: 'hsl(var(--admin-text-secondary))' }}>Formulir</label></div>
-                    </div>
+                <div className="santri-glass-card">
+                     <div className="santri-glass-card-header"><h4 className="santri-glass-card-title flex items-center gap-2"><FileText className="w-4 h-4" /> Kelengkapan Berkas</h4></div>
+                     <div className="santri-glass-card-body">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="flex items-center space-x-2"><Checkbox id="berkas_foto" checked={Boolean(formData.berkas_foto)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_foto: Boolean(checked) })} /><label htmlFor="berkas_foto" className="text-sm">Foto</label></div>
+                            <div className="flex items-center space-x-2"><Checkbox id="berkas_akta" checked={Boolean(formData.berkas_akta)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_akta: Boolean(checked) })} /><label htmlFor="berkas_akta" className="text-sm">Akta Kelahiran</label></div>
+                            <div className="flex items-center space-x-2"><Checkbox id="berkas_kk" checked={Boolean(formData.berkas_kk)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_kk: Boolean(checked) })} /><label htmlFor="berkas_kk" className="text-sm">Kartu Keluarga</label></div>
+                            <div className="flex items-center space-x-2"><Checkbox id="berkas_form" checked={Boolean(formData.berkas_form)} onCheckedChange={(checked) => setFormData({ ...formData, berkas_form: Boolean(checked) })} /><label htmlFor="berkas_form" className="text-sm">Formulir</label></div>
+                        </div>
+                     </div>
                 </div>
 
             </div>
 
-            <div className="admin-edit-footer">
-                {editingSantri && (
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 sticky bottom-0">
+                {editingSantri ? (
                     <div className="flex flex-wrap gap-2">
                         {subCategory === 'ptpt' ? (
-                            <Button type="button" variant="outline" className="border-cyan-200 text-cyan-700 hover:bg-cyan-50 hover:text-cyan-800" onClick={() => handleMigration('Anak')}>
-                                <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke TPQ
-                            </Button>
+                            <button type="button" className="santri-glass-btn santri-glass-btn--migration" onClick={() => handleMigration('Anak')}>
+                                <ArrowRightLeft className="w-4 h-4" /> Migrasi ke TPQ
+                            </button>
                         ) : (
-                            <Button type="button" variant="outline" className="border-cyan-200 text-cyan-700 hover:bg-cyan-50 hover:text-cyan-800" onClick={() => handleMigration('PTPT')}>
-                                <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke PTPT
-                            </Button>
+                            <button type="button" className="santri-glass-btn santri-glass-btn--migration" onClick={() => handleMigration('PTPT')}>
+                                <ArrowRightLeft className="w-4 h-4" /> Migrasi ke PTPT
+                            </button>
                         )}
-                        <Button type="button" variant="outline" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200" onClick={() => handleMigration('Dewasa')}>
-                            <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke Dewasa
-                        </Button>
+                        <button type="button" className="santri-glass-btn santri-glass-btn--migration" onClick={() => handleMigration('Dewasa')}>
+                            <ArrowRightLeft className="w-4 h-4" /> Migrasi ke Dewasa
+                        </button>
                     </div>
-                )}
-                <div className="admin-edit-footer-actions">
-                    <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button>
-                    <Button type="submit">{editingSantri ? 'Simpan Perubahan' : 'Tambah Santri'}</Button>
+                ) : <div />}
+                <div className="flex gap-2">
+                    <button type="button" className="santri-glass-btn" onClick={() => setIsFormOpen(false)}>Batal</button>
+                    <button type="submit" className="santri-glass-btn santri-glass-btn--primary">{editingSantri ? 'Simpan Perubahan' : 'Tambah Santri'}</button>
                 </div>
             </div>
           </form>
