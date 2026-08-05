@@ -8505,19 +8505,72 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     0 0 0 3px rgb(45 212 191 / 0.16) !important;
 }
 
-.santri-glass-card [data-slot="select-trigger"],
-.santri-glass-card button[role="combobox"] {
+.santri-glass-card input[type="date"] {
+  color: hsl(222 28% 16%);
+}
+
+.santri-glass-card input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.4) sepia(1) saturate(3) hue-rotate(140deg);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 200ms ease;
+}
+
+.santri-glass-card input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Select trigger */
+.santri-glass-select {
   border-color: rgb(255 255 255 / 0.68) !important;
   background: rgb(255 255 255 / 0.38) !important;
   box-shadow: inset 2px 2px 6px rgb(148 163 184 / 0.1);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.santri-glass-card [data-slot="select-trigger"]:focus,
-.santri-glass-card button[role="combobox"]:focus {
+.santri-glass-select:focus {
   border-color: rgb(45 212 191 / 0.56) !important;
   box-shadow: 0 0 0 3px rgb(45 212 191 / 0.16) !important;
+  outline: none !important;
+}
+
+/* Select dropdown popup (portaled — needs own class) */
+.santri-glass-select-content {
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.62) !important;
+  border-radius: 0.85rem !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(45 212 191 / 0.1), transparent 40%),
+    rgb(255 255 255 / 0.82) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.82),
+    0 20px 44px -20px rgb(15 23 42 / 0.4) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.35) !important;
+  backdrop-filter: blur(28px) saturate(1.35) !important;
+}
+
+.santri-glass-select-content [role="option"] {
+  border-radius: 0.5rem;
+  color: hsl(222 22% 16%);
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.santri-glass-select-content [role="option"]:hover,
+.santri-glass-select-content [role="option"][data-highlighted] {
+  background: linear-gradient(135deg, rgb(204 251 241 / 0.62), rgb(219 234 254 / 0.52)) !important;
+  color: rgb(15 118 110) !important;
+}
+
+.santri-glass-select-content [role="option"][data-state="checked"] {
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.18), rgb(8 145 178 / 0.14)) !important;
+  color: rgb(15 118 110) !important;
+  font-weight: 700;
+}
+
+.santri-glass-select-content [role="option"] svg {
+  color: rgb(13 148 136);
 }
 
 /* Footer buttons */
@@ -8703,16 +8756,51 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     0 0 0 3px rgb(45 212 191 / 0.12) !important;
 }
 
-.dark .santri-glass-card [data-slot="select-trigger"],
-.dark .santri-glass-card button[role="combobox"] {
+.dark .santri-glass-card input[type="date"] {
+  color: hsl(210 40% 92%);
+}
+
+.dark .santri-glass-card input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7) sepia(1) saturate(2) hue-rotate(140deg) brightness(1.2);
+}
+
+.dark .santri-glass-select {
   border-color: rgb(255 255 255 / 0.08) !important;
   background: rgb(255 255 255 / 0.055) !important;
   box-shadow: inset 2px 2px 6px rgb(0 0 0 / 0.16);
 }
 
-.dark .santri-glass-card [data-slot="select-trigger"]:focus,
-.dark .santri-glass-card button[role="combobox"]:focus {
+.dark .santri-glass-select:focus {
   border-color: rgb(45 212 191 / 0.3) !important;
+}
+
+.dark .santri-glass-select-content {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(45 212 191 / 0.08), transparent 40%),
+    rgb(15 23 42 / 0.82) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.06),
+    0 20px 44px -20px rgb(0 0 0 / 0.64) !important;
+}
+
+.dark .santri-glass-select-content [role="option"] {
+  color: hsl(210 40% 90%);
+}
+
+.dark .santri-glass-select-content [role="option"]:hover,
+.dark .santri-glass-select-content [role="option"][data-highlighted] {
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.22), rgb(8 145 178 / 0.18)) !important;
+  color: rgb(94 234 212) !important;
+}
+
+.dark .santri-glass-select-content [role="option"][data-state="checked"] {
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.28), rgb(8 145 178 / 0.24)) !important;
+  color: rgb(94 234 212) !important;
+}
+
+.dark .santri-glass-select-content [role="option"] svg {
+  color: rgb(94 234 212);
 }
 
 .dark .santri-glass-btn {
