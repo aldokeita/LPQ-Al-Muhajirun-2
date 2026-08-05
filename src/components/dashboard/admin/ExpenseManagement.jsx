@@ -6,9 +6,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown, Eye, EyeOff, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown, Eye, EyeOff, X, FileSpreadsheet, Printer, FolderSearch } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import * as XLSX from 'xlsx';
+import {
+    downloadDailyExpenseExcel,
+    downloadDailyExpensePdf,
+    getDayTotal,
+    printDailyExpenseHtml
+} from '@/lib/expenseReportAdapters';
 import {
     createExpense,
     expenseCategories,
@@ -51,6 +56,8 @@ const ExpenseManagement = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [detailDate, setDetailDate] = useState(null);
     const [editingExpense, setEditingExpense] = useState(null);
     const [formData, setFormData] = useState(emptyForm);
     const [filter, setFilter] = useState({ year: currentYear, month: new Date().getMonth() + 1, date: '' });
@@ -188,6 +195,37 @@ const ExpenseManagement = () => {
         XLSX.writeFile(workbook, `Pengeluaran_${filter.year}_${monthLabel}.xlsx`);
     };
 
+    const getDayExpenses = (date) => expenses.filter((expense) => expense.tanggal_pengeluaran === date);
+
+    const handleOpenDetail = (date) => {
+        setDetailDate(date);
+        setIsDetailOpen(true);
+    };
+
+    const handleExportDayPdf = (date) => {
+        const dayExpenses = getDayExpenses(date);
+        if (dayExpenses.length === 0) return;
+        downloadDailyExpensePdf({ expenses: dayExpenses, date, total: getDayTotal(dayExpenses) });
+        toast({ title: 'PDF dibuat', description: 'File PDF pengeluaran harian berhasil diunduh.' });
+    };
+
+    const handleExportDayExcel = (date) => {
+        const dayExpenses = getDayExpenses(date);
+        if (dayExpenses.length === 0) return;
+        downloadDailyExpenseExcel({ expenses: dayExpenses, date, total: getDayTotal(dayExpenses) });
+        toast({ title: 'Excel dibuat', description: 'File Excel pengeluaran harian berhasil diunduh.' });
+    };
+
+    const handlePrintDay = (date) => {
+        const dayExpenses = getDayExpenses(date);
+        if (dayExpenses.length === 0) return;
+        try {
+            printDailyExpenseHtml({ expenses: dayExpenses, date, total: getDayTotal(dayExpenses) });
+        } catch (error) {
+            toast({ title: 'Gagal mencetak', description: error.message, variant: 'destructive' });
+        }
+    };
+
     const chartData = useMemo(() => {
         const monthlyTotals = Array(12).fill(0);
         expenses.forEach((expense) => {
@@ -307,6 +345,7 @@ const ExpenseManagement = () => {
                                     <th>Tanggal</th>
                                     <th>Total Pengeluaran</th>
                                     <th>Jumlah Kategori</th>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -318,12 +357,29 @@ const ExpenseManagement = () => {
                                             <td>{row.tanggal}</td>
                                             <td className="font-bold text-foreground">{formatRupiah(row.total)}</td>
                                             <td>{categories.size} kategori</td>
+                                            <td>
+                                                <div className="flex gap-1.5">
+                                                    <Button size="sm" variant="outline" onClick={() => handleOpenDetail(row.tanggal)} aria-label="Lihat detail pengeluaran harian">
+                                                        <FolderSearch className="w-3.5 h-3.5" /> Detail
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" onClick={() => handleExportDayPdf(row.tanggal)} aria-label="Unduh PDF pengeluaran harian">
+                                                        <Download className="w-3.5 h-3.5" /> PDF
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" onClick={() => handleExportDayExcel(row.tanggal)} aria-label="Unduh Excel pengeluaran harian">
+                                                        <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" onClick={() => handlePrintDay(row.tanggal)} aria-label="Cetak pengeluaran harian">
+                                                        <Printer className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
                                 })}
                                 <tr className="border-t-2 border-slate-300 bg-slate-100/70 dark:border-slate-700 dark:bg-slate-900/60">
                                     <td className="font-bold text-foreground">Total Periode</td>
                                     <td className="font-bold text-foreground">{formatRupiah(cashflow.totalPengeluaran)}</td>
+                                    <td></td>
                                     <td></td>
                                 </tr>
                             </tbody>
@@ -453,6 +509,77 @@ const ExpenseManagement = () => {
                         </div>
                         <DialogFooter><Button type="submit" disabled={isSaving || isUploading}>{isSaving ? 'Menyimpan...' : 'Simpan'}</Button></DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Detail Pengeluaran Harian — {detailDate || ''}</DialogTitle>
+                        <DialogDescription>Semua pengeluaran pada tanggal tersebut. Dapat diexport ke PDF/Excel atau dicetak.</DialogDescription>
+                    </DialogHeader>
+                    {detailDate && (() => {
+                        const dayExpenses = getDayExpenses(detailDate);
+                        const dayTotal = getDayTotal(dayExpenses);
+                        return (
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="text-sm">
+                                        <span className="font-bold text-foreground">{formatRupiah(dayTotal)}</span>
+                                        <span className="text-muted-foreground"> · {dayExpenses.length} transaksi</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button size="sm" variant="outline" onClick={() => handleExportDayPdf(detailDate)}>
+                                            <Download className="w-3.5 h-3.5" /> PDF
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleExportDayExcel(detailDate)}>
+                                            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handlePrintDay(detailDate)}>
+                                            <Printer className="w-3.5 h-3.5" /> Cetak
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="admin-table-scroll max-h-80">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Kategori</th>
+                                                <th>Keterangan</th>
+                                                <th>Jumlah</th>
+                                                <th>Bukti</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dayExpenses.length === 0 ? (
+                                                <tr><td colSpan="4" className="text-center py-6 text-muted-foreground">Tidak ada pengeluaran pada tanggal ini.</td></tr>
+                                            ) : dayExpenses.map((expense) => (
+                                                <tr key={expense.id}>
+                                                    <td>{expense.kategori}</td>
+                                                    <td className="font-medium">{expense.deskripsi}</td>
+                                                    <td>{formatRupiah(expense.jumlah)}</td>
+                                                    <td>
+                                                        {expense.bukti_url ? (
+                                                            <a
+                                                                href={expense.bukti_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                                                            >
+                                                                <Eye className="w-3.5 h-3.5" /> Lihat bukti
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
         </div>

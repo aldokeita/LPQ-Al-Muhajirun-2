@@ -90,8 +90,26 @@ Status: implementasi selesai + build lolos, BELUM commit/push. Ruang lingkup:
    - TIDAK ada migration baru (buffer `website-assets` + kolom `bukti_url` sudah ada)
 - Verifikasi: build lolos, diff check bersih, no-secret scan bersih.
 
+### Lanjutan (belum commit): Aksi pada Rekap Pengeluaran Harian
+Ruang lingkup (sesuai permintaan user):
+1. `src/lib/expenseReportAdapters.js` (BARU) — mengikuti pola `dailyPaymentReportAdapters.js`:
+   - `buildDailyExpenseRows`, `getDayTotal`, `dayLabel` (format id-ID)
+   - `printDailyExpenseHtml` — jendela cetak (window.print, untuk cetak ke PDF)
+   - `downloadDailyExpensePdf` — jsPDF + autotable, filename `pengeluaran-harian-<date>.pdf`
+   - `downloadDailyExpenseExcel` — XLSX (baris Total di akhir), `pengeluaran-harian-<date>.xlsx`
+2. `src/components/dashboard/admin/ExpenseManagement.jsx`
+   - Kolom "Aksi" di tabel Rekap Pengeluaran Harian: tombol **Detail** (buka modal),
+     **PDF**, **Excel**, dan **Cetak** (Printer) per baris tanggal
+   - Modal **Detail Pengeluaran Harian**: semua transaksi hari tsb (kategori, keterangan,
+     jumlah, bukti) + total transaksi + tombol export PDF/Excel/Cetak
+   - Handlers: `handleOpenDetail`, `handleExportDayPdf`, `handleExportDayExcel`, `handlePrintDay`, `getDayExpenses`
+   - State baru: `isDetailOpen`, `detailDate`
+- Verifikasi: build lolos, diff check bersih, no-secret scan bersih.
+- Belum commit/push (menunggu approval user).
+
 ## Berikutnya
-- Commit + push fitur Pengeluaran + update `sessions.md` (sekalian, approval user).
+- Commit + push fitur Aksi Rekap Harian (Detail modal + export PDF/Excel/Cetak)
+  + update `sessions.md` (sekalian, approval user).
 - Review user di Vercel Preview (login manual oleh user).
 - Setelah disetujui: merge ke **master** hanya dengan persetujuan user.
 - Potensi lanjutan (BELUM dikerjakan): bersihkan tampilan `jilid` utk santri PTPT di
