@@ -7938,8 +7938,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 /* Total row */
 .expense-glass-table__total td {
-  border-top: 2px solid rgb(251 113 133 / 0.28) !important;
-  background: linear-gradient(135deg, rgb(254 226 226 / 0.36), rgb(255 255 255 / 0.14));
+  border-top: 2px solid rgb(251 113 133 / 0.3) !important;
+  background: rgb(254 226 226 / 0.34);
   font-weight: 800;
 }
 
@@ -8114,14 +8114,18 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 /* ── Dark variants ─────────────────────────────────────────── */
 
 .dark .expense-glass-panel {
-  border-color: rgb(255 255 255 / 0.1);
+  border-color: rgb(255 255 255 / 0.12);
   background:
-    radial-gradient(circle at 10% 0%, rgb(244 63 94 / 0.1), transparent 38%),
-    radial-gradient(circle at 90% 100%, rgb(56 189 248 / 0.08), transparent 40%),
-    rgb(15 23 42 / 0.5);
+    radial-gradient(circle at 10% 0%, rgb(244 63 94 / 0.16), transparent 38%),
+    radial-gradient(circle at 90% 100%, rgb(56 189 248 / 0.12), transparent 40%),
+    rgb(15 23 42 / 0.58);
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 0.07),
-    0 20px 44px -24px rgb(0 0 0 / 0.6);
+    inset 1px 1px 0 rgb(255 255 255 / 0.08),
+    0 20px 44px -24px rgb(0 0 0 / 0.64);
+}
+
+.dark .expense-glass-panel__header {
+  border-bottom-color: rgb(255 255 255 / 0.08);
 }
 
 .dark .expense-glass-panel__title {
@@ -8133,29 +8137,29 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .dark .expense-glass-table {
-  border-color: rgb(255 255 255 / 0.08);
-  background: rgb(255 255 255 / 0.04);
-  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.05);
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.06);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.06);
 }
 
 .dark .expense-glass-table thead th {
-  color: hsl(215 20% 66%);
-  border-bottom-color: rgb(255 255 255 / 0.08);
-  background: rgb(255 255 255 / 0.03);
+  color: hsl(215 20% 70%);
+  border-bottom-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.05);
 }
 
 .dark .expense-glass-table tbody td {
-  color: hsl(210 40% 92%);
-  border-bottom-color: rgb(255 255 255 / 0.06);
+  color: hsl(210 40% 93%);
+  border-bottom-color: rgb(255 255 255 / 0.07);
 }
 
 .dark .expense-glass-table tbody tr:hover {
-  background: rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.09);
 }
 
 .dark .expense-glass-table__total td {
-  border-top-color: rgb(244 63 94 / 0.22) !important;
-  background: linear-gradient(135deg, rgb(127 29 29 / 0.22), rgb(255 255 255 / 0.02));
+  border-top-color: rgb(244 63 94 / 0.28) !important;
+  background: rgb(127 29 29 / 0.32);
 }
 
 .dark .expense-glass-btn {
