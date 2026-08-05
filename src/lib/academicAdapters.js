@@ -491,6 +491,71 @@ export const upsertSantriJuzScore = async ({ santriId, juzNumber, score, userId 
     if (result.error) throw result.error;
 };
 
+export const fetchSantriSurahScores = async (santriIds = null) => {
+    let query = supabase
+        .from('santri_surah_scores')
+        .select('id,santri_id,juz_number,surah_name,score,assessed_by,assessed_at,updated_at');
+
+    if (Array.isArray(santriIds) && santriIds.length > 0) {
+        query = query.in('santri_id', santriIds);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+};
+
+export const buildSurahScoreMap = (scoreRows, santriId) => {
+    const map = {};
+    (scoreRows || []).forEach((row) => {
+        if (!santriId || row.santri_id === santriId) {
+            const key = santriId
+                ? `${row.juz_number}:${row.surah_name}`
+                : `${row.santri_id}-${row.juz_number}:${row.surah_name}`;
+            map[key] = Number(row.score);
+        }
+    });
+    return map;
+};
+
+export const upsertSantriSurahScore = async ({ santriId, juzNumber, surahName, score, userId }) => {
+    const normalizedJuz = Number(juzNumber);
+    const normalizedScore = Number(score);
+    const normalizedSurah = String(surahName || '').trim();
+    if (!Number.isInteger(normalizedJuz) || normalizedJuz < 1 || normalizedJuz > 30) {
+        throw new Error('Juz hafalan harus berada pada rentang 1 sampai 30.');
+    }
+    if (!normalizedSurah) {
+        throw new Error('Nama surah tidak boleh kosong.');
+    }
+    if (!Number.isInteger(normalizedScore) || normalizedScore < 1 || normalizedScore > 4) {
+        throw new Error('Skor surah hafalan harus berupa angka 1 sampai 4.');
+    }
+
+    const { data: existing, error: existingError } = await supabase
+        .from('santri_surah_scores')
+        .select('id')
+        .eq('santri_id', santriId)
+        .eq('juz_number', normalizedJuz)
+        .eq('surah_name', normalizedSurah)
+        .maybeSingle();
+    if (existingError) throw existingError;
+
+    const payload = {
+        santri_id: santriId,
+        juz_number: normalizedJuz,
+        surah_name: normalizedSurah,
+        score: normalizedScore,
+        assessed_by: userId || null,
+        assessed_at: new Date().toISOString(),
+        updated_by: userId || null
+    };
+    const result = existing?.id
+        ? await supabase.from('santri_surah_scores').update(payload).eq('id', existing.id)
+        : await supabase.from('santri_surah_scores').insert({ ...payload, created_by: userId || null });
+    if (result.error) throw result.error;
+};
+
 export const fetchSantriNotes = async (santriId) => {
     const { data, error } = await supabase
         .from('santri_notes')
