@@ -7832,3 +7832,409 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     animation: none;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Expense Aurora Neo-Glass — contextual warm-coral aurora
+   Canonical reference: media-player-glass / media-settings-glass
+   ────────────────────────────────────────────────────────────── */
+
+.expense-glass-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.72);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 10% 0%, rgb(251 113 133 / 0.12), transparent 38%),
+    radial-gradient(circle at 90% 100%, rgb(56 189 248 / 0.09), transparent 40%),
+    rgb(255 255 255 / 0.42);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.82),
+    inset -1px -1px 0 rgb(148 163 184 / 0.1),
+    0 18px 42px -24px rgb(15 23 42 / 0.3);
+  -webkit-backdrop-filter: blur(26px) saturate(1.35);
+  backdrop-filter: blur(26px) saturate(1.35);
+}
+
+.expense-glass-panel::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(118deg, rgb(255 255 255 / 0.4), transparent 34% 70%, rgb(255 255 255 / 0.18));
+  pointer-events: none;
+}
+
+.expense-glass-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.5);
+}
+
+.expense-glass-panel__title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: hsl(222 28% 16%);
+}
+
+.expense-glass-panel__meta {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: hsl(215 16% 48%);
+}
+
+/* Inner frosted table surface */
+.expense-glass-table {
+  border: 1px solid rgb(255 255 255 / 0.58);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.28);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.7),
+    0 12px 28px -22px rgb(15 23 42 / 0.26);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.expense-glass-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.expense-glass-table thead th {
+  padding: 0.7rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  color: hsl(215 16% 42%);
+  border-bottom: 1px solid rgb(255 255 255 / 0.52);
+  background: rgb(255 255 255 / 0.22);
+}
+
+.expense-glass-table tbody td {
+  padding: 0.72rem 1rem;
+  font-size: 0.82rem;
+  color: hsl(222 22% 16%);
+  border-bottom: 1px solid rgb(255 255 255 / 0.34);
+}
+
+.expense-glass-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.expense-glass-table tbody tr {
+  transition: background 200ms ease;
+}
+
+.expense-glass-table tbody tr:hover {
+  background: rgb(255 255 255 / 0.4);
+}
+
+/* Total row */
+.expense-glass-table__total td {
+  border-top: 2px solid rgb(251 113 133 / 0.28) !important;
+  background: linear-gradient(135deg, rgb(254 226 226 / 0.36), rgb(255 255 255 / 0.14));
+  font-weight: 800;
+}
+
+/* Glass control button */
+.expense-glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgb(255 255 255 / 0.58);
+  border-radius: 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: hsl(215 22% 38%);
+  background: rgb(255 255 255 / 0.26) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.68),
+    0 6px 14px -10px rgb(15 23 42 / 0.34);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.expense-glass-btn:hover {
+  color: rgb(190 18 60) !important;
+  background: rgb(255 255 255 / 0.56) !important;
+  box-shadow:
+    inset 2px 2px 5px rgb(148 163 184 / 0.12),
+    inset -2px -2px 5px rgb(255 255 255 / 0.7),
+    0 8px 16px -10px rgb(244 63 94 / 0.3);
+  transform: translateY(-1px);
+}
+
+.expense-glass-btn:active {
+  transform: scale(0.97);
+}
+
+.expense-glass-btn:focus-visible {
+  outline: 2px solid rgb(244 63 94 / 0.55);
+  outline-offset: 2px;
+}
+
+/* Detail accent variant */
+.expense-glass-btn--detail {
+  border-color: rgb(251 113 133 / 0.36);
+  color: rgb(190 18 60) !important;
+  background: linear-gradient(135deg, rgb(254 226 226 / 0.5), rgb(255 237 213 / 0.4)) !important;
+}
+
+.expense-glass-btn--detail:hover {
+  background: linear-gradient(135deg, rgb(254 202 202 / 0.72), rgb(253 224 71 / 0.52)) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.82),
+    0 10px 20px -12px rgb(244 63 94 / 0.44);
+}
+
+/* Category badge */
+.expense-glass-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid rgb(255 255 255 / 0.56);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: hsl(215 20% 38%);
+  background: rgb(255 255 255 / 0.34);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* Modal glass surface */
+.expense-glass-modal {
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.7) !important;
+  border-radius: 1.75rem !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(244 63 94 / 0.1), transparent 35%),
+    radial-gradient(circle at 100% 100%, rgb(56 189 248 / 0.1), transparent 38%),
+    rgb(255 255 255 / 0.56) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.88),
+    0 30px 80px -34px rgb(15 23 42 / 0.48) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(1.4) !important;
+  backdrop-filter: blur(34px) saturate(1.4) !important;
+}
+
+/* Summary bar inside modal */
+.expense-glass-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid rgb(255 255 255 / 0.56);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.26);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.68),
+    inset -1px -1px 0 rgb(148 163 184 / 0.08);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.expense-glass-summary__label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(215 16% 48%);
+}
+
+.expense-glass-summary__value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: hsl(222 28% 14%);
+}
+
+.expense-glass-summary__divider {
+  width: 1px;
+  height: 2rem;
+  background: rgb(255 255 255 / 0.5);
+}
+
+/* Modal inner table */
+.expense-glass-modal-table {
+  border: 1px solid rgb(255 255 255 / 0.5);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.24);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.66);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.expense-glass-modal-table thead th {
+  padding: 0.65rem 0.9rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  color: hsl(215 16% 44%);
+  border-bottom: 1px solid rgb(255 255 255 / 0.46);
+  background: rgb(255 255 255 / 0.18);
+}
+
+.expense-glass-modal-table tbody td {
+  padding: 0.65rem 0.9rem;
+  font-size: 0.8rem;
+  color: hsl(222 22% 16%);
+  border-bottom: 1px solid rgb(255 255 255 / 0.28);
+}
+
+.expense-glass-modal-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.expense-glass-modal-table tbody tr {
+  transition: background 200ms ease;
+}
+
+.expense-glass-modal-table tbody tr:hover {
+  background: rgb(255 255 255 / 0.38);
+}
+
+/* ── Dark variants ─────────────────────────────────────────── */
+
+.dark .expense-glass-panel {
+  border-color: rgb(255 255 255 / 0.1);
+  background:
+    radial-gradient(circle at 10% 0%, rgb(244 63 94 / 0.1), transparent 38%),
+    radial-gradient(circle at 90% 100%, rgb(56 189 248 / 0.08), transparent 40%),
+    rgb(15 23 42 / 0.5);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.07),
+    0 20px 44px -24px rgb(0 0 0 / 0.6);
+}
+
+.dark .expense-glass-panel__title {
+  color: hsl(210 40% 96%);
+}
+
+.dark .expense-glass-panel__meta {
+  color: hsl(215 20% 62%);
+}
+
+.dark .expense-glass-table {
+  border-color: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.04);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.dark .expense-glass-table thead th {
+  color: hsl(215 20% 66%);
+  border-bottom-color: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.dark .expense-glass-table tbody td {
+  color: hsl(210 40% 92%);
+  border-bottom-color: rgb(255 255 255 / 0.06);
+}
+
+.dark .expense-glass-table tbody tr:hover {
+  background: rgb(255 255 255 / 0.06);
+}
+
+.dark .expense-glass-table__total td {
+  border-top-color: rgb(244 63 94 / 0.22) !important;
+  background: linear-gradient(135deg, rgb(127 29 29 / 0.22), rgb(255 255 255 / 0.02));
+}
+
+.dark .expense-glass-btn {
+  border-color: rgb(255 255 255 / 0.08);
+  color: hsl(215 20% 66%);
+  background: rgb(255 255 255 / 0.055) !important;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.dark .expense-glass-btn:hover {
+  color: rgb(252 165 165) !important;
+  background: rgb(255 255 255 / 0.1) !important;
+}
+
+.dark .expense-glass-btn--detail {
+  border-color: rgb(244 63 94 / 0.22);
+  color: rgb(252 165 165) !important;
+  background: linear-gradient(135deg, rgb(244 63 94 / 0.16), rgb(251 191 36 / 0.1)) !important;
+}
+
+.dark .expense-glass-badge {
+  border-color: rgb(255 255 255 / 0.08);
+  color: hsl(215 20% 66%);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.dark .expense-glass-modal {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(244 63 94 / 0.08), transparent 35%),
+    radial-gradient(circle at 100% 100%, rgb(56 189 248 / 0.08), transparent 38%),
+    rgb(15 23 42 / 0.68) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.06),
+    0 30px 80px -34px rgb(0 0 0 / 0.72) !important;
+}
+
+.dark .expense-glass-summary {
+  border-color: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.04);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.dark .expense-glass-summary__label {
+  color: hsl(215 20% 56%);
+}
+
+.dark .expense-glass-summary__value {
+  color: hsl(210 40% 94%);
+}
+
+.dark .expense-glass-summary__divider {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.dark .expense-glass-modal-table {
+  border-color: rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.dark .expense-glass-modal-table thead th {
+  color: hsl(215 20% 62%);
+  border-bottom-color: rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.02);
+}
+
+.dark .expense-glass-modal-table tbody td {
+  color: hsl(210 40% 90%);
+  border-bottom-color: rgb(255 255 255 / 0.04);
+}
+
+.dark .expense-glass-modal-table tbody tr:hover {
+  background: rgb(255 255 255 / 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expense-glass-btn,
+  .expense-glass-table tbody tr,
+  .expense-glass-modal-table tbody tr {
+    transition: none;
+  }
+}

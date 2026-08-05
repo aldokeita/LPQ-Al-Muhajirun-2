@@ -328,51 +328,53 @@ const ExpenseManagement = () => {
                 </ResponsiveContainer>
             </div>
 
-            <div className="admin-table-shell">
-                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                    <h3 className="text-sm font-bold text-foreground">Rekap Pengeluaran Harian</h3>
-                    <span className="text-[11px] font-semibold text-muted-foreground">{dailySummary.length} hari dengan pengeluaran</span>
+            <div className="expense-glass-panel">
+                <div className="expense-glass-panel__header">
+                    <h3 className="expense-glass-panel__title">Rekap Pengeluaran Harian</h3>
+                    <span className="expense-glass-panel__meta">{dailySummary.length} hari dengan pengeluaran</span>
                 </div>
-                <div className="admin-table-scroll">
+                <div className="p-3">
                     {isLoading ? (
                         <div className="p-8 text-center text-sm text-muted-foreground">Memuat rekap harian...</div>
                     ) : dailySummary.length === 0 ? (
                         <div className="p-8 text-center text-sm text-muted-foreground">Belum ada pengeluaran tercatat pada periode ini.</div>
                     ) : (
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Tanggal</th>
-                                    <th>Total Pengeluaran</th>
-                                    <th>Jumlah Kategori</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {dailySummary.map((row) => {
-                                    const dayExpenses = expenses.filter((expense) => expense.tanggal_pengeluaran === row.tanggal);
-                                    const categories = new Set(dayExpenses.map((expense) => expense.kategori || 'Lainnya'));
-                                    return (
-                                        <tr key={row.tanggal}>
-                                            <td className="font-medium">{row.tanggal}</td>
-                                            <td className="font-bold text-foreground">{formatRupiah(row.total)}</td>
-                                            <td className="text-muted-foreground">{categories.size} kategori</td>
-                                            <td>
-                                                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handleOpenDetail(row.tanggal)}>
-                                                    <FolderSearch className="w-3.5 h-3.5" /> Detail
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                <tr className="border-t-2 border-slate-300 bg-slate-100/70 dark:border-slate-700 dark:bg-slate-900/60">
-                                    <td className="font-bold text-foreground">Total Periode</td>
-                                    <td className="font-bold text-foreground">{formatRupiah(cashflow.totalPengeluaran)}</td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div className="expense-glass-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Total Pengeluaran</th>
+                                        <th>Jumlah Kategori</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dailySummary.map((row) => {
+                                        const dayExpenses = expenses.filter((expense) => expense.tanggal_pengeluaran === row.tanggal);
+                                        const categories = new Set(dayExpenses.map((expense) => expense.kategori || 'Lainnya'));
+                                        return (
+                                            <tr key={row.tanggal}>
+                                                <td className="font-medium">{row.tanggal}</td>
+                                                <td className="font-bold text-foreground">{formatRupiah(row.total)}</td>
+                                                <td className="text-muted-foreground">{categories.size} kategori</td>
+                                                <td>
+                                                    <button className="expense-glass-btn expense-glass-btn--detail" onClick={() => handleOpenDetail(row.tanggal)}>
+                                                        <FolderSearch className="w-3.5 h-3.5" /> Detail
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    <tr className="expense-glass-table__total">
+                                        <td>Total Periode</td>
+                                        <td>{formatRupiah(cashflow.totalPengeluaran)}</td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
             </div>
@@ -502,7 +504,7 @@ const ExpenseManagement = () => {
             </Dialog>
 
             <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="expense-glass-modal max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Detail Pengeluaran Harian</DialogTitle>
                         <DialogDescription>
@@ -516,31 +518,31 @@ const ExpenseManagement = () => {
                         const dayTotal = getDayTotal(dayExpenses);
                         return (
                             <div className="space-y-4">
-                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                                <div className="expense-glass-summary">
                                     <div className="flex items-center gap-4">
                                         <div>
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Pengeluaran</p>
-                                            <p className="text-lg font-bold text-foreground">{formatRupiah(dayTotal)}</p>
+                                            <p className="expense-glass-summary__label">Total Pengeluaran</p>
+                                            <p className="expense-glass-summary__value">{formatRupiah(dayTotal)}</p>
                                         </div>
-                                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
+                                        <div className="expense-glass-summary__divider" />
                                         <div>
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Transaksi</p>
-                                            <p className="text-lg font-bold text-foreground">{dayExpenses.length}</p>
+                                            <p className="expense-glass-summary__label">Transaksi</p>
+                                            <p className="expense-glass-summary__value">{dayExpenses.length}</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handleExportDayPdf(detailDate)}>
+                                        <button className="expense-glass-btn" onClick={() => handleExportDayPdf(detailDate)}>
                                             <Download className="w-3.5 h-3.5" /> PDF
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handleExportDayExcel(detailDate)}>
+                                        </button>
+                                        <button className="expense-glass-btn" onClick={() => handleExportDayExcel(detailDate)}>
                                             <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs font-semibold" onClick={() => handlePrintDay(detailDate)}>
+                                        </button>
+                                        <button className="expense-glass-btn" onClick={() => handlePrintDay(detailDate)}>
                                             <Printer className="w-3.5 h-3.5" /> Cetak
-                                        </Button>
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="admin-table-scroll max-h-[340px] rounded-lg border border-slate-200 dark:border-slate-800">
+                                <div className="expense-glass-modal-table max-h-[340px] overflow-auto">
                                     <table>
                                         <thead>
                                             <tr>
@@ -558,9 +560,7 @@ const ExpenseManagement = () => {
                                                 <tr key={expense.id}>
                                                     <td className="text-muted-foreground">{idx + 1}</td>
                                                     <td>
-                                                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                                            {expense.kategori}
-                                                        </span>
+                                                        <span className="expense-glass-badge">{expense.kategori}</span>
                                                     </td>
                                                     <td className="font-medium">{expense.deskripsi}</td>
                                                     <td className="text-right font-semibold">{formatRupiah(expense.jumlah)}</td>
