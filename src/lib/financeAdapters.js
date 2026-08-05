@@ -94,23 +94,58 @@ export const normalizeExpensePayload = (formData, userId) => {
         kategori,
         deskripsi,
         jumlah,
+        bukti_url: String(formData.bukti_url || '').trim() || null,
         updated_by: userId || null
     };
 };
 
-export const fetchExpensesByPeriod = async ({ year, month = 'all' }) => {
-    const { startDate, endDate } = getPeriodDateRange({ year, month });
-    const { data, error } = await supabase
+export const fetchExpensesByPeriod = async ({ year, month = 'all', date = null }) => {
+    let query = supabase
         .from('expenses')
-        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,created_at,updated_at,deleted_at')
-        .is('deleted_at', null)
-        .gte('tanggal_pengeluaran', startDate)
-        .lte('tanggal_pengeluaran', endDate)
+        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,bukti_url,created_at,updated_at,deleted_at')
+        .is('deleted_at', null);
+
+    if (date) {
+        query = query.eq('tanggal_pengeluaran', date);
+    } else {
+        const { startDate, endDate } = getPeriodDateRange({ year, month });
+        query = query
+            .gte('tanggal_pengeluaran', startDate)
+            .lte('tanggal_pengeluaran', endDate);
+    }
+
+    const { data, error } = await query
         .order('tanggal_pengeluaran', { ascending: false })
         .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data || [];
+};
+
+export const fetchDailyExpenseSummary = async ({ year, month = 'all' }) => {
+    const { startDate, endDate } = getPeriodDateRange({ year, month });
+    const { data, error } = await supabase
+        .from('expenses')
+        .select('tanggal_pengeluaran,jumlah')
+        .is('deleted_at', null)
+        .gte('tanggal_pengeluaran', startDate)
+        .lte('tanggal_pengeluaran', endDate);
+
+    if (error) throw error;
+
+    const totals = {};
+    (data || []).forEach((row) => {
+        const day = row.tanggal_pengeluaran;
+        const cents = Math.round(Number(row.jumlah || 0) * 100);
+        totals[day] = (totals[day] || 0) + cents;
+    });
+
+    return Object.keys(totals)
+        .sort((a, b) => b.localeCompare(a))
+        .map((tanggal) => ({
+            tanggal,
+            total: totals[tanggal] / 100
+        }));
 };
 
 export const createExpense = async (formData, userId) => {
@@ -122,7 +157,7 @@ export const createExpense = async (formData, userId) => {
     const { data, error } = await supabase
         .from('expenses')
         .insert(payload)
-        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah')
+        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,bukti_url')
         .single();
 
     if (error) throw error;
@@ -136,7 +171,7 @@ export const updateExpense = async (id, formData, userId) => {
         .update(payload)
         .eq('id', id)
         .is('deleted_at', null)
-        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah')
+        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,bukti_url')
         .single();
 
     if (error) throw error;
