@@ -53,13 +53,17 @@ export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
   },
   typography: {
     headerFont: 'serif',
+    yayasanFont: 'serif',
     yayasanSize: 10,
     yayasanOffsetY: 0,
+    eyebrowFont: 'serif',
+    titleFont: 'serif',
     titleSize: 19,
     titleWeight: 700,
     titleItalic: false,
     titleUppercase: true,
     headerOffsetY: 0,
+    addressFont: 'serif',
     addressOffsetY: 0,
     eyebrowSize: 8,
     addressSize: 6.5,
@@ -70,6 +74,15 @@ export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
     tableHeaderUppercase: true,
     bodySize: 6.5,
     bodyWeight: 400,
+  },
+  columnWidths: {
+    number: 7,
+    name: 41,
+    jilid: 14,
+    phone: 26,
+    date: 5,
+    progress: 32,
+    percentage: 14,
   },
   branding: {
     showLpqLogo: true,
@@ -113,6 +126,10 @@ export const normalizeClassAttendancePrintConfig = (value) => {
   const content = source.content && typeof source.content === 'object' ? source.content : {};
   const typography = source.typography && typeof source.typography === 'object' ? source.typography : {};
   const branding = source.branding && typeof source.branding === 'object' ? source.branding : {};
+  const sourceWidths = source.columnWidths && typeof source.columnWidths === 'object' ? source.columnWidths : {};
+  const defaultWidths = defaults.columnWidths;
+
+  const normalizeFontKey = (val, fallback) => Object.hasOwn(CLASS_ATTENDANCE_HEADER_FONTS, val) ? val : fallback;
 
   return {
     version: 1,
@@ -121,16 +138,18 @@ export const normalizeClassAttendancePrintConfig = (value) => {
       normalizeText(content[key], fallback, key === 'privacyNotice' || key === 'address' ? 320 : 90),
     ])),
     typography: {
-      headerFont: Object.hasOwn(CLASS_ATTENDANCE_HEADER_FONTS, typography.headerFont)
-        ? typography.headerFont
-        : defaults.typography.headerFont,
+      headerFont: normalizeFontKey(typography.headerFont, defaults.typography.headerFont),
+      yayasanFont: normalizeFontKey(typography.yayasanFont, defaults.typography.yayasanFont),
       yayasanSize: normalizeNumber(typography.yayasanSize, defaults.typography.yayasanSize, 6, 18),
       yayasanOffsetY: normalizeNumber(typography.yayasanOffsetY, defaults.typography.yayasanOffsetY, -12, 12),
+      eyebrowFont: normalizeFontKey(typography.eyebrowFont, defaults.typography.eyebrowFont),
+      titleFont: normalizeFontKey(typography.titleFont, defaults.typography.titleFont),
       titleSize: normalizeNumber(typography.titleSize, defaults.typography.titleSize, 12, 30),
       titleWeight: normalizeWeight(typography.titleWeight, defaults.typography.titleWeight),
       titleItalic: typography.titleItalic === true,
       titleUppercase: typography.titleUppercase !== false,
       headerOffsetY: normalizeNumber(typography.headerOffsetY, defaults.typography.headerOffsetY, -12, 12),
+      addressFont: normalizeFontKey(typography.addressFont, defaults.typography.addressFont),
       addressOffsetY: normalizeNumber(typography.addressOffsetY, defaults.typography.addressOffsetY, -8, 8),
       eyebrowSize: normalizeNumber(typography.eyebrowSize, defaults.typography.eyebrowSize, 5, 14),
       addressSize: normalizeNumber(typography.addressSize, defaults.typography.addressSize, 5, 12),
@@ -141,6 +160,15 @@ export const normalizeClassAttendancePrintConfig = (value) => {
       tableHeaderUppercase: typography.tableHeaderUppercase !== false,
       bodySize: normalizeNumber(typography.bodySize, defaults.typography.bodySize, 5, 10),
       bodyWeight: normalizeWeight(typography.bodyWeight, defaults.typography.bodyWeight),
+    },
+    columnWidths: {
+      number: normalizeNumber(sourceWidths.number, defaultWidths.number, 4, 15),
+      name: normalizeNumber(sourceWidths.name, defaultWidths.name, 25, 60),
+      jilid: normalizeNumber(sourceWidths.jilid, defaultWidths.jilid, 8, 25),
+      phone: normalizeNumber(sourceWidths.phone, defaultWidths.phone, 15, 40),
+      date: normalizeNumber(sourceWidths.date, defaultWidths.date, 3, 8),
+      progress: normalizeNumber(sourceWidths.progress, defaultWidths.progress, 15, 50),
+      percentage: normalizeNumber(sourceWidths.percentage, defaultWidths.percentage, 8, 25),
     },
     branding: {
       showLpqLogo: branding.showLpqLogo !== false,

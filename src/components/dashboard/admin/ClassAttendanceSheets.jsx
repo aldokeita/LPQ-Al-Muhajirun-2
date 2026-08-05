@@ -111,14 +111,18 @@ export const AttendancePaperPreview = ({
 }) => {
   const [firstPage] = createClassAttendancePages(classItem.roster);
   const config = normalizeClassAttendancePrintConfig(appearance?.config);
-  const { branding, content, typography } = config;
+  const { branding, content, typography, columnWidths } = config;
   const previewStyle = {
     '--attendance-preview-header-font': getClassAttendanceHeaderFontStack(typography.headerFont),
+    '--attendance-preview-yayasan-font': getClassAttendanceHeaderFontStack(typography.yayasanFont),
     '--attendance-preview-yayasan-size': `${typography.yayasanSize}pt`,
     '--attendance-preview-yayasan-offset-y': `${typography.yayasanOffsetY}mm`,
+    '--attendance-preview-eyebrow-font': getClassAttendanceHeaderFontStack(typography.eyebrowFont),
+    '--attendance-preview-title-font': getClassAttendanceHeaderFontStack(typography.titleFont),
     '--attendance-preview-title-size': `${typography.titleSize}pt`,
     '--attendance-preview-title-weight': typography.titleWeight,
     '--attendance-preview-header-offset-y': `${typography.headerOffsetY}mm`,
+    '--attendance-preview-address-font': getClassAttendanceHeaderFontStack(typography.addressFont),
     '--attendance-preview-address-offset-y': `${typography.addressOffsetY}mm`,
     '--attendance-preview-title-style': typography.titleItalic ? 'italic' : 'normal',
     '--attendance-preview-title-transform': typography.titleUppercase ? 'uppercase' : 'none',
@@ -171,7 +175,6 @@ export const AttendancePaperPreview = ({
             }
             return upper;
           })()}</dd></div>
-          <div><dt>{content.createdLabel}</dt><dd>: Pratinjau</dd></div>
         </dl>
 
         <table>

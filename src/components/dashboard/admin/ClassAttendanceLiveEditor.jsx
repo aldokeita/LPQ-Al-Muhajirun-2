@@ -9,6 +9,7 @@ import {
   Save,
   ShieldCheck,
   Type,
+  Clock3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,16 +26,25 @@ import {
 } from '@/lib/classAttendancePrintAdapters';
 import {
   CLASS_ATTENDANCE_HEADER_FONTS,
+  getClassAttendanceHeaderFontStack,
   normalizeClassAttendancePrintConfig,
 } from '@/lib/classAttendancePrintConfig';
 import {
   getClassAttendanceDateSlots,
   getClassAttendanceMonthLabel,
 } from '@/lib/classAttendanceSheet';
+import {
+  DEFAULT_ATTENDANCE_CONFIGURATION,
+  fetchAttendanceConfiguration,
+  normalizeAttendanceConfiguration,
+  saveAttendanceConfiguration,
+} from '@/lib/attendanceConfiguration';
 
 const EDITOR_PANELS = [
   { id: 'content', label: 'Konten', icon: FileText },
   { id: 'typography', label: 'Tipografi', icon: Type },
+  { id: 'columns', label: 'Kolom', icon: FileText },
+  { id: 'sessions', label: 'Sesi', icon: Clock3 },
   { id: 'branding', label: 'Logo & Warna', icon: Palette },
 ];
 
@@ -83,10 +93,6 @@ const sampleClass = {
   })),
 };
 
-const sampleSessionTimes = {
-  Sore: { open: '15:00', start: '15:45', onTimeUntil: '16:00', end: '17:15', defaultQuota: 80 },
-};
-
 const LabeledSwitch = ({ checked, description, id, label, onCheckedChange }) => (
   <div className="attendance-editor-switch-row">
     <div>
@@ -126,12 +132,19 @@ const ClassAttendanceLiveEditor = ({
   const [activePanel, setActivePanel] = useState('content');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [sessionConfig, setSessionConfig] = useState(DEFAULT_ATTENDANCE_CONFIGURATION);
 
   useEffect(() => {
     let active = true;
-    appearanceLoader()
-      .then((nextAppearance) => {
-        if (active) setAppearance(nextAppearance);
+    Promise.all([
+      appearanceLoader(),
+      fetchAttendanceConfiguration().catch(() => DEFAULT_ATTENDANCE_CONFIGURATION),
+    ])
+      .then(([nextAppearance, nextSessionConfig]) => {
+        if (active) {
+          setAppearance(nextAppearance);
+          setSessionConfig(nextSessionConfig);
+        }
       })
       .catch((error) => {
         if (active) toast({
@@ -170,10 +183,44 @@ const ClassAttendanceLiveEditor = ({
     }));
   };
 
+  const updateColumnWidth = (key, value) => {
+    setAppearance((current) => ({
+      ...current,
+      config: {
+        ...current.config,
+        columnWidths: {
+          ...current.config.columnWidths,
+          [key]: value,
+        },
+      },
+    }));
+  };
+
+  const updateSession = (sessionName, field, value) => {
+    setSessionConfig((current) => ({
+      ...current,
+      sessions: {
+        ...current.sessions,
+        [sessionName]: {
+          ...current.sessions[sessionName],
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const liveSessionTimes = sessionConfig.sessions;
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const saved = await configSaver(config);
+      const [saved] = await Promise.all([
+        configSaver(config),
+        saveAttendanceConfiguration(sessionConfig).catch((err) => {
+          toast({ title: 'Waktu sesi gagal disimpan', description: err?.message, variant: 'destructive' });
+          return sessionConfig;
+        }),
+      ]);
       setAppearance((current) => ({ ...current, config: saved }));
       toast({
         title: 'Desain absensi tersimpan',
@@ -298,15 +345,26 @@ const ClassAttendanceLiveEditor = ({
           {activePanel === 'typography' && (
             <div className="attendance-live-editor__panel" role="tabpanel">
               <div className="attendance-editor-section">
-                <div className="attendance-editor-section__title"><Type aria-hidden="true" /><div><strong>Tipografi header</strong><span>Font sistem menjaga HTML tetap dapat dicetak offline.</span></div></div>
-                <Label htmlFor="attendance-header-font">Jenis font header</Label>
-                <Select value={config.typography.headerFont} onValueChange={(value) => updateSection('typography', 'headerFont', value)}>
-                  <SelectTrigger id="attendance-header-font"><SelectValue /></SelectTrigger>
+                <div className="attendance-editor-section__title"><Type aria-hidden="true" /><div><strong>Tipografi header</strong><span>Atur font setiap elemen header secara individual.</span></div></div>
+                <Label htmlFor="font-yayasan">Font nama yayasan</Label>
+                <Select value={config.typography.yayasanFont} onValueChange={(value) => updateSection('typography', 'yayasanFont', value)}>
+                  <SelectTrigger id="font-yayasan"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(CLASS_ATTENDANCE_HEADER_FONTS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <RangeControl label="Ukuran nama yayasan" value={config.typography.yayasanSize} min={6} max={18} onChange={(value) => updateSection('typography', 'yayasanSize', value)} />
+                <RangeControl label="Posisi vertikal nama yayasan" value={config.typography.yayasanOffsetY} min={-12} max={12} unit="mm" onChange={(value) => updateSection('typography', 'yayasanOffsetY', value)} />
+                <Label htmlFor="font-eyebrow">Font kategori lembaga</Label>
+                <Select value={config.typography.eyebrowFont} onValueChange={(value) => updateSection('typography', 'eyebrowFont', value)}>
+                  <SelectTrigger id="font-eyebrow"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(CLASS_ATTENDANCE_HEADER_FONTS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <RangeControl label="Ukuran kategori lembaga" value={config.typography.eyebrowSize} min={5} max={14} onChange={(value) => updateSection('typography', 'eyebrowSize', value)} />
+                <Label htmlFor="font-title">Font judul utama</Label>
+                <Select value={config.typography.titleFont} onValueChange={(value) => updateSection('typography', 'titleFont', value)}>
+                  <SelectTrigger id="font-title"><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.entries(CLASS_ATTENDANCE_HEADER_FONTS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
                 </Select>
                 <RangeControl label="Ukuran judul utama" value={config.typography.titleSize} min={12} max={30} onChange={(value) => updateSection('typography', 'titleSize', value)} />
-                <RangeControl label="Ukuran nama yayasan" value={config.typography.yayasanSize} min={6} max={18} onChange={(value) => updateSection('typography', 'yayasanSize', value)} />
-                <RangeControl label="Posisi vertikal nama yayasan" value={config.typography.yayasanOffsetY} min={-12} max={12} unit="mm" onChange={(value) => updateSection('typography', 'yayasanOffsetY', value)} />
                 <Label htmlFor="attendance-title-weight">Ketebalan judul</Label>
                 <Select value={String(config.typography.titleWeight)} onValueChange={(value) => updateSection('typography', 'titleWeight', Number(value))}>
                   <SelectTrigger id="attendance-title-weight"><SelectValue /></SelectTrigger>
@@ -314,6 +372,12 @@ const ClassAttendanceLiveEditor = ({
                 </Select>
                 <LabeledSwitch id="attendance-title-italic" label="Judul miring" checked={config.typography.titleItalic} onCheckedChange={(value) => updateSection('typography', 'titleItalic', value)} />
                 <LabeledSwitch id="attendance-title-uppercase" label="Judul huruf kapital" checked={config.typography.titleUppercase} onCheckedChange={(value) => updateSection('typography', 'titleUppercase', value)} />
+                <Label htmlFor="font-address">Font alamat</Label>
+                <Select value={config.typography.addressFont} onValueChange={(value) => updateSection('typography', 'addressFont', value)}>
+                  <SelectTrigger id="font-address"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(CLASS_ATTENDANCE_HEADER_FONTS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <RangeControl label="Ukuran alamat" value={config.typography.addressSize} min={5} max={12} onChange={(value) => updateSection('typography', 'addressSize', value)} />
                 <RangeControl label="Posisi vertikal teks header" value={config.typography.headerOffsetY} min={-12} max={12} unit="mm" onChange={(value) => updateSection('typography', 'headerOffsetY', value)} />
                 <RangeControl label="Posisi vertikal alamat" value={config.typography.addressOffsetY} min={-8} max={8} unit="mm" onChange={(value) => updateSection('typography', 'addressOffsetY', value)} />
                 <ColorControl label="Warna teks header" value={config.branding.headerTextColor} onChange={(value) => updateSection('branding', 'headerTextColor', value)} />
@@ -338,6 +402,37 @@ const ClassAttendanceLiveEditor = ({
                   <SelectTrigger id="attendance-body-weight"><SelectValue /></SelectTrigger>
                   <SelectContent>{WEIGHT_OPTIONS.map(([value, label]) => <SelectItem key={value} value={String(value)}>{label} · {value}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+            </div>
+          )}
+
+          {activePanel === 'columns' && (
+            <div className="attendance-live-editor__panel" role="tabpanel">
+              <div className="attendance-editor-section">
+                <div className="attendance-editor-section__title"><FileText aria-hidden="true" /><div><strong>Lebar kolom</strong><span>Atur lebar setiap kolom dalam milimeter.</span></div></div>
+                <RangeControl label="Kolom Nomor" value={config.columnWidths.number} min={4} max={15} unit="mm" onChange={(value) => updateColumnWidth('number', value)} />
+                <RangeControl label="Kolom Nama" value={config.columnWidths.name} min={25} max={60} unit="mm" onChange={(value) => updateColumnWidth('name', value)} />
+                <RangeControl label="Kolom Jilid" value={config.columnWidths.jilid} min={8} max={25} unit="mm" onChange={(value) => updateColumnWidth('jilid', value)} />
+                <RangeControl label="Kolom No. HP" value={config.columnWidths.phone} min={15} max={40} unit="mm" onChange={(value) => updateColumnWidth('phone', value)} />
+                <RangeControl label="Kolom Tanggal" value={config.columnWidths.date} min={3} max={8} unit="mm" onChange={(value) => updateColumnWidth('date', value)} />
+                <RangeControl label="Kolom Jilid & Halaman" value={config.columnWidths.progress} min={15} max={50} unit="mm" onChange={(value) => updateColumnWidth('progress', value)} />
+                <RangeControl label="Kolom Persentase" value={config.columnWidths.percentage} min={8} max={25} unit="mm" onChange={(value) => updateColumnWidth('percentage', value)} />
+              </div>
+            </div>
+          )}
+
+          {activePanel === 'sessions' && (
+            <div className="attendance-live-editor__panel" role="tabpanel">
+              <div className="attendance-editor-section">
+                <div className="attendance-editor-section__title"><Clock3 aria-hidden="true" /><div><strong>Waktu sesi mengaji</strong><span>Digunakan pada label sesi di lembar absensi.</span></div></div>
+                {Object.entries(sessionConfig.sessions).map(([sessionName, session]) => (
+                  <div key={sessionName} className="attendance-editor-field-grid" style={{ marginBottom: '1rem' }}>
+                    <div><Label>{sessionName} — Buka</Label><Input type="time" value={session.open} onChange={(e) => updateSession(sessionName, 'open', e.target.value)} /></div>
+                    <div><Label>{sessionName} — Mulai</Label><Input type="time" value={session.start} onChange={(e) => updateSession(sessionName, 'start', e.target.value)} /></div>
+                    <div><Label>{sessionName} — Batas tepat waktu</Label><Input type="time" value={session.onTimeUntil} onChange={(e) => updateSession(sessionName, 'onTimeUntil', e.target.value)} /></div>
+                    <div><Label>{sessionName} — Selesai</Label><Input type="time" value={session.end} onChange={(e) => updateSession(sessionName, 'end', e.target.value)} /></div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -378,7 +473,7 @@ const ClassAttendanceLiveEditor = ({
             <div><Eye aria-hidden="true" /><span><strong>Pratinjau langsung</strong><small>Contoh data · A4 landscape</small></span></div>
             <em>Perubahan belum tersimpan</em>
           </div>
-          <AttendancePaperPreview appearance={appearance} classItem={sampleClass} dateSlots={dateSlots} monthLabel={monthLabel} sessionTimes={sampleSessionTimes} />
+          <AttendancePaperPreview appearance={appearance} classItem={sampleClass} dateSlots={dateSlots} monthLabel={monthLabel} sessionTimes={liveSessionTimes} />
         </div>
       </div>
     </section>
