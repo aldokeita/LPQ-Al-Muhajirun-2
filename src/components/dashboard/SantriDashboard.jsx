@@ -23,9 +23,11 @@ import DashboardDisclosure from '@/components/dashboard/shared/DashboardDisclosu
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
 import { buildSessionStartTimestamp, calculateTimeDifference, resolveAttendanceRecordStatus } from '@/utils/AttendanceStatusLogic';
 import {
+  buildJuzScoreMap,
   createMurojaahSubmission,
   DEVELOPMENT_SCORE_OPTIONS,
   fetchHafalanItems,
+  fetchSantriJuzScores,
   getAcademicErrorMessage,
   getDevelopmentScoreMeta,
   getHafalanProgramScope,
@@ -34,6 +36,7 @@ import {
   PTPT_TAHFIZH_TARGETS,
   progressStatusToComplete
 } from '@/lib/academicAdapters';
+import { ALL_JUZ, getSurahNamesForJuz, normalizeJuzHafalan, parseJuzNumber } from '@/lib/quranJuzData';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getSessionName } from '@/utils/sessionMapping';
 import { resolveSantriLevel } from '@/lib/santriLevel';
@@ -182,6 +185,81 @@ const HafalanSection = ({
           />
         ))}
       </div>
+    </DashboardDisclosure>
+  );
+};
+
+const PTPTJuzSection = ({ juzLabels = [], juzScores = {} }) => {
+  const scoredValues = juzLabels
+    .map((label) => Number(juzScores[parseJuzNumber(label)] || 0))
+    .filter((score) => score >= 1 && score <= 4);
+  const averageScore = scoredValues.length
+    ? scoredValues.reduce((total, score) => total + score, 0) / scoredValues.length
+    : 0;
+  const averageMeta = averageScore ? getDevelopmentScoreMeta(Math.round(averageScore)) : null;
+  const memorizedCount = juzLabels.filter((label) => Number(juzScores[parseJuzNumber(label)]) === 4).length;
+
+  return (
+    <DashboardDisclosure
+      title="Tahfizh PTPT"
+      description="Pantau skor hafalan tahfizh per juz yang ditetapkan admin."
+      icon={BookOpen}
+      tone="violet"
+      summary={(
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="min-w-[66px] rounded-md bg-muted/60 px-2 py-1.5">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Rata-rata</p>
+            <p className="text-sm font-black text-foreground">{averageScore ? averageScore.toFixed(1) : '—'}<span className="text-[10px] text-muted-foreground"> / 4</span></p>
+          </div>
+          <div className="min-w-[62px] rounded-md bg-emerald-50 px-2 py-1.5 dark:border dark:border-emerald-400/25 dark:bg-slate-900/70">
+            <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Hafal</p>
+            <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">{memorizedCount}</p>
+          </div>
+          <div className="min-w-[72px] rounded-md bg-amber-50 px-2 py-1.5 dark:bg-amber-950/30">
+            <p className="text-[10px] font-bold uppercase text-amber-700 dark:text-amber-300">Juz Target</p>
+            <p className="text-sm font-black text-amber-700 dark:text-amber-300">{juzLabels.length}</p>
+          </div>
+        </div>
+      )}
+    >
+      {juzLabels.length === 0 ? (
+        <p className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+          Admin belum menetapkan juz hafalan untuk Anda. Hubungi pengurus untuk mengatur target tahfizh.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {juzLabels.map((label) => {
+            const juzNumber = parseJuzNumber(label);
+            const score = Number(juzScores[juzNumber] || 0);
+            const surahNames = getSurahNamesForJuz(juzNumber);
+            const scoreMeta = score >= 1 && score <= 4 ? getDevelopmentScoreMeta(score) : null;
+            return (
+              <div
+                key={label}
+                className={cn(
+                  'flex min-w-0 flex-col rounded-xl border p-3 transition-colors',
+                  score === 4
+                    ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-400/25 dark:bg-slate-900/70'
+                    : 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/50'
+                )}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="font-bold text-sm text-foreground">{label}</p>
+                  {scoreMeta ? (
+                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold', scoreMeta.tone === 'emerald' && 'bg-emerald-100 text-emerald-700', scoreMeta.tone === 'sky' && 'bg-sky-100 text-sky-700', scoreMeta.tone === 'amber' && 'bg-amber-100 text-amber-700', scoreMeta.tone === 'slate' && 'bg-slate-100 text-slate-600')}>
+                      <span className={cn('h-1.5 w-1.5 rounded-full', scoreToneClasses[scoreMeta.tone])} aria-hidden="true" />
+                      {score} · {scoreMeta.code}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-muted-foreground dark:bg-slate-800">Belum dinilai</span>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">{surahNames.join(', ')}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </DashboardDisclosure>
   );
 };
@@ -360,6 +438,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   const { user } = useAuth();
   const [santriData, setSantriData] = useState(null);
   const [hafalan, setHafalan] = useState([]);
+  const [juzScores, setJuzScores] = useState({});
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
   const [hafalanItems, setHafalanItems] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -398,14 +477,16 @@ const SantriDashboard = ({ isAdult = false }) => {
 
         const todayStr = new Date().toLocaleDateString('en-CA');
 
-        const [hafalanData, submissionsData, attendanceData] = await Promise.all([
+        const [hafalanData, submissionsData, attendanceData, juzScoreData] = await Promise.all([
             supabase.from('hafalan_progress').select('*').eq('santri_id', santri.id),
             supabase.from('murojaah_submissions').select('id,santri_id,type,content,recording_path,status,feedback,submitted_at,reviewed_at,created_at').eq('santri_id', santri.id).order('created_at', { ascending: false }),
-            supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('user_id', santri.id)
+            supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('user_id', santri.id),
+            fetchSantriJuzScores([santri.id])
         ]);
 
         if (hafalanData.data) setHafalan(hafalanData.data);
         if (submissionsData.data) setMurojaahSubmissions(submissionsData.data);
+        setJuzScores(buildJuzScoreMap(juzScoreData, santri.id));
         if (attendanceData.data) {
             setDailyAttendance(attendanceData.data.map(a => a.user_id));
             if (attendanceData.data.length > 0) {
@@ -563,16 +644,7 @@ const SantriDashboard = ({ isAdult = false }) => {
                        <BarChart3 className="hidden h-7 w-7 text-primary/60 sm:block" aria-hidden="true" />
                      </div>
                      {getHafalanProgramScope(santriData) === 'PTPT' ? (
-                       <HafalanSection
-                         title="Tahfizh PTPT"
-                         category="Tahfizh"
-                         items={hafalanItems.filter(i => i.category === 'Tahfizh')}
-                         hafalanData={hafalan}
-                         tone="violet"
-                         targets={PTPT_TAHFIZH_TARGETS}
-                         titlePrefix=""
-                         isTahfizh
-                       />
+                       <PTPTJuzSection juzLabels={normalizeJuzHafalan(santriData.juz_hafalan).map(number => `Juz ${number}`)} juzScores={juzScores} />
                      ) : (
                        <>
                          <HafalanSection title="Do'a" category="Doa" items={hafalanItems.filter(i => i.category === 'Doa')} hafalanData={hafalan} tone="emerald" />

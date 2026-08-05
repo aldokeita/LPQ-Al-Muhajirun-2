@@ -20,6 +20,7 @@ import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNot
 import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
+import { ALL_JUZ, getSurahNamesForJuz, normalizeJuzHafalan } from '@/lib/quranJuzData';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArchiveAdapters';
@@ -41,9 +42,9 @@ const jilidOptions = [
     'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
 ];
 
-const ptptTargetOptions = ['Juz 1', 'Juz 2', 'Juz 28', 'Juz 29', 'Juz 30'];
+const ptptTargetOptions = ALL_JUZ;
 
-const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at, deleted_at';
+const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, juz_hafalan, status, points, order_in_class, created_at, updated_at, deleted_at';
 const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
 
 const getSelectedClassId = (input) => input?.current_class_id || input?.id_kelas || null;
@@ -518,7 +519,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
-    jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
+    jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', juz_hafalan: subCategory === 'ptpt' ? ['Juz 30'] : [], no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
   });
 
   useEffect(() => {
@@ -559,7 +560,13 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           query = query.or(`nama_lengkap.ilike.%${normalizedSearch}%,nama_panggilan.ilike.%${normalizedSearch}%,nama_ayah.ilike.%${normalizedSearch}%,rfid_tag.ilike.%${normalizedSearch}%`);
         }
         if (filters.sesi !== 'all') query = query.in('sesi_mengaji', [String(getSessionNumber(filters.sesi)), filters.sesi]);
-        if (filters.jilid !== 'all') query = query.eq('jilid', filters.jilid);
+        if (filters.jilid !== 'all') {
+          if (currentTab === 'ptpt') {
+            query = query.contains('juz_hafalan', [filters.jilid]);
+          } else {
+            query = query.eq('jilid', filters.jilid);
+          }
+        }
         if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
         if (filters.rfid === 'unassigned') query = query.or('rfid_tag.is.null,rfid_tag.eq.');
 
@@ -696,6 +703,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                 no_nik: item.no_nik || null,
                 sesi_mengaji: item.sesi_mengaji || null,
                 jilid: item.jilid || null,
+                juz_hafalan: kategori === 'PTPT' ? normalizeJuzHafalan(item.jilid).map(number => `Juz ${number}`) : [],
                 tanggal_pendaftaran: item.tanggal_pendaftaran || null,
                 points: item.points ?? 0,
               },
@@ -843,6 +851,17 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setFormData(prev => ({ ...prev, nomor_induk_qiroati: qiroatiId, password: qiroatiId }));
   };
 
+  const toggleJuzHafalan = (juzLabel, checked) => {
+    setFormData(prev => {
+      const current = Array.isArray(prev.juz_hafalan) ? prev.juz_hafalan : [];
+      const next = checked
+        ? Array.from(new Set([...current, juzLabel]))
+        : current.filter(item => item !== juzLabel);
+      const ordered = ALL_JUZ.filter(label => next.includes(label));
+      return { ...prev, juz_hafalan: ordered };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const finalFormData = { ...formData, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak' };
@@ -853,16 +872,31 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         finalFormData.sesi_mengaji = getSessionNumber(finalFormData.sesi_mengaji);
     }
 
+    // Normalize PTPT juz_hafalan to ordered "Juz N" labels
+    if (subCategory === 'ptpt') {
+        finalFormData.juz_hafalan = normalizeJuzHafalan(finalFormData.juz_hafalan).map(number => `Juz ${number}`);
+    }
+
     const requiredFields = [
       ['nama_lengkap', 'Nama lengkap'],
       ['tanggal_lahir', 'Tanggal lahir'],
       ['jenis_kelamin', 'Jenis kelamin'],
-      ['jilid', subCategory === 'ptpt' ? 'Target tahfizh' : 'Jilid'],
       ['sesi_mengaji', 'Sesi'],
     ];
+    if (subCategory !== 'ptpt') {
+      requiredFields.push(['jilid', 'Jilid']);
+    }
     const missingField = requiredFields.find(([field]) => !String(finalFormData[field] ?? '').trim());
     if (missingField) {
         toast({ title: "Gagal", description: `${missingField[1]} wajib diisi.`, variant: "destructive"});
+        return;
+    }
+
+    if (subCategory === 'ptpt' && !Array.isArray(finalFormData.juz_hafalan)) {
+        finalFormData.juz_hafalan = [];
+    }
+    if (subCategory === 'ptpt' && finalFormData.juz_hafalan.length === 0) {
+        toast({ title: "Gagal", description: "Minimal satu Juz hafalan harus dipilih.", variant: "destructive"});
         return;
     }
 
@@ -1158,7 +1192,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setFormData({
       nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
       nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: sessionOptions[0] || 'Pagi', rfid_tag: '',
-      jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
+      jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', juz_hafalan: subCategory === 'ptpt' ? ['Juz 30'] : [], no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
     });
     setEditingSantri(null);
   };
@@ -1319,8 +1353,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                     <SelectContent><SelectItem value="all">Semua Sesi</SelectItem>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={filters.jilid} onValueChange={val => setFilters(f => ({...f, jilid: val}))}>
-                    <SelectTrigger><SelectValue placeholder={subCategory === 'ptpt' ? 'Target Tahfizh' : 'Jilid'} /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">Semua {subCategory === 'ptpt' ? 'Target' : 'Jilid'}</SelectItem>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                    <SelectTrigger><SelectValue placeholder={subCategory === 'ptpt' ? 'Hafalan Juz' : 'Jilid'} /></SelectTrigger>
+                    <SelectContent><SelectItem value="all">Semua {subCategory === 'ptpt' ? 'Juz' : 'Jilid'}</SelectItem>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={filters.rfid} onValueChange={val => setFilters(f => ({...f, rfid: val}))}>
                     <SelectTrigger><SelectValue placeholder="RFID" /></SelectTrigger>
@@ -1353,7 +1387,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('tanggal_pendaftaran')}><div className="flex items-center">Tgl Masuk <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jenis_kelamin')}><div className="flex items-center">L/P <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('guru_pengampu')}><div className="flex items-center">Guru Pengampu <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
-              <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jilid')}><div className="flex items-center">{subCategory === 'ptpt' ? 'Target' : 'Jilid'} <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
+              <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('jilid')}><div className="flex items-center">{subCategory === 'ptpt' ? 'Hafalan Juz' : 'Jilid'} <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground transition-colors" onClick={() => requestSort('sesi_mengaji')}><div className="flex items-center">Sesi <ArrowUpDown className="ml-1 h-3 w-3" /></div></th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Berkas</th>
               <th className="p-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aksi</th>
@@ -1397,7 +1431,16 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                 <td className="p-3 text-sm text-muted-foreground">{new Date(santri.tanggal_pendaftaran).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: '2-digit'})}</td>
                 <td className="p-3"><Badge variant="outline" className={santri.jenis_kelamin === 'Laki-laki' ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-pink-50 text-pink-700 border-pink-200"}>{santri.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</Badge></td>
                 <td className="p-3 text-sm font-medium text-foreground">{classGuruMap[santri.current_class_id || santri.id_kelas] || <span className="text-muted-foreground italic text-xs">Belum ada</span>}</td>
-                <td className="p-3"><Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">{santri.jilid}</Badge></td>
+                <td className="p-3">{subCategory === 'ptpt'
+                    ? (() => {
+                        const juzList = Array.isArray(santri.juz_hafalan) ? santri.juz_hafalan : [];
+                        if (juzList.length === 0) return <span className="text-muted-foreground italic text-xs">Belum ada</span>;
+                        const shown = juzList.slice(0, 2).join(', ');
+                        const extra = juzList.length > 2 ? ` +${juzList.length - 2}` : '';
+                        return <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200" title={juzList.join(', ')}>{shown}{extra}</Badge>;
+                    })()
+                    : <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">{santri.jilid}</Badge>
+                }</td>
                 <td className="p-3"><span className="text-xs font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">{getSessionName(santri.sesi_mengaji)}</span></td>
                 <td className="p-3"><div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 border"><FileCheck className={`w-4 h-4 ${santri.berkas_foto && santri.berkas_akta && santri.berkas_kk && santri.berkas_form ? 'text-green-500' : 'text-slate-300'}`} /></div></td>
                 <td className="p-3"><Button onClick={() => handleEdit(santri)} size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 rounded-full"><Edit className="w-4 h-4" /></Button></td>
@@ -1484,7 +1527,39 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         <div className="admin-edit-field"><label>RFID Tag</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
                         <div className="admin-edit-field"><label>Status</label><Select value={formData.status} onValueChange={val => setFormData({ ...formData, status: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Aktif">Aktif</SelectItem><SelectItem value="Nonaktif">Non-Aktif</SelectItem></SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="admin-edit-field"><label>{subCategory === 'ptpt' ? 'Target Tahfizh' : 'Jilid'}</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        {subCategory === 'ptpt' ? (
+                            <div className="admin-edit-field admin-edit-field-full">
+                                <label>Hafalan Juz (1-30) <span className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(centang juz yang sudah dihafal)</span></label>
+                                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5 max-h-52 overflow-y-auto pr-1">
+                                    {ALL_JUZ.map(juz => {
+                                        const checked = Array.isArray(formData.juz_hafalan) && formData.juz_hafalan.includes(juz);
+                                        const surahPreview = getSurahNamesForJuz(juz).slice(0, 3).join(', ');
+                                        return (
+                                            <label
+                                                key={juz}
+                                                className={`flex items-start gap-2 rounded-md border px-2 py-1.5 text-sm cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-emerald-500/60 ${
+                                                    checked
+                                                        ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40'
+                                                        : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
+                                                }`}
+                                            >
+                                                <Checkbox
+                                                    checked={checked}
+                                                    onCheckedChange={(value) => toggleJuzHafalan(juz, Boolean(value))}
+                                                    className="mt-0.5"
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block font-medium leading-tight">{juz}</span>
+                                                    <span className="block text-[10px] leading-tight text-muted-foreground truncate" title={getSurahNamesForJuz(juz).join(', ')}>{surahPreview}{getSurahNamesForJuz(juz).length > 3 ? '…' : ''}</span>
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="admin-edit-field"><label>Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{academicLevelOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        )}
                         <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="admin-edit-field">

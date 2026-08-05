@@ -23,21 +23,26 @@ import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
+import DevelopmentScoreSelector from '@/components/dashboard/shared/DevelopmentScoreSelector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { buildSessionStartTimestamp, calculateTimeDifference, resolveAttendanceRecordStatus } from '@/utils/AttendanceStatusLogic';
 import {
   buildHafalanScoreMap,
+  buildJuzScoreMap,
   DEVELOPMENT_SCORE_OPTIONS,
   fetchClassesWithActiveSantriForTeacher,
   fetchHafalanItems,
   fetchHafalanProgress,
   fetchMurojaahSubmissions,
+  fetchSantriJuzScores,
   getHafalanProgramScope,
   getAcademicErrorMessage,
   PTPT_TAHFIZH_TARGETS,
   updateMurojaahReview,
-  upsertHafalanProgress
+  upsertHafalanProgress,
+  upsertSantriJuzScore
 } from '@/lib/academicAdapters';
+import { ALL_JUZ, getSurahNamesForJuz, normalizeJuzHafalan, parseJuzNumber } from '@/lib/quranJuzData';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
@@ -181,6 +186,7 @@ const GuruDashboard = () => {
   const [currentSubmission, setCurrentSubmission] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [hafalanProgress, setHafalanProgress] = useState({});
+  const [juzScoreProgress, setJuzScoreProgress] = useState({});
   const [hafalanItems, setHafalanItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
@@ -211,11 +217,12 @@ const GuruDashboard = () => {
             setGuruData({ ...guru, foto_url });
             const todayStr = new Date().toLocaleDateString('en-CA');
 
-            const [hafalanItemsData, progressData, submissionsData, classList] = await Promise.all([
+            const [hafalanItemsData, progressData, submissionsData, classList, juzScoreData] = await Promise.all([
                 fetchHafalanItems(),
                 fetchHafalanProgress(),
                 fetchMurojaahSubmissions(),
-                fetchClassesWithActiveSantriForTeacher(guru.id)
+                fetchClassesWithActiveSantriForTeacher(guru.id),
+                fetchSantriJuzScores()
             ]);
 
             const classListWithAvatars = await Promise.all(classList.map(async (kelas) => ({
@@ -253,6 +260,7 @@ const GuruDashboard = () => {
 
             setHafalanItems(hafalanItemsData || []);
             setHafalanProgress(buildHafalanScoreMap(progressData || []));
+            setJuzScoreProgress(buildJuzScoreMap(juzScoreData || []));
             setMurojaahSubmissions(submissionsData || []);
 
         }
@@ -313,6 +321,35 @@ const GuruDashboard = () => {
     } catch (error) {
         toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
         setHafalanProgress(prev => ({...prev, [key]: previousScore}));
+    }
+  };
+
+  const handleJuzScoreChange = async (juzNumber, score) => {
+    if (!selectedSantri) return;
+
+    if (!selectedSantri.id || !user?.id) {
+        toast({ title: "Validasi Gagal", description: "Sesi tidak valid, silahkan muat ulang halaman.", variant: "destructive" });
+        return;
+    }
+
+    const normalizedJuz = Number(juzNumber);
+    const key = `${selectedSantri.id}-${normalizedJuz}`;
+    const previousScore = juzScoreProgress[key];
+
+    // Optimistic Update
+    setJuzScoreProgress(prev => ({...prev, [key]: score}));
+
+    try {
+        await upsertSantriJuzScore({ santriId: selectedSantri.id, juzNumber: normalizedJuz, score, userId: user.id });
+
+        toast({
+            title: score === 4 ? "Hafalan Tercapai" : "Skor Juz Tersimpan",
+            description: `Juz ${normalizedJuz} mendapat skor ${score}.`,
+            duration: 2000
+        });
+    } catch (error) {
+        toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
+        setJuzScoreProgress(prev => ({...prev, [key]: previousScore}));
     }
   };
 
@@ -410,8 +447,9 @@ const GuruDashboard = () => {
   const themeGradient = isFemale ? 'from-teal-500 to-emerald-600' : 'from-green-600 to-green-800';
   const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
   const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
-  const hafalanTargets = selectedHafalan.programScope === 'PTPT'
-      ? PTPT_TAHFIZH_TARGETS
+  const isPTPT = selectedHafalan.programScope === 'PTPT';
+  const hafalanTargets = isPTPT
+      ? (normalizeJuzHafalan(selectedSantri?.juz_hafalan || []).map(number => `Juz ${number}`))
       : ['1', '2', '3', '4', '5', '6'];
   const itemsByJilid = Object.fromEntries(hafalanTargets.map((target, index) => [
       target,
@@ -623,9 +661,46 @@ const GuruDashboard = () => {
               </div>
             </DialogHeader>
             <div className="grid min-w-0 grid-cols-1 gap-4 pt-4 md:grid-cols-2 xl:grid-cols-3">
-              {hafalanTargets.map(jilid => (
-                <HafalanDisplay key={jilid} jilid={jilid} titlePrefix={selectedHafalan.programScope === 'PTPT' ? '' : 'Jilid'} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
-              ))}
+              {isPTPT ? (
+                hafalanTargets.length === 0 ? (
+                  <p className="col-span-full rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+                    Admin belum menetapkan juz hafalan untuk santri ini. Atur centang juz dari menu Data Santri.
+                  </p>
+                ) : (
+                  hafalanTargets.map((juzLabel) => {
+                    const juzNumber = parseJuzNumber(juzLabel);
+                    const score = Number(juzScoreProgress[`${selectedSantri.id}-${juzNumber}`] || 0);
+                    const surahNames = getSurahNamesForJuz(juzNumber);
+                    const isCompleted = score === 4;
+                    return (
+                      <div
+                        key={juzLabel}
+                        className={cn(
+                          'flex min-w-0 flex-col rounded-xl border p-3 transition-colors',
+                          isCompleted
+                            ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-400/25 dark:bg-slate-900/70'
+                            : 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/50'
+                        )}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-foreground">{juzLabel}</p>
+                          {isCompleted && <CheckCircle2 className="h-4 w-4 flex-none text-emerald-600" aria-label="Hafalan tercapai" />}
+                        </div>
+                        <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground" title={surahNames.join(', ')}>{surahNames.join(', ')}</p>
+                        <DevelopmentScoreSelector
+                          value={score >= 1 && score <= 4 ? score : null}
+                          onChange={(value) => handleJuzScoreChange(juzNumber, value)}
+                          compact
+                        />
+                      </div>
+                    );
+                  })
+                )
+              ) : (
+                hafalanTargets.map(jilid => (
+                  <HafalanDisplay key={jilid} jilid={jilid} titlePrefix="Jilid" items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
+                ))
+              )}
             </div>
           </DialogContent>
         </Dialog>
