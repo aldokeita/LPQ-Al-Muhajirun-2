@@ -91,7 +91,17 @@ const HijaiyahGamePage = () => {
         .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
         .order('nama_lengkap', { ascending: true });
       if (!error) {
-        setSantriList((santriData || []).filter((s) => s.status !== 'inactive'));
+        const active = (santriData || []).filter((s) => s.status !== 'inactive');
+        const resolved = await Promise.all(active.map(async (s) => ({
+          ...s,
+          foto_url: await resolveAvatarUrl({
+            ownerType: 'santri',
+            ownerId: s.id,
+            avatarPath: s.avatar_path,
+            fallbackUrl: s.foto_url,
+          }).catch(() => s.foto_url || ''),
+        })));
+        setSantriList(resolved);
       }
       setIsRosterLoading(false);
     };
@@ -130,9 +140,21 @@ const HijaiyahGamePage = () => {
       const harakatOptions = shuffle([...HARAKAT]);
       return { target, targetHarakat, letterOptions, harakatOptions };
     }
-    const target = pool[Math.floor(Math.random() * pool.length)];
-    const decoys = shuffle(HIJAIYAH_LETTERS.filter((l) => l.char !== target.char)).slice(0, 14);
-    return { target, decoys };
+    const targetCount = roundIndex >= 4 ? 3 : roundIndex >= 2 ? 2 : 1;
+    const targets = shuffle(pool).slice(0, targetCount);
+    const poolSet = new Set(pool.map((l) => l.char));
+    const decoys = shuffle(HIJAIYAH_LETTERS.filter((l) => !targets.some((t) => t.char === l.char) && poolSet.has(l.char))).slice(0, 18);
+    const colors = ['#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#2563eb', '#7c3aed', '#c026d3', '#db2777'];
+    const all = shuffle([...targets.map((t) => ({ ...t, isTarget: true })), ...decoys.map((d) => ({ ...d, isTarget: false }))]);
+    const scatter = all.map((item, i) => ({
+      ...item,
+      left: 4 + ((i * 37) % 88),
+      top: 14 + ((i * 53) % 62),
+      rotate: ((i * 23) % 50) - 25,
+      scale: 0.8 + ((i * 7) % 4) * 0.14,
+      color: colors[i % colors.length],
+    }));
+    return { targets, scatter };
   };
 
   const startGame = (mode) => {
@@ -311,8 +333,18 @@ const HijaiyahGamePage = () => {
                 />
               </div>
 
-              <div className="hijaiyah-game__letter-count">
-                {letterPool.length} dari {HIJAIYAH_LETTERS.length} huruf dipilih
+              <div className="hijaiyah-game__letter-actions">
+                <span className="hijaiyah-game__letter-count">
+                  {letterPool.length} dari {HIJAIYAH_LETTERS.length} huruf dipilih
+                </span>
+                <div className="hijaiyah-game__letter-actions-btns">
+                  <button type="button" className="hijaiyah-game__letter-action-btn" onClick={() => setLetterPool(HIJAIYAH_LETTERS)}>
+                    Pilih Semua
+                  </button>
+                  <button type="button" className="hijaiyah-game__letter-action-btn hijaiyah-game__letter-action-btn--clear" onClick={() => setLetterPool([])}>
+                    Hapus Semua
+                  </button>
+                </div>
               </div>
 
               <div className="hijaiyah-game__letter-grid">
@@ -369,7 +401,7 @@ const HijaiyahGamePage = () => {
                       className={`hijaiyah-game__santri-card ${selectedSantriId === String(santri.id) ? 'hijaiyah-game__santri-card--active' : ''}`}
                     >
                       <span className="hijaiyah-game__santri-avatar">
-                        {santri.nama_lengkap?.charAt(0) || '?'}
+                        {santri.foto_url ? <img src={santri.foto_url} alt={santri.nama_lengkap} className="hijaiyah-game__santri-avatar-img" /> : (santri.nama_lengkap?.charAt(0) || '?')}
                       </span>
                       <span className="hijaiyah-game__santri-info">
                         <strong>{santri.nama_lengkap}</strong>
@@ -449,9 +481,10 @@ const HijaiyahGamePage = () => {
                   )}
                   {activeMode.id === 'finding' && (
                     <FindingStage
-                      target={roundData.target}
-                      decoys={roundData.decoys}
+                      targets={roundData.targets}
+                      scatter={roundData.scatter}
                       accent={activeMode.color}
+                      backgroundUrl={config.backgroundUrl || ''}
                       onNext={nextRound}
                     />
                   )}
@@ -633,45 +666,43 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
 };
 
 const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, accent, onNext }) => {
-  const targetBoxRef = useRef(null);
-  const [droppedLetter, setDroppedLetter] = useState(null);
-  const [droppedHarakat, setDroppedHarakat] = useState(null);
+  const canvasRef = useRef(null);
+  const [placed, setPlaced] = useState([]);
   const [wrongFlash, setWrongFlash] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const isInside = (point, rect) =>
     point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
+  const addToCanvas = (kind, value, point, rect) => {
+    const x = point.x - rect.left;
+    const y = point.y - rect.top;
+    setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
+  };
+
   const handleLetterDrop = (letter, event, info) => {
-    const rect = targetBoxRef.current?.getBoundingClientRect();
-    if (rect && isInside(info.point, rect)) {
-      setDroppedLetter(letter);
-    }
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
   };
 
   const handleHarakatDrop = (harakat, event, info) => {
-    const rect = targetBoxRef.current?.getBoundingClientRect();
-    if (rect && isInside(info.point, rect)) {
-      setDroppedHarakat(harakat);
-    }
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
   };
 
-  useEffect(() => {
-    if (!droppedLetter || !droppedHarakat) return;
-    const letterOk = droppedLetter.char === target.char;
-    const harakatOk = droppedHarakat.id === targetHarakat.id;
-    if (letterOk && harakatOk) {
+  const removePlaced = (id) => setPlaced((prev) => prev.filter((p) => p.id !== id));
+
+  const checkAnswer = () => {
+    const hasLetter = placed.some((p) => p.kind === 'letter' && p.value.char === target.char);
+    const hasHarakat = placed.some((p) => p.kind === 'harakat' && p.value.id === targetHarakat.id);
+    if (hasLetter && hasHarakat) {
       setSuccess(true);
-      setTimeout(onNext, 900);
+      setTimeout(onNext, 1000);
     } else {
       setWrongFlash(true);
-      setTimeout(() => {
-        setWrongFlash(false);
-        setDroppedLetter(null);
-        setDroppedHarakat(null);
-      }, 700);
+      setTimeout(() => setWrongFlash(false), 900);
     }
-  }, [droppedLetter, droppedHarakat, target, targetHarakat, onNext]);
+  };
 
   const targetReading = combineLetterHarakat(target.char, targetHarakat.symbol);
 
@@ -681,17 +712,23 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
         Guru menyebutkan: <strong className="hijaiyah-game__matching-target">{targetReading}</strong>
         <span className="hijaiyah-game__matching-target-name"> ({target.name} — {targetHarakat.name})</span>
       </p>
+      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat dari bawah ke dalam area kosong, lalu letakkan di mana saja di sekitar huruf.</p>
 
-      <div className="hijaiyah-game__matching-target-box" ref={targetBoxRef}>
-        <span className="hijaiyah-game__matching-slot-label">Seret huruf & harakat ke sini</span>
-        <div className="hijaiyah-game__matching-drop-area">
-          <span className="hijaiyah-game__matching-dropped">
-            {droppedLetter ? droppedLetter.char : '_'}
-          </span>
-          <span className="hijaiyah-game__matching-dropped-symbol">
-            {droppedHarakat ? droppedHarakat.symbol : ''}
-          </span>
-        </div>
+      <div className="hijaiyah-game__matching-canvas" ref={canvasRef}>
+        <span className="hijaiyah-game__matching-canvas-label">Area bebas — letakkan huruf & harakat di sini</span>
+        {placed.map((item) => (
+          <motion.div
+            key={item.id}
+            className={`hijaiyah-game__matching-canvas-item ${item.kind === 'harakat' ? 'hijaiyah-game__matching-canvas-item--harakat' : ''}`}
+            style={{ left: item.x, top: item.y, '--mode-accent': accent }}
+            drag
+            dragMomentum={false}
+            whileDrag={{ scale: 1.12, zIndex: 30 }}
+          >
+            {item.kind === 'letter' ? item.value.char : <><span>{item.value.symbol}</span><small>{item.value.name}</small></>}
+            <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
+          </motion.div>
+        ))}
       </div>
 
       <div className="hijaiyah-game__matching-tray">
@@ -734,6 +771,15 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
         </div>
       </div>
 
+      <div className="hijaiyah-game__matching-actions">
+        <Button type="button" variant="outline" onClick={() => setPlaced([])} disabled={placed.length === 0}>
+          <X className="w-4 h-4 mr-1" /> Kosongkan
+        </Button>
+        <Button type="button" onClick={checkAnswer} disabled={placed.length === 0} style={{ background: accent }}>
+          <Check className="w-4 h-4 mr-1" /> Periksa Jawaban
+        </Button>
+      </div>
+
       {wrongFlash && (
         <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
           <XCircle className="h-4 w-4 inline mr-1" /> Belum tepat, coba lagi.
@@ -748,97 +794,96 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
   );
 };
 
-const FindingStage = ({ target, decoys, accent, onNext }) => {
+const FindingStage = ({ targets, scatter, accent, backgroundUrl, onNext }) => {
   const [revealed, setRevealed] = useState(false);
-  const [picked, setPicked] = useState(null);
+  const [picked, setPicked] = useState([]);
   const [success, setSuccess] = useState(false);
-
-  const positions = useMemo(() => {
-    const all = shuffle([target, ...decoys]);
-    return all.map((letter, i) => ({
-      letter,
-      left: 4 + ((i * 37) % 88),
-      top: 12 + ((i * 53) % 66),
-      rotate: ((i * 23) % 50) - 25,
-      scale: 0.8 + ((i * 7) % 4) * 0.12,
-    }));
-  }, [target, decoys]);
 
   const revealTarget = () => {
     setRevealed(true);
-    setTimeout(() => setRevealed(false), 3000);
+    setTimeout(() => setRevealed(false), 3200);
   };
 
-  const handlePick = (letter) => {
-    if (picked !== null || success) return;
-    setPicked(letter.char);
-    if (letter.char === target.char) {
-      setSuccess(true);
-      setTimeout(onNext, 900);
+  const handlePick = (item) => {
+    if (success) return;
+    const alreadyPicked = picked.some((p) => p.char === item.char);
+    if (alreadyPicked) return;
+    if (item.isTarget) {
+      const next = [...picked, item];
+      setPicked(next);
+      if (next.length >= targets.length) {
+        setSuccess(true);
+        setTimeout(onNext, 1000);
+      }
     } else {
-      setTimeout(() => setPicked(null), 700);
+      setPicked((prev) => [...prev, { ...item, isWrong: true }]);
+      setTimeout(() => setPicked((prev) => prev.filter((p) => p.char !== item.char)), 700);
     }
   };
+
+  const remaining = Math.max(0, targets.length - picked.filter((p) => !p.isWrong).length);
 
   return (
     <div className="hijaiyah-game__finding">
       <div className="hijaiyah-game__finding-topbar">
         <p className="hijaiyah-game__stage-prompt">
-          Guru mengucapkan sebuah huruf — <strong>carilah huruf itu di dalam gambar!</strong>
+          Guru mengucapkan <strong>{targets.length} huruf</strong> — <strong>carilah semua huruf itu di dalam gambar!</strong>
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={revealTarget}
-          disabled={revealed}
-          className="hijaiyah-game__finding-reveal"
-        >
+        <div className="hijaiyah-game__finding-targets">
+          {targets.map((t, i) => (
+            <span key={t.char} className={`hijaiyah-game__finding-target-chip ${picked.some((p) => p.char === t.char) ? 'hijaiyah-game__finding-target-chip--found' : ''}`}>
+              <span className="hijaiyah-game__finding-target-char">{t.char}</span>
+              <small>{t.name}</small>
+            </span>
+          ))}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={revealTarget} disabled={revealed} className="hijaiyah-game__finding-reveal">
           {revealed ? <><CheckCircle2 className="h-4 w-4 mr-1" /> Ingat hurufnya…</> : <>Baca huruf (guru)</>}
         </Button>
+        <span className="hijaiyah-game__finding-remaining">Sisa dicari: {remaining}</span>
       </div>
 
       {revealed && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="hijaiyah-game__finding-reveal-card"
-        >
-          <span className="hijaiyah-game__finding-reveal-char">{target.char}</span>
-          <span className="hijaiyah-game__finding-reveal-name">{target.name}</span>
+        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="hijaiyah-game__finding-reveal-card">
+          <span className="hijaiyah-game__finding-reveal-chars">
+            {targets.map((t) => <span key={t.char} className="hijaiyah-game__finding-reveal-char">{t.char}</span>)}
+          </span>
         </motion.div>
       )}
 
-      <div className="hijaiyah-game__find-scene">
-        <div className="hijaiyah-game__find-sky" aria-hidden="true" />
+      <div className="hijaiyah-game__find-scene" style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+        {!backgroundUrl && <><div className="hijaiyah-game__find-sky" aria-hidden="true" />
         <div className="hijaiyah-game__find-sun" aria-hidden="true" />
         <div className="hijaiyah-game__find-cloud hijaiyah-game__find-cloud--1" aria-hidden="true" />
         <div className="hijaiyah-game__find-cloud hijaiyah-game__find-cloud--2" aria-hidden="true" />
         <div className="hijaiyah-game__find-hill hijaiyah-game__find-hill--back" aria-hidden="true" />
-        <div className="hijaiyah-game__find-hill hijaiyah-game__find-hill--front" aria-hidden="true" />
-        {positions.map(({ letter, left, top, rotate, scale }, index) => (
-          <button
-            key={`${letter.char}-${index}`}
-            type="button"
-            onClick={() => handlePick(letter)}
-            className={`hijaiyah-game__find-scene-letter ${
-              picked === letter.char && letter.char !== target.char ? 'hijaiyah-game__find-scene-letter--wrong' : ''
-            } ${success && letter.char === target.char ? 'hijaiyah-game__find-scene-letter--correct' : ''}`}
-            style={{ left: `${left}%`, top: `${top}%`, transform: `rotate(${rotate}deg) scale(${scale})` }}
-          >
-            {letter.char}
-          </button>
-        ))}
+        <div className="hijaiyah-game__find-hill hijaiyah-game__find-hill--front" aria-hidden="true" /></>}
+        {scatter.map((item, index) => {
+          const isFound = picked.some((p) => p.char === item.char && !p.isWrong && item.isTarget);
+          const isWrong = picked.some((p) => p.char === item.char && p.isWrong);
+          return (
+            <button
+              key={`${item.char}-${index}`}
+              type="button"
+              onClick={() => handlePick(item)}
+              disabled={isFound}
+              className={`hijaiyah-game__find-scene-letter ${isFound ? 'hijaiyah-game__find-scene-letter--correct' : ''} ${isWrong ? 'hijaiyah-game__find-scene-letter--wrong' : ''}`}
+              style={{ left: `${item.left}%`, top: `${item.top}%`, color: item.color, transform: `rotate(${item.rotate}deg) scale(${isFound ? 1.4 : item.scale})` }}
+            >
+              {item.char}
+            </button>
+          );
+        })}
       </div>
 
-      {picked !== null && picked !== target.char && !success && (
+      {picked.some((p) => p.isWrong) && !success && (
         <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
           <XCircle className="h-4 w-4 inline mr-1" /> Bukan itu, cari lagi.
         </p>
       )}
       {success && (
         <p className="hijaiyah-game__stage-feedback">
-          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Tepat! Kamu menemukan huruf {target.name} ({target.char}).
+          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Hebat! Kamu menemukan semua huruf.
         </p>
       )}
     </div>
