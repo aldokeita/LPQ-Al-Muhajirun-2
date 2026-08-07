@@ -9328,8 +9328,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 .hijaiyah-game__matching-canvas-item:active { cursor: grabbing; }
 .dark .hijaiyah-game__matching-canvas-item { color: #f1f5f9; }
-.hijaiyah-game__matching-canvas-item--harakat { font-size: 3rem; }
-.hijaiyah-game__matching-canvas-item--harakat span { line-height: 1.4; }
+.hijaiyah-game__matching-canvas-item--harakat { font-size: 4.5rem; }
+.hijaiyah-game__matching-canvas-item--harakat span { line-height: 1.9; }
 .hijaiyah-game__matching-canvas-item--harakat small { font-size: 0.68rem; font-weight: 700; color: #64748b; }
 .dark .hijaiyah-game__matching-canvas-item--harakat small { color: #94a3b8; }
 .hijaiyah-game__matching-canvas-remove {
@@ -9370,8 +9370,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 .hijaiyah-game__matching-piece:hover { transform: scale(1.08); }
 .hijaiyah-game__matching-piece:active { cursor: grabbing; }
 .dark .hijaiyah-game__matching-piece { color: #f1f5f9; }
-.hijaiyah-game__matching-piece--harakat { flex-direction: column; gap: 0.1rem; min-height: 5.4rem; font-size: 3.2rem; color: var(--mode-accent, #8b5cf6); }
-.hijaiyah-game__matching-piece--harakat span { font-size: 0.72rem; font-weight: 700; font-family: inherit; color: #64748b; }
+.hijaiyah-game__matching-piece--harakat { flex-direction: column; gap: 0.1rem; min-height: 6rem; font-size: 4.2rem; color: var(--mode-accent, #8b5cf6); }
+.hijaiyah-game__matching-piece--harakat span { font-family: inherit; color: inherit; }
 .dark .hijaiyah-game__matching-piece--harakat span { color: #94a3b8; }
 .hijaiyah-game__matching-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
 
@@ -9765,12 +9765,13 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 /* Harakat preview (carrier + mark) — ensures combining mark renders correctly */
 .hijaiyah-game__harakat-preview {
-  font-family: 'Tarteel Nastaleeq', 'Amiri', 'Scheherazade', serif;
-  font-size: 0.85em;
-  line-height: 1.6;
+  font-family: 'Amiri', 'Scheherazade New', 'Scheherazade', 'Traditional Arabic', serif;
+  font-size: 1.5em;
+  line-height: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 1em;
 }
 
 /* Active drop zone highlight while dragging */
