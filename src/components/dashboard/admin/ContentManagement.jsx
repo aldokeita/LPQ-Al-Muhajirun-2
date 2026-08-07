@@ -289,7 +289,16 @@ const ContentManagement = () => {
       return;
     }
     if (type === 'ctaBackgroundUrl') { setContent(prev => ({ ...prev, [type]: publicUrl })); }
-    else if (type === 'hijaiyahFindingBackground') { setContent(prev => ({ ...prev, [type]: publicUrl })); }
+    else if (type === 'hijaiyahFindingBackground') {
+      try {
+        const saved = await saveWebsiteContentItem({ key: 'hijaiyahFindingBackgroundUrl', content: publicUrl, isPublic: true });
+        setContent(prev => ({ ...prev, hijaiyahFindingBackgroundUrl: saved.content || publicUrl }));
+        toast({ title: 'Background Hijaiyah Disimpan!', description: 'Latar gambar mode Mencari langsung tersimpan.' });
+      } catch (error) {
+        toast({ title: 'Background Gagal Disimpan', description: getPublicContentErrorMessage(error), variant: 'destructive' });
+        return;
+      }
+    }
     else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); }
     else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); }
     else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); }

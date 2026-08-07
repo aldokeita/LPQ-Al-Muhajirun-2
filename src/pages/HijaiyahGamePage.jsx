@@ -22,6 +22,7 @@ import {
   UserCheck,
   X,
   XCircle,
+  Eraser,
 } from 'lucide-react';
 import {
   combineLetterHarakat,
@@ -144,7 +145,8 @@ const HijaiyahGamePage = () => {
     if (modeId === 'colorMatch') {
       const letters = shuffle(pool).slice(0, 3);
       const shuffledHarakat = shuffle([...HARAKAT]);
-      const pairs = letters.map((letter, i) => ({ letter, harakat: shuffledHarakat[i] }));
+      const pairColors = shuffle(['#dc2626', '#2563eb', '#ea580c', '#7c3aed', '#0d9488', '#c026d3']).slice(0, 3);
+      const pairs = letters.map((letter, i) => ({ letter, harakat: shuffledHarakat[i], color: pairColors[i] }));
       return { pairs };
     }
     const targetCount = roundIndex >= 4 ? 3 : roundIndex >= 2 ? 2 : 1;
@@ -570,11 +572,16 @@ const HijaiyahGamePage = () => {
   );
 };
 
+const STROKE_COLORS = ['#10b981', '#2563eb', '#dc2626', '#ea580c', '#7c3aed', '#0f172a'];
+
 const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
   const lastPoint = useRef(null);
   const [hasStrokes, setHasStrokes] = useState(false);
+  const [strokeColor, setStrokeColor] = useState(accent);
+  const [isEraser, setIsEraser] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const getPoint = (event) => {
     const canvas = canvasRef.current;
@@ -603,8 +610,9 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!point || !ctx || !lastPoint.current) return;
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = Math.max(6, canvas.width / 60);
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = isEraser ? 'rgba(0,0,0,1)' : strokeColor;
+    ctx.lineWidth = Math.max(6, canvas.width / 60) * (isEraser ? 2 : 1);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -646,16 +654,47 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
   };
 
   const combined = combineLetterHarakat(letter.char, harakat.symbol);
+  const readingSize = String(1.6 + (zoom - 1) * 1.2) + 'rem';
+  const guideScale = String(zoom);
 
   return (
     <div className="hijaiyah-game__tracing">
       <div className="hijaiyah-game__tracing-prompt">
-        <span className="hijaiyah-game__tracing-reading">{combined}</span>
+        <span className="hijaiyah-game__tracing-reading" style={{ fontSize: readingSize }}>{combined}</span>
         <span className="hijaiyah-game__tracing-guide-text">{letter.name} · Harakat {harakat.name}</span>
         <span className="hijaiyah-game__tracing-hint">Guru membacakan: “{reading}” — tebalkan hurufnya di bawah ini</span>
       </div>
+
+      <div className="hijaiyah-game__tracing-toolbar">
+        <div className="hijaiyah-game__tracing-colors">
+          {STROKE_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={'Pilih warna ' + color}
+              onClick={() => { setStrokeColor(color); setIsEraser(false); }}
+              className={'hijaiyah-game__tracing-swatch ' + (!isEraser && strokeColor === color ? 'hijaiyah-game__tracing-swatch--active' : '')}
+              style={{ background: color }}
+            />
+          ))}
+          <button
+            type="button"
+            aria-label="Penghapus"
+            onClick={() => setIsEraser((prev) => !prev)}
+            className={'hijaiyah-game__tracing-eraser ' + (isEraser ? 'hijaiyah-game__tracing-eraser--active' : '')}
+          >
+            <Eraser className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="hijaiyah-game__tracing-zoom">
+          <button type="button" aria-label="Perkecil" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} className="hijaiyah-game__tracing-zoom-btn">−</button>
+          <span className="hijaiyah-game__tracing-zoom-label">{Math.round(zoom * 100)}%</span>
+          <button type="button" aria-label="Perbesar" onClick={() => setZoom((z) => Math.min(3, +(z + 0.2).toFixed(2)))} className="hijaiyah-game__tracing-zoom-btn">+</button>
+        </div>
+      </div>
+
       <div className="hijaiyah-game__tracing-canvas-wrap">
-        <div className="hijaiyah-game__tracing-guide" aria-hidden="true">
+        <div className="hijaiyah-game__tracing-guide" aria-hidden="true" style={{ transform: 'scale(' + guideScale + ')' }}>
           <span className="hijaiyah-game__tracing-guide-letter">{combined}</span>
         </div>
         <canvas
@@ -667,6 +706,7 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
           onPointerLeave={endStroke}
         />
       </div>
+
       <div className="hijaiyah-game__tracing-actions">
         <Button type="button" variant="outline" onClick={clearCanvas} disabled={!hasStrokes}>
           <X className="w-4 h-4 mr-1" /> Bersihkan
@@ -678,6 +718,7 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
     </div>
   );
 };
+
 
 const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, accent, onNext }) => {
   const canvasRef = useRef(null);
@@ -738,7 +779,7 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
             dragMomentum={false}
             whileDrag={{ scale: 1.12, zIndex: 30 }}
           >
-            {item.kind === 'letter' ? item.value.char : <><span>{item.value.symbol}</span><small>{item.value.name}</small></>}
+            {item.kind === 'letter' ? item.value.char : <span>{item.value.symbol}</span>}
             <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
@@ -778,7 +819,6 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
               style={{ '--mode-accent': accent }}
             >
               {harakat.symbol}
-              <span>{harakat.name}</span>
             </motion.button>
           ))}
         </div>
@@ -904,41 +944,39 @@ const FindingStage = ({ targets, scatter, accent, backgroundUrl, onNext }) => {
 };
 
 const ColorMatchStage = ({ pairs, accent, onNext }) => {
-  const slotRefs = useRef({});
-  const [placed, setPlaced] = useState({});
+  const canvasRef = useRef(null);
+  const [placed, setPlaced] = useState([]);
   const [wrongFlash, setWrongFlash] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const isInside = (point, rect) =>
     point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
-  const handleHarakatDrop = (harakat, event, info) => {
-    const droppedOn = pairs.find(({ letter }) => {
-      const rect = slotRefs.current[letter.char]?.getBoundingClientRect();
-      return rect && isInside(info.point, rect);
-    });
-    if (!droppedOn) return;
-    setPlaced((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((char) => {
-        if (next[char]?.id === harakat.id) delete next[char];
-      });
-      next[droppedOn.letter.char] = harakat;
-      return next;
-    });
+  const addToCanvas = (kind, value, point, rect) => {
+    const x = point.x - rect.left;
+    const y = point.y - rect.top;
+    setPlaced((prev) => [...prev, { id: kind + '-' + Date.now() + '-' + Math.random(), kind, value, x, y }]);
   };
 
-  const removePlaced = (letterChar) => {
-    setPlaced((prev) => {
-      const next = { ...prev };
-      delete next[letterChar];
-      return next;
-    });
+  const handleLetterDrop = (letter, event, info) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
   };
+
+  const handleHarakatDrop = (harakat, event, info) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
+  };
+
+  const removePlaced = (id) => setPlaced((prev) => prev.filter((p) => p.id !== id));
+
+  const letterColor = (letterChar) => pairs.find((p) => p.letter.char === letterChar)?.color || accent;
+  const harakatColor = (harakatId) => pairs.find((p) => p.harakat.id === harakatId)?.color || accent;
 
   const checkAnswer = () => {
     const allCorrect = pairs.every(({ letter, harakat }) =>
-      placed[letter.char]?.id === harakat.id
+      placed.some((p) => p.kind === 'letter' && p.value.char === letter.char) &&
+      placed.some((p) => p.kind === 'harakat' && p.value.id === harakat.id)
     );
     if (allCorrect) {
       setSuccess(true);
@@ -949,57 +987,72 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
     }
   };
 
-  const allPlaced = pairs.every(({ letter }) => Boolean(placed[letter.char]));
+  const allPlaced = pairs.every(({ letter, harakat }) =>
+    placed.some((p) => p.kind === 'letter' && p.value.char === letter.char) &&
+    placed.some((p) => p.kind === 'harakat' && p.value.id === harakat.id)
+  );
+
+  const colorLegend = pairs.map((p) => ({ color: p.color, letter: p.letter.char, harakat: p.harakat.name }));
 
   return (
-    <div className="hijaiyah-game__colormatch">
+    <div className="hijaiyah-game__matching">
       <p className="hijaiyah-game__stage-prompt">
-        Guru menyebutkan tiga huruf — <strong>pasangkan setiap harakat berwarna ke huruf yang tepat!</strong>
+        Guru menyebutkan tiga huruf — <strong>cocokkan huruf &amp; harakat berdasarkan warna!</strong>
       </p>
 
-      <div className="hijaiyah-game__colormatch-key">
-        <span>Warna harakat:</span>
-        {HARAKAT.map((h) => (
-          <span key={h.id} className="hijaiyah-game__colormatch-key-item">
-            <span className="hijaiyah-game__colormatch-key-swatch" style={{ background: h.color }} />
-            {h.name}
+      <div className="hijaiyah-game__colormatch-legend">
+        {colorLegend.map((item, i) => (
+          <span key={i} className="hijaiyah-game__colormatch-legend-item">
+            <span className="hijaiyah-game__colormatch-legend-swatch" style={{ background: item.color }} />
+            <span style={{ color: item.color }}>{item.letter} + {item.harakat}</span>
           </span>
         ))}
       </div>
+      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat berwarna ke area kosong, lalu letakkan pasangan warnanya berdekatan.</p>
 
-      <div className="hijaiyah-game__colormatch-slots">
-        {pairs.map(({ letter, harakat }) => {
-          const targetHarakat = placed[letter.char];
-          const isCorrect = targetHarakat?.id === harakat.id;
-          return (
-            <div key={letter.char} className="hijaiyah-game__colormatch-slot">
-              <div className="hijaiyah-game__colormatch-slot-target">
-                <span className="hijaiyah-game__colormatch-slot-char">{letter.char}</span>
-                <small>{letter.name}</small>
-              </div>
-              <div
-                ref={(el) => { slotRefs.current[letter.char] = el; }}
-                className={`hijaiyah-game__colormatch-drop ${targetHarakat ? (isCorrect ? 'hijaiyah-game__colormatch-drop--correct' : 'hijaiyah-game__colormatch-drop--wrong') : ''}`}
-              >
-                {targetHarakat ? (
-                  <>
-                    <span className="hijaiyah-game__colormatch-drop-symbol" style={{ color: targetHarakat.color }}>{targetHarakat.symbol}</span>
-                    <small style={{ color: targetHarakat.color }}>{targetHarakat.name}</small>
-                    <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(letter.char)} aria-label="Hapus"><X className="h-3 w-3" /></button>
-                  </>
-                ) : (
-                  <span className="hijaiyah-game__colormatch-drop-hint">Seret harakat di sini</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="hijaiyah-game__matching-canvas" ref={canvasRef}>
+        {placed.map((item) => (
+          <motion.div
+            key={item.id}
+            className={'hijaiyah-game__matching-canvas-item ' + (item.kind === 'harakat' ? 'hijaiyah-game__matching-canvas-item--harakat' : '')}
+            style={{
+              left: item.x,
+              top: item.y,
+              '--mode-accent': accent,
+              color: item.kind === 'letter' ? letterColor(item.value.char) : harakatColor(item.value.id),
+            }}
+            drag
+            dragMomentum={false}
+            whileDrag={{ scale: 1.12, zIndex: 30 }}
+          >
+            {item.kind === 'letter' ? item.value.char : <span style={{ color: harakatColor(item.value.id) }}>{item.value.symbol}</span>}
+            <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
+          </motion.div>
+        ))}
       </div>
 
       <div className="hijaiyah-game__matching-tray">
-        <p className="hijaiyah-game__matching-tray-label">Harakat (perhatikan warnanya)</p>
+        <p className="hijaiyah-game__matching-tray-label">Huruf</p>
         <div className="hijaiyah-game__matching-pieces">
-          {HARAKAT.map((harakat) => (
+          {pairs.map(({ letter, color }) => (
+            <motion.button
+              key={letter.char}
+              type="button"
+              drag
+              dragSnapToOrigin
+              dragMomentum={false}
+              whileDrag={{ scale: 1.15, zIndex: 20 }}
+              onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+              className="hijaiyah-game__matching-piece"
+              style={{ '--mode-accent': accent, color }}
+            >
+              {letter.char}
+            </motion.button>
+          ))}
+        </div>
+        <p className="hijaiyah-game__matching-tray-label">Harakat</p>
+        <div className="hijaiyah-game__matching-pieces">
+          {pairs.map(({ harakat, color }) => (
             <motion.button
               key={harakat.id}
               type="button"
@@ -1009,17 +1062,16 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
               whileDrag={{ scale: 1.15, zIndex: 20 }}
               onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
               className="hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat"
-              style={{ '--mode-accent': accent, color: harakat.color }}
+              style={{ '--mode-accent': accent, color }}
             >
-              <span style={{ color: harakat.color }}>{harakat.symbol}</span>
-              <span style={{ color: harakat.color }}>{harakat.name}</span>
+              <span style={{ color }}>{harakat.symbol}</span>
             </motion.button>
           ))}
         </div>
       </div>
 
       <div className="hijaiyah-game__matching-actions">
-        <Button type="button" variant="outline" onClick={() => setPlaced({})} disabled={Object.keys(placed).length === 0}>
+        <Button type="button" variant="outline" onClick={() => setPlaced([])} disabled={placed.length === 0}>
           <X className="w-4 h-4 mr-1" /> Kosongkan
         </Button>
         <Button type="button" onClick={checkAnswer} disabled={!allPlaced} style={{ background: accent }}>
@@ -1034,11 +1086,12 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
       )}
       {success && (
         <p className="hijaiyah-game__stage-feedback">
-          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Benar semua! Kamu memasangkan huruf & harakat sesuai warna.
+          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Benar semua! Huruf &amp; harakat warnanya cocok.
         </p>
       )}
     </div>
   );
 };
+
 
 export default HijaiyahGamePage;

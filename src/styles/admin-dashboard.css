@@ -9275,7 +9275,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 .hijaiyah-game__tracing-guide-letter {
   display: inline-block;
   font-family: 'Tarteel Nastaleeq', 'Amiri', 'Scheherazade', serif;
-  font-size: clamp(7rem, 26vw, 15rem);
+  font-size: clamp(9rem, min(38vw, 52dvh), 22rem);
   line-height: 1.2;
 }
 
@@ -9621,3 +9621,71 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .hijaiyah-game__matching-canvas-item { font-size: 6.5rem; }
   .hijaiyah-game__colormatch-slot-char { font-size: 6.5rem; }
 }
+
+/* Tracing toolbar: colors, eraser, zoom */
+.hijaiyah-game__tracing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+}
+.hijaiyah-game__tracing-colors { display: flex; gap: 0.5rem; align-items: center; }
+.hijaiyah-game__tracing-swatch {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.hijaiyah-game__tracing-swatch--active { border-color: rgb(15 23 42 / 0.7); transform: scale(1.15); }
+.dark .hijaiyah-game__tracing-swatch--active { border-color: rgb(255 255 255 / 0.85); }
+.hijaiyah-game__tracing-eraser {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 2px solid rgb(148 163 184 / 0.4);
+  border-radius: 999px;
+  color: #475569;
+  background: rgb(255 255 255 / 0.5);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.hijaiyah-game__tracing-eraser--active { border-color: rgb(244 63 94 / 0.7); color: #be123c; background: rgb(255 228 230 / 0.7); }
+.dark .hijaiyah-game__tracing-eraser { color: #cbd5e1; background: rgb(255 255 255 / 0.06); }
+.hijaiyah-game__tracing-eraser--active.dark { border-color: rgb(244 63 94 / 0.6); color: #fda4af; background: rgb(244 63 94 / 0.15); }
+
+.hijaiyah-game__tracing-zoom { display: flex; align-items: center; gap: 0.4rem; }
+.hijaiyah-game__tracing-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid rgb(148 163 184 / 0.4);
+  border-radius: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #475569;
+  background: rgb(255 255 255 / 0.5);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.hijaiyah-game__tracing-zoom-btn:hover { background: rgb(255 255 255 / 0.8); }
+.dark .hijaiyah-game__tracing-zoom-btn { color: #cbd5e1; background: rgb(255 255 255 / 0.06); }
+.hijaiyah-game__tracing-zoom-label { font-size: 0.75rem; font-weight: 700; color: #64748b; min-width: 2.6rem; text-align: center; }
+.dark .hijaiyah-game__tracing-zoom-label { color: #94a3b8; }
+
+.hijaiyah-game__tracing-guide {
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Color match legend */
+.hijaiyah-game__colormatch-legend { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; align-items: center; }
+.hijaiyah-game__colormatch-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.7rem; border: 1px solid rgb(255 255 255 / 0.55); border-radius: 999px; background: rgb(255 255 255 / 0.4); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7); font-size: 0.78rem; font-weight: 800; }
+.dark .hijaiyah-game__colormatch-legend-item { border-color: rgb(255 255 255 / 0.08); background: rgb(255 255 255 / 0.05); }
+.hijaiyah-game__colormatch-legend-swatch { display: inline-block; width: 0.85rem; height: 0.85rem; border-radius: 999px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.5); }
