@@ -32,7 +32,7 @@ export const HIJAIYAH_LETTERS = [
 export const HARAKAT = [
   { id: 'fathah', symbol: '\u064E', name: 'Fathah', sound: 'a', color: '#10b981' },
   { id: 'kasrah', symbol: '\u0650', name: 'Kasrah', sound: 'i', color: '#2563eb' },
-  { id: 'dhammah', symbol: '\u064F', name: 'Dhammah', sound: 'u', color: '#ea580c' },
+  { id: 'dhummah', symbol: '\u064F', name: 'Dhummah', sound: 'u', color: '#ea580c' },
 ];
 
 export const combineLetterHarakat = (char, harakatSymbol) => `${char}${harakatSymbol}`;
@@ -62,7 +62,7 @@ export const MODES = [
     id: 'colorMatch',
     label: 'Pasang Warna',
     subtitle: 'Huruf & harakat sesuai warna',
-    description: 'Cocokkan huruf dengan harakat berdasarkan warna: Fathah hijau, Kasrah biru, Dhammah oranye.',
+    description: 'Cocokkan huruf dengan harakat berdasarkan warna: Fathah hijau, Kasrah biru, Dhummah oranye.',
     color: '#ec4899',
   },
   {

@@ -297,6 +297,16 @@ const ContentManagement = () => {
     toast({ title: "Upload Berhasil!", description: `${file.name} berhasil diunggah.` });
   };
 
+
+  const handleRemoveHijaiyahBackground = async () => {
+    try {
+      const saved = await saveWebsiteContentItem({ key: 'hijaiyahFindingBackgroundUrl', content: '', isPublic: true });
+      setContent(prev => ({ ...prev, hijaiyahFindingBackgroundUrl: saved.content || '' }));
+      toast({ title: 'Background Dihapus', description: 'Latar gambar hijaiyah dikosongkan.' });
+    } catch (error) {
+      toast({ title: 'Gagal Menghapus', description: getPublicContentErrorMessage(error), variant: 'destructive' });
+    }
+  };
   const handleHeroImageUpload = async (e, slideId) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -673,7 +683,7 @@ const ContentManagement = () => {
 
         <TabsContent value="media" className="grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2">
             <div className="col-span-full"><ContentSection title="Galeri Kegiatan" modalType="galleryPhotos" data={content.galleryPhotos} icon={<ImageIcon/>} renderItem={item => <div className="flex items-center gap-2"><img src={item.url} className="w-12 h-12 object-cover rounded-md" /><p className="truncate">{item.caption}</p></div>} /></div>
-            <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Gamepad2/> Background Mencari Hijaiyah</h3><p className="text-sm text-muted-foreground">Latar gambar untuk mode Mencari pada permainan Play Hijaiyah. Unggah gambar pemandangan (mis. hutan) agar terlihat realistis.</p><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'hijaiyahFindingBackground')} />{content.hijaiyahFindingBackgroundUrl ? (<><img src={content.hijaiyahFindingBackgroundUrl} alt="Preview background hijaiyah" className="w-full h-40 object-cover rounded-md mt-2" /><Button variant="ghost" size="sm" onClick={() => setContent(prev => ({ ...prev, hijaiyahFindingBackgroundUrl: '' }))} className="text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Hapus</Button></>) : <p className="text-sm text-muted-foreground">Belum ada background. Gunakan scene bawaan sementara.</p>}</div>
+            <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Gamepad2/> Background Mencari Hijaiyah</h3><p className="text-sm text-muted-foreground">Latar gambar untuk mode Mencari pada permainan Play Hijaiyah. Unggah gambar pemandangan (mis. hutan) agar terlihat realistis.</p><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'hijaiyahFindingBackground')} />{content.hijaiyahFindingBackgroundUrl ? (<><img src={content.hijaiyahFindingBackgroundUrl} alt="Preview background hijaiyah" className="w-full h-40 object-cover rounded-md mt-2" /><Button variant="ghost" size="sm" onClick={handleRemoveHijaiyahBackground} className="text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Hapus</Button></>) : <p className="text-sm text-muted-foreground">Belum ada background. Gunakan scene bawaan sementara.</p>}</div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><FileText/> Brosur Pendaftaran</h3><Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, 'brochures')} /><div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">{content.brochures.map(file => (<div key={file.id} className="flex justify-between items-center p-2 border rounded-lg bg-background"><span>{file.name}</span><Button variant="ghost" size="icon" onClick={() => handleDeleteItem('brochures', file.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></div>))}</div></div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Library/> Pustaka Digital</h3><Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, 'pustaka')} /><div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">{content.pustaka.map(file => (<div key={file.id} className="flex justify-between items-center p-2 border rounded-lg bg-background"><span>{file.name}</span><Button variant="ghost" size="icon" onClick={() => handleDeleteItem('pustaka', file.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></div>))}</div></div>
             <ContentSection title="Berita" modalType="news" data={content.news} icon={<BookCopy/>} renderItem={item => <p className="truncate">{item.title}</p>} />
