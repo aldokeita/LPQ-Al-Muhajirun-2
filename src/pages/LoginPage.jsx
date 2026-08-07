@@ -137,7 +137,7 @@ const LoginPage = () => {
       .channel('website_content_login_logo')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'website_content', filter: 'key=eq.logoUrl' },
+        { event: 'UPDATE', schema: 'public', table: 'website_content', filter: 'key=eq.logoUrl' },
         (payload) => setLogoUrl(payload.new?.content || '/lpq-mark.svg'),
       )
       .subscribe();

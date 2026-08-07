@@ -157,7 +157,7 @@ const DigitalAttendance = () => {
             const today = getLocalDateString();
 
             let user = null, userRole = '', sesiUser = '';
-            let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
+            let { data: guruData } = await supabase.from('guru').select('id, nama, email, phone, rfid_tag, id_kelas, foto_url, avatar_path, no_hp, gaji_pokok, role, status, created_at, deleted_at').eq('rfid_tag', tag).maybeSingle();
 
             if (guruData) {
                 user = guruData; userRole = 'guru';

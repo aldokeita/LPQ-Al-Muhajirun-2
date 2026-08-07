@@ -212,7 +212,7 @@ const GuruDashboard = () => {
   const fetchGuruData = useCallback(async () => {
     if (user?.id) {
         setIsLoading(true);
-        const { data: guru } = await supabase.from('guru').select('*').eq('id', user.id).single();
+        const { data: guru } = await supabase.from('guru').select('id, nama, email, phone, rfid_tag, id_kelas, foto_url, avatar_path, no_hp, gaji_pokok, role, status, created_at, deleted_at').eq('id', user.id).single();
         if(guru) {
             const foto_url = await resolveAvatarUrl({
                 ownerType: 'guru',
@@ -254,8 +254,7 @@ const GuruDashboard = () => {
             if (classList.length > 0) {
                 const classIds = classList.map(c => c.id);
                 // Fetch attendance records specifically for the guru's classes
-                const { data: attendanceRes } = await supabase.from('attendance')
-                    .select('*')
+                const { data: attendanceRes } = await supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at')
                     .in('class_id', classIds)
                     .eq('attendance_date', todayStr);
 

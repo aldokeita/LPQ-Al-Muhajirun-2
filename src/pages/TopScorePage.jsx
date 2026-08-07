@@ -67,8 +67,7 @@ const TopScorePage = () => {
         try {
             // Find student by RFID
             const { data: student, error: studentError } = await supabase
-                .from('santri')
-                .select('*')
+                .from('santri').select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, no_kk, no_nik, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, tanggal_pendaftaran, alamat, no_hp_ortu, foto_url, avatar_path, email, rfid_tag, current_class_id, id_kelas, sesi_mengaji, jilid, status, points, order_in_class, link_qiroati, default_spp_amount, juz_hafalan, berkas_foto, berkas_akta, berkas_kk, berkas_form, created_at, deleted_at')
                 .eq('rfid_tag', cleanTag)
                 .single();
 

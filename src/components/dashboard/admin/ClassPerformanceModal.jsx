@@ -167,8 +167,7 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             resolvedSantriList.forEach(s => { santriMap[s.id] = s; });
             const santriIds = resolvedSantriList.map(s => s.id);
 
-            let query = supabase.from('attendance')
-                .select('*')
+            let query = supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at')
                 .in('user_id', santriIds);
             
             const { data: attData, error: attError } = await query;
