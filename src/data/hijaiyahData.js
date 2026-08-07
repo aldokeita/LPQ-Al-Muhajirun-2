@@ -30,9 +30,9 @@ export const HIJAIYAH_LETTERS = [
 ];
 
 export const HARAKAT = [
-  { id: 'fathah', symbol: '\u064E', name: 'Fathah', sound: 'a', color: '#10b981' },
-  { id: 'kasrah', symbol: '\u0650', name: 'Kasrah', sound: 'i', color: '#2563eb' },
-  { id: 'dhummah', symbol: '\u064F', name: 'Dhummah', sound: 'u', color: '#ea580c' },
+  { id: 'fathah', symbol: '\u064E', name: 'Fathah', sound: 'a', color: '#10b981', preview: '\u0628\u064E' },
+  { id: 'kasrah', symbol: '\u0650', name: 'Kasrah', sound: 'i', color: '#2563eb', preview: '\u0628\u0650' },
+  { id: 'dhummah', symbol: '\u064F', name: 'Dhummah', sound: 'u', color: '#ea580c', preview: '\u0628\u064F' },
 ];
 
 export const combineLetterHarakat = (char, harakatSymbol) => `${char}${harakatSymbol}`;

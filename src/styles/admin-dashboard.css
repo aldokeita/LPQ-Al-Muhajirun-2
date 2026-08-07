@@ -9762,3 +9762,19 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   text-shadow: 0 2px 6px rgb(15 23 42 / 0.25);
   margin-bottom: 0.1rem;
 }
+
+/* Harakat preview (carrier + mark) — ensures combining mark renders correctly */
+.hijaiyah-game__harakat-preview {
+  font-family: 'Tarteel Nastaleeq', 'Amiri', 'Scheherazade', serif;
+  font-size: 0.85em;
+  line-height: 1.6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Active drop zone highlight while dragging */
+.hijaiyah-game__matching-canvas--active {
+  border-color: rgb(139 92 246 / 0.8) !important;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 0 0 4px rgb(139 92 246 / 0.15) !important;
+}
