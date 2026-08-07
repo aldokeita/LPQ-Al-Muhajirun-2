@@ -44,6 +44,54 @@ const shuffle = (array) => {
   return copy;
 };
 
+const usePinchZoom = (min = 0.6, max = 3) => {
+  const [zoom, setZoom] = useState(1);
+  const pointersRef = useRef(new Map());
+  const lastDistRef = useRef(null);
+
+  const onPointerDown = (e) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      lastDistRef.current = Math.hypot(a.x - b.x, a.y - b.y);
+    }
+  };
+
+  const onPointerMove = (e) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2 && lastDistRef.current) {
+      const [a, b] = [...pointersRef.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const ratio = dist / lastDistRef.current;
+      setZoom((z) => Math.min(max, Math.max(min, +(z * ratio).toFixed(2))));
+      lastDistRef.current = dist;
+    }
+  };
+
+  const endPointer = (e) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) lastDistRef.current = null;
+  };
+
+  const zoomIn = () => setZoom((z) => Math.min(max, +(z + 0.2).toFixed(2)));
+  const zoomOut = () => setZoom((z) => Math.max(min, +(z - 0.2).toFixed(2)));
+
+  return {
+    zoom,
+    setZoom,
+    zoomIn,
+    zoomOut,
+    pinchHandlers: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: endPointer,
+      onPointerCancel: endPointer,
+    },
+  };
+};
+
+
 const MODE_ICONS = {
   tracing: Brush,
   matching: Link2,
@@ -162,6 +210,8 @@ const HijaiyahGamePage = () => {
       rotate: ((i * 23) % 50) - 25,
       scale: 0.8 + ((i * 7) % 4) * 0.14,
       color: colors[i % colors.length],
+      harakat: HARAKAT[i % HARAKAT.length],
+      harakatColor: colors[(i + 3) % colors.length],
     }));
     return { targets, scatter };
   };
@@ -581,6 +631,7 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
   const [hasStrokes, setHasStrokes] = useState(false);
   const [strokeColor, setStrokeColor] = useState(accent);
   const [isEraser, setIsEraser] = useState(false);
+  const [brushWidth, setBrushWidth] = useState(12);
   const [zoom, setZoom] = useState(1);
 
   const getPoint = (event) => {
@@ -612,7 +663,7 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
     if (!point || !ctx || !lastPoint.current) return;
     ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
     ctx.strokeStyle = isEraser ? 'rgba(0,0,0,1)' : strokeColor;
-    ctx.lineWidth = Math.max(6, canvas.width / 60) * (isEraser ? 2 : 1);
+    ctx.lineWidth = brushWidth * (isEraser ? 1.6 : 1);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -693,6 +744,23 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
         </div>
       </div>
 
+      <div className="hijaiyah-game__tracing-widthbar">
+        <label htmlFor="tracing-brush-width" className="hijaiyah-game__tracing-widthlabel">
+          {isEraser ? 'Penghapus' : 'Pena'} — Ketebalan
+        </label>
+        <input
+          id="tracing-brush-width"
+          type="range"
+          min="4"
+          max="32"
+          step="1"
+          value={brushWidth}
+          onChange={(e) => setBrushWidth(Number(e.target.value))}
+          className="hijaiyah-game__tracing-widthslider"
+        />
+        <span className="hijaiyah-game__tracing-widthvalue">{brushWidth}px</span>
+      </div>
+
       <div className="hijaiyah-game__tracing-canvas-wrap">
         <div className="hijaiyah-game__tracing-guide" aria-hidden="true" style={{ transform: 'scale(' + guideScale + ')' }}>
           <span className="hijaiyah-game__tracing-guide-letter">{combined}</span>
@@ -722,7 +790,9 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
 
 const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, accent, onNext }) => {
   const canvasRef = useRef(null);
+  const { zoom, setZoom, zoomIn, zoomOut, pinchHandlers } = usePinchZoom();
   const [placed, setPlaced] = useState([]);
+  const [usedKeys, setUsedKeys] = useState(() => new Set());
   const [wrongFlash, setWrongFlash] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -730,8 +800,15 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
     point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
   const addToCanvas = (kind, value, point, rect) => {
-    const x = point.x - rect.left;
-    const y = point.y - rect.top;
+    const x = (point.x - rect.left) / zoom;
+    const y = (point.y - rect.top) / zoom;
+    const key = kind === 'letter' ? `letter:${value.char}` : `harakat:${value.id}`;
+    if (usedKeys.has(key)) return;
+    setUsedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
     setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
   };
 
@@ -745,7 +822,17 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
     if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
   };
 
-  const removePlaced = (id) => setPlaced((prev) => prev.filter((p) => p.id !== id));
+  const removePlaced = (id) => {
+    const item = placed.find((p) => p.id === id);
+    if (!item) return;
+    const key = item.kind === 'letter' ? `letter:${item.value.char}` : `harakat:${item.value.id}`;
+    setUsedKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setPlaced((prev) => prev.filter((p) => p.id !== id));
+  };
 
   const checkAnswer = () => {
     const hasLetter = placed.some((p) => p.kind === 'letter' && p.value.char === target.char);
@@ -761,15 +848,33 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
 
   const targetReading = combineLetterHarakat(target.char, targetHarakat.symbol);
 
+  const canvasStyle = {
+    transform: `scale(${zoom})`,
+  };
+
   return (
     <div className="hijaiyah-game__matching">
       <p className="hijaiyah-game__stage-prompt">
         Guru menyebutkan: <strong className="hijaiyah-game__matching-target">{targetReading}</strong>
         <span className="hijaiyah-game__matching-target-name"> ({target.name} — {targetHarakat.name})</span>
       </p>
-      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat dari bawah ke dalam area kosong, lalu letakkan di mana saja di sekitar huruf.</p>
+      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat ke area canvas. Setiap huruf/harakat hanya bisa dipakai sekali — gunakan zoom untuk memperbesar.</p>
 
-      <div className="hijaiyah-game__matching-canvas" ref={canvasRef}>
+      <div className="hijaiyah-game__canvas-tools">
+        <span className="hijaiyah-game__canvas-tools-label">{Math.round(zoom * 100)}%</span>
+        <div className="hijaiyah-game__tracing-zoom">
+          <button type="button" aria-label="Perkecil" onClick={zoomOut} className="hijaiyah-game__tracing-zoom-btn">−</button>
+          <button type="button" aria-label="Perbesar" onClick={zoomIn} className="hijaiyah-game__tracing-zoom-btn">+</button>
+          <button type="button" aria-label="Reset zoom" onClick={() => setZoom(1)} className="hijaiyah-game__tracing-zoom-btn">⟲</button>
+        </div>
+      </div>
+
+      <div
+        className="hijaiyah-game__matching-canvas"
+        ref={canvasRef}
+        style={canvasStyle}
+        {...pinchHandlers}
+      >
         {placed.map((item) => (
           <motion.div
             key={item.id}
@@ -788,44 +893,52 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
       <div className="hijaiyah-game__matching-tray">
         <p className="hijaiyah-game__matching-tray-label">Huruf</p>
         <div className="hijaiyah-game__matching-pieces">
-          {letterOptions.map((letter) => (
-            <motion.button
-              key={letter.char}
-              type="button"
-              drag
-              dragSnapToOrigin
-              dragMomentum={false}
-              whileDrag={{ scale: 1.15, zIndex: 20 }}
-              onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
-              className="hijaiyah-game__matching-piece"
-              style={{ '--mode-accent': accent }}
-            >
-              {letter.char}
-            </motion.button>
-          ))}
+          {letterOptions.map((letter) => {
+            const used = usedKeys.has(`letter:${letter.char}`);
+            return (
+              <motion.button
+                key={letter.char}
+                type="button"
+                drag
+                dragSnapToOrigin
+                dragMomentum={false}
+                whileDrag={{ scale: 1.15, zIndex: 20 }}
+                onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+                className={`hijaiyah-game__matching-piece ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
+                style={{ '--mode-accent': accent }}
+                aria-disabled={used}
+              >
+                {letter.char}
+              </motion.button>
+            );
+          })}
         </div>
         <p className="hijaiyah-game__matching-tray-label">Harakat</p>
         <div className="hijaiyah-game__matching-pieces">
-          {harakatOptions.map((harakat) => (
-            <motion.button
-              key={harakat.id}
-              type="button"
-              drag
-              dragSnapToOrigin
-              dragMomentum={false}
-              whileDrag={{ scale: 1.15, zIndex: 20 }}
-              onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
-              className="hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat"
-              style={{ '--mode-accent': accent }}
-            >
-              {harakat.symbol}
-            </motion.button>
-          ))}
+          {harakatOptions.map((harakat) => {
+            const used = usedKeys.has(`harakat:${harakat.id}`);
+            return (
+              <motion.button
+                key={harakat.id}
+                type="button"
+                drag
+                dragSnapToOrigin
+                dragMomentum={false}
+                whileDrag={{ scale: 1.15, zIndex: 20 }}
+                onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
+                className={`hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
+                style={{ '--mode-accent': accent }}
+                aria-disabled={used}
+              >
+                {harakat.symbol}
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
       <div className="hijaiyah-game__matching-actions">
-        <Button type="button" variant="outline" onClick={() => setPlaced([])} disabled={placed.length === 0}>
+        <Button type="button" variant="outline" onClick={() => { setPlaced([]); setUsedKeys(new Set()); }} disabled={placed.length === 0}>
           <X className="w-4 h-4 mr-1" /> Kosongkan
         </Button>
         <Button type="button" onClick={checkAnswer} disabled={placed.length === 0} style={{ background: accent }}>
@@ -846,6 +959,7 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
     </div>
   );
 };
+
 
 const FindingStage = ({ targets, scatter, accent, backgroundUrl, onNext }) => {
   const [revealed, setRevealed] = useState(false);
@@ -923,7 +1037,8 @@ const FindingStage = ({ targets, scatter, accent, backgroundUrl, onNext }) => {
               className={`hijaiyah-game__find-scene-letter ${isFound ? 'hijaiyah-game__find-scene-letter--correct' : ''} ${isWrong ? 'hijaiyah-game__find-scene-letter--wrong' : ''}`}
               style={{ left: `${item.left}%`, top: `${item.top}%`, color: item.color, transform: `rotate(${item.rotate}deg) scale(${isFound ? 1.4 : item.scale})` }}
             >
-              {item.char}
+              <span className="hijaiyah-game__find-scene-letter-harakat" style={{ color: item.harakatColor }}>{item.harakat.symbol}</span>
+              <span>{item.char}</span>
             </button>
           );
         })}
@@ -945,7 +1060,9 @@ const FindingStage = ({ targets, scatter, accent, backgroundUrl, onNext }) => {
 
 const ColorMatchStage = ({ pairs, accent, onNext }) => {
   const canvasRef = useRef(null);
+  const { zoom, setZoom, zoomIn, zoomOut, pinchHandlers } = usePinchZoom();
   const [placed, setPlaced] = useState([]);
+  const [usedKeys, setUsedKeys] = useState(() => new Set());
   const [wrongFlash, setWrongFlash] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -953,9 +1070,16 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
     point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 
   const addToCanvas = (kind, value, point, rect) => {
-    const x = point.x - rect.left;
-    const y = point.y - rect.top;
-    setPlaced((prev) => [...prev, { id: kind + '-' + Date.now() + '-' + Math.random(), kind, value, x, y }]);
+    const x = (point.x - rect.left) / zoom;
+    const y = (point.y - rect.top) / zoom;
+    const key = kind === 'letter' ? `letter:${value.char}` : `harakat:${value.id}`;
+    if (usedKeys.has(key)) return;
+    setUsedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
   };
 
   const handleLetterDrop = (letter, event, info) => {
@@ -968,7 +1092,17 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
     if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
   };
 
-  const removePlaced = (id) => setPlaced((prev) => prev.filter((p) => p.id !== id));
+  const removePlaced = (id) => {
+    const item = placed.find((p) => p.id === id);
+    if (!item) return;
+    const key = item.kind === 'letter' ? `letter:${item.value.char}` : `harakat:${item.value.id}`;
+    setUsedKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setPlaced((prev) => prev.filter((p) => p.id !== id));
+  };
 
   const letterColor = (letterChar) => pairs.find((p) => p.letter.char === letterChar)?.color || accent;
   const harakatColor = (harakatId) => pairs.find((p) => p.harakat.id === harakatId)?.color || accent;
@@ -1008,9 +1142,23 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
           </span>
         ))}
       </div>
-      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat berwarna ke area kosong, lalu letakkan pasangan warnanya berdekatan.</p>
+      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat berwarna ke area canvas, lalu letakkan pasangan warnanya berdekatan. Setiap huruf/harakat hanya dipakai sekali.</p>
 
-      <div className="hijaiyah-game__matching-canvas" ref={canvasRef}>
+      <div className="hijaiyah-game__canvas-tools">
+        <span className="hijaiyah-game__canvas-tools-label">{Math.round(zoom * 100)}%</span>
+        <div className="hijaiyah-game__tracing-zoom">
+          <button type="button" aria-label="Perkecil" onClick={zoomOut} className="hijaiyah-game__tracing-zoom-btn">−</button>
+          <button type="button" aria-label="Perbesar" onClick={zoomIn} className="hijaiyah-game__tracing-zoom-btn">+</button>
+          <button type="button" aria-label="Reset zoom" onClick={() => setZoom(1)} className="hijaiyah-game__tracing-zoom-btn">⟲</button>
+        </div>
+      </div>
+
+      <div
+        className="hijaiyah-game__matching-canvas"
+        ref={canvasRef}
+        style={{ transform: `scale(${zoom})` }}
+        {...pinchHandlers}
+      >
         {placed.map((item) => (
           <motion.div
             key={item.id}
@@ -1034,44 +1182,52 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
       <div className="hijaiyah-game__matching-tray">
         <p className="hijaiyah-game__matching-tray-label">Huruf</p>
         <div className="hijaiyah-game__matching-pieces">
-          {pairs.map(({ letter, color }) => (
-            <motion.button
-              key={letter.char}
-              type="button"
-              drag
-              dragSnapToOrigin
-              dragMomentum={false}
-              whileDrag={{ scale: 1.15, zIndex: 20 }}
-              onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
-              className="hijaiyah-game__matching-piece"
-              style={{ '--mode-accent': accent, color }}
-            >
-              {letter.char}
-            </motion.button>
-          ))}
+          {pairs.map(({ letter, color }) => {
+            const used = usedKeys.has(`letter:${letter.char}`);
+            return (
+              <motion.button
+                key={letter.char}
+                type="button"
+                drag
+                dragSnapToOrigin
+                dragMomentum={false}
+                whileDrag={{ scale: 1.15, zIndex: 20 }}
+                onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+                className={`hijaiyah-game__matching-piece ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
+                style={{ '--mode-accent': accent, color }}
+                aria-disabled={used}
+              >
+                {letter.char}
+              </motion.button>
+            );
+          })}
         </div>
         <p className="hijaiyah-game__matching-tray-label">Harakat</p>
         <div className="hijaiyah-game__matching-pieces">
-          {pairs.map(({ harakat, color }) => (
-            <motion.button
-              key={harakat.id}
-              type="button"
-              drag
-              dragSnapToOrigin
-              dragMomentum={false}
-              whileDrag={{ scale: 1.15, zIndex: 20 }}
-              onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
-              className="hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat"
-              style={{ '--mode-accent': accent, color }}
-            >
-              <span style={{ color }}>{harakat.symbol}</span>
-            </motion.button>
-          ))}
+          {pairs.map(({ harakat, color }) => {
+            const used = usedKeys.has(`harakat:${harakat.id}`);
+            return (
+              <motion.button
+                key={harakat.id}
+                type="button"
+                drag
+                dragSnapToOrigin
+                dragMomentum={false}
+                whileDrag={{ scale: 1.15, zIndex: 20 }}
+                onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
+                className={`hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
+                style={{ '--mode-accent': accent, color }}
+                aria-disabled={used}
+              >
+                <span style={{ color }}>{harakat.symbol}</span>
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
       <div className="hijaiyah-game__matching-actions">
-        <Button type="button" variant="outline" onClick={() => setPlaced([])} disabled={placed.length === 0}>
+        <Button type="button" variant="outline" onClick={() => { setPlaced([]); setUsedKeys(new Set()); }} disabled={placed.length === 0}>
           <X className="w-4 h-4 mr-1" /> Kosongkan
         </Button>
         <Button type="button" onClick={checkAnswer} disabled={!allPlaced} style={{ background: accent }}>
@@ -1081,12 +1237,12 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
 
       {wrongFlash && (
         <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
-          <XCircle className="h-4 w-4 inline mr-1" /> Masih ada yang belum tepat, coba lagi.
+          <XCircle className="w-4 h-4 inline mr-1" /> Masih ada yang belum tepat, coba lagi.
         </p>
       )}
       {success && (
         <p className="hijaiyah-game__stage-feedback">
-          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Benar semua! Huruf &amp; harakat warnanya cocok.
+          <CheckCircle2 className="w-4 h-4 inline mr-1" /> Benar semua! Huruf &amp; harakat warnanya cocok.
         </p>
       )}
     </div>
