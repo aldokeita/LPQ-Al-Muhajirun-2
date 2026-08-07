@@ -813,8 +813,6 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
     setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
   };
 
-  const handleTrayDragStart = () => setIsDragging(true);
-
   const handleLetterDrop = (letter, event, info) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
@@ -826,6 +824,8 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
     if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
     setIsDragging(false);
   };
+
+  const handleTrayDragStart = () => setIsDragging(true);
 
   const removePlaced = (id) => {
     const item = placed.find((p) => p.id === id);
@@ -853,17 +853,13 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
 
   const targetReading = combineLetterHarakat(target.char, targetHarakat.symbol);
 
-  const canvasStyle = {
-    transform: `scale(${zoom})`,
-  };
-
   return (
     <div className="hijaiyah-game__matching">
       <p className="hijaiyah-game__stage-prompt">
         Guru menyebutkan: <strong className="hijaiyah-game__matching-target">{targetReading}</strong>
         <span className="hijaiyah-game__matching-target-name"> ({target.name} — {targetHarakat.name})</span>
       </p>
-      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat ke area canvas. Setiap huruf/harakat hanya bisa dipakai sekali — gunakan zoom untuk memperbesar.</p>
+      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat dari kotak kecil di kanan bawah ke area canvas yang luas.</p>
 
       <div className="hijaiyah-game__canvas-tools">
         <span className="hijaiyah-game__canvas-tools-label">{Math.round(zoom * 100)}%</span>
@@ -877,7 +873,7 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
       <div
         className={`hijaiyah-game__matching-canvas ${isDragging ? 'hijaiyah-game__matching-canvas--active' : ''}`}
         ref={canvasRef}
-        style={canvasStyle}
+        style={{ transform: `scale(${zoom})` }}
         {...pinchHandlers}
       >
         {placed.map((item) => (
@@ -894,57 +890,53 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
             <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
-      </div>
 
-      <div className="hijaiyah-game__matching-tray">
-        <p className="hijaiyah-game__matching-tray-label">Huruf</p>
-        <div className="hijaiyah-game__matching-pieces">
-          {letterOptions.map((letter) => {
-            const used = usedKeys.has(`letter:${letter.char}`);
-            return (
-              <motion.button
-                key={letter.char}
-                type="button"
-                drag
-                dragSnapToOrigin
-                dragMomentum={false}
-                dragElastic={0}
-                whileDrag={{ scale: 1.15, zIndex: 20, cursor: 'grabbing' }}
-                onDragStart={handleTrayDragStart}
-                onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
-                className={`hijaiyah-game__matching-piece ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
-                style={{ '--mode-accent': accent }}
-                aria-disabled={used}
-              >
-                {letter.char}
-              </motion.button>
-            );
-          })}
-        </div>
-        <p className="hijaiyah-game__matching-tray-label">Harakat</p>
-        <div className="hijaiyah-game__matching-pieces">
-          {harakatOptions.map((harakat) => {
-            const used = usedKeys.has(`harakat:${harakat.id}`);
-            return (
-              <motion.button
-                key={harakat.id}
-                type="button"
-                drag
-                dragSnapToOrigin
-                dragMomentum={false}
-                dragElastic={0}
-                whileDrag={{ scale: 1.15, zIndex: 20, cursor: 'grabbing' }}
-                onDragStart={handleTrayDragStart}
-                onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
-                className={`hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
-                style={{ '--mode-accent': accent }}
-                aria-disabled={used}
-              >
-                <span className="hijaiyah-game__harakat-preview">{harakat.symbol}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+        {(!success) && (
+          <div className="hijaiyah-game__matching-inventory">
+            {letterOptions.map((letter) => {
+              const used = usedKeys.has(`letter:${letter.char}`);
+              return (
+                <motion.button
+                  key={letter.char}
+                  type="button"
+                  drag
+                  dragSnapToOrigin
+                  dragMomentum={false}
+                  dragElastic={0}
+                  whileDrag={{ scale: 2.4, zIndex: 30, cursor: 'grabbing' }}
+                  onDragStart={handleTrayDragStart}
+                  onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+                  className={`hijaiyah-game__matching-inv-item ${used ? 'hijaiyah-game__matching-inv-item--used' : ''}`}
+                  style={{ '--mode-accent': accent }}
+                  aria-disabled={used}
+                >
+                  {letter.char}
+                </motion.button>
+              );
+            })}
+            {harakatOptions.map((harakat) => {
+              const used = usedKeys.has(`harakat:${harakat.id}`);
+              return (
+                <motion.button
+                  key={harakat.id}
+                  type="button"
+                  drag
+                  dragSnapToOrigin
+                  dragMomentum={false}
+                  dragElastic={0}
+                  whileDrag={{ scale: 2.4, zIndex: 30, cursor: 'grabbing' }}
+                  onDragStart={handleTrayDragStart}
+                  onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
+                  className={`hijaiyah-game__matching-inv-item hijaiyah-game__matching-inv-item--harakat ${used ? 'hijaiyah-game__matching-inv-item--used' : ''}`}
+                  style={{ '--mode-accent': accent }}
+                  aria-disabled={used}
+                >
+                  <span>{harakat.symbol}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="hijaiyah-game__matching-actions">
@@ -1093,8 +1085,6 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
     setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
   };
 
-  const handleTrayDragStart = () => setIsDragging(true);
-
   const handleLetterDrop = (letter, event, info) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
@@ -1106,6 +1096,8 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
     if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
     setIsDragging(false);
   };
+
+  const handleTrayDragStart = () => setIsDragging(true);
 
   const removePlaced = (id) => {
     const item = placed.find((p) => p.id === id);
@@ -1157,7 +1149,7 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
           </span>
         ))}
       </div>
-      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat berwarna ke area canvas, lalu letakkan pasangan warnanya berdekatan. Setiap huruf/harakat hanya dipakai sekali.</p>
+      <p className="hijaiyah-game__matching-hint">Seret huruf dan harakat berwarna dari kotak kecil di kanan bawah ke area canvas yang luas.</p>
 
       <div className="hijaiyah-game__canvas-tools">
         <span className="hijaiyah-game__canvas-tools-label">{Math.round(zoom * 100)}%</span>
@@ -1177,7 +1169,7 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
         {placed.map((item) => (
           <motion.div
             key={item.id}
-            className={'hijaiyah-game__matching-canvas-item ' + (item.kind === 'harakat' ? 'hijaiyah-game__matching-canvas-item--harakat' : '')}
+            className={`hijaiyah-game__matching-canvas-item ${item.kind === 'harakat' ? 'hijaiyah-game__matching-canvas-item--harakat' : ''}`}
             style={{
               left: item.x,
               top: item.y,
@@ -1193,57 +1185,53 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
             <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
-      </div>
 
-      <div className="hijaiyah-game__matching-tray">
-        <p className="hijaiyah-game__matching-tray-label">Huruf</p>
-        <div className="hijaiyah-game__matching-pieces">
-          {pairs.map(({ letter, color }) => {
-            const used = usedKeys.has(`letter:${letter.char}`);
-            return (
-              <motion.button
-                key={letter.char}
-                type="button"
-                drag
-                dragSnapToOrigin
-                dragMomentum={false}
-                dragElastic={0}
-                whileDrag={{ scale: 1.15, zIndex: 20, cursor: 'grabbing' }}
-                onDragStart={handleTrayDragStart}
-                onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
-                className={`hijaiyah-game__matching-piece ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
-                style={{ '--mode-accent': accent, color }}
-                aria-disabled={used}
-              >
-                {letter.char}
-              </motion.button>
-            );
-          })}
-        </div>
-        <p className="hijaiyah-game__matching-tray-label">Harakat</p>
-        <div className="hijaiyah-game__matching-pieces">
-          {pairs.map(({ harakat, color }) => {
-            const used = usedKeys.has(`harakat:${harakat.id}`);
-            return (
-              <motion.button
-                key={harakat.id}
-                type="button"
-                drag
-                dragSnapToOrigin
-                dragMomentum={false}
-                dragElastic={0}
-                whileDrag={{ scale: 1.15, zIndex: 20, cursor: 'grabbing' }}
-                onDragStart={handleTrayDragStart}
-                onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
-                className={`hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat ${used ? 'hijaiyah-game__matching-piece--used' : ''}`}
-                style={{ '--mode-accent': accent, color }}
-                aria-disabled={used}
-              >
-                <span className="hijaiyah-game__harakat-preview" style={{ color }}>{harakat.symbol}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+        {(!success) && (
+          <div className="hijaiyah-game__matching-inventory">
+            {pairs.map(({ letter, color }) => {
+              const used = usedKeys.has(`letter:${letter.char}`);
+              return (
+                <motion.button
+                  key={letter.char}
+                  type="button"
+                  drag
+                  dragSnapToOrigin
+                  dragMomentum={false}
+                  dragElastic={0}
+                  whileDrag={{ scale: 2.4, zIndex: 30, cursor: 'grabbing' }}
+                  onDragStart={handleTrayDragStart}
+                  onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+                  className={`hijaiyah-game__matching-inv-item ${used ? 'hijaiyah-game__matching-inv-item--used' : ''}`}
+                  style={{ '--mode-accent': accent, color }}
+                  aria-disabled={used}
+                >
+                  {letter.char}
+                </motion.button>
+              );
+            })}
+            {pairs.map(({ harakat, color }) => {
+              const used = usedKeys.has(`harakat:${harakat.id}`);
+              return (
+                <motion.button
+                  key={harakat.id}
+                  type="button"
+                  drag
+                  dragSnapToOrigin
+                  dragMomentum={false}
+                  dragElastic={0}
+                  whileDrag={{ scale: 2.4, zIndex: 30, cursor: 'grabbing' }}
+                  onDragStart={handleTrayDragStart}
+                  onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
+                  className={`hijaiyah-game__matching-inv-item hijaiyah-game__matching-inv-item--harakat ${used ? 'hijaiyah-game__matching-inv-item--used' : ''}`}
+                  style={{ '--mode-accent': accent, color }}
+                  aria-disabled={used}
+                >
+                  <span>{harakat.symbol}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="hijaiyah-game__matching-actions">
@@ -1257,12 +1245,12 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
 
       {wrongFlash && (
         <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
-          <XCircle className="w-4 h-4 inline mr-1" /> Masih ada yang belum tepat, coba lagi.
+          <XCircle className="h-4 w-4 inline mr-1" /> Masih ada yang belum tepat, coba lagi.
         </p>
       )}
       {success && (
         <p className="hijaiyah-game__stage-feedback">
-          <CheckCircle2 className="w-4 h-4 inline mr-1" /> Benar semua! Huruf &amp; harakat warnanya cocok.
+          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Benar semua! Huruf &amp; harakat warnanya cocok.
         </p>
       )}
     </div>
