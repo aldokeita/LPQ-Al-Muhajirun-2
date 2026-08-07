@@ -25,6 +25,7 @@ import {
   Dices,
   Trophy,
   Library,
+  BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
@@ -1121,6 +1122,15 @@ const DigitalAttendancePage = () => {
                 >
                   <Dices className="w-4 h-4" />
                   <span>Acak Nama</span>
+                </button>
+                <button
+                  className="attendance-header__action-btn attendance-header__action-btn--hijaiyah"
+                  onClick={() => navigate('/hijaiyah-game')}
+                  title="Play Hijaiyah"
+                  aria-label="Play Hijaiyah"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Hijaiyah</span>
                 </button>
               </>
             )}

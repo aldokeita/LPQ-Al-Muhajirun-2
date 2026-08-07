@@ -17,7 +17,7 @@ import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDeta
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, BookOpen, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
@@ -522,6 +522,7 @@ const GuruDashboard = () => {
                 <Button onClick={() => navigate('/gatcha-game')} className="border-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/20 transition-all hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-lg hover:shadow-violet-500/30"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
                 <Button onClick={() => navigate('/quiz-hafalan')} className="border-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20 transition-all hover:-translate-y-0.5 hover:from-cyan-500 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/30"><PlayCircle className="w-4 h-4 mr-2"/> Play Quiz</Button>
                 <Button onClick={() => navigate('/random-name')} className="border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-400 hover:to-orange-500 hover:shadow-lg hover:shadow-amber-500/30"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
+                <Button onClick={() => navigate('/hijaiyah-game')} className="border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30"><BookOpen className="w-4 h-4 mr-2"/> Play Hijaiyah</Button>
             </div>
         </div>
         {guruData && (

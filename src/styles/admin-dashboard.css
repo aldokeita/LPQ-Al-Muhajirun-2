@@ -4740,6 +4740,14 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background: var(--attendance-action-glass);
 }
 
+.attendance-header__action-btn--hijaiyah {
+  --attendance-action-glass: rgb(16 185 129 / 0.82);
+  --attendance-action-glass-hover: rgb(16 185 129 / 0.92);
+  --attendance-action-border: rgb(167 243 208 / 0.5);
+  --attendance-action-shadow: rgb(16 185 129 / 0.3);
+  background: var(--attendance-action-glass);
+}
+
 .admin-stat-card {
   --stat-accent-rgb: 16 185 129;
   border: 0;
@@ -8895,4 +8903,469 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 .dark .santri-glass-modal-scroll {
   scrollbar-color: rgb(45 212 191 / 0.24) transparent;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Hijaiyah Game — Aurora Neo-Glass (emerald/violet/amber triads)
+   ────────────────────────────────────────────────────────────── */
+
+.hijaiyah-game {
+  --hijaiyah-emerald: #10b981;
+  --hijaiyah-violet: #8b5cf6;
+  --hijaiyah-amber: #f59e0b;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 8% 0%, rgb(16 185 129 / 0.16), transparent 34%),
+    radial-gradient(circle at 92% 8%, rgb(139 92 246 / 0.14), transparent 36%),
+    radial-gradient(circle at 50% 100%, rgb(245 158 11 / 0.1), transparent 42%),
+    #f4f6f8;
+}
+
+.hijaiyah-game__ambient {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 20% 30%, rgb(16 185 129 / 0.08), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgb(139 92 246 / 0.08), transparent 40%);
+}
+
+.dark .hijaiyah-game {
+  color: #f1f5f9;
+  background:
+    radial-gradient(circle at 8% 0%, rgb(16 185 129 / 0.12), transparent 34%),
+    radial-gradient(circle at 92% 8%, rgb(139 92 246 / 0.12), transparent 36%),
+    radial-gradient(circle at 50% 100%, rgb(245 158 11 / 0.08), transparent 42%),
+    #0f172a;
+}
+
+.hijaiyah-game__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.hijaiyah-game__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #047857;
+}
+
+.dark .hijaiyah-game__brand { color: #6ee7b7; }
+
+.hijaiyah-game__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 0.9rem;
+  color: #334155;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7), 0 6px 16px -10px rgb(15 23 42 / 0.3);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), background 220ms ease;
+}
+
+.hijaiyah-game__icon-btn:hover { background: rgb(255 255 255 / 0.62); transform: translateY(-1px); }
+
+.dark .hijaiyah-game__icon-btn {
+  border-color: rgb(255 255 255 / 0.1);
+  color: #cbd5e1;
+  background: rgb(255 255 255 / 0.06);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.hijaiyah-game__content {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem 3rem;
+}
+
+.hijaiyah-game__hero { text-align: center; padding: 1.5rem 0 1.75rem; }
+.hijaiyah-game__hero h1 { margin: 0 0 0.5rem; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 900; letter-spacing: -0.02em; }
+.hijaiyah-game__hero p { margin: 0; color: #64748b; font-size: 0.95rem; }
+.dark .hijaiyah-game__hero p { color: #94a3b8; }
+
+.hijaiyah-game__mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.25rem;
+}
+
+.hijaiyah-game__mode-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 1.5rem;
+  border: 1px solid rgb(255 255 255 / 0.72);
+  border-radius: 1.4rem;
+  text-align: left;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--mode-accent) 18%, transparent), transparent 42%),
+    rgb(255 255 255 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.85), 0 18px 42px -26px rgb(15 23 42 / 0.35);
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+  backdrop-filter: blur(24px) saturate(1.35);
+  cursor: pointer;
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 260ms ease;
+}
+
+.hijaiyah-game__mode-card:hover { transform: translateY(-4px); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.9), 0 26px 54px -28px var(--mode-accent); }
+
+.hijaiyah-game__mode-card--disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+.dark .hijaiyah-game__mode-card {
+  border-color: rgb(255 255 255 / 0.1);
+  color: #f1f5f9;
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.hijaiyah-game__mode-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 1rem;
+  color: var(--mode-accent);
+  background: rgb(255 255 255 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 8px 20px -12px var(--mode-accent);
+}
+
+.dark .hijaiyah-game__mode-icon { border-color: rgb(255 255 255 / 0.12); background: rgb(255 255 255 / 0.07); }
+
+.hijaiyah-game__mode-label { font-size: 1.15rem; font-weight: 800; }
+.hijaiyah-game__mode-subtitle { font-size: 0.8rem; font-weight: 700; color: var(--mode-accent); }
+.hijaiyah-game__mode-desc { font-size: 0.82rem; line-height: 1.45; color: #64748b; }
+.dark .hijaiyah-game__mode-desc { color: #94a3b8; }
+
+.hijaiyah-game__mode-points {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mode-accent);
+}
+
+.hijaiyah-game__mode-lock { margin-top: 0.35rem; font-size: 0.72rem; font-weight: 700; color: #94a3b8; }
+
+.hijaiyah-game__section-title { margin: 0 0 1rem; font-size: 1.25rem; font-weight: 800; }
+
+.hijaiyah-game__jilid-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+
+.hijaiyah-game__jilid-chip {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  background: rgb(255 255 255 / 0.4);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.hijaiyah-game__jilid-chip--active { border-color: rgb(16 185 129 / 0.5); color: #fff; background: linear-gradient(135deg, rgb(16 185 129 / 0.85), rgb(13 148 136 / 0.85)); }
+
+.dark .hijaiyah-game__jilid-chip { border-color: rgb(255 255 255 / 0.1); color: #cbd5e1; background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__loading { padding: 3rem 0; text-align: center; color: #64748b; }
+
+.hijaiyah-game__santri-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; max-height: 50dvh; overflow-y: auto; padding: 0.25rem; }
+
+.hijaiyah-game__santri-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgb(255 255 255 / 0.62);
+  border-radius: 1rem;
+  text-align: left;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.hijaiyah-game__santri-card:hover { background: rgb(255 255 255 / 0.6); }
+
+.hijaiyah-game__santri-card--active { border-color: rgb(16 185 129 / 0.5); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 0 0 2px rgb(16 185 129 / 0.2); }
+
+.dark .hijaiyah-game__santri-card { border-color: rgb(255 255 255 / 0.08); background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__santri-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #10b981, #0d9488);
+}
+
+.hijaiyah-game__santri-info { display: flex; flex-direction: column; min-width: 0; }
+.hijaiyah-game__santri-info strong { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hijaiyah-game__santri-info small { color: #64748b; font-size: 0.75rem; }
+.dark .hijaiyah-game__santri-info small { color: #94a3b8; }
+
+.hijaiyah-game__santri-check { margin-left: auto; color: #10b981; flex-shrink: 0; }
+
+.hijaiyah-game__empty { padding: 2rem 0; text-align: center; color: #94a3b8; }
+
+.hijaiyah-game__cta { margin-top: 1.5rem; width: 100%; max-width: 420px; border-radius: 1rem !important; }
+
+.hijaiyah-game__roundbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.hijaiyah-game__roundbar > div:first-child { display: flex; align-items: center; gap: 0.6rem; }
+.hijaiyah-game__roundbar strong { font-size: 0.95rem; }
+.hijaiyah-game__round-pill {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #10b981, #0d9488);
+}
+
+.hijaiyah-game__round-progress { display: flex; gap: 0.35rem; }
+.hijaiyah-game__round-progress span { width: 1.6rem; height: 0.4rem; border-radius: 999px; background: rgb(148 163 184 / 0.35); }
+.hijaiyah-game__round-progress span.hijaiyah-game__round-progress-dot--filled { background: linear-gradient(90deg, #10b981, #0d9488); }
+
+.hijaiyah-game__player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.hijaiyah-game__player-chip small { display: inline-flex; align-items: center; gap: 0.25rem; color: #d97706; font-weight: 800; }
+
+.dark .hijaiyah-game__player-chip { border-color: rgb(255 255 255 / 0.08); background: rgb(255 255 255 / 0.05); }
+
+/* Tracing */
+.hijaiyah-game__tracing { display: flex; flex-direction: column; gap: 1rem; }
+.hijaiyah-game__tracing-prompt { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; text-align: center; }
+.hijaiyah-game__tracing-reading { font-size: 1.6rem; font-weight: 800; color: #047857; }
+.dark .hijaiyah-game__tracing-reading { color: #6ee7b7; }
+.hijaiyah-game__tracing-hint { font-size: 0.85rem; color: #64748b; }
+.dark .hijaiyah-game__tracing-hint { color: #94a3b8; }
+
+.hijaiyah-game__tracing-canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: min(52dvh, 460px);
+  border: 1px solid rgb(255 255 255 / 0.66);
+  border-radius: 1.4rem;
+  background: rgb(255 255 255 / 0.46);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 18px 42px -26px rgb(15 23 42 / 0.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  touch-action: none;
+}
+
+.dark .hijaiyah-game__tracing-canvas-wrap { border-color: rgb(255 255 255 / 0.08); background: rgb(255 255 255 / 0.04); }
+
+.hijaiyah-game__tracing-guide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  pointer-events: none;
+  color: rgb(16 185 129 / 0.16);
+  font-family: 'Amiri', 'Scheherazade', serif;
+  line-height: 1;
+}
+
+.hijaiyah-game__tracing-guide-letter { font-size: clamp(6rem, 24vw, 13rem); }
+.hijaiyah-game__tracing-guide-harakat { font-size: clamp(2.5rem, 8vw, 4rem); margin-top: -0.5rem; }
+
+.hijaiyah-game__tracing-canvas { position: relative; z-index: 2; width: 100%; height: 100%; cursor: crosshair; }
+
+.hijaiyah-game__tracing-actions { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
+
+/* Matching */
+.hijaiyah-game__matching, .hijaiyah-game__finding { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; padding: 1rem 0; }
+.hijaiyah-game__stage-prompt { font-size: 1.05rem; color: #475569; text-align: center; }
+.dark .hijaiyah-game__stage-prompt { color: #cbd5e1; }
+.hijaiyah-game__stage-prompt strong { font-weight: 800; }
+
+.hijaiyah-game__matching-letter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12rem;
+  min-height: 10rem;
+  padding: 0 1.5rem;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--mode-accent) 14%, transparent), transparent 50%),
+    rgb(255 255 255 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.85), 0 20px 50px -30px var(--mode-accent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.dark .hijaiyah-game__matching-letter { border-color: rgb(255 255 255 / 0.1); background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__matching-letter-char { font-size: 5.5rem; font-weight: 700; color: #0f172a; font-family: 'Amiri', 'Scheherazade', serif; line-height: 1; }
+.dark .hijaiyah-game__matching-letter-char { color: #f1f5f9; }
+
+.hijaiyah-game__matching-letter-symbol { position: absolute; top: 0.75rem; right: 1.25rem; font-size: 2.2rem; color: var(--mode-accent); font-family: 'Amiri', 'Scheherazade', serif; }
+
+.hijaiyah-game__matching-options { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+
+.hijaiyah-game__match-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 8.5rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid rgb(255 255 255 / 0.66);
+  border-radius: 1.1rem;
+  font-weight: 700;
+  color: #334155;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.72), 0 10px 24px -18px rgb(15 23 42 / 0.3);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hijaiyah-game__match-option:hover { transform: translateY(-2px); }
+.hijaiyah-game__match-symbol { font-size: 2.6rem; font-family: 'Amiri', 'Scheherazade', serif; line-height: 1; color: var(--mode-accent); }
+.hijaiyah-game__match-option small { color: #94a3b8; font-weight: 600; }
+
+.hijaiyah-game__match-option--correct { border-color: rgb(16 185 129 / 0.6); background: rgb(209 250 229 / 0.7); color: #065f46; }
+.hijaiyah-game__match-option--wrong { border-color: rgb(244 63 94 / 0.55); background: rgb(255 228 230 / 0.7); color: #9f1239; }
+
+.dark .hijaiyah-game__match-option { border-color: rgb(255 255 255 / 0.08); color: #e2e8f0; background: rgb(255 255 255 / 0.05); }
+
+/* Finding */
+.hijaiyah-game__finding-target { font-size: 2.4rem; font-family: 'Amiri', 'Scheherazade', serif; color: var(--mode-accent); vertical-align: middle; margin: 0 0.2rem; }
+
+.hijaiyah-game__finding-grid { display: grid; grid-template-columns: repeat(3, minmax(4.5rem, 7rem)); gap: 0.85rem; justify-content: center; }
+
+.hijaiyah-game__find-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.66);
+  border-radius: 1.1rem;
+  font-family: 'Amiri', 'Scheherazade', serif;
+  font-size: 3.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: rgb(255 255 255 / 0.45);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 12px 28px -22px rgb(15 23 42 / 0.35);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hijaiyah-game__find-cell:hover { transform: translateY(-3px); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.9), 0 18px 34px -22px var(--mode-accent); }
+.hijaiyah-game__find-cell--correct { border-color: rgb(16 185 129 / 0.65); background: rgb(209 250 229 / 0.75); color: #065f46; transform: scale(1.06); }
+.hijaiyah-game__find-cell--wrong { border-color: rgb(244 63 94 / 0.6); background: rgb(255 228 230 / 0.75); color: #9f1239; }
+
+.dark .hijaiyah-game__find-cell { border-color: rgb(255 255 255 / 0.08); color: #f1f5f9; background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__stage-feedback { font-size: 0.95rem; font-weight: 600; color: #065f46; }
+.dark .hijaiyah-game__stage-feedback { color: #6ee7b7; }
+
+/* Result */
+.hijaiyah-game__result { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 1.5rem 0; text-align: center; }
+.hijaiyah-game__result-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.85), 0 20px 50px -26px currentColor;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.hijaiyah-game__result h2 { margin: 0; font-size: 1.7rem; font-weight: 900; }
+.hijaiyah-game__result-name { margin: 0; color: #64748b; font-size: 1rem; }
+.dark .hijaiyah-game__result-name { color: #94a3b8; }
+
+.hijaiyah-game__result-stats { display: flex; gap: 1.5rem; margin: 0.5rem 0; }
+.hijaiyah-game__result-stats div { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; min-width: 6rem; padding: 0.85rem; border: 1px solid rgb(255 255 255 / 0.6); border-radius: 1rem; background: rgb(255 255 255 / 0.4); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.hijaiyah-game__result-stats span { font-size: 1.5rem; font-weight: 900; color: #0f172a; }
+.hijaiyah-game__result-stats small { color: #64748b; font-size: 0.75rem; font-weight: 700; }
+.dark .hijaiyah-game__result-stats div { border-color: rgb(255 255 255 / 0.08); background: rgb(255 255 255 / 0.05); }
+.dark .hijaiyah-game__result-stats span { color: #f1f5f9; }
+.dark .hijaiyah-game__result-stats small { color: #94a3b8; }
+
+.hijaiyah-game__result-validated { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600; color: #047857; }
+.dark .hijaiyah-game__result-validated { color: #6ee7b7; }
+
+.hijaiyah-game__practice-note { font-size: 0.85rem; color: #94a3b8; }
+
+.hijaiyah-game__result-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin-top: 0.5rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hijaiyah-game__mode-card,
+  .hijaiyah-game__find-cell,
+  .hijaiyah-game__match-option,
+  .hijaiyah-game__icon-btn { transition: none; }
 }
