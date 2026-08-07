@@ -796,7 +796,6 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
   const [wrongFlash, setWrongFlash] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   const isInside = (point, rect) =>
     point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
@@ -814,33 +813,17 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
     setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
   };
 
-  const handleTrayDragStart = (event, info) => {
-    setIsDragging(true);
-    const el = event.currentTarget;
-    const rect = el.getBoundingClientRect();
-    dragOffsetRef.current = {
-      x: info.point.x - (rect.left + rect.width / 2),
-      y: info.point.y - (rect.top + rect.height / 2),
-    };
-  };
+  const handleTrayDragStart = () => setIsDragging(true);
 
   const handleLetterDrop = (letter, event, info) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    const dropPoint = {
-      x: info.point.x - dragOffsetRef.current.x,
-      y: info.point.y - dragOffsetRef.current.y,
-    };
-    if (rect && isInside(dropPoint, rect)) addToCanvas('letter', letter, dropPoint, rect);
+    if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
     setIsDragging(false);
   };
 
   const handleHarakatDrop = (harakat, event, info) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    const dropPoint = {
-      x: info.point.x - dragOffsetRef.current.x,
-      y: info.point.y - dragOffsetRef.current.y,
-    };
-    if (rect && isInside(dropPoint, rect)) addToCanvas('harakat', harakat, dropPoint, rect);
+    if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
     setIsDragging(false);
   };
 
@@ -907,7 +890,7 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
             dragElastic={0}
             whileDrag={{ scale: 1.12, zIndex: 30, cursor: 'grabbing' }}
           >
-            {item.kind === 'letter' ? item.value.char : <span className="hijaiyah-game__harakat-preview">{item.value.preview}</span>}
+            {item.kind === 'letter' ? item.value.char : <span className="hijaiyah-game__harakat-preview">{item.value.symbol}</span>}
             <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
@@ -957,7 +940,7 @@ const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, a
                 style={{ '--mode-accent': accent }}
                 aria-disabled={used}
               >
-                <span className="hijaiyah-game__harakat-preview">{harakat.preview}</span>
+                <span className="hijaiyah-game__harakat-preview">{harakat.symbol}</span>
               </motion.button>
             );
           })}
@@ -1093,7 +1076,6 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
   const [wrongFlash, setWrongFlash] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   const isInside = (point, rect) =>
     point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
@@ -1111,33 +1093,17 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
     setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
   };
 
-  const handleTrayDragStart = (event, info) => {
-    setIsDragging(true);
-    const el = event.currentTarget;
-    const rect = el.getBoundingClientRect();
-    dragOffsetRef.current = {
-      x: info.point.x - (rect.left + rect.width / 2),
-      y: info.point.y - (rect.top + rect.height / 2),
-    };
-  };
+  const handleTrayDragStart = () => setIsDragging(true);
 
   const handleLetterDrop = (letter, event, info) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    const dropPoint = {
-      x: info.point.x - dragOffsetRef.current.x,
-      y: info.point.y - dragOffsetRef.current.y,
-    };
-    if (rect && isInside(dropPoint, rect)) addToCanvas('letter', letter, dropPoint, rect);
+    if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
     setIsDragging(false);
   };
 
   const handleHarakatDrop = (harakat, event, info) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    const dropPoint = {
-      x: info.point.x - dragOffsetRef.current.x,
-      y: info.point.y - dragOffsetRef.current.y,
-    };
-    if (rect && isInside(dropPoint, rect)) addToCanvas('harakat', harakat, dropPoint, rect);
+    if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
     setIsDragging(false);
   };
 
@@ -1223,7 +1189,7 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
             dragElastic={0}
             whileDrag={{ scale: 1.12, zIndex: 30, cursor: 'grabbing' }}
           >
-            {item.kind === 'letter' ? item.value.char : <span className="hijaiyah-game__harakat-preview" style={{ color: harakatColor(item.value.id) }}>{item.value.preview}</span>}
+            {item.kind === 'letter' ? item.value.char : <span className="hijaiyah-game__harakat-preview" style={{ color: harakatColor(item.value.id) }}>{item.value.symbol}</span>}
             <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
@@ -1273,7 +1239,7 @@ const ColorMatchStage = ({ pairs, accent, onNext }) => {
                 style={{ '--mode-accent': accent, color }}
                 aria-disabled={used}
               >
-                <span className="hijaiyah-game__harakat-preview" style={{ color }}>{harakat.preview}</span>
+                <span className="hijaiyah-game__harakat-preview" style={{ color }}>{harakat.symbol}</span>
               </motion.button>
             );
           })}
