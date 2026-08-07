@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Banknote, CalendarDays, CreditCard, Download, FileText, Receipt } from 'lucide-react';
+import { Banknote, CalendarDays, CreditCard, Download, FileText, Receipt, TrendingDown, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
@@ -12,6 +12,7 @@ import {
   getJakartaDateParts,
   getPaymentDateParts,
 } from '@/lib/dailyPaymentRecap';
+import { fetchExpensesByPeriod } from '@/lib/financeAdapters';
 import { downloadDailyPaymentPdf, printDailyPaymentHtml } from '@/lib/dailyPaymentReportAdapters';
 import { MONTH_NAMES } from '@/lib/paymentAdapters';
 
@@ -54,6 +55,32 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
   const summary = useMemo(
     () => buildDailyPaymentSummary(filteredPayments),
     [filteredPayments],
+  );
+
+  const selectedDateStr = useMemo(() => {
+    const m = String(filters.month).padStart(2, '0');
+    const d = String(filters.day).padStart(2, '0');
+    return `${filters.year}-${m}-${d}`;
+  }, [filters.year, filters.month, filters.day]);
+
+  const [dayExpenses, setDayExpenses] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    fetchExpensesByPeriod({ year: filters.year, month: filters.month, date: selectedDateStr })
+      .then((data) => { if (active) setDayExpenses(data || []); })
+      .catch(() => { if (active) setDayExpenses([]); });
+    return () => { active = false; };
+  }, [selectedDateStr, filters.year, filters.month]);
+
+  const dayExpenseTotal = useMemo(() =>
+    dayExpenses.reduce((sum, e) => sum + Number(e.jumlah || 0), 0),
+    [dayExpenses],
+  );
+
+  const saldoBersih = useMemo(() =>
+    summary.total - dayExpenseTotal,
+    [summary.total, dayExpenseTotal],
   );
 
   const periodLabel = `${filters.day} ${MONTH_NAMES[Number(filters.month) - 1]} ${filters.year}`;
@@ -139,9 +166,9 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <article className="admin-stat-card admin-stat-card--accent">
-          <p className="admin-stat-card-label">Total Pemasukan Harian</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
+          <p className="admin-stat-card-label">Total Pemasukan</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
         </article>
         <article className="admin-stat-card">
           <p className="admin-stat-card-label">Cash</p><p className="admin-stat-card-value">{formatRupiah(summary.cash)}</p>
@@ -149,8 +176,11 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
         <article className="admin-stat-card admin-stat-card--amber">
           <p className="admin-stat-card-label">Transfer</p><p className="admin-stat-card-value">{formatRupiah(summary.transfer)}</p>
         </article>
-        <article className="admin-stat-card">
-          <p className="admin-stat-card-label">Jumlah Transaksi</p><p className="admin-stat-card-value">{summary.count}</p>
+        <article className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
+          <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value">{formatRupiah(dayExpenseTotal)}</p>
+        </article>
+        <article className="admin-stat-card" style={{ borderColor: 'hsl(215 100% 50% / 0.2)', backgroundColor: 'hsl(215 100% 50% / 0.04)' }}>
+          <p className="admin-stat-card-label"><Wallet className="inline h-3.5 w-3.5 mr-1" />Saldo Bersih</p><p className="admin-stat-card-value">{formatRupiah(saldoBersih)}</p>
         </article>
       </div>
 
@@ -158,6 +188,29 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
           Terdapat metode lain senilai {formatRupiah(summary.other)}. Nilai tersebut tetap masuk ke total harian.
         </p>
+      )}
+
+      {dayExpenses.length > 0 && (
+        <div className="admin-table-shell">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+            <h4 className="text-sm font-bold text-foreground flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-500" /> Pengeluaran {periodLabel}</h4>
+            <span className="text-xs font-semibold text-muted-foreground">{dayExpenses.length} transaksi · {formatRupiah(dayExpenseTotal)}</span>
+          </div>
+          <div className="admin-table-scroll">
+            <table>
+              <thead><tr><th>Kategori</th><th>Keterangan</th><th className="text-right">Jumlah</th></tr></thead>
+              <tbody>
+                {dayExpenses.map((expense) => (
+                  <tr key={expense.id}>
+                    <td>{expense.kategori}</td>
+                    <td className="font-medium">{expense.deskripsi}</td>
+                    <td className="text-right font-semibold text-red-600">-{formatRupiah(expense.jumlah)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       <div className="admin-table-shell">
