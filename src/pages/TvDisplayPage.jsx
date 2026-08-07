@@ -213,7 +213,7 @@ const TvDisplayPage = () => {
         let user = null, userRole = '', sesiUser = '';
 
         // Check Guru
-        let { data: guruData } = await supabase.from('guru').select('id, nama, email, phone, rfid_tag, id_kelas, foto_url, avatar_path, no_hp, gaji_pokok, role, status, created_at, deleted_at').eq('rfid_tag', tag).maybeSingle();
+        let { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('rfid_tag', tag).maybeSingle();
         if (guruData) { 
             user = guruData; userRole = 'guru'; 
             const hour = new Date().getHours();
@@ -343,7 +343,7 @@ const TvDisplayPage = () => {
                         .select('id, nama_lengkap, nama_panggilan, nomor_induk_qiroati, kategori, status, foto_url, avatar_path, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin')
                         .eq('status', 'Aktif')
                         .order('nama_lengkap', { ascending: true }),
-                    supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('attendance_date', today),
+                    supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', today),
                 ]);
 
                 if (classesRes.error) throw classesRes.error;

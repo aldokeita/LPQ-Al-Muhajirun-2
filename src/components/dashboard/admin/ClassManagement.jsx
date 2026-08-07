@@ -411,7 +411,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
             .from('santri')
             .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
             .order('order_in_class', { ascending: true, nullsFirst: false }),
-          supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('attendance_date', today),
+          supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', today),
           supabase.from('website_content').select('content').eq('key', configKey).maybeSingle()
         ]);
 

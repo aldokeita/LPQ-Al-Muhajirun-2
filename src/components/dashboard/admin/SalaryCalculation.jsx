@@ -59,14 +59,14 @@ const SalaryCalculation = () => {
 
     const fetchAllData = async () => {
         setIsLoading(true);
-        const { data: guruList } = await supabase.from('guru').select('id, nama, email, phone, rfid_tag, id_kelas, foto_url, avatar_path, no_hp, gaji_pokok, role, status, created_at, deleted_at').order('nama');
+        const { data: guruList } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').order('nama');
         const { data: classList } = await supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori');
 
         const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
         const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
         
         const { data: calendarData } = await supabase.from('academic_calendar').select('date').gte('date', startDate).lte('date', endDate).eq('is_holiday', true);
-        const { data: att } = await supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('role', 'guru').gte('attendance_date', startDate).lte('attendance_date', endDate);
+        const { data: att } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('role', 'guru').gte('attendance_date', startDate).lte('attendance_date', endDate);
 
         if (guruList && classList && att) {
             setGurus(guruList);

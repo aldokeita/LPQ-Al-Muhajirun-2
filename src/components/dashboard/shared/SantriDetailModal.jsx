@@ -108,7 +108,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         setIsLoadingReportData(true);
         try {
             // Get full attendance history
-            const { data: attData, error: attErr } = await supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('user_id', santri.id);
+            const { data: attData, error: attErr } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('user_id', santri.id);
             if (attErr) throw attErr;
             setAttendanceHistory(attData || []);
 

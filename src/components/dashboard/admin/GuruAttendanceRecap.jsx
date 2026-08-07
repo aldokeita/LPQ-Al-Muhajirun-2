@@ -65,7 +65,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     const fetchData = async () => {
         setIsLoading(true);
 
-        let attQuery = supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('role', 'guru');
+        let attQuery = supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('role', 'guru');
         let guruQuery = supabase.from('guru').select('id, nama, foto_url, no_hp');
         const classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori');
         const overridesQuery = supabase.from('website_content').select('content').eq('key', 'guru_session_overrides').maybeSingle();

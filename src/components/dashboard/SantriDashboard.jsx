@@ -522,7 +522,7 @@ const SantriDashboard = ({ isAdult = false }) => {
         const [hafalanData, submissionsData, attendanceData, juzScoreData, surahScoreData] = await Promise.all([
             supabase.from('hafalan_progress').select('*').eq('santri_id', santri.id),
             supabase.from('murojaah_submissions').select('id,santri_id,type,content,recording_path,status,feedback,submitted_at,reviewed_at,created_at').eq('santri_id', santri.id).order('created_at', { ascending: false }),
-            supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('attendance_date', todayStr).eq('user_id', santri.id),
+            supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', todayStr).eq('user_id', santri.id),
             fetchSantriJuzScores([santri.id]),
             fetchSantriSurahScores([santri.id])
         ]);
@@ -546,7 +546,7 @@ const SantriDashboard = ({ isAdult = false }) => {
                 .select('santri:santri_id(id,nama_lengkap,foto_url,avatar_path,jilid)')
                 .eq('class_id', santri.current_class_id)
                 .eq('status', 'active');
-            const { data: friendsAttendance } = await supabase.from('attendance').select('id, user_id, class_id, attendance_date, sesi, status, check_in_time, role, created_at').eq('attendance_date', todayStr).eq('class_id', santri.current_class_id);
+            const { data: friendsAttendance } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', todayStr).eq('class_id', santri.current_class_id);
             if (classMemberships) {
                 const classmatesWithAvatars = await Promise.all(classMemberships.map(async (item) => {
                     if (!item.santri) return null;
