@@ -46,6 +46,7 @@ const shuffle = (array) => {
 const MODE_ICONS = {
   tracing: Brush,
   matching: Link2,
+  colorMatch: Sparkles,
   finding: Search,
 };
 
@@ -74,12 +75,12 @@ const HijaiyahGamePage = () => {
   const [isAwarding, setIsAwarding] = useState(false);
 
   const loadConfig = useCallback(async () => {
-    const { data } = await supabase
-      .from('website_content')
-      .select('content')
-      .eq('key', HIJAIYAH_CONFIG_KEY)
-      .maybeSingle();
-    if (data?.content) setConfig(data.content);
+    const [configRes, bgRes] = await Promise.all([
+      supabase.from('website_content').select('content').eq('key', HIJAIYAH_CONFIG_KEY).maybeSingle(),
+      supabase.from('website_content').select('content').eq('key', 'hijaiyahFindingBackgroundUrl').maybeSingle(),
+    ]);
+    if (configRes.data?.content) setConfig(configRes.data.content);
+    if (bgRes.data?.content) setConfig((prev) => ({ ...prev, backgroundUrl: bgRes.data.content }));
   }, []);
 
   useEffect(() => {
@@ -132,7 +133,7 @@ const HijaiyahGamePage = () => {
       const harakat = HARAKAT[Math.floor(Math.random() * HARAKAT.length)];
       return { letter, harakat, reading: readLetterHarakat(letter.char, harakat) };
     }
-    if (modeId === 'matching') {
+    if (modeId === 'matching' || modeId === 'colorMatch') {
       const target = pool[Math.floor(Math.random() * pool.length)];
       const decoys = shuffle(pool.filter((l) => l.char !== target.char)).slice(0, 2);
       const letterOptions = shuffle([target, ...decoys]);
@@ -230,7 +231,7 @@ const HijaiyahGamePage = () => {
     setLetterPool(HIJAIYAH_LETTERS);
   };
 
-  const backTarget = isPracticeMode ? '/dashboard' : '/absensi-digital';
+  const backTarget = '/dashboard';
 
   const toggleLetter = (char) => {
     setLetterPool((prev) =>
@@ -471,6 +472,16 @@ const HijaiyahGamePage = () => {
                   )}
                   {activeMode.id === 'matching' && (
                     <MatchingStage
+                      target={roundData.target}
+                      targetHarakat={roundData.targetHarakat}
+                      letterOptions={roundData.letterOptions}
+                      harakatOptions={roundData.harakatOptions}
+                      accent={activeMode.color}
+                      onNext={nextRound}
+                    />
+                  )}
+                  {activeMode.id === 'colorMatch' && (
+                    <ColorMatchStage
                       target={roundData.target}
                       targetHarakat={roundData.targetHarakat}
                       letterOptions={roundData.letterOptions}
@@ -884,6 +895,146 @@ const FindingStage = ({ targets, scatter, accent, backgroundUrl, onNext }) => {
       {success && (
         <p className="hijaiyah-game__stage-feedback">
           <CheckCircle2 className="h-4 w-4 inline mr-1" /> Hebat! Kamu menemukan semua huruf.
+        </p>
+      )}
+    </div>
+  );
+};
+
+const ColorMatchStage = ({ target, targetHarakat, letterOptions, harakatOptions, accent, onNext }) => {
+  const canvasRef = useRef(null);
+  const [placed, setPlaced] = useState([]);
+  const [wrongFlash, setWrongFlash] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const isInside = (point, rect) =>
+    point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+
+  const addToCanvas = (kind, value, point, rect) => {
+    const x = point.x - rect.left;
+    const y = point.y - rect.top;
+    setPlaced((prev) => [...prev, { id: `${kind}-${Date.now()}-${Math.random()}`, kind, value, x, y }]);
+  };
+
+  const handleLetterDrop = (letter, event, info) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) addToCanvas('letter', letter, info.point, rect);
+  };
+
+  const handleHarakatDrop = (harakat, event, info) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) addToCanvas('harakat', harakat, info.point, rect);
+  };
+
+  const removePlaced = (id) => setPlaced((prev) => prev.filter((p) => p.id !== id));
+
+  const checkAnswer = () => {
+    const hasLetter = placed.some((p) => p.kind === 'letter' && p.value.char === target.char);
+    const hasHarakat = placed.some((p) => p.kind === 'harakat' && p.value.id === targetHarakat.id);
+    if (hasLetter && hasHarakat) {
+      setSuccess(true);
+      setTimeout(onNext, 1000);
+    } else {
+      setWrongFlash(true);
+      setTimeout(() => setWrongFlash(false), 900);
+    }
+  };
+
+  const targetReading = combineLetterHarakat(target.char, targetHarakat.symbol);
+
+  return (
+    <div className="hijaiyah-game__matching hijaiyah-game__colormatch">
+      <p className="hijaiyah-game__stage-prompt">
+        Guru menyebutkan: <strong className="hijaiyah-game__matching-target">{targetReading}</strong>
+        <span className="hijaiyah-game__matching-target-name"> ({target.name} — {targetHarakat.name})</span>
+      </p>
+      <div className="hijaiyah-game__colormatch-key">
+        <span>Warna harakat:</span>
+        {HARAKAT.map((h) => (
+          <span key={h.id} className="hijaiyah-game__colormatch-key-item">
+            <span className="hijaiyah-game__colormatch-key-swatch" style={{ background: h.color }} />
+            {h.name}
+          </span>
+        ))}
+      </div>
+      <p className="hijaiyah-game__matching-hint">
+        Cocokkan huruf dengan harakat yang berwarna tepat, lalu letakkan di area kosong.
+      </p>
+
+      <div className="hijaiyah-game__matching-canvas" ref={canvasRef}>
+        <span className="hijaiyah-game__matching-canvas-label">Area bebas — letakkan huruf & harakat berwarna di sini</span>
+        {placed.map((item) => (
+          <motion.div
+            key={item.id}
+            className={`hijaiyah-game__matching-canvas-item ${item.kind === 'harakat' ? 'hijaiyah-game__matching-canvas-item--harakat' : ''}`}
+            style={{ left: item.x, top: item.y, '--mode-accent': accent, color: item.kind === 'harakat' ? item.value.color : undefined }}
+            drag
+            dragMomentum={false}
+            whileDrag={{ scale: 1.12, zIndex: 30 }}
+          >
+            {item.kind === 'letter' ? item.value.char : <><span style={{ color: item.value.color }}>{item.value.symbol}</span><small>{item.value.name}</small></>}
+            <button type="button" className="hijaiyah-game__matching-canvas-remove" onClick={() => removePlaced(item.id)} aria-label="Hapus"><X className="h-3 w-3" /></button>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="hijaiyah-game__matching-tray">
+        <p className="hijaiyah-game__matching-tray-label">Huruf</p>
+        <div className="hijaiyah-game__matching-pieces">
+          {letterOptions.map((letter) => (
+            <motion.button
+              key={letter.char}
+              type="button"
+              drag
+              dragSnapToOrigin
+              dragMomentum={false}
+              whileDrag={{ scale: 1.15, zIndex: 20 }}
+              onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+              className="hijaiyah-game__matching-piece"
+              style={{ '--mode-accent': accent }}
+            >
+              {letter.char}
+            </motion.button>
+          ))}
+        </div>
+        <p className="hijaiyah-game__matching-tray-label">Harakat (perhatikan warnanya)</p>
+        <div className="hijaiyah-game__matching-pieces">
+          {harakatOptions.map((harakat) => (
+            <motion.button
+              key={harakat.id}
+              type="button"
+              drag
+              dragSnapToOrigin
+              dragMomentum={false}
+              whileDrag={{ scale: 1.15, zIndex: 20 }}
+              onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
+              className="hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat"
+              style={{ '--mode-accent': accent, color: harakat.color }}
+            >
+              <span style={{ color: harakat.color }}>{harakat.symbol}</span>
+              <span style={{ color: harakat.color }}>{harakat.name}</span>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      <div className="hijaiyah-game__matching-actions">
+        <Button type="button" variant="outline" onClick={() => setPlaced([])} disabled={placed.length === 0}>
+          <X className="w-4 h-4 mr-1" /> Kosongkan
+        </Button>
+        <Button type="button" onClick={checkAnswer} disabled={placed.length === 0} style={{ background: accent }}>
+          <Check className="w-4 h-4 mr-1" /> Periksa Jawaban
+        </Button>
+      </div>
+
+      {wrongFlash && (
+        <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
+          <XCircle className="h-4 w-4 inline mr-1" /> Belum tepat, coba lagi.
+        </p>
+      )}
+      {success && (
+        <p className="hijaiyah-game__stage-feedback">
+          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Benar! {targetReading} — {targetHarakat.name} berwarna sesuai.
         </p>
       )}
     </div>

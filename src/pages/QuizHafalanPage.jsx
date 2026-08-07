@@ -442,7 +442,7 @@ const QuizHafalanPage = () => {
 
       <div className={`relative z-20 p-4 flex justify-between items-center border-b ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-slate-200 bg-white/50'} backdrop-blur-md`}>
           <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" className={isDark ? "text-white hover:bg-white/10" : "text-slate-800 hover:bg-slate-200"} onClick={() => navigate(isPracticeMode ? '/dashboard' : '/absensi-digital')}><ArrowLeft className="w-5 h-5 mr-2" /> Exit</Button>
+              <Button variant="ghost" size="sm" className={isDark ? "text-white hover:bg-white/10" : "text-slate-800 hover:bg-slate-200"} onClick={() => navigate('/dashboard')}><ArrowLeft className="w-5 h-5 mr-2" /> Exit</Button>
               <h1 className="text-xl font-bold tracking-wider flex items-center gap-2"><Gamepad2 className="w-6 h-6 text-purple-400" /> QUIZ HAFALAN {isPracticeMode && "(LATIHAN)"}</h1>
           </div>
           {!isPracticeMode && (

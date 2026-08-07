@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart, Save } from 'lucide-react';
+import { Plus, Trash2, Gamepad2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart, Save } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -165,7 +165,7 @@ const HafalanItemManager = ({
 
 const ContentManagement = () => {
   const [content, setContent] = useState({
-    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', qiroatiLogoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
+    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', qiroatiLogoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, hijaiyahFindingBackgroundUrl: '', santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
   });
 
   const [feedbacks, setFeedbacks] = useState([]);
@@ -254,13 +254,14 @@ const ContentManagement = () => {
     else if (['brochures', 'pustaka'].includes(type)) folder = type;
     else if (['logoUrl', 'qiroatiLogoUrl'].includes(type)) folder = 'logos';
     else if (type === 'ctaBackgroundUrl') folder = 'backgrounds';
+    else if (type === 'hijaiyahFindingBackground') folder = 'hijaiyah';
     else if (type === 'heroSlides') folder = 'hero-slides';
     else if (type === 'galleryPhotos') folder = 'gallery';
     else if (type === 'testimonials') folder = 'testimonials';
 
     const assetKey = type === 'logoUrl'
       ? 'logo'
-      : (type === 'qiroatiLogoUrl' ? 'qiroati-logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : null));
+      : (type === 'qiroatiLogoUrl' ? 'qiroati-logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : (type === 'hijaiyahFindingBackground' ? 'hijaiyah-finding-bg' : null)));
     let publicUrl = '';
     try {
       const result = await uploadWebsiteAsset({ folder, key: assetKey, file });
@@ -288,6 +289,7 @@ const ContentManagement = () => {
       return;
     }
     if (type === 'ctaBackgroundUrl') { setContent(prev => ({ ...prev, [type]: publicUrl })); }
+    else if (type === 'hijaiyahFindingBackground') { setContent(prev => ({ ...prev, [type]: publicUrl })); }
     else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); }
     else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); }
     else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); }
@@ -671,6 +673,7 @@ const ContentManagement = () => {
 
         <TabsContent value="media" className="grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2">
             <div className="col-span-full"><ContentSection title="Galeri Kegiatan" modalType="galleryPhotos" data={content.galleryPhotos} icon={<ImageIcon/>} renderItem={item => <div className="flex items-center gap-2"><img src={item.url} className="w-12 h-12 object-cover rounded-md" /><p className="truncate">{item.caption}</p></div>} /></div>
+            <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Gamepad2/> Background Mencari Hijaiyah</h3><p className="text-sm text-muted-foreground">Latar gambar untuk mode Mencari pada permainan Play Hijaiyah. Unggah gambar pemandangan (mis. hutan) agar terlihat realistis.</p><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'hijaiyahFindingBackground')} />{content.hijaiyahFindingBackgroundUrl ? (<><img src={content.hijaiyahFindingBackgroundUrl} alt="Preview background hijaiyah" className="w-full h-40 object-cover rounded-md mt-2" /><Button variant="ghost" size="sm" onClick={() => setContent(prev => ({ ...prev, hijaiyahFindingBackgroundUrl: '' }))} className="text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Hapus</Button></>) : <p className="text-sm text-muted-foreground">Belum ada background. Gunakan scene bawaan sementara.</p>}</div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><FileText/> Brosur Pendaftaran</h3><Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, 'brochures')} /><div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">{content.brochures.map(file => (<div key={file.id} className="flex justify-between items-center p-2 border rounded-lg bg-background"><span>{file.name}</span><Button variant="ghost" size="icon" onClick={() => handleDeleteItem('brochures', file.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></div>))}</div></div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Library/> Pustaka Digital</h3><Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, 'pustaka')} /><div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">{content.pustaka.map(file => (<div key={file.id} className="flex justify-between items-center p-2 border rounded-lg bg-background"><span>{file.name}</span><Button variant="ghost" size="icon" onClick={() => handleDeleteItem('pustaka', file.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></div>))}</div></div>
             <ContentSection title="Berita" modalType="news" data={content.news} icon={<BookCopy/>} renderItem={item => <p className="truncate">{item.title}</p>} />

@@ -30,9 +30,9 @@ export const HIJAIYAH_LETTERS = [
 ];
 
 export const HARAKAT = [
-  { id: 'fathah', symbol: '\u064E', name: 'Fathah', sound: 'a' },
-  { id: 'kasrah', symbol: '\u0650', name: 'Kasrah', sound: 'i' },
-  { id: 'dhammah', symbol: '\u064F', name: 'Dhammah', sound: 'u' },
+  { id: 'fathah', symbol: '\u064E', name: 'Fathah', sound: 'a', color: '#10b981' },
+  { id: 'kasrah', symbol: '\u0650', name: 'Kasrah', sound: 'i', color: '#2563eb' },
+  { id: 'dhammah', symbol: '\u064F', name: 'Dhammah', sound: 'u', color: '#ea580c' },
 ];
 
 export const combineLetterHarakat = (char, harakatSymbol) => `${char}${harakatSymbol}`;
@@ -57,6 +57,13 @@ export const MODES = [
     subtitle: 'Seret huruf & harakat',
     description: 'Guru menyebutkan huruf dengan harakatnya. Seret huruf dan harakat ke kotak jawaban.',
     color: '#8b5cf6',
+  },
+  {
+    id: 'colorMatch',
+    label: 'Pasang Warna',
+    subtitle: 'Huruf & harakat sesuai warna',
+    description: 'Cocokkan huruf dengan harakat berdasarkan warna: Fathah hijau, Kasrah biru, Dhammah oranye.',
+    color: '#ec4899',
   },
   {
     id: 'finding',
