@@ -428,6 +428,19 @@
     font-size: 2rem;
   }
 }
+.daily-recap-value {
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 768px) {
+  .daily-recap-value {
+    font-size: 1.4rem;
+  }
+}
+
 
 /* Content layer — above icon, prevents text overlap */
 .admin-stat-card-content {

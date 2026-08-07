@@ -168,19 +168,19 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <article className="admin-stat-card admin-stat-card--accent">
-          <p className="admin-stat-card-label">Total Pemasukan</p><p className="admin-stat-card-value">{formatRupiah(summary.total)}</p>
+          <p className="admin-stat-card-label">Total Pemasukan</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.total)}</p>
         </article>
         <article className="admin-stat-card">
-          <p className="admin-stat-card-label">Cash</p><p className="admin-stat-card-value">{formatRupiah(summary.cash)}</p>
+          <p className="admin-stat-card-label">Cash</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.cash)}</p>
         </article>
         <article className="admin-stat-card admin-stat-card--amber">
-          <p className="admin-stat-card-label">Transfer</p><p className="admin-stat-card-value">{formatRupiah(summary.transfer)}</p>
+          <p className="admin-stat-card-label">Transfer</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.transfer)}</p>
         </article>
         <article className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
-          <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value">{formatRupiah(dayExpenseTotal)}</p>
+          <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(dayExpenseTotal)}</p>
         </article>
         <article className="admin-stat-card" style={{ borderColor: 'hsl(215 100% 50% / 0.2)', backgroundColor: 'hsl(215 100% 50% / 0.04)' }}>
-          <p className="admin-stat-card-label"><Wallet className="inline h-3.5 w-3.5 mr-1" />Saldo Bersih</p><p className="admin-stat-card-value">{formatRupiah(saldoBersih)}</p>
+          <p className="admin-stat-card-label"><Wallet className="inline h-3.5 w-3.5 mr-1" />Saldo Bersih</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(saldoBersih)}</p>
         </article>
       </div>
 
