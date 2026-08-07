@@ -13,27 +13,23 @@ import {
   Brush,
   Check,
   CheckCircle2,
-  Gamepad2,
-  Grid3X3,
   Link2,
   Moon,
-  Pencil,
   Search,
   Sparkles,
   Star,
   Sun,
-  Trophy,
   UserCheck,
-  Users,
   X,
   XCircle,
 } from 'lucide-react';
 import {
+  combineLetterHarakat,
   HARAKAT,
-  HARAKAT_READING,
   HIJAIYAH_LETTERS,
-  JILID_OPTIONS,
   MODES,
+  readLetterHarakat,
+  REWARD_OPTIONS,
 } from '@/data/hijaiyahData';
 
 const HIJAIYAH_CONFIG_KEY = 'hijaiyah_game_config';
@@ -53,12 +49,6 @@ const MODE_ICONS = {
   finding: Search,
 };
 
-const MODE_ACCENT = {
-  tracing: 'var(--hijaiyah-emerald, #10b981)',
-  matching: 'var(--hijaiyah-violet, #8b5cf6)',
-  finding: 'var(--hijaiyah-amber, #f59e0b)',
-};
-
 const TOTAL_ROUNDS = 5;
 
 const HijaiyahGamePage = () => {
@@ -67,21 +57,21 @@ const HijaiyahGamePage = () => {
   const { user, role } = useAuth();
   const isPracticeMode = role === 'santri';
 
-  const [gameState, setGameState] = useState('home'); // home, pick_santri, playing, result
+  const [gameState, setGameState] = useState('home'); // home, pick_letters, pick_santri, playing, result
   const [activeMode, setActiveMode] = useState(null);
   const [santriList, setSantriList] = useState([]);
   const [selectedSantriId, setSelectedSantriId] = useState('');
   const [currentSantri, setCurrentSantri] = useState(null);
   const [isRosterLoading, setIsRosterLoading] = useState(true);
   const [isPlayerLoading, setIsPlayerLoading] = useState(false);
-  const [config, setConfig] = useState({ modes: {}, jilid: '1' });
-  const [jilid, setJilid] = useState('1');
+  const [config, setConfig] = useState({ modes: {} });
 
+  const [letterPool, setLetterPool] = useState(HIJAIYAH_LETTERS);
+  const [letterSearch, setLetterSearch] = useState('');
   const [roundIndex, setRoundIndex] = useState(0);
   const [roundData, setRoundData] = useState(null);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [validationGuru, setValidationGuru] = useState(null);
-  const [resultType, setResultType] = useState('self');
+  const [rewardAmount, setRewardAmount] = useState(null);
+  const [isAwarding, setIsAwarding] = useState(false);
 
   const loadConfig = useCallback(async () => {
     const { data } = await supabase
@@ -89,10 +79,7 @@ const HijaiyahGamePage = () => {
       .select('content')
       .eq('key', HIJAIYAH_CONFIG_KEY)
       .maybeSingle();
-    if (data?.content) {
-      setConfig(data.content);
-      if (data.content.jilid) setJilid(data.content.jilid);
-    }
+    if (data?.content) setConfig(data.content);
   }, []);
 
   useEffect(() => {
@@ -126,41 +113,38 @@ const HijaiyahGamePage = () => {
     }
   }, [isPracticeMode, user]);
 
-  const modeEnabled = (modeId) => {
-    const modeConfig = config.modes?.[modeId];
-    return modeConfig !== false;
-  };
-
-  const enabledModes = useMemo(
-    () => MODES.filter((mode) => modeEnabled(mode.id)),
-    [config.modes],
-  );
+  const modeEnabled = (modeId) => config.modes?.[modeId] !== false;
 
   const generateRound = (modeId) => {
+    const pool = letterPool.length > 0 ? letterPool : HIJAIYAH_LETTERS;
     if (modeId === 'tracing') {
-      const letter = HIJAIYAH_LETTERS[Math.floor(Math.random() * HIJAIYAH_LETTERS.length)];
+      const letter = pool[Math.floor(Math.random() * pool.length)];
       const harakat = HARAKAT[Math.floor(Math.random() * HARAKAT.length)];
-      return { letter, harakat, reading: HARAKAT_READING[harakat.id](letter.char) };
+      return { letter, harakat, reading: readLetterHarakat(letter.char, harakat) };
     }
     if (modeId === 'matching') {
-      const letter = HIJAIYAH_LETTERS[Math.floor(Math.random() * HIJAIYAH_LETTERS.length)];
-      const correct = HARAKAT[Math.floor(Math.random() * HARAKAT.length)];
-      const options = shuffle([...HARAKAT]);
-      return { letter, correct, options };
+      const target = pool[Math.floor(Math.random() * pool.length)];
+      const decoys = shuffle(pool.filter((l) => l.char !== target.char)).slice(0, 2);
+      const letterOptions = shuffle([target, ...decoys]);
+      const targetHarakat = HARAKAT[Math.floor(Math.random() * HARAKAT.length)];
+      const harakatOptions = shuffle([...HARAKAT]);
+      return { target, targetHarakat, letterOptions, harakatOptions };
     }
-    const letter = HIJAIYAH_LETTERS[Math.floor(Math.random() * HIJAIYAH_LETTERS.length)];
-    const grid = shuffle([...HIJAIYAH_LETTERS]).slice(0, 9);
-    if (!grid.some((l) => l.char === letter.char)) grid[Math.floor(Math.random() * grid.length)] = letter;
-    return { letter, grid: shuffle(grid) };
+    const target = pool[Math.floor(Math.random() * pool.length)];
+    const decoys = shuffle(HIJAIYAH_LETTERS.filter((l) => l.char !== target.char)).slice(0, 14);
+    return { target, decoys };
   };
 
   const startGame = (mode) => {
     setActiveMode(mode);
     setRoundIndex(0);
-    setCorrectCount(0);
-    setValidationGuru(null);
-    setResultType('self');
+    setRewardAmount(null);
     setRoundData(generateRound(mode.id));
+    setGameState('pick_letters');
+  };
+
+  const confirmLetters = () => {
+    setRoundData(generateRound(activeMode.id));
     setGameState(isPracticeMode ? 'playing' : 'pick_santri');
   };
 
@@ -191,23 +175,13 @@ const HijaiyahGamePage = () => {
     setRoundData(generateRound(activeMode.id));
   };
 
-  const handleAnswer = async (isCorrect) => {
-    if (isCorrect) setCorrectCount((prev) => prev + 1);
-    setValidationGuru({ nama: user?.nama || user?.nama_lengkap || 'Guru' });
-    setResultType('guru');
-  };
-
-  const awardPoints = async () => {
+  const awardReward = async (amount) => {
     if (!currentSantri) return;
-    const points = activeMode.pointsPerRound * correctCount;
-    if (points <= 0) {
-      setGameState('result');
-      return;
-    }
-    const newPoints = (Number(currentSantri.points) || 0) + points;
+    setIsAwarding(true);
+    const newPoints = (Number(currentSantri.points) || 0) + amount;
     const { error: rpcError } = await supabase.rpc('increment_santri_points', {
       p_santri_id: currentSantri.id,
-      p_amount: points,
+      p_amount: amount,
     });
     if (rpcError) {
       const { error: fallbackError } = await supabase
@@ -216,23 +190,41 @@ const HijaiyahGamePage = () => {
         .eq('id', currentSantri.id);
       if (fallbackError) {
         toast({ title: 'Gagal Update Poin', description: fallbackError.message, variant: 'destructive' });
+        setIsAwarding(false);
         return;
       }
     }
     setCurrentSantri((prev) => ({ ...prev, points: newPoints }));
+    setRewardAmount(amount);
+    setIsAwarding(false);
   };
 
   const resetGame = () => {
     setGameState('home');
     setActiveMode(null);
     setCurrentSantri(null);
-    setValidationGuru(null);
+    setRewardAmount(null);
     setRoundData(null);
+    setLetterPool(HIJAIYAH_LETTERS);
   };
 
   const backTarget = isPracticeMode ? '/dashboard' : '/absensi-digital';
 
-  const totalPoints = activeMode ? activeMode.pointsPerRound * correctCount : 0;
+  const toggleLetter = (char) => {
+    setLetterPool((prev) =>
+      prev.some((l) => l.char === char)
+        ? prev.filter((l) => l.char !== char)
+        : [...prev, HIJAIYAH_LETTERS.find((l) => l.char === char)],
+    );
+  };
+
+  const filteredLetters = useMemo(() => {
+    const q = letterSearch.trim().toLowerCase();
+    if (!q) return HIJAIYAH_LETTERS;
+    return HIJAIYAH_LETTERS.filter(
+      (l) => l.name.toLowerCase().includes(q) || l.char === letterSearch.trim(),
+    );
+  }, [letterSearch]);
 
   return (
     <main className="hijaiyah-game min-h-screen w-full overflow-x-hidden">
@@ -288,14 +280,69 @@ const HijaiyahGamePage = () => {
                       <span className="hijaiyah-game__mode-label">{mode.label}</span>
                       <span className="hijaiyah-game__mode-subtitle">{mode.subtitle}</span>
                       <span className="hijaiyah-game__mode-desc">{mode.description}</span>
-                      <span className="hijaiyah-game__mode-points">
-                        <Star className="h-3.5 w-3.5" /> +{mode.pointsPerRound} poin per jawaban benar
-                      </span>
                       {!enabled && <span className="hijaiyah-game__mode-lock">Dinonaktifkan</span>}
                     </button>
                   );
                 })}
               </div>
+            </motion.section>
+          )}
+
+          {gameState === 'pick_letters' && activeMode && (
+            <motion.section
+              key="letters"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -24 }}
+              transition={{ duration: 0.3 }}
+              className="hijaiyah-game__letters"
+            >
+              <h2 className="hijaiyah-game__section-title">{activeMode.label} — Pilih Huruf</h2>
+              <p className="hijaiyah-game__letters-hint">Guru memilih huruf yang ingin dimainkan. Bisa dicari berdasarkan nama huruf.</p>
+
+              <div className="hijaiyah-game__letter-search">
+                <Search className="h-4 w-4 hijaiyah-game__letter-search-icon" />
+                <input
+                  type="text"
+                  value={letterSearch}
+                  onChange={(e) => setLetterSearch(e.target.value)}
+                  placeholder="Cari nama huruf… (contoh: Ba, Sin, Nun)"
+                  className="hijaiyah-game__letter-search-input"
+                />
+              </div>
+
+              <div className="hijaiyah-game__letter-count">
+                {letterPool.length} dari {HIJAIYAH_LETTERS.length} huruf dipilih
+              </div>
+
+              <div className="hijaiyah-game__letter-grid">
+                {filteredLetters.map((letter) => {
+                  const selected = letterPool.some((l) => l.char === letter.char);
+                  return (
+                    <button
+                      key={letter.char}
+                      type="button"
+                      onClick={() => toggleLetter(letter.char)}
+                      className={`hijaiyah-game__letter-cell ${selected ? 'hijaiyah-game__letter-cell--active' : ''}`}
+                    >
+                      <span className="hijaiyah-game__letter-cell-char">{letter.char}</span>
+                      <span className="hijaiyah-game__letter-cell-name">{letter.name}</span>
+                      {selected && <Check className="h-4 w-4 hijaiyah-game__letter-cell-check" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <Button
+                type="button"
+                size="lg"
+                onClick={confirmLetters}
+                disabled={letterPool.length === 0}
+                className="hijaiyah-game__cta"
+                style={{ background: activeMode.color }}
+              >
+                Lanjut — {letterPool.length} Huruf
+              </Button>
             </motion.section>
           )}
 
@@ -309,18 +356,6 @@ const HijaiyahGamePage = () => {
               className="hijaiyah-game__roster"
             >
               <h2 className="hijaiyah-game__section-title">{activeMode.label} — Pilih Santri</h2>
-              <div className="hijaiyah-game__jilid-row">
-                {JILID_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setJilid(opt.value)}
-                    className={`hijaiyah-game__jilid-chip ${jilid === opt.value ? 'hijaiyah-game__jilid-chip--active' : ''}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
 
               {isRosterLoading ? (
                 <div className="hijaiyah-game__loading">Memuat daftar santri…</div>
@@ -383,7 +418,6 @@ const HijaiyahGamePage = () => {
 
               <div className="hijaiyah-game__player-chip">
                 <span>{currentSantri.nama_lengkap}</span>
-                <small><Star className="h-3 w-3" /> {currentSantri.points || 0}</small>
               </div>
 
               <AnimatePresence mode="wait">
@@ -405,25 +439,20 @@ const HijaiyahGamePage = () => {
                   )}
                   {activeMode.id === 'matching' && (
                     <MatchingStage
-                      letter={roundData.letter}
-                      correct={roundData.correct}
-                      options={roundData.options}
+                      target={roundData.target}
+                      targetHarakat={roundData.targetHarakat}
+                      letterOptions={roundData.letterOptions}
+                      harakatOptions={roundData.harakatOptions}
                       accent={activeMode.color}
-                      onAnswer={(isCorrect) => {
-                        handleAnswer(isCorrect);
-                        setTimeout(nextRound, 400);
-                      }}
+                      onNext={nextRound}
                     />
                   )}
                   {activeMode.id === 'finding' && (
                     <FindingStage
-                      letter={roundData.letter}
-                      grid={roundData.grid}
+                      target={roundData.target}
+                      decoys={roundData.decoys}
                       accent={activeMode.color}
-                      onAnswer={(isCorrect) => {
-                        handleAnswer(isCorrect);
-                        setTimeout(nextRound, 400);
-                      }}
+                      onNext={nextRound}
                     />
                   )}
                 </motion.div>
@@ -441,41 +470,41 @@ const HijaiyahGamePage = () => {
               className="hijaiyah-game__result"
             >
               <span className="hijaiyah-game__result-icon" style={{ color: activeMode.color }}>
-                <Trophy className="h-10 w-10" />
+                <Sparkles className="h-10 w-10" />
               </span>
               <h2>Permainan Selesai!</h2>
-              <p className="hijaiyah-game__result-name">{currentSantri.nama_lengkap}</p>
+              <p className="hijaiyah-game__result-name">{currentSantri.nama_lengkap} · {activeMode.label}</p>
 
-              <div className="hijaiyah-game__result-stats">
-                <div><span>{correctCount}</span><small>Jawaban Benar</small></div>
-                <div><span>{TOTAL_ROUNDS - correctCount}</span><small>Belum Tepat</small></div>
-                <div><span>+{totalPoints}</span><small>Poin</small></div>
-              </div>
-
-              {resultType === 'guru' && validationGuru ? (
-                <p className="hijaiyah-game__result-validated">
-                  <UserCheck className="h-4 w-4" /> Divalidasi oleh {validationGuru.nama}
-                </p>
-              ) : (
-                <p className="hijaiyah-game__result-validated">
-                  <UserCheck className="h-4 w-4" /> Menunggu persetujuan guru
-                </p>
-              )}
-
-              {!isPracticeMode && resultType === 'self' && (
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={awardPoints}
-                  className="hijaiyah-game__cta"
-                  style={{ background: activeMode.color }}
-                >
-                  <CheckCircle2 className="w-5 h-5 mr-2" /> Setujui & Tambah {totalPoints} Poin
-                </Button>
-              )}
-
-              {isPracticeMode && (
+              {rewardAmount !== null ? (
+                <div className="hijaiyah-game__reward-given">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                  <p className="hijaiyah-game__reward-given-title">Berhasil!</p>
+                  <p className="hijaiyah-game__reward-given-sub">+{rewardAmount} poin diberikan kepada {currentSantri.nama_lengkap}</p>
+                </div>
+              ) : isPracticeMode ? (
                 <p className="hijaiyah-game__practice-note">Mode latihan — poin tidak ditambahkan.</p>
+              ) : (
+                <div className="hijaiyah-game__reward-box">
+                  <p className="hijaiyah-game__reward-label">
+                    <UserCheck className="h-4 w-4" /> Guru memberikan reward poin
+                  </p>
+                  <div className="hijaiyah-game__reward-options">
+                    {REWARD_OPTIONS.map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        disabled={isAwarding}
+                        onClick={() => awardReward(amount)}
+                        className="hijaiyah-game__reward-btn"
+                        style={{ '--mode-accent': activeMode.color }}
+                      >
+                        <Star className="h-6 w-6" />
+                        <span className="hijaiyah-game__reward-amount">+{amount}</span>
+                        <span className="hijaiyah-game__reward-unit">poin</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
 
               <div className="hijaiyah-game__result-actions">
@@ -499,7 +528,6 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
   const drawing = useRef(false);
   const lastPoint = useRef(null);
   const [hasStrokes, setHasStrokes] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
 
   const getPoint = (event) => {
     const canvas = canvasRef.current;
@@ -564,24 +592,24 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
     const ctx = canvas?.getContext('2d');
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasStrokes(false);
-    setConfirmed(false);
   };
 
   const confirmTrace = () => {
-    setConfirmed(true);
-    setTimeout(onNext, 500);
+    setTimeout(onNext, 400);
   };
+
+  const combined = combineLetterHarakat(letter.char, harakat.symbol);
 
   return (
     <div className="hijaiyah-game__tracing">
       <div className="hijaiyah-game__tracing-prompt">
-        <span className="hijaiyah-game__tracing-reading">{reading}</span>
-        <span className="hijaiyah-game__tracing-hint">Tebalkan huruf {letter.name} dengan harakat {harakat.name.toLowerCase()} di bawah ini</span>
+        <span className="hijaiyah-game__tracing-reading">{combined}</span>
+        <span className="hijaiyah-game__tracing-guide-text">{letter.name} · Harakat {harakat.name}</span>
+        <span className="hijaiyah-game__tracing-hint">Guru membacakan: “{reading}” — tebalkan hurufnya di bawah ini</span>
       </div>
       <div className="hijaiyah-game__tracing-canvas-wrap">
         <div className="hijaiyah-game__tracing-guide" aria-hidden="true">
-          <span className="hijaiyah-game__tracing-guide-letter">{letter.char}</span>
-          <span className="hijaiyah-game__tracing-guide-harakat">{harakat.symbol}</span>
+          <span className="hijaiyah-game__tracing-guide-letter">{combined}</span>
         </div>
         <canvas
           ref={canvasRef}
@@ -593,7 +621,7 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
         />
       </div>
       <div className="hijaiyah-game__tracing-actions">
-        <Button type="button" variant="outline" onClick={clearCanvas} disabled={!hasStrokes && !confirmed}>
+        <Button type="button" variant="outline" onClick={clearCanvas} disabled={!hasStrokes}>
           <X className="w-4 h-4 mr-1" /> Bersihkan
         </Button>
         <Button type="button" onClick={confirmTrace} disabled={!hasStrokes} style={{ background: accent }}>
@@ -604,88 +632,213 @@ const TracingStage = ({ letter, harakat, reading, accent, onNext }) => {
   );
 };
 
-const MatchingStage = ({ letter, correct, options, accent, onAnswer }) => {
-  const [picked, setPicked] = useState(null);
-  const handlePick = (harakat) => {
-    if (picked !== null) return;
-    setPicked(harakat.id);
-    onAnswer(harakat.id === correct.id);
+const MatchingStage = ({ target, targetHarakat, letterOptions, harakatOptions, accent, onNext }) => {
+  const targetBoxRef = useRef(null);
+  const [droppedLetter, setDroppedLetter] = useState(null);
+  const [droppedHarakat, setDroppedHarakat] = useState(null);
+  const [wrongFlash, setWrongFlash] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const isInside = (point, rect) =>
+    point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+
+  const handleLetterDrop = (letter, event, info) => {
+    const rect = targetBoxRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) {
+      setDroppedLetter(letter);
+    }
   };
+
+  const handleHarakatDrop = (harakat, event, info) => {
+    const rect = targetBoxRef.current?.getBoundingClientRect();
+    if (rect && isInside(info.point, rect)) {
+      setDroppedHarakat(harakat);
+    }
+  };
+
+  useEffect(() => {
+    if (!droppedLetter || !droppedHarakat) return;
+    const letterOk = droppedLetter.char === target.char;
+    const harakatOk = droppedHarakat.id === targetHarakat.id;
+    if (letterOk && harakatOk) {
+      setSuccess(true);
+      setTimeout(onNext, 900);
+    } else {
+      setWrongFlash(true);
+      setTimeout(() => {
+        setWrongFlash(false);
+        setDroppedLetter(null);
+        setDroppedHarakat(null);
+      }, 700);
+    }
+  }, [droppedLetter, droppedHarakat, target, targetHarakat, onNext]);
+
+  const targetReading = combineLetterHarakat(target.char, targetHarakat.symbol);
+
   return (
     <div className="hijaiyah-game__matching">
       <p className="hijaiyah-game__stage-prompt">
-        Huruf <strong>{letter.name}</strong> — pilih harakat yang tepat untuk membacanya
+        Guru menyebutkan: <strong className="hijaiyah-game__matching-target">{targetReading}</strong>
+        <span className="hijaiyah-game__matching-target-name"> ({target.name} — {targetHarakat.name})</span>
       </p>
-      <div className="hijaiyah-game__matching-letter">
-        <span className="hijaiyah-game__matching-letter-char">{letter.char}</span>
-        <span className="hijaiyah-game__matching-letter-symbol">{picked ? HARAKAT.find((h) => h.id === picked)?.symbol : ''}</span>
+
+      <div className="hijaiyah-game__matching-target-box" ref={targetBoxRef}>
+        <span className="hijaiyah-game__matching-slot-label">Seret huruf & harakat ke sini</span>
+        <div className="hijaiyah-game__matching-drop-area">
+          <span className="hijaiyah-game__matching-dropped">
+            {droppedLetter ? droppedLetter.char : '_'}
+          </span>
+          <span className="hijaiyah-game__matching-dropped-symbol">
+            {droppedHarakat ? droppedHarakat.symbol : ''}
+          </span>
+        </div>
       </div>
-      <div className="hijaiyah-game__matching-options">
-        {options.map((harakat) => {
-          const isPicked = picked === harakat.id;
-          const isCorrect = picked !== null && harakat.id === correct.id;
-          const isWrongPick = isPicked && !isCorrect;
-          return (
-            <button
-              key={harakat.id}
+
+      <div className="hijaiyah-game__matching-tray">
+        <p className="hijaiyah-game__matching-tray-label">Huruf</p>
+        <div className="hijaiyah-game__matching-pieces">
+          {letterOptions.map((letter) => (
+            <motion.button
+              key={letter.char}
               type="button"
-              onClick={() => handlePick(harakat)}
-              disabled={picked !== null}
-              className={`hijaiyah-game__match-option ${isCorrect ? 'hijaiyah-game__match-option--correct' : ''} ${isWrongPick ? 'hijaiyah-game__match-option--wrong' : ''}`}
+              drag
+              dragSnapToOrigin
+              dragMomentum={false}
+              whileDrag={{ scale: 1.15, zIndex: 20 }}
+              onDragEnd={(event, info) => handleLetterDrop(letter, event, info)}
+              className="hijaiyah-game__matching-piece"
               style={{ '--mode-accent': accent }}
             >
-              <span className="hijaiyah-game__match-symbol">{harakat.symbol}</span>
+              {letter.char}
+            </motion.button>
+          ))}
+        </div>
+        <p className="hijaiyah-game__matching-tray-label">Harakat</p>
+        <div className="hijaiyah-game__matching-pieces">
+          {harakatOptions.map((harakat) => (
+            <motion.button
+              key={harakat.id}
+              type="button"
+              drag
+              dragSnapToOrigin
+              dragMomentum={false}
+              whileDrag={{ scale: 1.15, zIndex: 20 }}
+              onDragEnd={(event, info) => handleHarakatDrop(harakat, event, info)}
+              className="hijaiyah-game__matching-piece hijaiyah-game__matching-piece--harakat"
+              style={{ '--mode-accent': accent }}
+            >
+              {harakat.symbol}
               <span>{harakat.name}</span>
-              <small>{harakat.sound}</small>
-            </button>
-          );
-        })}
+            </motion.button>
+          ))}
+        </div>
       </div>
-      {picked !== null && (
+
+      {wrongFlash && (
+        <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
+          <XCircle className="h-4 w-4 inline mr-1" /> Belum tepat, coba lagi.
+        </p>
+      )}
+      {success && (
         <p className="hijaiyah-game__stage-feedback">
-          {picked === correct.id ? <CheckCircle2 className="h-4 w-4 inline mr-1" /> : <XCircle className="h-4 w-4 inline mr-1" />}
-          {picked === correct.id ? `Benar! ${letter.char} dibaca ${HARAKAT_READING[correct.id](letter.char)}` : `Belum tepat. ${letter.char} dibaca ${HARAKAT_READING[correct.id](letter.char)}`}
+          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Benar! {targetReading} dibaca {target.name} {targetHarakat.name}.
         </p>
       )}
     </div>
   );
 };
 
-const FindingStage = ({ letter, grid, accent, onAnswer }) => {
+const FindingStage = ({ target, decoys, accent, onNext }) => {
+  const [revealed, setRevealed] = useState(false);
   const [picked, setPicked] = useState(null);
-  const handlePick = (char) => {
-    if (picked !== null) return;
-    setPicked(char);
-    onAnswer(char === letter.char);
+  const [success, setSuccess] = useState(false);
+
+  const positions = useMemo(() => {
+    const all = shuffle([target, ...decoys]);
+    return all.map((letter, i) => ({
+      letter,
+      left: 4 + ((i * 37) % 88),
+      top: 12 + ((i * 53) % 66),
+      rotate: ((i * 23) % 50) - 25,
+      scale: 0.8 + ((i * 7) % 4) * 0.12,
+    }));
+  }, [target, decoys]);
+
+  const revealTarget = () => {
+    setRevealed(true);
+    setTimeout(() => setRevealed(false), 3000);
   };
+
+  const handlePick = (letter) => {
+    if (picked !== null || success) return;
+    setPicked(letter.char);
+    if (letter.char === target.char) {
+      setSuccess(true);
+      setTimeout(onNext, 900);
+    } else {
+      setTimeout(() => setPicked(null), 700);
+    }
+  };
+
   return (
     <div className="hijaiyah-game__finding">
-      <p className="hijaiyah-game__stage-prompt">
-        Temukan huruf <strong className="hijaiyah-game__finding-target">{letter.char}</strong> <span>({letter.name})</span>
-      </p>
-      <div className="hijaiyah-game__finding-grid">
-        {grid.map((l, i) => {
-          const isPicked = picked === l.char;
-          const isCorrect = picked !== null && l.char === letter.char;
-          const isWrongPick = isPicked && !isCorrect;
-          return (
-            <button
-              key={`${l.char}-${i}`}
-              type="button"
-              onClick={() => handlePick(l.char)}
-              disabled={picked !== null}
-              className={`hijaiyah-game__find-cell ${isCorrect ? 'hijaiyah-game__find-cell--correct' : ''} ${isWrongPick ? 'hijaiyah-game__find-cell--wrong' : ''}`}
-              style={{ '--mode-accent': accent }}
-            >
-              {l.char}
-            </button>
-          );
-        })}
+      <div className="hijaiyah-game__finding-topbar">
+        <p className="hijaiyah-game__stage-prompt">
+          Guru mengucapkan sebuah huruf — <strong>carilah huruf itu di dalam gambar!</strong>
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={revealTarget}
+          disabled={revealed}
+          className="hijaiyah-game__finding-reveal"
+        >
+          {revealed ? <><CheckCircle2 className="h-4 w-4 mr-1" /> Ingat hurufnya…</> : <>Baca huruf (guru)</>}
+        </Button>
       </div>
-      {picked !== null && (
+
+      {revealed && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="hijaiyah-game__finding-reveal-card"
+        >
+          <span className="hijaiyah-game__finding-reveal-char">{target.char}</span>
+          <span className="hijaiyah-game__finding-reveal-name">{target.name}</span>
+        </motion.div>
+      )}
+
+      <div className="hijaiyah-game__find-scene">
+        <div className="hijaiyah-game__find-sky" aria-hidden="true" />
+        <div className="hijaiyah-game__find-sun" aria-hidden="true" />
+        <div className="hijaiyah-game__find-cloud hijaiyah-game__find-cloud--1" aria-hidden="true" />
+        <div className="hijaiyah-game__find-cloud hijaiyah-game__find-cloud--2" aria-hidden="true" />
+        <div className="hijaiyah-game__find-hill hijaiyah-game__find-hill--back" aria-hidden="true" />
+        <div className="hijaiyah-game__find-hill hijaiyah-game__find-hill--front" aria-hidden="true" />
+        {positions.map(({ letter, left, top, rotate, scale }, index) => (
+          <button
+            key={`${letter.char}-${index}`}
+            type="button"
+            onClick={() => handlePick(letter)}
+            className={`hijaiyah-game__find-scene-letter ${
+              picked === letter.char && letter.char !== target.char ? 'hijaiyah-game__find-scene-letter--wrong' : ''
+            } ${success && letter.char === target.char ? 'hijaiyah-game__find-scene-letter--correct' : ''}`}
+            style={{ left: `${left}%`, top: `${top}%`, transform: `rotate(${rotate}deg) scale(${scale})` }}
+          >
+            {letter.char}
+          </button>
+        ))}
+      </div>
+
+      {picked !== null && picked !== target.char && !success && (
+        <p className="hijaiyah-game__stage-feedback hijaiyah-game__stage-feedback--wrong">
+          <XCircle className="h-4 w-4 inline mr-1" /> Bukan itu, cari lagi.
+        </p>
+      )}
+      {success && (
         <p className="hijaiyah-game__stage-feedback">
-          {picked === letter.char ? <CheckCircle2 className="h-4 w-4 inline mr-1" /> : <XCircle className="h-4 w-4 inline mr-1" />}
-          {picked === letter.char ? `Benar! Ini huruf ${letter.name}.` : `Belum tepat. Yang dicari adalah huruf ${letter.name} (${letter.char}).`}
+          <CheckCircle2 className="h-4 w-4 inline mr-1" /> Tepat! Kamu menemukan huruf {target.name} ({target.char}).
         </p>
       )}
     </div>

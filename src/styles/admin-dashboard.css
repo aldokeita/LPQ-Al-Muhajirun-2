@@ -9369,3 +9369,311 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .hijaiyah-game__match-option,
   .hijaiyah-game__icon-btn { transition: none; }
 }
+
+/* Letter picker */
+.hijaiyah-game__letters-hint { margin: 0 0 1rem; font-size: 0.85rem; color: #64748b; }
+.dark .hijaiyah-game__letters-hint { color: #94a3b8; }
+
+.hijaiyah-game__letter-search { position: relative; display: flex; align-items: center; margin-bottom: 0.75rem; }
+.hijaiyah-game__letter-search-icon { position: absolute; left: 0.9rem; color: #94a3b8; pointer-events: none; }
+.hijaiyah-game__letter-search-input {
+  width: 100%;
+  padding: 0.8rem 1rem 0.8rem 2.6rem;
+  border: 1px solid rgb(255 255 255 / 0.62);
+  border-radius: 0.9rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  outline: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.hijaiyah-game__letter-search-input:focus { border-color: rgb(16 185 129 / 0.5); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.7), 0 0 0 3px rgb(16 185 129 / 0.15); }
+.dark .hijaiyah-game__letter-search-input { border-color: rgb(255 255 255 / 0.08); color: #f1f5f9; background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__letter-count { margin-bottom: 0.85rem; font-size: 0.8rem; font-weight: 700; color: #047857; }
+.dark .hijaiyah-game__letter-count { color: #6ee7b7; }
+
+.hijaiyah-game__letter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 0.6rem; max-height: 48dvh; overflow-y: auto; padding: 0.25rem; }
+
+.hijaiyah-game__letter-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.7rem 0.4rem;
+  border: 1px solid rgb(255 255 255 / 0.62);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.hijaiyah-game__letter-cell:hover { background: rgb(255 255 255 / 0.6); }
+.hijaiyah-game__letter-cell--active { border-color: rgb(16 185 129 / 0.5); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 0 0 2px rgb(16 185 129 / 0.2); }
+.dark .hijaiyah-game__letter-cell { border-color: rgb(255 255 255 / 0.08); background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__letter-cell-char { font-family: 'Amiri', 'Scheherazade', serif; font-size: 1.9rem; font-weight: 700; line-height: 1; color: #0f172a; }
+.dark .hijaiyah-game__letter-cell-char { color: #f1f5f9; }
+.hijaiyah-game__letter-cell-name { font-size: 0.72rem; font-weight: 600; color: #64748b; }
+.dark .hijaiyah-game__letter-cell-name { color: #94a3b8; }
+.hijaiyah-game__letter-cell-check { position: absolute; top: 0.4rem; right: 0.4rem; color: #10b981; }
+
+/* Tracing harakat combined */
+.hijaiyah-game__tracing-guide-letter {
+  font-size: clamp(7rem, 26vw, 15rem);
+  color: rgb(16 185 129 / 0.18);
+  font-family: 'Amiri', 'Scheherazade', serif;
+  line-height: 1.1;
+  display: inline-block;
+}
+
+/* Matching drag & drop */
+.hijaiyah-game__matching { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; padding: 0.5rem 0; }
+.hijaiyah-game__matching-target { font-size: 2rem; font-family: 'Amiri', 'Scheherazade', serif; color: var(--mode-accent, #8b5cf6); vertical-align: middle; margin: 0 0.2rem; }
+.hijaiyah-game__matching-target-name { font-size: 0.85rem; color: #94a3b8; }
+
+.hijaiyah-game__matching-target-box {
+  width: 100%;
+  max-width: 460px;
+  min-height: 8.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 2px dashed rgb(139 92 246 / 0.45);
+  border-radius: 1.4rem;
+  background:
+    radial-gradient(circle at 50% 0%, rgb(139 92 246 / 0.12), transparent 55%),
+    rgb(255 255 255 / 0.4);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.75), 0 18px 42px -28px rgb(15 23 42 / 0.35);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.dark .hijaiyah-game__matching-target-box { border-color: rgb(167 139 250 / 0.4); background: rgb(255 255 255 / 0.04); }
+
+.hijaiyah-game__matching-slot-label { font-size: 0.78rem; font-weight: 700; color: #94a3b8; letter-spacing: 0.04em; }
+
+.hijaiyah-game__matching-drop-area { display: flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 5rem; }
+.hijaiyah-game__matching-dropped {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  min-height: 4.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.66);
+  border-radius: 1rem;
+  font-family: 'Amiri', 'Scheherazade', serif;
+  font-size: 3rem;
+  color: #0f172a;
+  background: rgb(255 255 255 / 0.55);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8);
+}
+.dark .hijaiyah-game__matching-dropped { border-color: rgb(255 255 255 / 0.1); color: #f1f5f9; background: rgb(255 255 255 / 0.06); }
+
+.hijaiyah-game__matching-dropped-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.8rem;
+  min-height: 4rem;
+  border: 1px solid rgb(255 255 255 / 0.66);
+  border-radius: 0.9rem;
+  font-family: 'Amiri', 'Scheherazade', serif;
+  font-size: 2.4rem;
+  color: var(--mode-accent, #8b5cf6);
+  background: rgb(255 255 255 / 0.55);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8);
+}
+.dark .hijaiyah-game__matching-dropped-symbol { border-color: rgb(255 255 255 / 0.1); background: rgb(255 255 255 / 0.06); }
+
+.hijaiyah-game__matching-tray { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; max-width: 520px; }
+.hijaiyah-game__matching-tray-label { margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #94a3b8; }
+
+.hijaiyah-game__matching-pieces { display: flex; gap: 0.85rem; justify-content: center; flex-wrap: wrap; touch-action: none; }
+
+.hijaiyah-game__matching-piece {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  min-height: 4.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.68);
+  border-radius: 1rem;
+  font-family: 'Amiri', 'Scheherazade', serif;
+  font-size: 3rem;
+  color: #0f172a;
+  background: rgb(255 255 255 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 12px 28px -22px rgb(15 23 42 / 0.35);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  cursor: grab;
+  transition: box-shadow 200ms ease;
+}
+.hijaiyah-game__matching-piece:active { cursor: grabbing; }
+.dark .hijaiyah-game__matching-piece { border-color: rgb(255 255 255 / 0.1); color: #f1f5f9; background: rgb(255 255 255 / 0.06); }
+
+.hijaiyah-game__matching-piece--harakat { flex-direction: column; gap: 0.1rem; min-height: 5.4rem; font-size: 2.2rem; color: var(--mode-accent, #8b5cf6); }
+.hijaiyah-game__matching-piece--harakat span { font-size: 0.7rem; font-weight: 700; font-family: inherit; color: #64748b; }
+.dark .hijaiyah-game__matching-piece--harakat span { color: #94a3b8; }
+
+.hijaiyah-game__stage-feedback--wrong { color: #be123c !important; }
+.dark .hijaiyah-game__stage-feedback--wrong { color: #fda4af !important; }
+
+/* Finding scene */
+.hijaiyah-game__finding { display: flex; flex-direction: column; gap: 1rem; }
+.hijaiyah-game__finding-topbar { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; text-align: center; }
+.hijaiyah-game__finding-reveal { border-radius: 999px !important; }
+
+.hijaiyah-game__finding-reveal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.75rem 2rem;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 1.2rem;
+  background: rgb(255 255 255 / 0.6);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.85), 0 14px 32px -24px rgb(245 158 11 / 0.6);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.dark .hijaiyah-game__finding-reveal-card { border-color: rgb(255 255 255 / 0.12); background: rgb(255 255 255 / 0.07); }
+
+.hijaiyah-game__finding-reveal-char { font-family: 'Amiri', 'Scheherazade', serif; font-size: 3rem; line-height: 1; color: var(--mode-accent, #f59e0b); }
+.hijaiyah-game__finding-reveal-name { font-size: 0.8rem; font-weight: 700; color: #64748b; }
+.dark .hijaiyah-game__finding-reveal-name { color: #94a3b8; }
+
+.hijaiyah-game__find-scene {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  height: min(54dvh, 520px);
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 1.6rem;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 20px 48px -30px rgb(15 23 42 / 0.4);
+}
+
+.hijaiyah-game__find-sky {
+  position: absolute;
+  inset: 0;
+  z-index: -6;
+  background: linear-gradient(180deg, #7dd3fc 0%, #bae6fd 45%, #e0f2fe 70%, #d9f99d 100%);
+}
+
+.hijaiyah-game__find-sun {
+  position: absolute;
+  z-index: -5;
+  top: 6%;
+  left: 8%;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 35%, #fef08a, #facc15 70%);
+  box-shadow: 0 0 60px 20px rgb(253 224 71 / 0.5);
+}
+
+.hijaiyah-game__find-cloud {
+  position: absolute;
+  z-index: -4;
+  width: 9rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 3.4rem -1.1rem 0 -0.6rem rgb(255 255 255 / 0.8), -2rem 0.4rem 0 -0.4rem rgb(255 255 255 / 0.7);
+}
+.hijaiyah-game__find-cloud--1 { top: 18%; right: 12%; }
+.hijaiyah-game__find-cloud--2 { top: 30%; left: 20%; transform: scale(0.7); opacity: 0.8; }
+
+.hijaiyah-game__find-hill {
+  position: absolute;
+  z-index: -3;
+  bottom: 0;
+  border-radius: 50% 50% 0 0 / 30% 30% 0 0;
+}
+.hijaiyah-game__find-hill--back { left: -10%; width: 70%; height: 46%; background: linear-gradient(180deg, #86efac, #4ade80 80%); }
+.hijaiyah-game__find-hill--front { right: -14%; width: 85%; height: 58%; background: linear-gradient(180deg, #4ade80, #16a34a 80%); }
+
+.hijaiyah-game__find-scene-letter {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 0.9rem;
+  font-family: 'Amiri', 'Scheherazade', serif;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: rgb(15 23 42 / 0.8);
+  background: rgb(255 255 255 / 0.55);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 8px 18px -14px rgb(15 23 42 / 0.5);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.hijaiyah-game__find-scene-letter:hover { transform: scale(1.08); }
+.hijaiyah-game__find-scene-letter--wrong { border-color: rgb(244 63 94 / 0.6); background: rgb(255 228 230 / 0.85); color: #9f1239; animation: hijaiyah-shake 0.4s ease; }
+.hijaiyah-game__find-scene-letter--correct { border-color: rgb(16 185 129 / 0.7); background: rgb(209 250 229 / 0.9); color: #065f46; transform: scale(1.3); }
+
+@keyframes hijaiyah-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+/* Reward box */
+.hijaiyah-game__reward-box { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 1.5rem; width: 100%; max-width: 460px; border: 1px solid rgb(255 255 255 / 0.66); border-radius: 1.4rem; background: rgb(255 255 255 / 0.42); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.75), 0 18px 42px -28px rgb(15 23 42 / 0.35); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.dark .hijaiyah-game__reward-box { border-color: rgb(255 255 255 / 0.1); background: rgb(255 255 255 / 0.05); }
+
+.hijaiyah-game__reward-label { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.9rem; font-weight: 700; color: #047857; }
+.dark .hijaiyah-game__reward-label { color: #6ee7b7; }
+
+.hijaiyah-game__reward-options { display: flex; gap: 1rem; }
+
+.hijaiyah-game__reward-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 6.5rem;
+  padding: 1.1rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.68);
+  border-radius: 1.2rem;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--mode-accent) 16%, transparent), transparent 55%),
+    rgb(255 255 255 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.8), 0 12px 28px -22px var(--mode-accent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: all 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.hijaiyah-game__reward-btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.9), 0 22px 44px -24px var(--mode-accent); }
+.hijaiyah-game__reward-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.dark .hijaiyah-game__reward-btn { border-color: rgb(255 255 255 / 0.1); color: #f1f5f9; background: rgb(255 255 255 / 0.06); }
+
+.hijaiyah-game__reward-amount { font-size: 1.6rem; font-weight: 900; color: var(--mode-accent, #f59e0b); line-height: 1; }
+.hijaiyah-game__reward-unit { font-size: 0.72rem; font-weight: 700; color: #94a3b8; }
+
+.hijaiyah-game__reward-given { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 1rem 2rem; border: 1px solid rgb(16 185 129 / 0.4); border-radius: 1.2rem; background: rgb(209 250 229 / 0.6); }
+.dark .hijaiyah-game__reward-given { border-color: rgb(16 185 129 / 0.3); background: rgb(16 185 129 / 0.12); }
+.hijaiyah-game__reward-given-title { margin: 0; font-size: 1.1rem; font-weight: 900; color: #065f46; }
+.dark .hijaiyah-game__reward-given-title { color: #6ee7b7; }
+.hijaiyah-game__reward-given-sub { margin: 0; font-size: 0.85rem; color: #047857; font-weight: 600; }
+.dark .hijaiyah-game__reward-given-sub { color: #a7f3d0; }

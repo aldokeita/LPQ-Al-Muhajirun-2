@@ -30,46 +30,41 @@ export const HIJAIYAH_LETTERS = [
 ];
 
 export const HARAKAT = [
-  { id: 'fathah', symbol: 'َ', name: 'Fathah', sound: 'a' },
-  { id: 'kasrah', symbol: 'ِ', name: 'Kasrah', sound: 'i' },
-  { id: 'dhammah', symbol: 'ُ', name: 'Dhammah', sound: 'u' },
+  { id: 'fathah', symbol: '\u064E', name: 'Fathah', sound: 'a' },
+  { id: 'kasrah', symbol: '\u0650', name: 'Kasrah', sound: 'i' },
+  { id: 'dhammah', symbol: '\u064F', name: 'Dhammah', sound: 'u' },
 ];
 
-export const HARAKAT_READING = {
-  fathah: (letter) => `${letter} (a)`,
-  kasrah: (letter) => `${letter} (i)`,
-  dhammah: (letter) => `${letter} (u)`,
+export const combineLetterHarakat = (char, harakatSymbol) => `${char}${harakatSymbol}`;
+
+export const readLetterHarakat = (char, harakat) => {
+  const name = HIJAIYAH_LETTERS.find((l) => l.char === char)?.name || char;
+  const reading = combineLetterHarakat(char, harakat.symbol);
+  return `${reading} — ${name} ${harakat.name}`;
 };
 
 export const MODES = [
   {
     id: 'tracing',
     label: 'Menebalkan',
-    subtitle: 'Tebalkan huruf dengan harakat',
-    description: 'Sentuh dan tebalkan garis huruf hijaiyah bersama harakat fathah, kasrah, atau dhammah.',
+    subtitle: 'Tebalkan huruf berharakat',
+    description: 'Guru membacakan huruf beserta harakatnya. Tebalkan huruf hijaiyah yang tampil di layar.',
     color: '#10b981',
-    pointsPerRound: 2,
   },
   {
     id: 'matching',
     label: 'Memasangkan',
-    subtitle: 'Huruf ↔ harakat',
-    description: 'Pasangkan huruf hijaiyah dengan harakat yang tepat.',
+    subtitle: 'Seret huruf & harakat',
+    description: 'Guru menyebutkan huruf dengan harakatnya. Seret huruf dan harakat ke kotak jawaban.',
     color: '#8b5cf6',
-    pointsPerRound: 3,
   },
   {
     id: 'finding',
     label: 'Mencari',
-    subtitle: 'Temukan huruf',
-    description: 'Cari dan temukan huruf hijaiyah yang diminta pada kumpulan huruf.',
+    subtitle: 'Temukan di pemandangan',
+    description: 'Guru mengucapkan sebuah huruf. Carilah huruf itu yang tersembunyi di dalam gambar.',
     color: '#f59e0b',
-    pointsPerRound: 1,
   },
 ];
 
-export const JILID_OPTIONS = [
-  { value: '1', label: 'Jilid 1 — Pengenalan huruf & fathah' },
-  { value: '2', label: 'Jilid 2 — Fathah, kasrah, dhammah' },
-  { value: '3', label: 'Jilid 3 — Gabungan harakat' },
-];
+export const REWARD_OPTIONS = [1, 3, 5];
