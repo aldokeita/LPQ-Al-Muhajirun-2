@@ -9,7 +9,7 @@ import GradientText from '@/components/reactbits/GradientText/GradientText';
 import SplitText from '@/components/reactbits/SplitText/SplitText';
 import StarBorder from '@/components/reactbits/StarBorder/StarBorder';
 import SectionKicker from './SectionKicker';
-import { imageOf, LOCAL_LOGO, safeArray } from './homeUtils';
+import { imageOf, safeArray } from './homeUtils';
 
 const LightPillar = React.lazy(() => import('@/components/reactbits/LightPillar/LightPillar'));
 const ModelViewer = React.lazy(() => import('@/components/reactbits/ModelViewer/ModelViewer'));
@@ -34,7 +34,6 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
   const activeSlide = slides[currentSlide] || slides[0] || {};
   const heroText = activeSlide.text || 'Masuki ruang belajar Al-Qur’an yang hangat, tertata, dan dekat dengan keluarga.';
   const heroSubtext = activeSlide.author || 'Metode Qiroati, pembinaan adab, dan informasi lembaga yang mudah diikuti wali santri.';
-  const logoUrl = content.logoUrl || LOCAL_LOGO;
   const quality = useMemo(getQuality, []);
   const sessionCount = Math.max(safeArray(content.schedules).length, 0);
   const heroCards = useMemo(() => {
@@ -67,18 +66,8 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
       })
       .slice(0, 4);
 
-    if (cards.length) return cards;
-
-    return [{
-      id: 'logo-fallback',
-      source: 'LPQ Al-Muhajirun',
-      title: 'Ruang belajar Al-Qur’an',
-      description: 'Gambar hero akan tampil setelah admin mengunggah konten.',
-      image: logoUrl,
-      slideIndex: null,
-      isLogo: true,
-    }];
-  }, [content.facilities, content.galleryPhotos, logoUrl, slides]);
+    return cards;
+  }, [content.facilities, content.galleryPhotos, slides]);
 
   return (
     <section className="home-hero" aria-labelledby="home-hero-title">
@@ -204,7 +193,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
               }}
             >
               {heroCards.map((card, index) => (
-                <Card key={card.id} className={`home-hero-swap-card ${card.isLogo ? 'home-hero-swap-card--logo' : ''}`}>
+                <Card key={card.id} className="home-hero-swap-card">
                   <div className="home-hero-swap-card__titlebar">
                     <span className="home-hero-swap-card__traffic" aria-hidden="true">
                       <i />
@@ -215,14 +204,11 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
                   </div>
                   <img
                     src={card.image}
-                    alt={card.isLogo ? 'Logo LPQ Al-Muhajirun' : `Dokumentasi ${card.title}`}
+                    alt={`Dokumentasi ${card.title}`}
                     loading={index === 0 ? 'eager' : 'lazy'}
                     onError={(event) => {
-                      if (event.currentTarget.src.endsWith(logoUrl)) {
-                        event.currentTarget.style.display = 'none';
-                        return;
-                      }
-                      event.currentTarget.src = logoUrl;
+                      event.currentTarget.style.opacity = '0';
+                      event.currentTarget.setAttribute('aria-hidden', 'true');
                     }}
                   />
                   <div className="home-hero-swap-card__veil" />

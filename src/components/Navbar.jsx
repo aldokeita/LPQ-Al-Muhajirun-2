@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import GlassSurface from '@/components/reactbits/GlassSurface/GlassSurface';
+import CmsLogo from '@/components/public/CmsLogo';
 import '@/styles/navbar.css';
 
 const navGroups = [
@@ -48,13 +49,9 @@ const navGroups = [
 
 const isActivePath = (pathname, target) => target === '/' ? pathname === '/' : pathname.startsWith(target);
 
-const NavbarLogo = ({ logoUrl, logoFailed, setLogoFailed }) => (
+const NavbarLogo = ({ logoUrl }) => (
   <Link to="/" className="navbar-logo" aria-label="LPQ Al-Muhajirun beranda">
-    {logoFailed ? (
-      <span className="navbar-logo__fallback">LPQ</span>
-    ) : (
-      <img src={logoUrl} alt="Logo LPQ Al-Muhajirun" onError={() => setLogoFailed(true)} />
-    )}
+    <CmsLogo src={logoUrl} alt="Logo LPQ Al-Muhajirun" width={48} height={48} className="navbar-logo__mark" />
     <span className="font-cinzel">
       LPQ Al-Muhajirun
       <small>Metode Qiroati</small>
@@ -90,8 +87,7 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState('');
   const [scrolled, setScrolled] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('/lpq-mark.svg');
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('');
   const { user, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -103,7 +99,6 @@ const Navbar = () => {
     const fetchLogo = async () => {
       const { data } = await supabase.from('website_content').select('content').eq('key', 'logoUrl').maybeSingle();
       if (mounted && data?.content) {
-        setLogoFailed(false);
         setLogoUrl(data.content);
       }
     };
@@ -162,7 +157,7 @@ const Navbar = () => {
           className="navbar-glass"
         >
           <div className="navbar-content">
-            <NavbarLogo logoUrl={logoUrl} logoFailed={logoFailed} setLogoFailed={setLogoFailed} />
+            <NavbarLogo logoUrl={logoUrl} />
             <DesktopNav pathname={location.pathname} />
             <div className="navbar-actions">
               {user ? (

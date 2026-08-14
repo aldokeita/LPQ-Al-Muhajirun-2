@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { supabase } from '@/lib/customSupabaseClient';
 import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
+import CmsLogo from '@/components/public/CmsLogo';
 import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
 
 const PaymentProofModal = ({ isOpen, onClose, payment }) => {
@@ -17,7 +18,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const [isLoadingPayment, setIsLoadingPayment] = useState(false);
     const [completePayment, setCompletePayment] = useState(null);
     const [qrCodeDataURL, setQrCodeDataURL] = useState('');
-    const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
+    const [receiptLogoUrl, setReceiptLogoUrl] = useState('');
     const [paymentMessageTemplate, setPaymentMessageTemplate] = useState(DEFAULT_WHATSAPP_TEMPLATES.paymentReceipt);
 
     useEffect(() => {
@@ -53,7 +54,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
         let active = true;
         const loadReceiptLogo = async () => {
             if (!isOpen) return;
-            const logoUrl = await fetchReceiptLogoDataUrl('/lpq-mark.svg');
+            const logoUrl = await fetchReceiptLogoDataUrl();
             if (active) setReceiptLogoUrl(logoUrl);
         };
         loadReceiptLogo();
@@ -98,7 +99,6 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
                 cacheBust: true,
                 backgroundColor: '#ffffff',
                 pixelRatio: 2,
-                imagePlaceholder: '/lpq-mark.svg',
             });
             const link = document.createElement('a');
             const santriName = studentName.replace(/\s+/g, '_') || 'Santri';
@@ -159,7 +159,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
                     <div ref={receiptRef} className="p-6 bg-white text-slate-800 relative font-sans">
                         {/* Header */}
                         <div className="text-center pb-4 mb-4 border-b border-dashed border-slate-300 relative z-10">
-                            <img src={receiptLogoUrl} alt="Logo" className="w-16 h-16 mx-auto mb-2 object-contain"/>
+                            <CmsLogo src={receiptLogoUrl} alt="Logo LPQ Al-Muhajirun" width={64} height={64} className="mx-auto mb-2" />
                             <h3 className="font-bold text-xl text-primary tracking-tight font-poppins">LPQ AL-MUHAJIRUN</h3>
                             <p className="text-xs text-slate-500 mt-1">Jl. R. Suprapto No. 195 Kel. Kemalaraja Baturaja Timur</p>
                             <p className="text-xs text-slate-500">Telp: 0856-0902-5238</p>

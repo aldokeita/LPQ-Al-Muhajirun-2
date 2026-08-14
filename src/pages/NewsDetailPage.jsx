@@ -331,6 +331,7 @@ const NewsDetailPage = () => {
                 </>
               )}
             </div>
+            {newsItem.excerpt && <p className="news-detail-excerpt">{newsItem.excerpt}</p>}
           </motion.div>
         </div>
 
@@ -346,9 +347,8 @@ const NewsDetailPage = () => {
               <img
                 src={newsItem.image_url}
                 alt={newsItem.title}
-                width="1200"
-                height="514"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '1.4rem 1.4rem 0 0' }}
+                loading="eager"
+                decoding="async"
               />
             </div>
           </motion.div>

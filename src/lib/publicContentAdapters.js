@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import { deleteWebsiteAssetByUrl } from '@/lib/storageAdapters';
 
 const toDateText = (value) => value ? new Date(value).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -21,9 +22,9 @@ export const normalizeNewsRow = (row) => ({
   id: row.id,
   title: row.title || '',
   slug: row.slug || row.id,
-  summary: row.excerpt || '',
-  excerpt: row.excerpt || '',
-  content: row.content?.body || row.content?.text || '',
+  summary: row.excerpt || row.summary || '',
+  excerpt: row.excerpt || row.summary || '',
+  content: typeof row.content === 'string' ? row.content : (row.content?.body || row.content?.text || ''),
   image_url: row.cover_image_url || '',
   cover_image_url: row.cover_image_url || '',
   status: row.status || 'draft',
@@ -36,9 +37,9 @@ export const normalizeAnnouncementRow = (row) => ({
   id: row.id,
   title: row.title || '',
   slug: row.slug || row.id,
-  summary: row.excerpt || '',
-  excerpt: row.excerpt || '',
-  content: row.content?.body || row.content?.text || '',
+  summary: row.excerpt || row.summary || '',
+  excerpt: row.excerpt || row.summary || '',
+  content: typeof row.content === 'string' ? row.content : (row.content?.body || row.content?.text || ''),
   image_url: row.cover_image_url || '',
   cover_image_url: row.cover_image_url || '',
   status: row.status || 'draft',
@@ -115,8 +116,9 @@ const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
   reader.readAsDataURL(blob);
 });
 
-export const getEmbeddableImageUrl = async (url, fallback = '/lpq-mark.svg') => {
+export const getEmbeddableImageUrl = async (url, fallback = '') => {
   const target = typeof url === 'string' && url.trim() ? url.trim() : fallback;
+  if (!target) return '';
   if (target.startsWith('data:') || target.startsWith('/')) return target;
   try {
     const response = await fetch(target, { mode: 'cors', cache: 'no-store' });
@@ -128,7 +130,7 @@ export const getEmbeddableImageUrl = async (url, fallback = '/lpq-mark.svg') => 
   }
 };
 
-export const fetchReceiptLogoDataUrl = async (fallback = '/lpq-mark.svg') => {
+export const fetchReceiptLogoDataUrl = async (fallback = '') => {
   try {
     const contentMap = await fetchWebsiteContentMap({ keys: ['logoUrl'], publicOnly: true });
     return await getEmbeddableImageUrl(contentMap.logoUrl, fallback);
@@ -269,10 +271,36 @@ export const archiveNews = async (id) => {
   if (error) throw error;
 };
 
+const deletePublicContentRecord = async ({ table, id }) => {
+  const { data: record, error: fetchError } = await supabase
+    .from(table)
+    .select('id,cover_image_url')
+    .eq('id', id)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!record) throw new Error('Konten tidak ditemukan.');
+
+  if (record.cover_image_url) {
+    await deleteWebsiteAssetByUrl(record.cover_image_url);
+  }
+
+  const { data: deleted, error: deleteError } = await supabase
+    .from(table)
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
+  if (deleteError) throw deleteError;
+  if (!deleted) throw new Error('Konten tidak dapat dihapus.');
+  return deleted;
+};
 export const archiveAnnouncement = async (id) => {
   const { error } = await supabase.from('announcements').update({ status: 'archived' }).eq('id', id);
   if (error) throw error;
 };
+export const deleteNews = async (id) => deletePublicContentRecord({ table: 'news', id });
+export const deleteAnnouncement = async (id) => deletePublicContentRecord({ table: 'announcements', id });
+
 
 export const submitPublicFeedback = async ({ nama, name, email, phone, no_hp, message, pesan }) => {
   const payload = {

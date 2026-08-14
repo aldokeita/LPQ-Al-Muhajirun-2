@@ -812,6 +812,15 @@
   margin-top: 1rem;
 }
 
+.ann-detail-excerpt {
+  max-width: 42rem;
+  margin-top: 1rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: clamp(0.98rem, 1.8vw, 1.1rem);
+  line-height: 1.65;
+}
+
+
 /* Detail image */
 .ann-detail-image {
   position: relative;

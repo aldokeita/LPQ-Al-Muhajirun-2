@@ -15,7 +15,7 @@ export const fetchClassAttendanceAppearance = async () => {
     config: normalizeClassAttendancePrintConfig(content[CLASS_ATTENDANCE_PRINT_CONFIG_KEY]),
     lpqLogoUrl: typeof content.logoUrl === 'string' && content.logoUrl.trim()
       ? content.logoUrl.trim()
-      : '/lpq-mark.svg',
+      : '',
     qiroatiLogoUrl: typeof content[CLASS_ATTENDANCE_QIROATI_LOGO_KEY] === 'string'
       ? content[CLASS_ATTENDANCE_QIROATI_LOGO_KEY].trim()
       : '',

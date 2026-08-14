@@ -349,6 +349,7 @@ const AnnouncementDetailPage = () => {
                 </>
               )}
             </div>
+            {announcement.excerpt && <p className="ann-detail-excerpt">{announcement.excerpt}</p>}
           </motion.div>
         </div>
 

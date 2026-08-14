@@ -18,8 +18,8 @@ import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademi
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
 import {
-  archiveAnnouncement,
-  archiveNews,
+  deleteAnnouncement,
+  deleteNews,
   deleteFeedback,
   fetchAdminAnnouncements,
   fetchAdminFeedbacks,
@@ -262,8 +262,9 @@ const ContentManagement = () => {
       ? 'logo'
       : (type === 'qiroatiLogoUrl' ? 'qiroati-logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : null));
     let publicUrl = '';
+    const shouldConvertToWebp = ['news', 'announcements'].includes(type);
     try {
-      const result = await uploadWebsiteAsset({ folder, key: assetKey, file });
+      const result = await uploadWebsiteAsset({ folder, key: assetKey, file, convertToWebp: shouldConvertToWebp });
       publicUrl = result.publicUrl;
       if (!publicUrl || !String(publicUrl).trim()) {
         throw new Error('Upload berhasil, tetapi URL aset tidak tersedia.');
@@ -292,7 +293,12 @@ const ContentManagement = () => {
     else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); }
     else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); }
     else { setFormState(prev => ({ ...prev, image_url: publicUrl })); }
-    toast({ title: "Upload Berhasil!", description: `${file.name} berhasil diunggah.` });
+    toast({
+      title: "Upload Berhasil!",
+      description: shouldConvertToWebp
+        ? file.name + ' dikompres dan disimpan sebagai WebP.'
+        : file.name + ' berhasil diunggah.',
+    });
   };
 
   const handleHeroImageUpload = async (e, slideId) => {
@@ -338,15 +344,17 @@ const ContentManagement = () => {
   };
 
   const handleDeleteItem = async (type, id) => {
-    if (window.confirm('Anda yakin ingin menghapus item ini?')) {
+    if (window.confirm(['news', 'announcements'].includes(type)
+      ? 'Hapus konten ini secara permanen beserta gambar terkait?'
+      : 'Anda yakin ingin menghapus item ini?')) {
       if (type === 'news' || type === 'announcements') {
         try {
-          if (type === 'news') await archiveNews(id);
-          else await archiveAnnouncement(id);
-          toast({ title: "Konten Dinonaktifkan", description: "Konten tidak lagi tampil di halaman publik." });
+          if (type === 'news') await deleteNews(id);
+          else await deleteAnnouncement(id);
+          toast({ title: "Konten Dihapus", description: "Konten dan gambar terkait telah dihapus permanen." });
           fetchContent();
         } catch (error) {
-          toast({ title: "Gagal Menonaktifkan Konten", description: getPublicContentErrorMessage(error), variant: "destructive" });
+          toast({ title: "Gagal Menghapus Konten", description: getPublicContentErrorMessage(error), variant: "destructive" });
         }
         return;
       }

@@ -315,7 +315,6 @@ const DigitalAttendancePage = () => {
 
   const getLevelInfo = (points = 0, gender) => {
       const defaultInfo = {
-          label: 'Bronze I',
           color: '#b7793f',
           badgeIcon: <Book className="w-8 h-8 text-[#b7793f]" />,
           enableGradient: true,
@@ -337,7 +336,7 @@ const DigitalAttendancePage = () => {
       }
 
       return {
-          label: resolvedLevel.name || defaultInfo.label,
+          label: resolvedLevel.name,
           color: accentColor,
           badgeIcon: icon,
           enableGradient: resolvedLevel.enableGradient,

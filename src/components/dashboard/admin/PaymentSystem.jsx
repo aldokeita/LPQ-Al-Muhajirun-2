@@ -28,6 +28,7 @@ import {
   validatePaymentAmount,
 } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
+import CmsLogo from '@/components/public/CmsLogo';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import PaymentProofModal from './PaymentProofModal';
 import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
@@ -195,7 +196,7 @@ const PaymentSystem = () => {
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
+  const [receiptLogoUrl, setReceiptLogoUrl] = useState('');
   const [historyProofPayment, setHistoryProofPayment] = useState(null);
   
   const location = useLocation();
@@ -264,7 +265,7 @@ const PaymentSystem = () => {
     let active = true;
     const loadReceiptLogo = async () => {
       if (!isReceiptOpen) return;
-      const logoUrl = await fetchReceiptLogoDataUrl('/lpq-mark.svg');
+      const logoUrl = await fetchReceiptLogoDataUrl();
       if (active) setReceiptLogoUrl(logoUrl);
     };
     loadReceiptLogo();
@@ -441,7 +442,6 @@ const PaymentSystem = () => {
         cacheBust: true,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        imagePlaceholder: '/lpq-mark.svg',
       });
       
       const link = document.createElement('a');
@@ -590,7 +590,7 @@ const PaymentSystem = () => {
             {receiptData && (<>
               <div ref={receiptRef} className="p-4 bg-white text-slate-800 rounded-xl shadow-lg border border-slate-100 relative overflow-hidden" id="receipt-content">
                   <div className="text-center pb-2 mb-2 border-b border-dashed border-slate-300 relative z-10">
-                       <img src={receiptLogoUrl} alt="Logo LPQ Al-Muhajirun" className="w-12 h-12 mx-auto mb-2 object-contain"/>
+                       <CmsLogo src={receiptLogoUrl} alt="Logo LPQ Al-Muhajirun" width={48} height={48} className="mx-auto mb-2" />
                        <h3 className="font-bold text-lg text-primary tracking-tight font-poppins">LPQ AL-MUHAJIRUN</h3>
                        <p className="text-[10px] text-slate-500 mt-1">Jl. R. Suprapto No. 195 Kel. Kemalaraja Baturaja Timur</p>
                        <p className="text-[10px] text-slate-500">Telp: 0856-0902-5238</p>
