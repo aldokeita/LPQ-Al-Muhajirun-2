@@ -21,6 +21,7 @@ import { motion } from 'framer-motion';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
+import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C', 
@@ -35,13 +36,32 @@ const jilidOptions = [
 ];
 
 const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at, updated_at';
-const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati`;
+const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
 
 const getSelectedClassId = (input) => input?.current_class_id || input?.id_kelas || null;
 
 const isMissingSantriExtendedColumn = (error) =>
   error?.code === '42703' ||
   /column santri\.(tanggal_pendaftaran|nama_ayah|nama_ibu|no_kk|no_nik|berkas_foto|berkas_akta|berkas_kk|berkas_form|link_qiroati) does not exist/i.test(error?.message || '');
+
+const BULK_IMPORT_COLUMNS = [
+  'Nama Lengkap',
+  'Nama Panggilan',
+  'Jilid',
+  'Tempat Lahir',
+  'Tgl Lahir',
+  'Jenis Kelamin',
+  'Alamat',
+  'Sesi',
+  'Tgl Masuk',
+  'Nama Ibu',
+  'Nama Ayah',
+  'No HP Ortu',
+  'No KK',
+  'No NIK',
+  'No Induk Qiroati',
+  'RFID',
+];
 
 const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
   const [file, setFile] = useState(null);
@@ -50,31 +70,33 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
   const [activeTab, setActiveTab] = useState('excel');
   const fileInputRef = useRef(null);
 
+  const parsedTextRows = useMemo(() => {
+    const normalized = textData.trim();
+    if (!normalized) return [];
+    return normalized
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0)
+      .map((line) => line.split('\t'));
+  }, [textData]);
+
+  const detectedColumnCount = parsedTextRows.length > 0
+    ? Math.max(...parsedTextRows.map((row) => row.length))
+    : 0;
+  const hasConsistentColumns = parsedTextRows.length > 0
+    && parsedTextRows.every((row) => row.length === BULK_IMPORT_COLUMNS.length);
+
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) setFile(selectedFile);
   };
 
   const downloadTemplate = () => {
-    const headers = [
-      "Nama Lengkap", 
-      "Nama Panggilan", 
-      "Jilid", 
-      "Tempat Lahir", 
-      "Tgl Lahir (MM-DD-YYYY)", 
-      "Jenis Kelamin (Laki-laki/Perempuan)", 
-      "Alamat", 
-      "Sesi", 
-      "Tgl Masuk (MM-DD-YYYY)", 
-      "Nama Ibu", 
-      "Nama Ayah", 
-      "No HP Ortu", 
-      "No KK", 
-      "No NIK", 
-      "No Induk Qiroati", 
-      "RFID"
-    ];
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const templateHeaders = BULK_IMPORT_COLUMNS.map((column) => {
+      if (column === 'Tgl Lahir' || column === 'Tgl Masuk') return `${column} (MM-DD-YYYY)`;
+      if (column === 'Jenis Kelamin') return 'Jenis Kelamin (Laki-laki/Perempuan)';
+      return column;
+    });
+    const ws = XLSX.utils.aoa_to_sheet([templateHeaders]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template Santri");
     XLSX.writeFile(wb, "Template_Import_Santri_V2.xlsx");
@@ -129,48 +151,111 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Data Santri Massal</DialogTitle>
           <DialogDescription>Pilih metode import data santri (Wajib sesuai template terbaru).</DialogDescription>
         </DialogHeader>
         
-        <div className="flex gap-4 mb-4 border-b">
-            <Button variant={activeTab === 'excel' ? 'default' : 'ghost'} onClick={() => setActiveTab('excel')} className="rounded-b-none">File Excel/CSV</Button>
-            <Button variant={activeTab === 'text' ? 'default' : 'ghost'} onClick={() => setActiveTab('text')} className="rounded-b-none">Copy-Paste Teks (Excel)</Button>
+        <div className="admin-glass-tab-list inline-flex self-start rounded-full p-1 gap-1 mb-2">
+            {[
+              { id: 'excel', label: 'File Excel / CSV', icon: FileSpreadsheet },
+              { id: 'text', label: 'Copy-Paste dari Excel', icon: Copy },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`admin-glass-tab-button relative rounded-full px-5 py-2.5 text-sm font-semibold ${activeTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                {activeTab === tab.id && (
+                  <motion.span
+                    layoutId="bulk-import-active-pill"
+                    className="admin-glass-tab-indicator"
+                    transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <tab.icon className="h-4 w-4" />
+                  {tab.label}
+                </span>
+              </button>
+            ))}
         </div>
 
         {activeTab === 'excel' ? (
-            <div className="space-y-6 py-4">
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <FileSpreadsheet className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-slate-700">{file ? file.name : "Klik untuk upload file Excel (.xlsx, .xls) atau CSV"}</p>
+            <div className="space-y-5 py-3">
+                <button
+                  type="button"
+                  className="admin-bulk-import-surface group w-full rounded-3xl p-8 text-center transition-transform hover:-translate-y-0.5"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                    <span className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 shadow-inner dark:bg-emerald-400/10 dark:text-emerald-300">
+                      <FileSpreadsheet className="h-8 w-8 transition-transform group-hover:scale-110" />
+                    </span>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">{file ? file.name : 'Pilih file Excel atau CSV'}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Format yang didukung: .xlsx, .xls, dan .csv</p>
                     <input type="file" accept=".xlsx, .xls, .csv" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                </div>
-                <div className="flex justify-between items-center bg-blue-50 p-4 rounded-lg">
+                </button>
+                <div className="admin-bulk-import-surface flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                        <p className="text-sm font-semibold text-blue-800">Perhatian: Format Kolom Baru</p>
-                        <p className="text-xs text-blue-700">Pastikan file Anda memiliki 16 kolom yang sesuai dengan urutan template.</p>
-                        <p className="text-xs text-blue-700">Tanggal gunakan format: <strong>MM-DD-YYYY</strong>. Gender: <strong>Laki-laki / Perempuan</strong>.</p>
+                        <p className="text-sm font-bold text-blue-800 dark:text-blue-300">Gunakan template 16 kolom terbaru</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">Tanggal memakai MM-DD-YYYY dan gender memakai Laki-laki atau Perempuan.</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={downloadTemplate} className="border-blue-200 text-blue-700 hover:bg-blue-100 shrink-0 ml-4">
-                        <Download className="w-4 h-4 mr-2"/> Download Template
+                    <Button variant="outline" size="sm" onClick={downloadTemplate} className="shrink-0 rounded-xl bg-white/60 backdrop-blur-xl dark:bg-white/5">
+                        <Download className="mr-2 h-4 w-4"/> Download Template
                     </Button>
                 </div>
             </div>
         ) : (
-            <div className="space-y-2">
-                <p className="text-xs font-semibold text-blue-800 mb-1">Perhatian: Format Kolom (Tab Separated):</p>
-                <div className="bg-slate-100 p-2 rounded text-[10px] text-slate-700 font-mono overflow-x-auto whitespace-nowrap border border-slate-200">
-                    1. Nama Lengkap | 2. Nama Panggilan | 3. Jilid | 4. Tempat Lahir | 5. Tgl Lahir (MM-DD-YYYY) | 6. Jenis Kelamin (Laki-laki/Perempuan) | 7. Alamat | 8. Sesi | 9. Tgl Masuk (MM-DD-YYYY) | 10. Nama Ibu | 11. Nama Ayah | 12. No HP Ortu | 13. No KK | 14. No NIK | 15. No Induk Qiroati | 16. RFID
+            <div className="space-y-4 py-3">
+                <div className="admin-bulk-import-surface rounded-3xl p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-base font-bold text-slate-900 dark:text-white">Tempel sel langsung dari Excel atau Google Sheets</p>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Blok data tanpa mengubah pemisah kolom, lalu tekan Ctrl+C dan tempelkan di area bawah.</p>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <span className="rounded-full bg-blue-500/10 px-3 py-1.5 text-xs font-bold text-blue-700 dark:text-blue-300">{parsedTextRows.length} baris</span>
+                        <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${hasConsistentColumns ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : textData ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}`}>
+                          {detectedColumnCount || 0}/16 kolom
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {BULK_IMPORT_COLUMNS.map((column, index) => (
+                        <div key={column} className="rounded-xl bg-white/55 px-3 py-2 text-xs shadow-sm ring-1 ring-slate-200/50 backdrop-blur-lg dark:bg-white/5 dark:ring-white/10">
+                          <span className="mr-1.5 font-black text-blue-600 dark:text-blue-300">{index + 1}.</span>
+                          <span className="font-medium text-slate-600 dark:text-slate-300">{column}</span>
+                        </div>
+                      ))}
+                    </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">Pastikan data dicopy langsung dari Excel atau Google Sheets yang sesuai template di atas.</p>
-                <Textarea 
-                    placeholder="Paste data dari Excel di sini..." 
-                    className="min-h-[300px] font-mono text-xs whitespace-pre"
-                    value={textData}
-                    onChange={e => setTextData(e.target.value)}
-                />
+
+                <div className="relative">
+                  <Textarea
+                      aria-label="Data santri hasil copy dari Excel"
+                      placeholder={'Contoh:\nAhmad Fulan\tAhmad\tJilid 1A\tBaturaja\t07-15-2018\tLaki-laki\t...'}
+                      className="admin-bulk-import-textarea min-h-[280px] rounded-2xl p-4 font-mono text-xs leading-6 whitespace-pre"
+                      value={textData}
+                      onChange={(event) => setTextData(event.target.value)}
+                  />
+                  <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg bg-white/75 px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm backdrop-blur-xl dark:bg-slate-900/70 dark:text-slate-400">
+                    Pemisah kolom: TAB
+                  </div>
+                </div>
+
+                {textData && !hasConsistentColumns && (
+                  <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-300">
+                    Beberapa baris belum memiliki tepat 16 kolom. Pastikan seluruh rentang dicopy langsung dari Excel tanpa menghapus kolom kosong.
+                  </div>
+                )}
+                {hasConsistentColumns && (
+                  <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-500/20 dark:text-emerald-300">
+                    <CheckCircle className="h-4 w-4" /> Struktur data terdeteksi dengan benar dan siap diproses.
+                  </div>
+                )}
             </div>
         )}
 
@@ -412,10 +497,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
+  const [birthdayStudents, setBirthdayStudents] = useState([]);
   const [formData, setFormData] = useState({
     nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: '', rfid_tag: '',
-    jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: 'Anak'
+    jilid: 'Pra TK A', no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: 'Anak'
   });
 
   useEffect(() => {
@@ -423,8 +509,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   }, [subCategory]);
 
   useEffect(() => {
-      if (santriList.length > 0) calculateBirthdayCount();
-  }, [santriList]);
+      setBirthdayCount(getBirthdaysThisMonth(birthdayStudents).length);
+  }, [birthdayStudents]);
 
   const loadData = async (currentTab = subCategory) => {
     setIsLoadingData(true);
@@ -460,6 +546,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
               });
               return mapSantriForLegacyUi({ ...item, foto_url });
           }));
+          const activeSantri = mappedSantri.filter((s) => !s.status || ['aktif', 'active'].includes(String(s.status).toLowerCase()));
+          setBirthdayStudents(activeSantri);
           const filteredSantri = mappedSantri.filter(s => {
               const cat = (s.kategori || 'anak').toLowerCase();
               const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
@@ -490,23 +578,6 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     }
   };
   
-  const calculateBirthdayCount = async () => {
-      const currentMonth = new Date().getMonth() + 1;
-      let count = 0;
-      santriList.forEach(s => {
-          if (s.tanggal_lahir) {
-              if (new Date(s.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          }
-      });
-      const { data: guruData } = await supabase.from('guru').select('tanggal_lahir');
-      if (guruData) {
-          guruData.forEach(g => {
-              if (g.tanggal_lahir && new Date(g.tanggal_lahir).getMonth() + 1 === currentMonth) count++;
-          });
-      }
-      setBirthdayCount(count);
-  };
-
   const classGuruMap = useMemo(() => {
     return classesList.reduce((acc, cls) => {
       acc[cls.id] = cls.guru?.nama || 'Belum ada guru';
@@ -617,7 +688,16 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
     if (finalFormData.password && finalFormData.password.length < 4) {
         toast({ title: "Validasi Password Gagal", description: "Password minimal 4 karakter.", variant: "destructive" });
+      return;
+    }
+
+    if (finalFormData.default_spp_amount !== '' && finalFormData.default_spp_amount !== null) {
+      const defaultSppAmount = Number(finalFormData.default_spp_amount);
+      if (!Number.isFinite(defaultSppAmount) || defaultSppAmount < 10000) {
+        toast({ title: "Default SPP Tidak Valid", description: "Default SPP minimal Rp10.000 atau kosongkan jika belum ditentukan.", variant: "destructive" });
         return;
+      }
+      finalFormData.default_spp_amount = defaultSppAmount;
     }
 
     try {
@@ -825,11 +905,21 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           title: 'Migrasi ke Dewasa',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori DEWASA? Santri akan dikeluarkan dari kelas saat ini.`,
           onConfirm: async () => {
-              toast({
-                  title: "Migrasi ditunda",
-                  description: "Migrasi kategori/kelas perlu operasi backend atomik agar current_class_id dan class_memberships tetap konsisten.",
-                  variant: "destructive"
+              const { data, error } = await supabase.rpc('change_santri_category', {
+                  p_santri_id: editingSantri.id,
+                  p_target_category: 'Dewasa',
+                  p_reason: 'Migrasi TPQ ke santri dewasa oleh admin',
               });
+
+              if (error) {
+                  toast({ title: "Migrasi gagal", description: error.message, variant: "destructive" });
+                  return;
+              }
+
+              toast({ title: "Migrasi berhasil", description: data?.[0]?.message || `${editingSantri.nama_lengkap} dipindahkan ke kategori Dewasa.` });
+              setIsFormOpen(false);
+              setEditingSantri(null);
+              await loadData(subCategory);
           }
       });
   };
@@ -1153,6 +1243,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         <div className="admin-edit-field"><label>Kelas Aktif <span className="normal-case text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>(untuk Absensi)</span></label><Select value={getSelectedClassId(formData) || undefined} onValueChange={val => setFormData({ ...formData, current_class_id: val, id_kelas: val })}><SelectTrigger><SelectValue placeholder="Pilih kelas aktif" /></SelectTrigger><SelectContent>{classesList.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.nama_kelas}{cls.guru?.nama ? ` - ${cls.guru.nama}` : ''}</SelectItem>)}</SelectContent></Select></div>
                         <div className="admin-edit-field"><label>Link Qiroati</label><Input type="text" value={formData.link_qiroati || ''} onChange={(e) => setFormData({ ...formData, link_qiroati: e.target.value })} /></div>
                         <div className="admin-edit-field">
+                            <label>Default SPP Bulanan</label>
+                            <Input type="number" min="10000" step="1000" value={formData.default_spp_amount ?? ''} onChange={(e) => setFormData({ ...formData, default_spp_amount: e.target.value })} placeholder="Contoh: 70000" />
+                            <span className="text-[10px]" style={{ color: 'hsl(var(--admin-text-muted))' }}>Opsional. Nominal ini otomatis dipilih saat pembayaran SPP.</span>
+                        </div>
+                        <div className="admin-edit-field">
                             <label className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
                             <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
                         </div>
@@ -1197,7 +1292,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
-      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} />
+      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
       
       <ConfirmationDialog 
         isOpen={confirmDialog.isOpen} 

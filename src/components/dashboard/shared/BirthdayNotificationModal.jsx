@@ -1,213 +1,84 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import React, { useMemo } from 'react';
+import { Cake, MessageCircle, PartyPopper } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/customSupabaseClient';
-import { Cake, Calendar, User, Loader2, PartyPopper, ChevronRight } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { Badge } from '@/components/ui/badge';
+import { buildBirthdayWhatsappUrl, getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
-const BirthdayNotificationModal = ({ isOpen, onClose }) => {
-    const [birthdays, setBirthdays] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [currentMonthName, setCurrentMonthName] = useState('');
+const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 'santri' }) => {
+  const birthdaysThisMonth = useMemo(() => getBirthdaysThisMonth(students), [students]);
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchBirthdays();
-        }
-        
-        const date = new Date();
-        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-        setCurrentMonthName(monthNames[date.getMonth()]);
-    }, [isOpen]);
+  const openWhatsappGreeting = (student) => {
+    const url = buildBirthdayWhatsappUrl(student, audience);
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
-    const fetchBirthdays = async () => {
-        setIsLoading(true);
-        const today = new Date();
-        const currentMonth = today.getMonth() + 1; // 1-12
-        const currentDay = today.getDate();
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="lpq-dialog-surface max-h-[88vh] max-w-2xl overflow-hidden border-white/60 bg-white/78 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.24)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/78">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_42%)]" />
+        <DialogHeader className="relative border-b border-white/50 px-6 pb-5 pt-6 text-left dark:border-white/10 sm:px-8 sm:pt-8">
+          <DialogTitle className="flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-400/10 dark:text-rose-300">
+              <Cake className="h-5 w-5" />
+            </span>
+            {audience === 'guru' ? 'Ulang Tahun Guru Bulan Ini' : 'Ulang Tahun Santri Bulan Ini'}
+          </DialogTitle>
+          <DialogDescription>
+            {audience === 'guru' ? 'Daftar pengajar yang berulang tahun pada bulan berjalan.' : 'Daftar santri yang berulang tahun pada bulan berjalan.'}
+          </DialogDescription>
+        </DialogHeader>
 
-        try {
-            console.log(`Fetching birthdays for month: ${currentMonth}`);
-            
-            // Fetch Santri and Guru Birthdays concurrently
-            const [santriRes, guruRes] = await Promise.all([
-                supabase.from('santri').select('id, nama_lengkap, tanggal_lahir, foto_url, status, jilid').eq('status', 'Aktif'),
-                supabase.from('guru').select('id, nama, tanggal_lahir, foto_url, status_guru, jabatan')
-            ]);
-
-            if (santriRes.error) throw new Error(`Gagal mengambil data ulang tahun santri: ${santriRes.error.message}`);
-            if (guruRes.error) throw new Error(`Gagal mengambil data ulang tahun guru: ${guruRes.error.message}`);
-
-            console.log("Raw Guru Data fetched:", guruRes.data);
-
-            // Safe date parser to avoid timezone shifts
-            const parseDateStr = (dateStr) => {
-                if (!dateStr) return null;
-                // handle both YYYY-MM-DD and full ISO strings
-                const datePart = dateStr.split('T')[0]; 
-                const parts = datePart.split('-');
-                if (parts.length !== 3) return null;
-                return {
-                    year: parseInt(parts[0], 10),
-                    month: parseInt(parts[1], 10),
-                    day: parseInt(parts[2], 10)
-                };
-            };
-
-            // Filter for current month and format Santri
-            const santriBirthdays = (santriRes.data || [])
-                .map(item => ({ item, parsedDate: parseDateStr(item.tanggal_lahir) }))
-                .filter(({ parsedDate }) => parsedDate && parsedDate.month === currentMonth)
-                .map(({ item, parsedDate }) => ({
-                    id: item.id,
-                    name: item.nama_lengkap,
-                    role: 'Santri',
-                    detail: `Santri • ${item.jilid || 'TPQ'}`,
-                    date: new Date(parsedDate.year, parsedDate.month - 1, parsedDate.day),
-                    day: parsedDate.day,
-                    foto_url: item.foto_url,
-                    age: today.getFullYear() - parsedDate.year
-                }));
-
-            // Filter for current month and format Guru
-            const guruBirthdays = (guruRes.data || [])
-                // Less strict status filter just in case "Aktif" is not consistently used
-                .filter(item => !item.status_guru || item.status_guru !== 'Nonaktif')
-                .map(item => ({ item, parsedDate: parseDateStr(item.tanggal_lahir) }))
-                .filter(({ parsedDate }) => parsedDate && parsedDate.month === currentMonth)
-                .map(({ item, parsedDate }) => ({
-                    id: item.id,
-                    name: item.nama,
-                    role: 'Guru',
-                    detail: `Guru • ${item.jabatan || 'Pengajar'}`,
-                    date: new Date(parsedDate.year, parsedDate.month - 1, parsedDate.day),
-                    day: parsedDate.day,
-                    foto_url: item.foto_url,
-                    age: today.getFullYear() - parsedDate.year
-                }));
-
-            console.log("Filtered Guru Birthdays:", guruBirthdays);
-
-            const allBirthdays = [...santriBirthdays, ...guruBirthdays];
-            console.log("Final Merged Birthdays Array:", allBirthdays);
-
-            // Sort logic: Upcoming (>= today) first, then passed (< today)
-            allBirthdays.sort((a, b) => {
-                const aUpcoming = a.day >= currentDay;
-                const bUpcoming = b.day >= currentDay;
-                
-                if (aUpcoming && !bUpcoming) return -1;
-                if (!aUpcoming && bUpcoming) return 1;
-                
-                return a.day - b.day;
-            });
-
-            setBirthdays(allBirthdays);
-
-        } catch (error) {
-            console.error("Birthday Fetch Error:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const currentDay = new Date().getDate();
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-0">
-                <DialogHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                    <DialogTitle className="flex items-center gap-2 text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-600">
-                        <Cake className="w-6 h-6 text-pink-500" /> 
-                        Ulang Tahun {currentMonthName}
-                    </DialogTitle>
-                    <DialogDescription className="text-slate-500 dark:text-slate-400">
-                        Daftar santri dan guru yang merayakan ulang tahun bulan ini.
-                    </DialogDescription>
-                </DialogHeader>
-
-                {isLoading ? (
-                    <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 animate-spin text-pink-500" /></div>
-                ) : (
-                    <ScrollArea className="max-h-[60vh] pr-2 -mr-2">
-                        {birthdays.length > 0 ? (
-                            <div className="space-y-3 py-2">
-                                {birthdays.map((person, index) => {
-                                    const isToday = person.day === currentDay;
-                                    const isPassed = person.day < currentDay;
-
-                                    return (
-                                        <div 
-                                            key={`${person.role}-${person.id}`} 
-                                            className={cn(
-                                                "group flex items-center justify-between p-3 rounded-xl border transition-all duration-300",
-                                                isToday 
-                                                    ? "bg-pink-50 border-pink-200 shadow-sm scale-[1.02]" 
-                                                    : isPassed 
-                                                        ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-70 grayscale-[0.5]" 
-                                                        : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-pink-200 hover:shadow-md"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="relative">
-                                                    <Avatar className={cn("w-12 h-12 border-2", isToday ? "border-pink-400" : "border-slate-200")}>
-                                                        <AvatarImage src={person.foto_url} />
-                                                        <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
-                                                    {isToday && (
-                                                        <div className="absolute -top-1 -right-1 bg-yellow-400 text-white p-1 rounded-full shadow-sm animate-bounce">
-                                                            <PartyPopper className="w-3 h-3" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="font-bold text-sm text-foreground line-clamp-1">{person.name}</p>
-                                                        {isToday && <Badge className="text-[10px] bg-pink-500 hover:bg-pink-600 border-0 h-4 px-1.5">Hari Ini!</Badge>}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <Badge variant="outline" className={cn(
-                                                            "text-[10px] px-1.5 py-0 border-slate-200 dark:border-slate-700",
-                                                            person.role === 'Guru' 
-                                                                ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200" 
-                                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                                                        )}>
-                                                            {person.detail}
-                                                        </Badge>
-                                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                            <Calendar className="w-3 h-3" /> {person.day} {currentMonthName}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right pl-2">
-                                                <span className={cn(
-                                                    "text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap",
-                                                    isToday ? "text-pink-600 bg-pink-100" : "text-slate-500 bg-slate-100 dark:bg-slate-800"
-                                                )}>
-                                                    Ke-{person.age}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
-                                <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full">
-                                    <Cake className="w-8 h-8 opacity-20" />
-                                </div>
-                                <p className="text-sm">Tidak ada yang berulang tahun bulan ini.</p>
-                            </div>
-                        )}
-                    </ScrollArea>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
+        {birthdaysThisMonth.length > 0 ? (
+          <div className="relative grid max-h-[62vh] gap-3 overflow-y-auto px-6 py-5 sm:grid-cols-2 sm:px-8">
+            {birthdaysThisMonth.map((student) => {
+              const hasWhatsapp = student.isBirthdayToday && Boolean(buildBirthdayWhatsappUrl(student, audience));
+              return (
+                <article key={student.id} className="group flex flex-col gap-4 rounded-xl border border-white/70 bg-white/58 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:bg-white/76 hover:shadow-[0_18px_42px_rgba(190,24,93,0.12)] dark:border-white/10 dark:bg-white/[0.045] dark:hover:border-rose-400/30 dark:hover:bg-white/[0.075]">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="h-12 w-12 border-2 border-rose-300">
+                        <AvatarImage src={student.foto_url} className="object-cover" />
+                        <AvatarFallback>{student.nama_lengkap?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-white">
+                        <PartyPopper className="h-3 w-3" />
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-slate-900 dark:text-white">{student.nama_lengkap}</p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <Badge variant="secondary">{student.age} tahun</Badge>
+                        <Badge variant={student.isBirthdayToday ? 'default' : 'outline'}>{student.isBirthdayToday ? 'Hari ini' : `Tanggal ${student.birthdayDay}`}</Badge>
+                        {(student.class?.nama_kelas || (audience === 'guru' && student.jabatan)) && <Badge variant="outline">{student.class?.nama_kelas || student.jabatan}</Badge>}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => openWhatsappGreeting(student)}
+                    disabled={!hasWhatsapp}
+                    className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
+                    title={hasWhatsapp ? `Kirim ucapan untuk ${student.nama_lengkap}` : student.isBirthdayToday ? 'Nomor WhatsApp belum tersedia' : 'Ucapan WhatsApp aktif pada hari ulang tahun'}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" /> Ucapkan
+                  </Button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="relative flex flex-col items-center justify-center px-6 py-14 text-center text-muted-foreground">
+            <Cake className="mb-3 h-9 w-9 opacity-30" />
+            <p className="font-semibold text-foreground">Belum ada ulang tahun bulan ini</p>
+            <p className="mt-1 text-sm">Daftar akan muncul saat ada tanggal lahir pada bulan berjalan.</p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 export default BirthdayNotificationModal;

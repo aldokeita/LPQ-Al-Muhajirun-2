@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const ALLOWED_ATTENDANCE_STATUSES = new Set(['Hadir', 'Terlambat', 'Tidak Hadir', 'Alpha', 'Izin', 'Sakit']);
 
@@ -97,7 +98,10 @@ export const fetchMmqAttendance = async ({ date } = {}) => {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data || [];
+  return Promise.all((data || []).map(async (record) => ({
+    ...record,
+    guru: await resolveAvatarRecord(record.guru, { ownerType: 'guru' }),
+  })));
 };
 
 export const saveMmqAttendance = async (payload) => {
@@ -188,7 +192,7 @@ export const fetchGuruForMmq = async () => {
     .order('nama', { ascending: true });
 
   if (error) throw error;
-  return data || [];
+  return resolveAvatarRecords(data, { ownerType: 'guru' });
 };
 
 export const findGuruByRfid = async (rfidTag) => {
@@ -199,7 +203,7 @@ export const findGuruByRfid = async (rfidTag) => {
     .maybeSingle();
 
   if (error) throw error;
-  return data;
+  return resolveAvatarRecord(data, { ownerType: 'guru' });
 };
 
 export const pickScheduleForToday = (schedules, date = new Date()) => {

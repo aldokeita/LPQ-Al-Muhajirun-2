@@ -20,12 +20,14 @@ import {
   MONTH_NAMES,
   PAYMENT_HISTORY_SELECT,
   getPaymentErrorMessage,
+  getSharedDefaultSppAmount,
   monthNameToNumber,
   monthNumberToName,
   selectedMonthToNumber,
   validatePaymentAmount,
 } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -75,7 +77,7 @@ const SantriSelectorModal = ({ santriList, onSelect, open, onOpenChange, selecte
   );
 };
 
-const MonthSelectorDialog = ({ open, onOpenChange, item, onConfirm, initialYear, initialMonths, resetKey }) => {
+const MonthSelectorDialog = ({ open, onOpenChange, item, onConfirm, initialYear, initialMonths, resetKey, selectedSantri }) => {
     const [selectedYear, setSelectedYear] = useState(initialYear || new Date().getFullYear());
     const [selectedMonths, setSelectedMonths] = useState(initialMonths || []);
     const [customAmount, setCustomAmount] = useState(item?.amount || 0);
@@ -88,20 +90,24 @@ const MonthSelectorDialog = ({ open, onOpenChange, item, onConfirm, initialYear,
              setSelectedYear(initialYear || new Date().getFullYear());
              setSelectedMonths(initialMonths || []);
              setIsProcessing(false);
-             if (item?.custom === 'spp_dropdown') {
-                 const initialAmt = item.amount || 50000;
-                 if (sppOptions.includes(initialAmt)) {
+              if (item?.custom === 'spp_dropdown') {
+                  const sharedDefaultAmount = getSharedDefaultSppAmount(selectedSantri);
+                  const initialAmt = item.amount || sharedDefaultAmount || 0;
+                  if (sppOptions.includes(initialAmt)) {
                      setSelectedSppOption(initialAmt.toString());
                      setCustomAmount(initialAmt);
-                 } else {
-                     setSelectedSppOption('custom');
-                     setCustomAmount(initialAmt);
+                  } else if (initialAmt >= 10000) {
+                      setSelectedSppOption('custom');
+                      setCustomAmount(initialAmt);
+                  } else {
+                      setSelectedSppOption('');
+                      setCustomAmount(0);
                  }
              } else {
                  setCustomAmount(item?.amount || 0);
              }
         }
-    }, [open, initialYear, initialMonths, item, resetKey]);
+    }, [open, initialYear, initialMonths, item, resetKey, selectedSantri]);
 
     const toggleMonth = (month) => {
         setSelectedMonths(prev => 
@@ -143,7 +149,7 @@ const MonthSelectorDialog = ({ open, onOpenChange, item, onConfirm, initialYear,
                 <div className="space-y-4 py-4">
                     <div className="flex items-center justify-between"><label className="text-sm font-medium">Tahun Tagihan</label><Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{availableYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent></Select></div>
                     <div><label className="text-sm font-medium mb-2 block">Bulan Tagihan</label><div className="grid grid-cols-3 gap-2">{monthsList.map(month => (<Button key={month} variant={selectedMonths.includes(month) ? "default" : "outline"} size="sm" onClick={() => toggleMonth(month)} className={cn("w-full justify-start px-2", selectedMonths.includes(month) && "bg-primary text-white hover:bg-primary/90")}>{selectedMonths.includes(month) && <Check className="w-3 h-3 mr-1"/>}{month}</Button>))}</div></div>
-                    {item?.custom === 'spp_dropdown' && (<div className="space-y-2"><label className="text-sm font-medium block">Nominal SPP</label><div className="grid grid-cols-3 gap-2">{sppOptions.map(opt => (<Button key={opt} variant={selectedSppOption === opt.toString() ? "default" : "outline"} size="sm" onClick={() => handleSppOptionChange(opt.toString())} className={cn(selectedSppOption === opt.toString() && "bg-primary hover:bg-primary/90 text-white")}>{(opt / 1000)}k</Button>))}<Button variant={selectedSppOption === 'custom' ? "default" : "outline"} size="sm" onClick={() => handleSppOptionChange('custom')} className={cn(selectedSppOption === 'custom' && "bg-primary hover:bg-primary/90 text-white")}>Custom</Button></div>{selectedSppOption === 'custom' && (<Input type="number" value={customAmount} onChange={(e) => setCustomAmount(Number(e.target.value))} placeholder="Masukkan nominal..." className="mt-2"/>)}</div>)}
+                    {item?.custom === 'spp_dropdown' && (<div className="space-y-2"><label className="text-sm font-medium block">Nominal SPP</label><p className="text-xs text-muted-foreground">{getSharedDefaultSppAmount(selectedSantri) ? 'Nominal otomatis mengikuti default SPP santri. Admin tetap dapat menggantinya.' : 'Default SPP belum sama atau belum diatur. Pilih nominal untuk transaksi ini.'}</p><div className="grid grid-cols-3 gap-2">{sppOptions.map(opt => (<Button key={opt} variant={selectedSppOption === opt.toString() ? "default" : "outline"} size="sm" onClick={() => handleSppOptionChange(opt.toString())} className={cn(selectedSppOption === opt.toString() && "bg-primary hover:bg-primary/90 text-white")}>{(opt / 1000)}k</Button>))}<Button variant={selectedSppOption === 'custom' ? "default" : "outline"} size="sm" onClick={() => handleSppOptionChange('custom')} className={cn(selectedSppOption === 'custom' && "bg-primary hover:bg-primary/90 text-white")}>Custom</Button></div>{selectedSppOption === 'custom' && (<Input type="number" min="10000" step="1000" value={customAmount || ''} onChange={(e) => setCustomAmount(Number(e.target.value))} placeholder="Masukkan nominal..." className="mt-2"/>)}</div>)}
                     {item?.custom === 'spp' && (<div><label className="text-sm font-medium mb-1 block">Nominal per Bulan</label><Input type="number" value={customAmount} onChange={(e) => setCustomAmount(Number(e.target.value))} placeholder="Contoh: 120000" /></div>)}
                     <div className="pt-4 border-t flex justify-between items-center"><span className="text-sm text-muted-foreground">{selectedMonths.length} Bulan dipilih</span><span className="font-bold text-lg">Total: Rp {((item?.custom === 'spp' || item?.custom === 'spp_dropdown' ? customAmount : item?.amount || 0) * selectedMonths.length).toLocaleString('id-ID')}</span></div>
                 </div>
@@ -191,19 +197,35 @@ const PaymentSystem = () => {
   const location = useLocation();
 
   useEffect(() => {
+    let active = true;
+
     const fetchSantri = async () => {
       const { data, error } = await supabase
         .from('santri')
-        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, rfid_tag')
+        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, default_spp_amount')
         .eq('status', 'Aktif')
         .order('nama_lengkap');
       if (error) toast({ title: "Error", description: "Gagal memuat data santri.", variant: "destructive" });
-      else setSantriList(data || []);
+      else {
+        const santriWithAvatars = await Promise.all((data || []).map(async (santri) => ({
+          ...santri,
+          foto_url: await resolveAvatarUrl({
+            ownerType: 'santri',
+            ownerId: santri.id,
+            avatarPath: santri.avatar_path,
+            fallbackUrl: santri.foto_url,
+          }),
+        })));
+        if (active) setSantriList(santriWithAvatars);
+      }
     };
     fetchSantri();
     if (rfidInputRef.current) {
         rfidInputRef.current.focus();
     }
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -545,7 +567,7 @@ const PaymentSystem = () => {
         </div>
         
         <SantriSelectorModal santriList={santriList} open={isSantriSelectorOpen} onOpenChange={setIsSantriSelectorOpen} onSelect={handleSantriSelect} selectedSantriIds={new Set(selectedSantri.map(s => s.id))} />
-        <MonthSelectorDialog open={isConfigOpen} onOpenChange={setIsConfigOpen} item={configItem} onConfirm={(config) => { addToCart(configItem, config); }} initialYear={configItem?.year} initialMonths={configItem?.months} resetKey={resetKey} />
+        <MonthSelectorDialog open={isConfigOpen} onOpenChange={setIsConfigOpen} item={configItem} onConfirm={(config) => { addToCart(configItem, config); }} initialYear={configItem?.year} initialMonths={configItem?.months} resetKey={resetKey} selectedSantri={selectedSantri} />
         <DuplicatePaymentDialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen} onResetMonth={() => { setResetKey(prev => prev + 1); setIsConfigOpen(true); }} />
 
         <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>

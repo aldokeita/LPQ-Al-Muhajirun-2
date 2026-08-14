@@ -17,12 +17,12 @@ import JilidChangeModal from './JilidChangeModal';
 import ClassPerformanceModal from './ClassPerformanceModal';
 import * as XLSX from 'xlsx';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import AdultClassManagement from './AdultClassManagement';
 import { motion } from 'framer-motion';
+import AdultClassManagement from './AdultClassManagement';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
+import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -391,8 +391,6 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [sessionTimes, setSessionTimes] = useState({ 'Pagi': '08:00', 'Siang': '14:00', 'Sore': '16:00' });
   const [sessionFilters, setSessionFilters] = useState(Object.keys(sessionTimes));
-  const [pentashihAssignments, setPentashihAssignments] = useState([]);
-  const [assignmentForm, setAssignmentForm] = useState({ pentashih_id: '', class_id: '' });
 
   const fetchAllData = useCallback(async () => {
     const today = new Date().toLocaleDateString('en-CA');
@@ -402,7 +400,6 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           { data: guruData, error: guruError },
           { data: rawSantriData, error: santriError },
           { data: attendanceData, error: attendanceError },
-          { data: assignmentData, error: assignmentError },
           { data: configData }
         ] = await Promise.all([
           supabase
@@ -412,19 +409,24 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           supabase.from('guru').select('id, nama, foto_url, no_hp, roles, status'),
           supabase
             .from('santri')
-            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
+            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
             .order('order_in_class', { ascending: true, nullsFirst: false }),
           supabase.from('attendance').select('*').eq('attendance_date', today),
-          supabase.from('pentashih_class_assignments').select('id, pentashih_id, class_id, scope, is_active, created_at'),
           supabase.from('website_content').select('content').eq('key', configKey).maybeSingle()
         ]);
 
-        if (classError || guruError || santriError || attendanceError || assignmentError) {
-          toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError || assignmentError).message, variant: 'destructive' });
+        if (classError || guruError || santriError || attendanceError) {
+          toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError).message, variant: 'destructive' });
           return;
         }
 
-        const mappedClasses = (classData || []).map(mapClassForLegacyUi);
+        const resolvedGuruData = await resolveAvatarRecords(guruData, { ownerType: 'guru' });
+        const resolvedSantriData = await resolveAvatarRecords(rawSantriData, { ownerType: 'santri' });
+        const resolvedClassData = await Promise.all((classData || []).map(async (classItem) => ({
+            ...classItem,
+            guru: await resolveAvatarRecord(classItem.guru, { ownerType: 'guru' }),
+        })));
+        const mappedClasses = resolvedClassData.map(mapClassForLegacyUi);
         const filteredClasses = mappedClasses.filter(c => {
             if (c.is_active === false) return false;
             if (kategori === 'Anak') return !c.kategori || c.kategori.toLowerCase() === 'anak';
@@ -432,10 +434,9 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
         });
         setClasses(filteredClasses);
 
-        setGuruList(guruData || []);
-        setPentashihAssignments(assignmentData || []);
+        setGuruList(resolvedGuruData);
 
-        const filteredSantri = (rawSantriData || []).map(mapSantriForLegacyUi).filter(s => {
+        const filteredSantri = resolvedSantriData.map(mapSantriForLegacyUi).filter(s => {
             const isMatch = kategori === 'Anak' ? (!s.kategori || s.kategori.toLowerCase() === 'anak' || s.kategori.toLowerCase() === 'tpq') : s.kategori === kategori;
             const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
             return isMatch && isActive;
@@ -675,48 +676,18 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
     else { toast({ title: 'Berhasil!', description: 'Data kelas berhasil disimpan.' }); setIsFormOpen(false); fetchAllData(); }
   };
 
-  const handleCreatePentashihAssignment = async () => {
-    if (!assignmentForm.pentashih_id || !assignmentForm.class_id) {
-      toast({ title: 'Data belum lengkap', description: 'Pilih pentashih dan kelas terlebih dahulu.', variant: 'destructive' });
-      return;
-    }
-
-    const { error } = await supabase.from('pentashih_class_assignments').insert({
-      pentashih_id: assignmentForm.pentashih_id,
-      class_id: assignmentForm.class_id,
-      scope: 'class',
-      is_active: true,
-    });
-
-    if (error) {
-      toast({ title: 'Gagal menyimpan assignment', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    setAssignmentForm({ pentashih_id: '', class_id: '' });
-    toast({ title: 'Berhasil', description: 'Assignment pentashih berhasil ditambahkan.' });
-    fetchAllData();
-  };
-
-  const handleDeactivatePentashihAssignment = async (assignmentId) => {
-    const { error } = await supabase
-      .from('pentashih_class_assignments')
-      .update({ is_active: false })
-      .eq('id', assignmentId);
-
-    if (error) {
-      toast({ title: 'Gagal menonaktifkan assignment', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    toast({ title: 'Berhasil', description: 'Assignment pentashih telah dinonaktifkan.' });
-    fetchAllData();
-  };
-
   const showHistory = async () => {
-    const { data, error } = await supabase.from('class_mutations').select('*, santri:santri_id(nama_lengkap, foto_url), from_class:from_class_id(nama_kelas, sesi, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, sesi, guru:id_guru(nama))').order('mutation_date', { ascending: false });
+    const { data, error } = await supabase.from('class_mutations').select('*, santri:santri_id(id, nama_lengkap, foto_url, avatar_path), from_class:from_class_id(nama_kelas, sesi, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, sesi, guru:id_guru(nama))').order('mutation_date', { ascending: false });
     if (error) { toast({ title: 'Gagal memuat riwayat', description: error.message, variant: 'destructive'}); }
-    else { setMutationHistory(data || []); setFilteredHistory(data || []); setIsHistoryOpen(true); }
+    else {
+      const resolvedHistory = await Promise.all((data || []).map(async (entry) => ({
+        ...entry,
+        santri: await resolveAvatarRecord(entry.santri, { ownerType: 'santri' }),
+      })));
+      setMutationHistory(resolvedHistory);
+      setFilteredHistory(resolvedHistory);
+      setIsHistoryOpen(true);
+    }
   };
 
   const confirmDeleteHistory = (id) => {
@@ -756,23 +727,6 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !s.id_kelas && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
-  const pentashihOptions = useMemo(
-    () => guruList.filter(guru => (guru.roles || []).includes('Pentashih') && guru.status !== 'inactive'),
-    [guruList]
-  );
-  const activePentashihAssignments = useMemo(
-    () => pentashihAssignments.filter(assignment => assignment.is_active !== false),
-    [pentashihAssignments]
-  );
-  const guruById = useMemo(
-    () => Object.fromEntries(guruList.map(guru => [guru.id, guru])),
-    [guruList]
-  );
-  const classById = useMemo(
-    () => Object.fromEntries(classes.map(classItem => [classItem.id, classItem])),
-    [classes]
-  );
-
   const handleExportToExcel = () => {
     try {
         const data = [];
@@ -891,53 +845,6 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
                 ))}
             </div>
         </div>
-
-        {userRole === 'admin' && (
-          <Card className="bg-white dark:bg-slate-900 border border-border shadow-sm">
-            <CardContent className="p-4 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-end gap-3">
-                <div className="flex-1">
-                  <label className="text-xs font-medium uppercase text-muted-foreground">Pentashih</label>
-                  <Select value={assignmentForm.pentashih_id} onValueChange={val => setAssignmentForm(prev => ({ ...prev, pentashih_id: val }))}>
-                    <SelectTrigger><SelectValue placeholder="Pilih pentashih" /></SelectTrigger>
-                    <SelectContent>
-                      {pentashihOptions.map(guru => <SelectItem key={guru.id} value={guru.id}>{guru.nama}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs font-medium uppercase text-muted-foreground">Kelas</label>
-                  <Select value={assignmentForm.class_id} onValueChange={val => setAssignmentForm(prev => ({ ...prev, class_id: val }))}>
-                    <SelectTrigger><SelectValue placeholder="Pilih kelas" /></SelectTrigger>
-                    <SelectContent>
-                      {classes.map(classItem => <SelectItem key={classItem.id} value={classItem.id}>{classItem.nama_kelas}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="button" onClick={handleCreatePentashihAssignment} className="md:w-auto w-full">
-                  <UserPlus className="w-4 h-4 mr-2" /> Assign
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {activePentashihAssignments.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Belum ada assignment pentashih aktif.</p>
-                )}
-                {activePentashihAssignments.map(assignment => (
-                  <div key={assignment.id} className="flex flex-col md:flex-row md:items-center justify-between gap-2 rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-semibold">{guruById[assignment.pentashih_id]?.nama || 'Pentashih'}</p>
-                      <p className="text-xs text-muted-foreground">{classById[assignment.class_id]?.nama_kelas || 'Kelas di luar filter aktif'}</p>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDeactivatePentashihAssignment(assignment.id)}>
-                      Nonaktifkan
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <DroppableColumn title="Santri Belum Masuk Kelas" onDrop={(item) => handleDropSantri(item, null)} icon={<UserPlus className="w-5 h-5"/>}>
@@ -1071,8 +978,17 @@ const ClassManagementWrapper = ({ userRole = 'admin' }) => {
                         onClick={() => setActiveTab(tab.id)}
                         className={`admin-segmented-control-item ${activeTab === tab.id ? 'active' : ''}`}
                     >
-                        <tab.icon className="w-4 h-4" />
-                        {tab.label}
+                        {activeTab === tab.id && (
+                            <motion.span
+                                layoutId="class-management-active-pill"
+                                className="admin-segmented-control-indicator"
+                                transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
+                            />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2">
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
+                        </span>
                     </button>
                 ))}
             </div>

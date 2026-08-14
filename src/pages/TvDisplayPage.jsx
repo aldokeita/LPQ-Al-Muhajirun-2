@@ -120,6 +120,7 @@ const TvDisplayPage = () => {
     const [activeClassIndex, setActiveClassIndex] = useState(0);
     const [waliQuoteIndex, setWaliQuoteIndex] = useState(0);
     const [levelConfig, setLevelConfig] = useState(null);
+    const [logoUrl, setLogoUrl] = useState('/logo.png');
 
     // Invisible Scanning State
     const [scanBuffer, setScanBuffer] = useState('');
@@ -292,6 +293,11 @@ const TvDisplayPage = () => {
 
                 const { data: lvlCfg } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
                 if(lvlCfg?.content) setLevelConfig(lvlCfg.content);
+
+                const { data: logoContent } = await supabase.from('website_content').select('content').eq('key', 'logoUrl').maybeSingle();
+                if (typeof logoContent?.content === 'string' && logoContent.content.trim()) {
+                    setLogoUrl(logoContent.content.trim());
+                }
 
                 const [classesRes, santriRes, attendanceRes] = await Promise.all([
                     supabase
@@ -560,32 +566,54 @@ const TvDisplayPage = () => {
             case 3:
                 const currentQuote = waliQuotes[waliQuoteIndex % waliQuotes.length];
                 return (
-                    <div className="flex flex-col items-center justify-center h-full animate-in zoom-in duration-700">
-                        <div className="max-w-6xl text-center p-12 relative">
-                            <Sparkles className="absolute top-0 left-0 w-24 h-24 text-yellow-400 opacity-50 animate-pulse"/>
-                            <Sparkles className="absolute bottom-0 right-0 w-24 h-24 text-yellow-400 opacity-50 animate-pulse"/>
-                            <h2 className="text-3xl font-bold text-[#4CAF50] mb-8 uppercase tracking-[0.5em]">Pesan Untuk Wali Santri</h2>
+                    <div className="relative flex h-full items-center justify-center overflow-hidden px-8 py-10 animate-in zoom-in duration-700">
+                        <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
+                        <div className="absolute -right-20 bottom-4 h-80 w-80 rounded-full bg-cyan-400/15 blur-3xl" />
+                        <motion.div
+                            initial={{ opacity: 0, y: 28, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+                            className={`relative w-full max-w-6xl overflow-hidden rounded-[3rem] border px-10 py-12 text-center shadow-[0_30px_90px_rgba(15,118,110,0.18)] backdrop-blur-2xl md:px-16 md:py-14 ${isDark ? 'border-white/10 bg-slate-900/65' : 'border-white/70 bg-white/66'}`}
+                        >
+                            <div className="absolute inset-x-24 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+                            <div className="mb-10 flex items-center justify-center gap-4">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-700 text-white shadow-lg shadow-emerald-500/20">
+                                    <MessageCircle className="h-7 w-7" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-500">Sinergi Ayah Bunda & LPQ</p>
+                                    <h2 className={`mt-1 text-3xl font-black tracking-tight md:text-4xl ${isDark ? 'text-white' : 'text-slate-900'}`}>Pesan untuk Wali Santri</h2>
+                                </div>
+                            </div>
                             <AnimatePresence mode="wait">
-                                <motion.p 
+                                <motion.blockquote
                                     key={currentQuote}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    transition={{ duration: 0.5 }}
-                                    className={`text-5xl md:text-7xl font-bold italic leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}
+                                    initial={{ opacity: 0, y: 18, filter: 'blur(5px)' }}
+                                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                                    exit={{ opacity: 0, y: -18, filter: 'blur(5px)' }}
+                                    transition={{ duration: 0.55 }}
+                                    className={`mx-auto max-w-5xl text-4xl font-semibold italic leading-[1.22] tracking-tight md:text-6xl ${isDark ? 'text-slate-50' : 'text-slate-800'}`}
                                 >
-                                    "{currentQuote}"
-                                </motion.p>
+                                    “{currentQuote}”
+                                </motion.blockquote>
                             </AnimatePresence>
-                            <div className="mt-12 w-32 h-2 bg-[#4CAF50] mx-auto rounded-full"></div>
-                        </div>
+                            <div className="mt-12 flex items-center justify-center gap-4">
+                                <span className="h-px w-20 bg-gradient-to-r from-transparent to-emerald-500/70" />
+                                <p className={`text-sm font-semibold tracking-wide ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Mendampingi dengan doa, teladan, dan kasih sayang</p>
+                                <span className="h-px w-20 bg-gradient-to-l from-transparent to-emerald-500/70" />
+                            </div>
+                        </motion.div>
                     </div>
                 );
             case 4:
                 if (filteredSantriList.length === 0) {
                     return (
                         <div className="h-full flex flex-col p-4 animate-in fade-in duration-700 items-center justify-center">
-                           <h2 className={`text-3xl font-black text-center mb-2 uppercase tracking-widest flex items-center justify-center gap-3 ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}><Star className="w-8 h-8"/> Profil Santri</h2>
+                           <div className="mb-3 text-center">
+                            <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-emerald-500">Galeri Peserta Didik</p>
+                            <h2 className={`mt-1 text-3xl font-black tracking-tight md:text-4xl ${isDark ? 'text-white' : 'text-slate-900'}`}>Profil Santri LPQ Al-Muhajirun</h2>
+                            <p className={`mt-1 text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tumbuh, belajar, dan berprestasi bersama Al-Qur&apos;an</p>
+                           </div>
                            <div className="flex-1 flex items-center justify-center text-xl opacity-50 font-bold">Data profil santri belum tersedia.</div>
                         </div>
                     );
@@ -603,7 +631,11 @@ const TvDisplayPage = () => {
 
                 return (
                     <div className="h-full flex flex-col p-4 animate-in fade-in duration-700"> 
-                        <h2 className={`text-3xl font-black text-center mb-2 uppercase tracking-widest flex items-center justify-center gap-3 ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}><Star className="w-8 h-8"/> Profil Santri</h2>
+                        <div className="mb-3 text-center">
+                            <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-emerald-500">Galeri Peserta Didik</p>
+                            <h2 className={`mt-1 text-3xl font-black tracking-tight md:text-4xl ${isDark ? 'text-white' : 'text-slate-900'}`}>Profil Santri LPQ Al-Muhajirun</h2>
+                            <p className={`mt-1 text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tumbuh, belajar, dan berprestasi bersama Al-Qur&apos;an</p>
+                           </div>
                         <div className={`grid ${gridClass} flex-1 w-full max-w-7xl mx-auto min-h-0`}>
                             <AnimatePresence mode="wait">
                                 {currentProfiles.map((santri, idx) => { 
@@ -758,7 +790,7 @@ const TvDisplayPage = () => {
         <Helmet><title>TV Display Mode - LPQ Al-Muhajirun Metode Qiroati Baturaja</title></Helmet>
         <div className={`fixed inset-0 z-50 ${isDark ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'} overflow-hidden flex flex-col transition-colors duration-500`}>
             <div className={`h-20 shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} border-b flex justify-between items-center px-8 shadow-lg z-20`}>
-                <div className="flex items-center gap-4"><img src="/logo.png" alt="Logo LPQ Al-Muhajirun" className="h-12 w-auto bg-white rounded-full p-1" /><div><h1 className="text-2xl font-bold tracking-wider font-cinzel">LPQ AL-MUHAJIRUN</h1><p className={`text-xs tracking-[0.3em] font-mono ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}>INFORMATION DISPLAY SYSTEM</p></div></div>
+                <div className="flex items-center gap-4"><img src={logoUrl} onError={() => setLogoUrl('/logo.png')} alt="Logo LPQ Al-Muhajirun" className="h-14 w-14 rounded-2xl bg-white/95 p-1.5 object-contain shadow-lg ring-1 ring-emerald-500/20" /><div><h1 className="text-2xl font-bold tracking-wider font-cinzel">LPQ AL-MUHAJIRUN</h1><p className={`text-xs tracking-[0.3em] font-mono ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}>INFORMATION DISPLAY SYSTEM</p></div></div>
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => setManualScanOpen(true)} className="hidden md:flex" title="Manual Scan"><Keyboard className="w-5 h-5"/></Button>
                     <Button variant="outline" size="icon" onClick={toggleTheme}>{isDark ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-600" />}</Button>

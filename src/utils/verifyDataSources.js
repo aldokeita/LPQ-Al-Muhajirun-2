@@ -27,7 +27,7 @@ export async function verifySantriDataSources() {
     // (Using a single large query since typical santri counts are manageable, else paginate)
     const { data: allSantri, error: fetchError } = await supabase
       .from('santri')
-      .select('*, class:id_kelas(nama_kelas, sesi)');
+      .select('*, class:classes!santri_current_class_id_fkey(nama_kelas, sesi)');
 
     if (fetchError) {
       throw new Error(`Failed to fetch santri data: ${fetchError.message}`);
@@ -104,19 +104,19 @@ export async function verifySantriDataSources() {
       nama_panggilan: s.nama_panggilan,
       nomor_induk_qiroati: s.nomor_induk_qiroati,
       kategori: s.kategori,
-      id_kelas: s.id_kelas,
+      current_class_id: s.current_class_id,
       class_info: s.class
     }));
 
     // 5. Relationship Analysis
-    const santriWithClass = allSantri.filter(s => s.id_kelas !== null);
+    const santriWithClass = allSantri.filter(s => s.current_class_id !== null);
     const validClassLinks = santriWithClass.filter(s => s.class !== null).length;
     const brokenClassLinks = santriWithClass.length - validClassLinks;
 
     report.relationshipAnalysis = {
       foreignKeys: [
         {
-          column: 'id_kelas',
+          column: 'current_class_id',
           references: 'classes(id)',
           totalLinked: santriWithClass.length,
           validLinks: validClassLinks,
@@ -133,18 +133,14 @@ export async function verifySantriDataSources() {
     if (nullNoInduk > 0) {
       report.issuesFound.push(`${nullNoInduk} santri records are missing 'nomor_induk_qiroati'. They cannot log in using the TPQ logic.`);
     }
-    if (report.dataVerification.duplicates.nama_panggilan.length > 0) {
-      report.issuesFound.push(`Found ${report.dataVerification.duplicates.nama_panggilan.length} duplicate 'nama_panggilan' values. This will cause login conflicts.`);
-    }
     if (brokenClassLinks > 0) {
-      report.issuesFound.push(`Found ${brokenClassLinks} santri records with an 'id_kelas' that does not exist in the 'classes' table.`);
+      report.issuesFound.push(`Found ${brokenClassLinks} santri records with a 'current_class_id' that does not exist in the 'classes' table.`);
     }
 
     // 7. Recommendations
     report.recommendations = [
-      "Ensure all TPQ/Anak santri have a unique 'nama_panggilan' and 'nomor_induk_qiroati' upon registration.",
-      "Add a UNIQUE constraint to 'nama_panggilan' (or a combination of nama_panggilan + nomor_induk_qiroati) to prevent login collision.",
-      "Clean up broken foreign key references in 'id_kelas'.",
+      "Ensure all active santri have a unique 'nomor_induk_qiroati'; duplicate display names are allowed.",
+      "Clean up broken foreign key references in 'current_class_id'.",
       "Regularly audit NULL values in credential columns if the santri status is 'Aktif'."
     ];
 

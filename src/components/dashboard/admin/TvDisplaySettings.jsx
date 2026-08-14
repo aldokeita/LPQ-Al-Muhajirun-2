@@ -70,10 +70,10 @@ const TvDisplaySettings = () => {
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <div className="flex justify-center mb-6">
-                            <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+                            <div className="admin-glass-tab-list inline-flex p-1 rounded-full gap-1">
                                 {tabs.map((tab) => (
-                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}>
-                                        {activeTab === tab.id && (<motion.div layoutId="tv-pill" className="absolute inset-0 bg-blue-600 dark:bg-blue-500 shadow-sm rounded-full" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />)}
+                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`admin-glass-tab-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 ${activeTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}>
+                                        {activeTab === tab.id && (<motion.div layoutId="tv-pill" className="admin-glass-tab-indicator" transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }} />)}
                                         <span className="relative z-10 flex items-center gap-2"><tab.icon className="w-4 h-4" />{tab.label}</span>
                                     </button>
                                 ))}

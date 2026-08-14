@@ -15,6 +15,7 @@ import AttendanceStatusIcon from '../shared/AttendanceStatusIcon';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
 import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
@@ -132,7 +133,7 @@ const AttendanceRecap = () => {
 
             const { data: santri, error: sanError } = await supabase
                 .from('santri')
-                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, kategori, status');
+                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, avatar_path, kategori, status');
             const { data: guru, error: guruError } = await supabase.from('guru').select('id, nama, foto_url');
 
             let classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, is_active').eq('is_active', true);
@@ -149,10 +150,15 @@ const AttendanceRecap = () => {
                 throw new Error("Gagal mengambil data dari database");
             }
 
+            const [resolvedSantri, resolvedGuru] = await Promise.all([
+                resolveAvatarRecords(santri, { ownerType: 'santri' }),
+                resolveAvatarRecords(guru, { ownerType: 'guru' }),
+            ]);
+
             setAttendanceData(attendance || []);
             setAllUsers([
-                ...(santri || []).map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })),
-                ...(guru || []).map(g => ({ ...g, name: g.nama, role: 'guru' }))
+                ...resolvedSantri.map(s => ({ ...s, id_kelas: s.current_class_id, name: s.nama_lengkap, role: 'santri', kategori: s.kategori })),
+                ...resolvedGuru.map(g => ({ ...g, name: g.nama, role: 'guru' }))
             ]);
             setClasses(classData || []);
 
@@ -420,21 +426,21 @@ const AttendanceRecap = () => {
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="flex justify-center mb-6">
-                    <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full gap-1 shadow-inner border border-slate-200/50 dark:border-slate-700/50">
+                    <div className="admin-glass-tab-list inline-flex p-1.5 rounded-full gap-1">
                         {subTabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`
-                                    relative px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ease-out flex items-center gap-2
-                                    ${activeTab === tab.id ? 'text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
+                                    admin-glass-tab-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
+                                    ${activeTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                                 `}
                             >
                                 {activeTab === tab.id && (
                                     <motion.div
                                         layoutId="subtab-pill-recap"
-                                        className="absolute inset-0 bg-white dark:bg-slate-700 shadow-sm rounded-full"
-                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                        className="admin-glass-tab-indicator"
+                                        transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
                                     />
                                 )}
                                 <span className="relative z-10 flex items-center gap-2">

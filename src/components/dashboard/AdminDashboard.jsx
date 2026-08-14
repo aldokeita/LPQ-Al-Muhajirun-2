@@ -20,7 +20,7 @@ import SalaryCalculation from './admin/SalaryCalculation';
 import BackupRestoreManagement from './admin/BackupRestoreManagement';
 import MMQManagement from './admin/MMQManagement';
 import { supabase } from '@/lib/customSupabaseClient';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
+import { enableBackupRestore, enableGameFeatures } from '@/lib/featureFlags';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,6 +32,7 @@ import { fetchCashflowSummary } from '@/lib/financeAdapters';
 import AdminPageHeader from './shared/AdminPageHeader';
 import AdminStatCard from './shared/AdminStatCard';
 import AdminModuleNav from './shared/AdminModuleNav';
+import { resolveAvatarRecord } from '@/lib/storageAdapters';
 
 const withTimeout = (promise, ms) => {
   const timeout = new Promise((_, reject) =>
@@ -102,9 +103,9 @@ const AdminDashboard = () => {
     try {
       switch (category) {
         case 'santri':
-          const { data: fullSantri } = await supabase.from('santri').select('*, class:id_kelas(nama_kelas, id_guru)').eq('id', item.id).single();
+          const { data: fullSantri } = await supabase.from('santri').select('*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru)').eq('id', item.id).single();
           if (fullSantri) {
-            setSelectedSantri(fullSantri);
+            setSelectedSantri(await resolveAvatarRecord(fullSantri, { ownerType: 'santri' }));
             setIsSantriModalOpen(true);
           } else {
              toast({ title: "Gagal", description: "Data santri tidak ditemukan.", variant: "destructive" });
@@ -124,9 +125,9 @@ const AdminDashboard = () => {
           break;
         case 'hafalan':
           if (item.santri?.id) {
-             const { data: santriFromHafalan } = await supabase.from('santri').select('*, class:id_kelas(nama_kelas, id_guru)').eq('id', item.santri.id).single();
+             const { data: santriFromHafalan } = await supabase.from('santri').select('*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru)').eq('id', item.santri.id).single();
              if (santriFromHafalan) {
-                setSelectedSantri(santriFromHafalan);
+                setSelectedSantri(await resolveAvatarRecord(santriFromHafalan, { ownerType: 'santri' }));
                 setIsSantriModalOpen(true);
              }
           } else {
@@ -164,10 +165,14 @@ const AdminDashboard = () => {
     { value: 'expense', label: 'Pengeluaran', icon: TrendingDown, group: 'keuangan' },
     { value: 'content', label: 'Konten', icon: FileText, group: 'konten' },
     { value: 'tv-settings', label: 'Pengaturan TV', icon: Tv, group: 'konten' },
-    { value: 'game-config', label: 'Konfigurasi Game', icon: Settings, group: 'sistem' },
+    { value: 'game-config', label: 'Konfigurasi Game', icon: Settings, group: 'konten' },
     { value: 'backup', label: 'Backup & Restore', icon: Database, group: 'sistem' },
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
-  ].filter(tab => enableDeferredFeatures || !['game-config', 'backup'].includes(tab.value));
+  ].filter(tab => {
+    if (tab.value === 'game-config') return enableGameFeatures;
+    if (tab.value === 'backup') return enableBackupRestore;
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 pt-20">
@@ -182,32 +187,36 @@ const AdminDashboard = () => {
         title="Dashboard Administrator"
         subtitle="Kelola seluruh sistem LPQ Al-Muhajirun"
       >
-        <Button
+        <button
+          type="button"
           onClick={() => navigate('/tv-display-mode')}
-          className="admin-btn-action admin-btn-action--amber"
+          className="attendance-header__action-btn attendance-header__action-btn--tv lpq-shiny-button"
         >
-          <Tv className="w-4 h-4"/> TV Display Mode
-        </Button>
-        {enableDeferredFeatures && (
+          <Tv className="w-4 h-4"/><span>TV Display</span>
+        </button>
+        {enableGameFeatures && (
           <>
-            <Button
+            <button
+              type="button"
               onClick={() => navigate('/gatcha-game')}
-              className="admin-btn-action admin-btn-action--emerald"
+              className="attendance-header__action-btn attendance-header__action-btn--gatcha lpq-shiny-button"
             >
-              <Gamepad2 className="w-4 h-4"/> Play Gatcha
-            </Button>
-            <Button
+              <Gamepad2 className="w-4 h-4"/><span>Play Gatcha</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/quiz-hafalan')}
-              className="admin-btn-action admin-btn-action--cyan"
+              className="attendance-header__action-btn attendance-header__action-btn--quiz lpq-shiny-button"
             >
-              <Gamepad2 className="w-4 h-4"/> Play Quiz
-            </Button>
-            <Button
+              <Library className="w-4 h-4"/><span>Play Quiz</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/random-name')}
-              className="admin-btn-action admin-btn-action--emerald"
+              className="attendance-header__action-btn attendance-header__action-btn--random lpq-shiny-button"
             >
-              <Shuffle className="w-4 h-4"/> Acak Nama
-            </Button>
+              <Shuffle className="w-4 h-4"/><span>Acak Nama</span>
+            </button>
           </>
         )}
       </AdminPageHeader>
@@ -240,12 +249,13 @@ const AdminDashboard = () => {
               label="Santri Aktif"
               value={stats.totalSantri}
               icon={Users}
+              variant="students"
             />
             <AdminStatCard
               label="Pemasukan"
               value={stats.totalPemasukanBulanIni}
               icon={DollarSign}
-              variant="accent"
+              variant="income"
               masked
               showMask={showIncome}
               onToggleMask={() => setShowIncome(!showIncome)}
@@ -254,7 +264,7 @@ const AdminDashboard = () => {
               label="Pengeluaran"
               value={stats.totalPengeluaranBulanIni}
               icon={TrendingDown}
-              variant="amber"
+              variant="expense"
               masked
               showMask={showExpense}
               onToggleMask={() => setShowExpense(!showExpense)}
@@ -263,6 +273,7 @@ const AdminDashboard = () => {
               label="MODE KIOSK"
               value="Absensi Digital"
               icon={Fingerprint}
+              variant="kiosk"
               onClick={() => navigate('/absensi-digital')}
             />
           </>
@@ -279,21 +290,21 @@ const AdminDashboard = () => {
       {/* Santri Subcategory Segmented Control — visible only when Data Santri is active */}
       {activeTab === 'santri' && (
         <div className="flex justify-center mt-6">
-          <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+          <div className="admin-glass-tab-list inline-flex p-1 rounded-full gap-1">
             {santriSubTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveSantriSubTab(tab.id)}
                 className={`
-                  relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
-                  ${activeSantriSubTab === tab.id ? 'text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
+                  admin-glass-tab-button lpq-shiny-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
+                  ${activeSantriSubTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                 `}
               >
                 {activeSantriSubTab === tab.id && (
                   <motion.div
                     layoutId="santri-subcat-pill"
-                    className="absolute inset-0 bg-white dark:bg-slate-700 shadow-sm rounded-full"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    className="admin-glass-tab-indicator"
+                    transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-2">

@@ -638,13 +638,17 @@ const ContentManagement = () => {
           <ContentSection title="Fasilitas" modalType="facilities" data={content.facilities} icon={<Building/>} renderItem={item => <p className="truncate">{item.name}</p>} />
         </TabsContent>
         <TabsContent value="enrollment" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-bold text-xl flex items-center gap-2"><ClipboardList className="w-5 h-5" /> Informasi Pendaftaran</h3>
               <p className="text-sm text-muted-foreground mt-1">Kelola biaya, catatan, dan syarat pendaftaran yang tampil di halaman publik.</p>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveEnrollment} disabled={isEnrollmentSaving}>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={addEnrollmentCategory}>
+                <Plus className="mr-2 h-4 w-4" /> Tambah Kategori
+              </Button>
+              <Button type="button" size="sm" onClick={handleSaveEnrollment} disabled={isEnrollmentSaving}>
+                <Save className="mr-2 h-4 w-4" />
                 {isEnrollmentSaving ? 'Menyimpan…' : 'Simpan Pendaftaran'}
               </Button>
             </div>
@@ -659,13 +663,41 @@ const ContentManagement = () => {
             enrollmentData.categories.map((cat, ci) => (
               <div key={cat.id || ci} className="admin-card p-4 space-y-4 bg-background">
                 {/* Category Header */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xl" aria-hidden="true">{cat.icon}</span>
-                  <Input
-                    value={cat.name}
-                    onChange={e => updateEnrollmentCategory(ci, 'name', e.target.value)}
-                    className="flex-1 font-bold"
-                    placeholder="Nama kategori"
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Input
+                      aria-label="Ikon kategori"
+                      value={cat.icon || ''}
+                      onChange={e => updateEnrollmentCategory(ci, 'icon', e.target.value)}
+                      className="w-16 shrink-0 text-center text-xl"
+                      placeholder="📋"
+                    />
+                    <Input
+                      value={cat.name || ''}
+                      onChange={e => updateEnrollmentCategory(ci, 'name', e.target.value)}
+                      className="min-w-0 flex-1 font-bold"
+                      placeholder="Nama kategori"
+                    />
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => moveCategory(ci, -1)} disabled={ci === 0} aria-label="Pindahkan kategori ke atas">
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => moveCategory(ci, 1)} disabled={ci === enrollmentData.categories.length - 1} aria-label="Pindahkan kategori ke bawah">
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeEnrollmentCategory(ci)} aria-label="Hapus kategori">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Deskripsi kategori</label>
+                  <Textarea
+                    value={cat.description || ''}
+                    onChange={e => updateEnrollmentCategory(ci, 'description', e.target.value)}
+                    placeholder="Jelaskan kategori pendaftaran ini"
+                    rows={2}
                   />
                 </div>
                 <div>

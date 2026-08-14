@@ -13,7 +13,71 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
-import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
+import { enableEdgeFunctions } from '@/lib/featureFlags';
+
+const BACKUP_TABLES = [
+    'guru',
+    'classes',
+    'santri',
+    'class_memberships',
+    'class_mutations',
+    'jilid_history',
+    'attendance',
+    'academic_calendar',
+    'payments',
+    'expenses',
+    'website_content',
+    'login_logs',
+];
+
+// Parent tables always run before rows that reference them.
+const RESTORE_TABLE_ORDER = [
+    'guru',
+    'classes',
+    'santri',
+    'class_memberships',
+    'class_mutations',
+    'jilid_history',
+    'attendance',
+    'academic_calendar',
+    'payments',
+    'expenses',
+    'website_content',
+    'login_logs',
+];
+
+const OPTIONAL_FOREIGN_KEY_COLUMNS = {
+    classes: new Set(['id_guru']),
+    santri: new Set(['current_class_id']),
+    class_memberships: new Set(['assigned_by']),
+    class_mutations: new Set(['from_class_id', 'to_class_id', 'mutated_by']),
+    jilid_history: new Set(['changed_by']),
+    attendance: new Set(['class_id']),
+    payments: new Set(['created_by', 'updated_by']),
+    expenses: new Set(['created_by', 'updated_by']),
+    login_logs: new Set(['user_id']),
+};
+
+const OPERATOR_FOREIGN_KEY_COLUMNS = new Set([
+    'assigned_by',
+    'changed_by',
+    'mutated_by',
+    'created_by',
+    'updated_by',
+]);
+
+const RECOVERABLE_ROW_ERROR_CODES = new Set([
+    '22007',
+    '22P02',
+    '23502',
+    '23503',
+    '23505',
+    '23514',
+]);
+
+const TABLE_UNAVAILABLE_ERROR_CODES = new Set(['42P01', 'PGRST205']);
+const BACKUP_PAGE_SIZE = 1000;
+const RESTORE_CHUNK_SIZE = 200;
 
 const BackupRestoreManagement = () => {
     const { toast } = useToast();
@@ -24,6 +88,7 @@ const BackupRestoreManagement = () => {
     const [showConfirmRestore, setShowConfirmRestore] = useState(false);
     const [progress, setProgress] = useState('');
     const [activeTab, setActiveTab] = useState("backup");
+    const [lastRestoreReport, setLastRestoreReport] = useState(null);
     
     // Password Protection States
     const [passwordDialog, setPasswordDialog] = useState({ isOpen: false, action: null, format: null }); // action: 'backup' or 'restore'
@@ -41,31 +106,229 @@ const BackupRestoreManagement = () => {
         );
     }
 
-    if (!enableEdgeFunctions) {
-        return (
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg"><Database className="w-6 h-6 text-blue-600 dark:text-blue-400" /></div>
-                        <div><CardTitle className="text-2xl font-bold">Backup & Restore Database</CardTitle><CardDescription>{edgeFunctionDisabledMessage}</CardDescription></div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Alert>
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Fitur belum aktif</AlertTitle>
-                        <AlertDescription>{edgeFunctionDisabledMessage}</AlertDescription>
-                    </Alert>
-                </CardContent>
-            </Card>
-        );
-    }
-
     const generateFilename = (type, ext) => {
         const date = new Date();
         const dateStr = date.toISOString().split('T')[0];
         const timeStr = date.toTimeString().split(' ')[0].replace(/:/g, '');
         return `backup-lpq-${type}-${dateStr}-${timeStr}.${ext}`;
+    };
+
+    const fetchTableData = async (tableName) => {
+        const rows = [];
+        let page = 0;
+
+        while (true) {
+            const from = page * BACKUP_PAGE_SIZE;
+            const to = from + BACKUP_PAGE_SIZE - 1;
+            const { data, error } = await supabase
+                .from(tableName)
+                .select('*')
+                .range(from, to);
+
+            if (error) throw new Error(`${tableName}: ${error.message}`);
+            rows.push(...(data || []));
+            if (!data || data.length < BACKUP_PAGE_SIZE) break;
+            page += 1;
+        }
+
+        return rows;
+    };
+
+    const createDirectBackup = async () => {
+        const backup = {};
+        const skippedTables = [];
+
+        for (const tableName of BACKUP_TABLES) {
+            setProgress(`Mengambil tabel ${tableName}...`);
+            try {
+                backup[tableName] = await fetchTableData(tableName);
+            } catch (error) {
+                skippedTables.push({ table: tableName, reason: error.message });
+                console.warn(`Backup melewati tabel ${tableName}:`, error);
+            }
+        }
+
+        const includedTables = Object.keys(backup);
+        if (includedTables.length === 0) {
+            throw new Error('Tidak ada tabel yang dapat dibaca oleh akun admin ini.');
+        }
+
+        backup._backup_meta = {
+            app: 'LPQ Al-Muhajirun',
+            version: 2,
+            created_at: new Date().toISOString(),
+            created_by: user?.email || user?.id || 'admin',
+            included_tables: includedTables,
+            skipped_tables: skippedTables,
+        };
+
+        return backup;
+    };
+
+    const getForeignKeyColumn = (tableName, error) => {
+        const constraintMatch = String(error?.message || '').match(
+            /foreign key constraint "([^"]+)"/i
+        );
+        const constraintName = constraintMatch?.[1];
+        const prefix = `${tableName}_`;
+        if (!constraintName?.startsWith(prefix) || !constraintName.endsWith('_fkey')) return null;
+        return constraintName.slice(prefix.length, -'_fkey'.length);
+    };
+
+    const repairSingleRowRelation = (tableName, row, error) => {
+        const column = getForeignKeyColumn(tableName, error);
+        if (!column || !Object.prototype.hasOwnProperty.call(row, column)) return null;
+
+        const optionalColumns = OPTIONAL_FOREIGN_KEY_COLUMNS[tableName] || new Set();
+        const replacement = OPERATOR_FOREIGN_KEY_COLUMNS.has(column)
+            ? (user?.id || null)
+            : null;
+
+        if (!optionalColumns.has(column) && !OPERATOR_FOREIGN_KEY_COLUMNS.has(column)) {
+            return null;
+        }
+        if (row[column] === replacement) return null;
+
+        return {
+            row: { ...row, [column]: replacement },
+            message: `${tableName}.${column} disesuaikan karena referensi lama tidak tersedia`,
+        };
+    };
+
+    const upsertRowsResilient = async (tableName, inputRows, report) => {
+        let rows = inputRows.map((row) => ({ ...row }));
+
+        for (let attempt = 0; attempt < 32; attempt += 1) {
+            const { error } = await supabase
+                .from(tableName)
+                .upsert(rows, { onConflict: 'id' });
+
+            if (!error) {
+                report.restoredRows += rows.length;
+                return;
+            }
+
+            const missingColumnMatch = String(error.message || '').match(
+                /Could not find the '([^']+)' column of '([^']+)' in the schema cache/i
+            );
+            const missingColumn = missingColumnMatch?.[1];
+            const errorTable = missingColumnMatch?.[2];
+
+            if (missingColumn && errorTable === tableName) {
+                const columnExists = rows.some((row) =>
+                    Object.prototype.hasOwnProperty.call(row, missingColumn)
+                );
+                if (!columnExists) throw new Error(`${tableName}: ${error.message}`);
+
+                rows = rows.map((row) => {
+                    const cleanedRow = { ...row };
+                    delete cleanedRow[missingColumn];
+                    return cleanedRow;
+                });
+                report.removedLegacyColumns.add(`${tableName}.${missingColumn}`);
+                continue;
+            }
+
+            if (TABLE_UNAVAILABLE_ERROR_CODES.has(error.code)) {
+                report.skippedTables.add(tableName);
+                report.skippedRows.push(...rows.map((row) => ({
+                    table: tableName,
+                    id: row.id || null,
+                    reason: error.message,
+                })));
+                return;
+            }
+
+            if (error.code === '42501' || /row-level security|permission denied/i.test(error.message || '')) {
+                throw new Error(`${tableName}: akses admin ditolak oleh kebijakan database. ${error.message}`);
+            }
+
+            if (rows.length > 1 && (
+                RECOVERABLE_ROW_ERROR_CODES.has(error.code)
+                || /violates .* constraint/i.test(error.message || '')
+            )) {
+                const middle = Math.ceil(rows.length / 2);
+                await upsertRowsResilient(tableName, rows.slice(0, middle), report);
+                await upsertRowsResilient(tableName, rows.slice(middle), report);
+                return;
+            }
+
+            if (rows.length === 1 && (
+                error.code === '23503'
+                || /foreign key constraint/i.test(error.message || '')
+            )) {
+                const repaired = repairSingleRowRelation(tableName, rows[0], error);
+                if (repaired) {
+                    rows = [repaired.row];
+                    report.repairedRelations.add(repaired.message);
+                    continue;
+                }
+            }
+
+            if (rows.length === 1 && (
+                RECOVERABLE_ROW_ERROR_CODES.has(error.code)
+                || /violates .* constraint/i.test(error.message || '')
+            )) {
+                report.skippedRows.push({
+                    table: tableName,
+                    id: rows[0]?.id || null,
+                    reason: error.message,
+                });
+                return;
+            }
+
+            throw new Error(`${tableName}: ${error.message}`);
+        }
+
+        throw new Error(`${tableName}: proses sanitasi melewati batas aman.`);
+    };
+
+    const restoreDirectly = async (payload) => {
+        const allowedPayload = RESTORE_TABLE_ORDER
+            .filter((tableName) => Array.isArray(payload?.[tableName]))
+            .map((tableName) => ({ tableName, rows: payload[tableName] }));
+
+        if (allowedPayload.length === 0) {
+            throw new Error('File tidak memiliki tabel yang diizinkan untuk dipulihkan.');
+        }
+
+        const report = {
+            restoredRows: 0,
+            restoredTables: 0,
+            removedLegacyColumns: new Set(),
+            repairedRelations: new Set(),
+            skippedTables: new Set(),
+            skippedRows: [],
+        };
+
+        setProgress('Preflight: memeriksa urutan tabel dan relasi data...');
+
+        for (const { tableName, rows } of allowedPayload) {
+            if (rows.length === 0) continue;
+            setProgress(`Memulihkan ${tableName} (${rows.length} baris)...`);
+            const restoredBefore = report.restoredRows;
+
+            for (let index = 0; index < rows.length; index += RESTORE_CHUNK_SIZE) {
+                const chunk = rows.slice(index, index + RESTORE_CHUNK_SIZE);
+                await upsertRowsResilient(tableName, chunk, report);
+            }
+
+            if (report.restoredRows > restoredBefore) report.restoredTables += 1;
+        }
+
+        if (report.restoredRows === 0) {
+            const firstReason = report.skippedRows[0]?.reason;
+            throw new Error(firstReason || 'Tidak ada baris yang dapat dipulihkan.');
+        }
+
+        return {
+            restoredRows: report.restoredRows,
+            restoredTables: report.restoredTables,
+            removedLegacyColumns: [...report.removedLegacyColumns],
+            repairedRelations: [...report.repairedRelations],
+            skippedTables: [...report.skippedTables],
+            skippedRows: report.skippedRows,
+        };
     };
 
     // Initiate Backup with Password Check
@@ -125,24 +388,19 @@ const BackupRestoreManagement = () => {
         setIsLoading(true);
         setProgress('Mengambil data dari server...');
         try {
-            console.log("Invoking 'backup-database' edge function...");
-            const { data, error } = await supabase.functions.invoke('backup-database');
-            
-            if (error) {
-                console.error("Backup Edge Function Invoke Error:", error);
-                throw new Error(error.message || "Gagal menghubungi fungsi backup di server.");
-            }
-            
-            if (!data) {
-                throw new Error("Data tidak diterima dari server.");
+            let data = null;
+
+            if (enableEdgeFunctions) {
+                try {
+                    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('backup-database');
+                    if (edgeError || edgeData?.error) throw new Error(edgeError?.message || edgeData?.error);
+                    data = edgeData;
+                } catch (edgeError) {
+                    console.warn('Edge Function backup tidak tersedia, memakai jalur admin langsung:', edgeError);
+                }
             }
 
-            // If the edge function returns an error object inside the data response
-            if (data.error) {
-                console.error("Backup Edge Function Runtime Error:", data.error);
-                throw new Error(data.error);
-            }
-
+            if (!data) data = await createDirectBackup();
             setProgress('Memproses file...');
 
             if (format === 'json') {
@@ -152,6 +410,7 @@ const BackupRestoreManagement = () => {
                 a.href = url;
                 a.download = generateFilename('full', 'json');
                 a.click();
+                window.URL.revokeObjectURL(url);
             } else if (format === 'xlsx') {
                 const wb = XLSX.utils.book_new();
                 Object.keys(data).forEach(tableName => {
@@ -172,6 +431,7 @@ const BackupRestoreManagement = () => {
                     a.href = url;
                     a.download = generateFilename('santri', 'csv');
                     a.click();
+                    window.URL.revokeObjectURL(url);
                     toast({ title: "Info CSV", description: "Format CSV hanya mengunduh data Santri. Gunakan XLSX/JSON untuk backup penuh." });
                 } else {
                     toast({ title: "Data Kosong", description: "Tidak ada data santri untuk diexport ke CSV.", variant: "warning" });
@@ -189,9 +449,26 @@ const BackupRestoreManagement = () => {
         }
     };
 
-    const handleFileSelect = (e) => {
-        const file = e.target.files[0];
-        if (file) setRestoreFile(file);
+    const handleFileSelect = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const extension = file.name.split('.').pop()?.toLowerCase();
+        if (!['json', 'xlsx', 'csv'].includes(extension)) {
+            toast({ variant: 'destructive', title: 'Format Tidak Didukung', description: 'Gunakan file JSON, XLSX, atau CSV hasil backup LPQ.' });
+            event.target.value = '';
+            return;
+        }
+
+        if (file.size > 25 * 1024 * 1024) {
+            toast({ variant: 'destructive', title: 'File Terlalu Besar', description: 'Ukuran maksimal file restore adalah 25 MB.' });
+            event.target.value = '';
+            return;
+        }
+
+        setRestoreFile(file);
+        setRestoreData(null);
+        setLastRestoreReport(null);
     };
 
     const parseFile = async () => {
@@ -208,15 +485,15 @@ const BackupRestoreManagement = () => {
                 let parsedData = {};
 
                 try {
-                    if (restoreFile.name.endsWith('.json')) {
+                    if (restoreFile.name.toLowerCase().endsWith('.json')) {
                         parsedData = JSON.parse(content);
-                    } else if (restoreFile.name.endsWith('.xlsx')) {
+                    } else if (restoreFile.name.toLowerCase().endsWith('.xlsx')) {
                         const workbook = XLSX.read(content, { type: 'binary' });
                         workbook.SheetNames.forEach(sheetName => {
                             const rowData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
                             parsedData[sheetName] = rowData;
                         });
-                    } else if (restoreFile.name.endsWith('.csv')) {
+                    } else if (restoreFile.name.toLowerCase().endsWith('.csv')) {
                         const workbook = XLSX.read(content, { type: 'binary' });
                         const sheetName = workbook.SheetNames[0];
                         parsedData['santri'] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
@@ -224,6 +501,11 @@ const BackupRestoreManagement = () => {
 
                     if (Object.keys(parsedData).length === 0) {
                         throw new Error("File kosong atau format data tidak dapat diekstrak.");
+                    }
+
+                    const recognizedTables = BACKUP_TABLES.filter((tableName) => Array.isArray(parsedData[tableName]));
+                    if (recognizedTables.length === 0) {
+                        throw new Error('File tidak berisi tabel LPQ yang dikenali.');
                     }
 
                     setRestoreData(parsedData);
@@ -242,7 +524,7 @@ const BackupRestoreManagement = () => {
                 setIsLoading(false);
             };
 
-            if (restoreFile.name.endsWith('.json')) reader.readAsText(restoreFile);
+            if (restoreFile.name.toLowerCase().endsWith('.json')) reader.readAsText(restoreFile);
             else reader.readAsBinaryString(restoreFile);
 
         } catch (error) {
@@ -255,26 +537,36 @@ const BackupRestoreManagement = () => {
     const executeRestore = async () => {
         setIsLoading(true);
         setShowConfirmRestore(false);
-        setProgress('Merestore database... (Mohon jangan tutup halaman)');
+        setLastRestoreReport(null);
+        setProgress('Preflight: memeriksa file, schema, dan relasi database...');
 
         try {
-            console.log("Invoking 'restore-database' edge function with parsed data...");
-            const { data, error } = await supabase.functions.invoke('restore-database', { 
-                body: { data: restoreData } 
+            let restoreResult = null;
+
+            if (enableEdgeFunctions) {
+                try {
+                    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('restore-database', {
+                        body: { data: restoreData },
+                    });
+                    if (edgeError || edgeData?.error) throw new Error(edgeError?.message || edgeData?.error);
+                    restoreResult = edgeData || { restoredRows: 0 };
+                } catch (edgeError) {
+                    console.warn('Edge Function restore tidak tersedia, memakai jalur admin langsung:', edgeError);
+                }
+            }
+
+            if (!restoreResult) restoreResult = await restoreDirectly(restoreData);
+
+            setLastRestoreReport(restoreResult);
+            const skippedCount = restoreResult.skippedRows?.length || 0;
+            toast({
+                title: skippedCount > 0 ? 'Restore Selesai dengan Catatan' : 'Restore Berhasil',
+                description: (restoreResult.restoredRows ?? 0) + ' baris dipulihkan'
+                    + (skippedCount ? ', ' + skippedCount + ' baris tidak kompatibel dilewati.' : '.'),
+                className: skippedCount > 0
+                    ? 'bg-amber-50 text-amber-900 border-amber-200'
+                    : 'bg-green-50 dark:bg-green-900 border-green-200',
             });
-            
-            if (error) {
-                console.error("Restore Edge Function Invoke Error:", error);
-                throw new Error(error.message || "Gagal memanggil fungsi restore.");
-            }
-
-            if (data?.error) {
-                console.error("Restore Edge Function Runtime Error:", data.error);
-                throw new Error(data.error);
-            }
-
-            console.log("Restore successful. Server response:", data);
-            toast({ title: "Restore Berhasil", description: "Database telah berhasil dipulihkan dari file backup.", className: "bg-green-50 dark:bg-green-900 border-green-200" });
             
             setRestoreFile(null);
             setRestoreData(null);
@@ -292,33 +584,41 @@ const BackupRestoreManagement = () => {
         { id: 'restore', label: 'Restore Data', icon: Upload },
     ];
 
+    const restoreTableNames = restoreData
+        ? BACKUP_TABLES.filter((tableName) => Array.isArray(restoreData[tableName]))
+        : [];
+    const restoreRowCount = restoreTableNames.reduce(
+        (total, tableName) => total + restoreData[tableName].length,
+        0
+    );
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <Card className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 border-slate-200 dark:border-slate-700 shadow-lg">
+            <Card className="admin-bulk-import-surface overflow-hidden rounded-3xl border-0">
                 <CardHeader>
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg"><Database className="w-6 h-6 text-blue-600 dark:text-blue-400" /></div>
-                        <div><CardTitle className="text-2xl font-bold text-slate-800 dark:text-white">Backup & Restore Database</CardTitle><CardDescription>Kelola cadangan data sistem untuk keamanan dan pemulihan bencana.</CardDescription></div>
+                        <div><CardTitle className="text-2xl font-bold text-slate-800 dark:text-white">Backup & Restore Database</CardTitle><CardDescription>Kelola cadangan data sistem untuk keamanan dan pemulihan bencana. Jalur admin langsung aktif dan Edge Function digunakan otomatis bila tersedia.</CardDescription></div>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <div className="flex justify-center mb-8">
-                            <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+                            <div className="admin-glass-tab-list inline-flex p-1 rounded-full gap-1">
                                 {tabs.map((tab) => (
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`
-                                            relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
-                                            ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
+                                            admin-glass-tab-button relative px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2
+                                            ${activeTab === tab.id ? 'text-primary dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                                         `}
                                     >
                                         {activeTab === tab.id && (
                                             <motion.div
                                                 layoutId="backup-pill"
-                                                className="absolute inset-0 bg-blue-600 dark:bg-blue-500 shadow-sm rounded-full"
-                                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                                className="admin-glass-tab-indicator"
+                                                transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
                                             />
                                         )}
                                         <span className="relative z-10 flex items-center gap-2">
@@ -372,6 +672,42 @@ const BackupRestoreManagement = () => {
                             </div>
 
                             <Button className="w-full h-12 text-lg font-semibold shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" onClick={initiateRestore} disabled={!restoreFile || isLoading}>{isLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> {progress || 'Memproses...'}</> : 'Mulai Proses Restore'}</Button>
+
+                            {lastRestoreReport && (
+                                <div className="admin-bulk-import-surface rounded-2xl p-5 text-sm">
+                                    <div className="flex items-start gap-3">
+                                        <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                                        <div className="min-w-0 space-y-3">
+                                            <div>
+                                                <p className="font-bold text-slate-900 dark:text-white">Laporan Restore Terakhir</p>
+                                                <p className="text-slate-600 dark:text-slate-300">
+                                                    {lastRestoreReport.restoredRows || 0} baris dari {lastRestoreReport.restoredTables || 0} tabel berhasil dipulihkan.
+                                                </p>
+                                            </div>
+                                            {lastRestoreReport.removedLegacyColumns?.length > 0 && (
+                                                <p className="break-words text-amber-700 dark:text-amber-300">
+                                                    Kolom legacy dihapus: {lastRestoreReport.removedLegacyColumns.join(', ')}
+                                                </p>
+                                            )}
+                                            {lastRestoreReport.repairedRelations?.length > 0 && (
+                                                <p className="break-words text-blue-700 dark:text-blue-300">
+                                                    Relasi diperbaiki: {lastRestoreReport.repairedRelations.join('; ')}
+                                                </p>
+                                            )}
+                                            {lastRestoreReport.skippedRows?.length > 0 && (
+                                                <p className="text-rose-700 dark:text-rose-300">
+                                                    {lastRestoreReport.skippedRows.length} baris tidak kompatibel dilewati agar tabel lain tetap dapat dipulihkan.
+                                                </p>
+                                            )}
+                                            {lastRestoreReport.skippedTables?.length > 0 && (
+                                                <p className="text-rose-700 dark:text-rose-300">
+                                                    Tabel tidak tersedia: {lastRestoreReport.skippedTables.join(', ')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <Alert variant="destructive" className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50">
                                 <AlertTriangle className="h-4 w-4" /><AlertTitle>Perhatian Ekstra</AlertTitle><AlertDescription>Proses restore akan menimpa data yang ada jika ditemukan ID yang sama (Upsert). Pastikan file backup valid. Tindakan ini tidak dapat dibatalkan secara otomatis.</AlertDescription>
@@ -430,9 +766,11 @@ const BackupRestoreManagement = () => {
                         <DialogDescription>
                             Anda akan melakukan restore data dari file <strong>{restoreFile?.name}</strong>.
                             <br/><br/>
-                            Total Tabel Terdeteksi: <strong>{restoreData ? Object.keys(restoreData).length : 0}</strong>
+                            Tabel yang Diizinkan: <strong>{restoreTableNames.length}</strong>
                             <br/>
-                            Data yang ada dengan ID yang sama akan diperbarui. Data baru akan ditambahkan.
+                            Total Baris: <strong>{restoreRowCount}</strong>
+                            <br/>
+                            Data dengan ID yang sama akan diperbarui dan data baru akan ditambahkan.
                             <br/><br/>
                             Apakah Anda yakin ingin melanjutkan?
                         </DialogDescription>

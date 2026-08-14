@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import GuruPerformanceSummary from './GuruPerformanceSummary';
 import { determineAttendanceStatus, calculateTimeDifference, formatTimestamp } from '@/utils/AttendanceStatusLogic';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
@@ -76,8 +77,9 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         const { data: calendarData } = await supabase.from('academic_calendar').select('date').gte('date', startDate).lte('date', endDate).eq('is_holiday', true);
 
         if (att && guruList && classList) {
+            const resolvedGuruList = await resolveAvatarRecords(guruList, { ownerType: 'guru' });
             setAttendanceData(att);
-            setGurus(guruList);
+            setGurus(resolvedGuruList);
             setClasses(classList);
 
             if (overrides?.content) {

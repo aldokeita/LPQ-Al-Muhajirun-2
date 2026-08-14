@@ -42,18 +42,18 @@ const MediaPlayerWidget = () => {
     };
 
     return (
-        <div className="w-full max-w-xl mx-auto my-2 px-4">
+        <div className="media-player-shell w-full max-w-xl mx-auto my-2 px-4">
              <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+                className="media-player-glass overflow-hidden"
              >
-                <div className="flex flex-col p-3 gap-2">
+                <div className="media-player-glass__content flex flex-col p-4 gap-3">
                     {/* Top Row: Track Info, Settings & Crossfade */}
                     <div className="flex items-center justify-between w-full gap-3">
                         <div className="flex items-center gap-3 overflow-hidden flex-1">
-                            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all duration-500", isPlaying ? "bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 scale-105" : "bg-slate-100 dark:bg-slate-800")}>
+                            <div className={cn("media-player-glass__art w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500", isPlaying ? "media-player-glass__art--playing scale-105" : "")}>
                                 {isPlaying ? (
                                     <div className="flex items-end gap-0.5 h-4 pb-1">
                                         {[1,2,3].map(i => (
@@ -70,10 +70,10 @@ const MediaPlayerWidget = () => {
                                 )}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <h3 className="font-bold text-slate-800 dark:text-white truncate text-sm leading-tight">
+                                <h3 className="media-player-glass__title font-bold truncate text-sm leading-tight">
                                     {currentTrack?.title || "Tidak ada lagu"}
                                 </h3>
-                                <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                                <p className="media-player-glass__artist text-[10px] truncate leading-tight mt-0.5">
                                     {currentTrack?.artist || "Pilih lagu di pengaturan"}
                                 </p>
                             </div>
@@ -83,7 +83,7 @@ const MediaPlayerWidget = () => {
                              <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className={cn("h-7 w-7 rounded-full", isCrossfade ? "text-purple-500 bg-purple-50 dark:bg-purple-900/30" : "text-slate-400")}
+                                className={cn("media-player-glass__control h-8 w-8 rounded-full", isCrossfade ? "text-purple-500 bg-purple-50 dark:bg-purple-900/30" : "text-slate-400")}
                                 onClick={toggleCrossfade}
                                 title="Crossfade"
                             >
@@ -92,7 +92,7 @@ const MediaPlayerWidget = () => {
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-7 w-7 rounded-full text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                                className="media-player-glass__control h-8 w-8 rounded-full"
                                 onClick={() => setIsSettingsOpen(true)}
                                 title="Pengaturan & Playlist"
                             >
@@ -102,49 +102,49 @@ const MediaPlayerWidget = () => {
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="flex items-center gap-2 text-[10px] font-medium text-slate-500 dark:text-slate-400 w-full px-1">
+                    <div className="media-player-glass__progress flex items-center gap-2 text-[10px] font-medium w-full px-1">
                         <span className="w-7 text-right tabular-nums">{formatTime(progress)}</span>
                         <Slider 
                             value={[progress]} 
                             max={duration || 100} 
                             step={1} 
                             onValueChange={handleSeek}
-                            className="flex-1 cursor-pointer h-1.5"
+                            className="media-player-glass__slider flex-1 cursor-pointer h-1.5"
                         />
                         <span className="w-7 tabular-nums">{formatTime(duration)}</span>
                     </div>
 
                     {/* Controls Row */}
-                    <div className="flex items-center justify-center gap-4 w-full">
+                    <div className="media-player-glass__controls flex items-center justify-center gap-4 w-full">
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={cn("h-8 w-8 rounded-full transition-colors", isShuffle ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30" : "text-slate-400 hover:text-slate-600")}
+                            className={cn("media-player-glass__control h-9 w-9 rounded-full transition-colors", isShuffle ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30" : "text-slate-400 hover:text-slate-600")}
                             onClick={toggleShuffle}
                             title="Acak (Shuffle)"
                         >
                             <Shuffle className="w-4 h-4" />
                         </Button>
                         
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={previous}>
+                        <Button variant="ghost" size="icon" className="media-player-glass__control h-10 w-10 rounded-full" onClick={previous}>
                             <SkipBack className="w-5 h-5 fill-current" />
                         </Button>
                         
                         <Button 
-                            className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:scale-105 transition-all flex items-center justify-center"
+                            className="media-player-glass__play h-14 w-14 rounded-full text-white transition-all flex items-center justify-center"
                             onClick={togglePlay}
                         >
                             {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-1" />}
                         </Button>
                         
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={next}>
+                        <Button variant="ghost" size="icon" className="media-player-glass__control h-10 w-10 rounded-full" onClick={next}>
                             <SkipForward className="w-5 h-5 fill-current" />
                         </Button>
                         
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={cn("h-8 w-8 rounded-full transition-colors", isLoop ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30" : "text-slate-400 hover:text-slate-600")}
+                            className={cn("media-player-glass__control h-9 w-9 rounded-full transition-colors", isLoop ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30" : "text-slate-400 hover:text-slate-600")}
                             onClick={toggleLoop}
                             title="Ulang (Loop)"
                         >
@@ -157,7 +157,13 @@ const MediaPlayerWidget = () => {
              <MediaPlayerSettings 
                 isOpen={isSettingsOpen} 
                 onOpenChange={setIsSettingsOpen} 
-                onUpdate={refreshPlaylist} 
+                onUpdate={refreshPlaylist}
+                isShuffle={isShuffle}
+                isLoop={isLoop}
+                isCrossfade={isCrossfade}
+                onToggleShuffle={toggleShuffle}
+                onToggleLoop={toggleLoop}
+                onToggleCrossfade={toggleCrossfade}
             />
         </div>
     );

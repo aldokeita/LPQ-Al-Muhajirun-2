@@ -6,9 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, Lock, X, RefreshCw, BarChart2, User, UserCheck } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
 
@@ -21,26 +20,31 @@ const GameConfiguration = () => {
     ];
 
     return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-primary">Konfigurasi Permainan & Gamifikasi</h2>
-            <p className="text-muted-foreground">Pusat pengaturan untuk Gatcha Game, Quiz Hafalan, dan Level Santri.</p>
+        <div className="game-config-shell space-y-6">
+            <div className="game-config-hero">
+                <div className="game-config-hero__icon"><Gamepad2 className="w-6 h-6" /></div>
+                <div>
+                    <h2 className="text-2xl font-black tracking-tight">Konfigurasi Permainan & Gamifikasi</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Atur pengalaman bermain, konten quiz, hadiah, dan visual level santri.</p>
+                </div>
+            </div>
             
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="flex justify-start mb-6">
-                    <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full gap-1">
+                <div className="flex justify-start mb-6 overflow-x-auto pb-1">
+                    <div className="game-config-tabs inline-flex p-1.5 rounded-2xl gap-1">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`
-                                    relative px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out flex items-center gap-2
+                                    relative px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ease-out flex items-center gap-2 whitespace-nowrap
                                     ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}
                                 `}
                             >
                                 {activeTab === tab.id && (
                                     <motion.div
                                         layoutId="game-pill"
-                                        className="absolute inset-0 bg-blue-600 dark:bg-blue-500 shadow-sm rounded-full"
+                                        className="game-config-tabs__active absolute inset-0 shadow-sm rounded-xl"
                                         transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                     />
                                 )}
@@ -145,7 +149,7 @@ const GatchaSettings = () => {
     const removeReward = (id) => setConfig(prev => ({ ...prev, rewards: prev.rewards.filter(r => r.id !== id) }));
 
     return (
-        <div className="space-y-6">
+        <div className="game-config-panel game-config-panel--gatcha space-y-6">
             <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={resetToDefaults} className="hover:bg-yellow-50 border-yellow-200 text-yellow-700"><RefreshCw className="w-4 h-4 mr-2"/> Reset Konten Islami</Button>
                 <Button onClick={saveConfig} disabled={isLoading} className="bg-primary"><Save className="w-4 h-4 mr-2"/> Simpan Perubahan Gatcha</Button>
@@ -204,7 +208,6 @@ const GatchaSettings = () => {
 
 const QuizSettings = () => {
     const [isLoading, setIsLoading] = useState(false);
-    const [adminPin, setAdminPin] = useState('1234');
     const [quizConfig, setQuizConfig] = useState([]);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
@@ -221,8 +224,42 @@ const QuizSettings = () => {
             const { data } = await supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle();
             if (data?.content) {
                 const loadedCats = data.content.categories || (Array.isArray(data.content) ? data.content : []);
-                setQuizConfig(loadedCats.length === 0 ? defaultQuizData : loadedCats);
-                if (data.content.adminPin) setAdminPin(data.content.adminPin);
+                const filteredCats = loadedCats.filter((category) =>
+                    String(category.label || '').trim().toLowerCase() !== 'staging test'
+                );
+                const canonicalLabels = {
+                    doa: 'Doa Harian',
+                    'doa harian': 'Doa Harian',
+                    surat: 'Surat Pendek',
+                    'surat pendek': 'Surat Pendek',
+                    sholat: 'Bacaan Shalat',
+                    shalat: 'Bacaan Shalat',
+                    'bacaan sholat': 'Bacaan Shalat',
+                    'bacaan shalat': 'Bacaan Shalat'
+                };
+                const normalizedCategories = filteredCats.map((category, index) => ({
+                    ...category,
+                    id: category.id ?? `category-${index + 1}`,
+                    label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
+                    items: Array.isArray(category.items) ? category.items : []
+                }));
+                const requiredCategories = defaultQuizData.filter((required) =>
+                    !normalizedCategories.some((category) => category.label === required.label)
+                );
+                const nextCategories = normalizedCategories.length === 0
+                    ? defaultQuizData
+                    : [...normalizedCategories, ...requiredCategories];
+                setQuizConfig(nextCategories);
+
+                if (filteredCats.length !== loadedCats.length) {
+                    await supabase.from('website_content').upsert({
+                        key: 'quiz_hafalan_config',
+                        content: {
+                            ...(Array.isArray(data.content) ? {} : data.content),
+                            categories: nextCategories
+                        }
+                    }, { onConflict: 'key' });
+                }
             } else {
                 setQuizConfig(defaultQuizData);
             }
@@ -233,7 +270,11 @@ const QuizSettings = () => {
 
     const saveQuizConfig = async () => {
         setIsLoading(true);
-        const payload = { categories: quizConfig, adminPin: adminPin };
+        const payload = {
+            categories: quizConfig.filter((category) =>
+                String(category.label || '').trim().toLowerCase() !== 'staging test'
+            )
+        };
         const { error } = await supabase.from('website_content').upsert({ key: 'quiz_hafalan_config', content: payload }, { onConflict: 'key' });
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Konfigurasi Quiz disimpan." });
@@ -264,18 +305,15 @@ const QuizSettings = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border">
-                <div className="flex items-center gap-4">
-                    <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-full text-yellow-600 dark:text-yellow-400"><Lock className="w-5 h-5"/></div>
-                    <div>
-                        <Label>PIN Akses Pengaturan (di Halaman Game)</Label>
-                        <Input type="text" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} className="w-32 mt-1 font-mono tracking-widest"/>
-                    </div>
+        <div className="game-config-panel game-config-panel--quiz space-y-6">
+            <div className="game-config-section-heading">
+                <div>
+                    <h3 className="text-lg font-black flex items-center gap-2"><Sparkles className="w-5 h-5 text-cyan-500" /> Bank Soal Quiz Hafalan</h3>
+                    <p className="text-sm text-muted-foreground">Kategori dan soal di sini langsung digunakan roda quiz; guru memilih serta menilai santri tanpa RFID.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={resetToDefaults}><RefreshCw className="w-4 h-4 mr-2"/> Reset</Button>
-                    <Button onClick={saveQuizConfig} disabled={isLoading}><Save className="w-4 h-4 mr-2"/> Simpan Semua Konfigurasi</Button>
+                    <Button onClick={saveQuizConfig} disabled={isLoading} className="game-config-save"><Save className="w-4 h-4 mr-2"/> Simpan Quiz</Button>
                 </div>
             </div>
 
@@ -306,9 +344,14 @@ const QuizSettings = () => {
                                     </div>
                                     <div className="flex flex-wrap gap-2 mt-2">
                                         {cat.items.map((item, idx) => (
-                                            <div key={idx} className="bg-secondary px-3 py-1 rounded-full text-xs flex items-center gap-2">
-                                                {item}
-                                                <button onClick={() => removeItem(cat.id, idx)} className="hover:text-red-500"><X className="w-3 h-3"/></button>
+                                            <div
+                                                key={idx}
+                                                className="game-quiz-item-chip"
+                                                style={{ '--quiz-item-accent': cat.color }}
+                                            >
+                                                <span className="game-quiz-item-chip__dot" />
+                                                <span>{item}</span>
+                                                <button onClick={() => removeItem(cat.id, idx)} aria-label={`Hapus ${item}`}><X className="w-3 h-3"/></button>
                                             </div>
                                         ))}
                                         {cat.items.length === 0 && <span className="text-xs text-muted-foreground italic">Belum ada item</span>}
@@ -323,36 +366,46 @@ const QuizSettings = () => {
     );
 };
 
+const createDefaultLevelConfig = () => ({
+    male: [
+        { id: 1, name: 'Pemula', min: 0, max: 100, color: '#3b82f6', cardBgColor: '#ffffff', textColor: '#3b82f6', cardBorderThickness: 8, avatarBorderThickness: 4, enableGradient: true, textGradient: true },
+        { id: 2, name: 'Menengah', min: 101, max: 300, color: '#22c55e', cardBgColor: '#ffffff', textColor: '#22c55e', cardBorderThickness: 10, avatarBorderThickness: 5, enableGradient: true, textGradient: true },
+        { id: 3, name: 'Mahir', min: 301, max: 1000, color: '#eab308', cardBgColor: '#ffffff', textColor: '#eab308', cardBorderThickness: 12, avatarBorderThickness: 6, enableGradient: true, textGradient: true }
+    ],
+    female: [
+        { id: 1, name: 'Pemula', min: 0, max: 100, color: '#ec4899', cardBgColor: '#ffffff', textColor: '#ec4899', cardBorderThickness: 8, avatarBorderThickness: 4, enableGradient: true, textGradient: true },
+        { id: 2, name: 'Menengah', min: 101, max: 300, color: '#a855f7', cardBgColor: '#ffffff', textColor: '#a855f7', cardBorderThickness: 10, avatarBorderThickness: 5, enableGradient: true, textGradient: true },
+        { id: 3, name: 'Mahir', min: 301, max: 1000, color: '#f43f5e', cardBgColor: '#ffffff', textColor: '#f43f5e', cardBorderThickness: 12, avatarBorderThickness: 6, enableGradient: true, textGradient: true }
+    ]
+});
+
+const normalizeLevel = (level, fallbackColor = '#3b82f6') => {
+    const color = level.color || level.accentColor || fallbackColor;
+    return {
+        ...level,
+        color,
+        accentColor: color,
+        cardBgColor: '#ffffff',
+        textColor: color,
+        cardBorderThickness: level.cardDepth ?? level.cardBorderThickness ?? 8,
+        avatarBorderThickness: level.avatarDepth ?? level.avatarBorderThickness ?? 4,
+        enableGradient: true,
+        textGradient: true
+    };
+};
+
 const LevelSettings = () => {
     const [isLoading, setIsLoading] = useState(false);
-    const [levelConfig, setLevelConfig] = useState({
-        male: [
-            { id: 1, name: 'Pemula', min: 0, max: 100, color: '#3b82f6', enableGradient: true, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4 },
-            { id: 2, name: 'Menengah', min: 101, max: 300, color: '#22c55e', enableGradient: true, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4 },
-            { id: 3, name: 'Mahir', min: 301, max: 1000, color: '#eab308', enableGradient: true, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4 }
-        ],
-        female: [
-            { id: 1, name: 'Pemula', min: 0, max: 100, color: '#ec4899', enableGradient: true, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4 },
-            { id: 2, name: 'Menengah', min: 101, max: 300, color: '#a855f7', enableGradient: true, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4 },
-            { id: 3, name: 'Mahir', min: 301, max: 1000, color: '#f43f5e', enableGradient: true, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4 }
-        ]
-    });
+    const [levelConfig, setLevelConfig] = useState(createDefaultLevelConfig);
 
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
             const { data } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
             if (data?.content) {
-                const ensureFields = (levels) => levels.map(l => ({
-                    ...l,
-                    textColor: l.textColor || '#333333',
-                    cardBorderThickness: l.cardBorderThickness || 8,
-                    avatarBorderThickness: l.avatarBorderThickness || 4,
-                    textGradient: l.textGradient || false
-                }));
                 setLevelConfig({
-                    male: ensureFields(data.content.male || []),
-                    female: ensureFields(data.content.female || [])
+                    male: (data.content.male || []).map((level) => normalizeLevel(level, '#3b82f6')),
+                    female: (data.content.female || []).map((level) => normalizeLevel(level, '#ec4899'))
                 });
             }
             setIsLoading(false);
@@ -362,82 +415,172 @@ const LevelSettings = () => {
 
     const saveLevelConfig = async () => {
         setIsLoading(true);
-        const { error } = await supabase.from('website_content').upsert({ key: 'level_config', content: levelConfig }, { onConflict: 'key' });
-        if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
-        else toast({ title: "Berhasil", description: "Konfigurasi Level disimpan." });
+        const normalizedConfig = {
+            male: levelConfig.male.map((level) => normalizeLevel(level, '#3b82f6')).sort((a, b) => a.min - b.min),
+            female: levelConfig.female.map((level) => normalizeLevel(level, '#ec4899')).sort((a, b) => a.min - b.min)
+        };
+        const { error } = await supabase.from('website_content').upsert(
+            { key: 'level_config', content: normalizedConfig },
+            { onConflict: 'key' }
+        );
+
+        if (error) {
+            toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
+        } else {
+            setLevelConfig(normalizedConfig);
+            toast({ title: "Berhasil", description: "Konfigurasi level langsung terhubung ke profile card santri." });
+        }
         setIsLoading(false);
     };
 
     const updateLevel = (gender, id, field, value) => {
-        setLevelConfig(prev => ({
-            ...prev,
-            [gender]: prev[gender].map(l => l.id === id ? { ...l, [field]: value } : l)
+        setLevelConfig((previous) => ({
+            ...previous,
+            [gender]: previous[gender].map((level) => level.id === id ? { ...level, [field]: value } : level)
         }));
     };
 
     const addLevel = (gender) => {
-        const newId = Math.max(0, ...levelConfig[gender].map(l => l.id)) + 1;
-        setLevelConfig(prev => ({
-            ...prev,
-            [gender]: [...prev[gender], { id: newId, name: 'Level Baru', min: 0, max: 0, color: '#000000', enableGradient: false, cardBgColor: '#ffffff', textColor: '#333333', cardBorderThickness: 8, avatarBorderThickness: 4, textGradient: false }]
+        const newId = Math.max(0, ...levelConfig[gender].map((level) => level.id)) + 1;
+        const color = gender === 'female' ? '#ec4899' : '#3b82f6';
+        setLevelConfig((previous) => ({
+            ...previous,
+            [gender]: [
+                ...previous[gender],
+                normalizeLevel({
+                    id: newId,
+                    name: 'Level Baru',
+                    min: 0,
+                    max: 0,
+                    color,
+                    cardBorderThickness: 8,
+                    avatarBorderThickness: 4
+                }, color)
+            ]
         }));
     };
 
     const removeLevel = (gender, id) => {
-        setLevelConfig(prev => ({
-            ...prev,
-            [gender]: prev[gender].filter(l => l.id !== id)
+        setLevelConfig((previous) => ({
+            ...previous,
+            [gender]: previous[gender].filter((level) => level.id !== id)
         }));
     };
 
-    const LevelList = ({ gender, levels }) => (
+    const renderLevelList = (gender, levels) => (
         <div className="space-y-4">
+            <div className="game-level-note">
+                <Sparkles className="w-5 h-5" />
+                <p>Background profile card tetap putih. Warna di bawah hanya mengubah aksen, aura, nama, waktu, dan ikon sesuai level.</p>
+            </div>
             {levels.map((level) => (
-                <div key={level.id} className="flex flex-col gap-4 border p-4 rounded-lg bg-card shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                        <div className="md:col-span-3 w-full"><Label className="text-xs">Nama Level</Label><Input value={level.name} onChange={(e) => updateLevel(gender, level.id, 'name', e.target.value)} /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Min Poin</Label><Input type="number" value={level.min} onChange={(e) => updateLevel(gender, level.id, 'min', parseInt(e.target.value) || 0)} /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Max Poin</Label><Input type="number" value={level.max} onChange={(e) => updateLevel(gender, level.id, 'max', parseInt(e.target.value) || 0)} /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Warna Border</Label><Input type="color" value={level.color} onChange={(e) => updateLevel(gender, level.id, 'color', e.target.value)} className="h-10 cursor-pointer w-full" /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Warna Teks</Label><Input type="color" value={level.textColor || '#333333'} onChange={(e) => updateLevel(gender, level.id, 'textColor', e.target.value)} className="h-10 cursor-pointer w-full" /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Background Card</Label><Input type="color" value={level.cardBgColor || '#ffffff'} onChange={(e) => updateLevel(gender, level.id, 'cardBgColor', e.target.value)} className="h-10 cursor-pointer w-full" /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Tebal Card (px)</Label><Input type="number" value={level.cardBorderThickness || 8} onChange={(e) => updateLevel(gender, level.id, 'cardBorderThickness', parseInt(e.target.value) || 0)} /></div>
-                        <div className="md:col-span-2 w-full"><Label className="text-xs">Tebal Avatar (px)</Label><Input type="number" value={level.avatarBorderThickness || 4} onChange={(e) => updateLevel(gender, level.id, 'avatarBorderThickness', parseInt(e.target.value) || 0)} /></div>
-                        <div className="md:col-span-1 flex justify-center"><Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50" onClick={() => removeLevel(gender, level.id)}><Trash2 className="w-4 h-4" /></Button></div>
-                    </div>
-                    <div className="flex flex-col gap-2 border-t pt-3">
-                        <div className="flex items-center gap-2">
-                            <Checkbox id={`grad-${gender}-${level.id}`} checked={level.enableGradient || false} onCheckedChange={(c) => updateLevel(gender, level.id, 'enableGradient', c)}/>
-                            <Label htmlFor={`grad-${gender}-${level.id}`} className="cursor-pointer text-sm">Aktifkan Efek Gradient & Glow (Border)</Label>
+                <div
+                    key={level.id}
+                    className="game-level-card"
+                    style={{
+                        '--level-preview-accent': level.color,
+                        '--level-card-depth': `${Math.max(0, Number(level.cardBorderThickness) || 0)}px`,
+                        '--level-avatar-depth': `${Math.max(0, Number(level.avatarBorderThickness) || 0)}px`
+                    }}
+                >
+                    <div className="game-level-card__preview">
+                        <div className="game-level-card__avatar">{gender === 'female' ? 'P' : 'L'}</div>
+                        <div className="min-w-0">
+                            <p className="game-level-card__name">Nama Santri</p>
+                            <p className="game-level-card__meta">{level.name || 'Level Baru'} · {level.min}–{level.max} poin</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Checkbox id={`txtgrad-${gender}-${level.id}`} checked={level.textGradient || false} onCheckedChange={(c) => updateLevel(gender, level.id, 'textGradient', c)}/>
-                            <Label htmlFor={`txtgrad-${gender}-${level.id}`} className="cursor-pointer text-sm">Aktifkan Efek Gradient Teks</Label>
+                        <div className="game-level-card__accent" aria-label="Warna aksen level" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                        <div className="md:col-span-4">
+                            <Label className="text-xs font-semibold">Nama Level</Label>
+                            <Input value={level.name} onChange={(event) => updateLevel(gender, level.id, 'name', event.target.value)} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <Label className="text-xs font-semibold">Min Poin</Label>
+                            <Input type="number" value={level.min} onChange={(event) => updateLevel(gender, level.id, 'min', Number.parseInt(event.target.value, 10) || 0)} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <Label className="text-xs font-semibold">Max Poin</Label>
+                            <Input type="number" value={level.max} onChange={(event) => updateLevel(gender, level.id, 'max', Number.parseInt(event.target.value, 10) || 0)} />
+                        </div>
+                        <div className="md:col-span-3">
+                            <Label className="text-xs font-semibold">Warna Aksen</Label>
+                            <Input type="color" value={level.color} onChange={(event) => updateLevel(gender, level.id, 'color', event.target.value)} className="h-10 cursor-pointer w-full" />
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                            <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-50" onClick={() => removeLevel(gender, level.id)} aria-label="Hapus level">
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </div>
+                        <div className="md:col-span-6">
+                            <div className="game-level-depth-control">
+                                <div>
+                                    <Label className="text-xs font-semibold">Depth Card</Label>
+                                    <p className="text-[11px] text-muted-foreground">Mengatur ketebalan shadow card, bukan border.</p>
+                                </div>
+                                <span>{level.cardBorderThickness ?? 8}px</span>
+                            </div>
+                            <Input
+                                type="range"
+                                min="0"
+                                max="16"
+                                step="1"
+                                value={level.cardBorderThickness ?? 8}
+                                onChange={(event) => updateLevel(gender, level.id, 'cardBorderThickness', Number(event.target.value))}
+                                className="game-level-range"
+                            />
+                        </div>
+                        <div className="md:col-span-6">
+                            <div className="game-level-depth-control">
+                                <div>
+                                    <Label className="text-xs font-semibold">Depth Avatar</Label>
+                                    <p className="text-[11px] text-muted-foreground">Mengatur ketebalan shadow frame avatar.</p>
+                                </div>
+                                <span>{level.avatarBorderThickness ?? 4}px</span>
+                            </div>
+                            <Input
+                                type="range"
+                                min="0"
+                                max="16"
+                                step="1"
+                                value={level.avatarBorderThickness ?? 4}
+                                onChange={(event) => updateLevel(gender, level.id, 'avatarBorderThickness', Number(event.target.value))}
+                                className="game-level-range"
+                            />
                         </div>
                     </div>
                 </div>
             ))}
-            <Button variant="outline" onClick={() => addLevel(gender)} className="w-full border-dashed"><Plus className="w-4 h-4 mr-2" /> Tambah Level</Button>
+            <Button variant="outline" onClick={() => addLevel(gender)} className="game-level-add w-full">
+                <Plus className="w-4 h-4 mr-2" /> Tambah Level
+            </Button>
         </div>
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Pengaturan Level & Poin</h3>
-                <Button onClick={saveLevelConfig} disabled={isLoading}><Save className="w-4 h-4 mr-2"/> Simpan Konfigurasi Level</Button>
+        <div className="game-config-panel game-config-panel--levels space-y-6">
+            <div className="game-config-section-heading">
+                <div>
+                    <h3 className="text-lg font-black">Level & Visual Profile Card</h3>
+                    <p className="text-sm text-muted-foreground">Atur rentang poin, nama level, warna aksen, serta depth neumorphic untuk santri putra dan putri.</p>
+                </div>
+                <Button onClick={saveLevelConfig} disabled={isLoading} className="game-config-save">
+                    <Save className="w-4 h-4 mr-2"/> Simpan Konfigurasi Level
+                </Button>
             </div>
             
             <Tabs defaultValue="male" className="w-full">
-                <TabsList className="w-full grid grid-cols-2">
+                <TabsList className="game-level-gender-tabs w-full grid grid-cols-2">
                     <TabsTrigger value="male"><User className="w-4 h-4 mr-2"/> Santri Putra</TabsTrigger>
                     <TabsTrigger value="female"><UserCheck className="w-4 h-4 mr-2"/> Santri Putri</TabsTrigger>
                 </TabsList>
-                <TabsContent value="male" className="mt-4">
-                    <LevelList gender="male" levels={levelConfig.male} />
+                <TabsContent value="male" className="mt-5">
+                    {renderLevelList('male', levelConfig.male)}
                 </TabsContent>
-                <TabsContent value="female" className="mt-4">
-                    <LevelList gender="female" levels={levelConfig.female} />
+                <TabsContent value="female" className="mt-5">
+                    {renderLevelList('female', levelConfig.female)}
                 </TabsContent>
             </Tabs>
         </div>

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Percent, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Percent, Calendar as CalendarIcon, Clock, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AttendanceDetailsModal from '../shared/AttendanceDetailsModal';
 import { DEFAULT_SESSION_TIMES, buildSessionStartTimestamp, determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
@@ -52,7 +51,7 @@ const SantriAbsensiRecap = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalDetails, setModalDetails] = useState(null);
 
-    const fetchAllData = async () => {
+    const fetchAllData = useCallback(async () => {
         if (!user?.id) {
             console.error("SantriAbsensiRecap Error: No user_id available.");
             return;
@@ -88,11 +87,11 @@ const SantriAbsensiRecap = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user?.id]);
 
     useEffect(() => {
         fetchAllData();
-    }, [user?.id]);
+    }, [fetchAllData]);
 
     const stats = useMemo(() => {
         let totalSessions = 0;
@@ -215,7 +214,7 @@ const SantriAbsensiRecap = () => {
             const record = attendance.find(a => a.attendance_date === dateStr);
             const isPastOrToday = dateToCompare <= today;
             
-            let bgColor = "bg-gray-50 dark:bg-slate-800 text-gray-400";
+            let bgColor = "border-slate-200 bg-slate-50 text-slate-400 dark:border-white/10 dark:bg-slate-900/65 dark:text-slate-500";
             let tooltip = "Belum ada sesi/Libur";
 
             if (isPastOrToday) {
@@ -223,36 +222,37 @@ const SantriAbsensiRecap = () => {
                 let computedStatus = getComputedStatus(record, sessionStart);
 
                 if (holidays.has(dateStr)) {
-                    bgColor = "bg-gray-100 text-gray-400 dark:bg-slate-800 border-gray-200";
+                    bgColor = "border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-slate-900/65 dark:text-slate-500";
                     tooltip = "Libur Akademik";
                 } else if (computedStatus === 'Hadir') {
-                    bgColor = "bg-[hsl(var(--status-hadir))] text-white font-bold border-green-600 cursor-pointer shadow-sm opacity-90 hover:opacity-100";
+                    bgColor = "border-emerald-300 bg-emerald-50 font-bold text-emerald-700 shadow-sm hover:bg-emerald-100 dark:border-emerald-400/35 dark:bg-slate-900/80 dark:text-emerald-300 dark:hover:bg-slate-800";
                     tooltip = computedStatus;
                 } else if (computedStatus === 'Terlambat') {
-                    bgColor = "bg-[hsl(var(--status-terlambat))] text-white font-bold border-amber-600 cursor-pointer shadow-sm opacity-90 hover:opacity-100";
+                    bgColor = "border-amber-300 bg-amber-50 font-bold text-amber-700 shadow-sm hover:bg-amber-100 dark:border-amber-400/35 dark:bg-slate-900/80 dark:text-amber-300 dark:hover:bg-slate-800";
                     tooltip = computedStatus;
                 } else {
-                    bgColor = "bg-[hsl(var(--status-tidak-hadir))] text-white font-bold border-red-600 cursor-pointer shadow-sm opacity-90 hover:opacity-100";
+                    bgColor = "border-rose-300 bg-rose-50 font-bold text-rose-700 shadow-sm hover:bg-rose-100 dark:border-rose-400/35 dark:bg-slate-900/80 dark:text-rose-300 dark:hover:bg-slate-800";
                     tooltip = "Tidak Hadir";
                 }
             }
 
+            const canInspect = isPastOrToday && (!holidays.has(dateStr) || record);
+
             days.push(
-                <div 
+                <button
+                    type="button"
                     key={i} 
                     title={tooltip}
-                    onClick={() => {
-                        if (isPastOrToday && (!holidays.has(dateStr) || record)) {
-                            handleDayClick(i);
-                        }
-                    }}
+                    onClick={() => canInspect && handleDayClick(i)}
+                    disabled={!canInspect}
+                    aria-label={`${i} ${monthNames[month]}: ${tooltip}`}
                     className={cn(
-                        "flex items-center justify-center p-3 rounded-lg border transition-all text-sm",
+                        "flex h-9 w-full items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-default sm:h-10 sm:text-sm lg:h-11",
                         bgColor
                     )}
                 >
                     {i}
-                </div>
+                </button>
             );
         }
 
@@ -264,77 +264,70 @@ const SantriAbsensiRecap = () => {
     if (isLoading) return <div className="p-8 text-center text-muted-foreground">Memuat data absensi...</div>;
     if (error) return <div className="p-8 text-center text-red-500">Error: {error}</div>;
 
+    const statItems = [
+        { label: 'Tepat waktu', value: stats.hadir_count, detail: `${stats.hadir_percentage}% bulan ini`, icon: CheckCircle2, tone: 'text-emerald-600 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-400/25' },
+        { label: 'Terlambat', value: stats.terlambat_count, detail: `${stats.terlambat_percentage}% bulan ini`, icon: Clock, tone: 'text-amber-600 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-400/25' },
+        { label: 'Tidak hadir', value: stats.tidak_hadir_count, detail: `${stats.tidak_hadir_percentage}% bulan ini`, icon: XCircle, tone: 'text-rose-600 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-400/25' },
+        { label: 'Kehadiran', value: `${stats.overall_percentage}%`, detail: `${stats.total_sessions} hari belajar`, icon: Percent, tone: 'text-cyan-600 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-400/25' }
+    ];
+
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900">
-                    <CardContent className="p-4 sm:p-6 text-center flex flex-col items-center justify-center h-full">
-                        <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
-                        <h3 className="font-bold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Hadir / Tepat Waktu</h3>
-                        <p className="text-3xl sm:text-4xl font-black text-green-600 mt-2">{stats.hadir_count}</p>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">{stats.hadir_percentage}% dari Bulan Ini</p>
-                    </CardContent>
-                </Card>
+        <div className="space-y-5">
+            <header className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/75">
+                <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+                    <div>
+                        <div className="mb-3 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300">
+                            <Sparkles className="h-4 w-4" /> Ritme belajar bulan ini
+                        </div>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">Rekap Kehadiran</h2>
+                        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Pantau konsistensi hadir, ketepatan waktu, dan detail setiap hari belajar dalam satu tampilan.</p>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900/80">
+                        <div className="flex items-end justify-between gap-3">
+                            <div><p className="text-xs font-bold uppercase text-muted-foreground">Kehadiran</p><p className="mt-1 text-3xl font-black text-slate-900 dark:text-white">{stats.overall_percentage}%</p></div>
+                            <CalendarIcon className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
+                        </div>
+                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="h-full rounded-full bg-cyan-500 transition-[width] duration-500" style={{ width: `${Math.min(100, stats.overall_percentage)}%` }} /></div>
+                    </div>
+                </div>
+            </header>
 
-                <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-900">
-                    <CardContent className="p-4 sm:p-6 text-center flex flex-col items-center justify-center h-full">
-                        <Clock className="w-8 h-8 text-amber-500 mb-2" />
-                        <h3 className="font-bold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Terlambat</h3>
-                        <p className="text-3xl sm:text-4xl font-black text-amber-600 mt-2">{stats.terlambat_count}</p>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">{stats.terlambat_percentage}% dari Bulan Ini</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900">
-                    <CardContent className="p-4 sm:p-6 text-center flex flex-col items-center justify-center h-full">
-                        <XCircle className="w-8 h-8 text-red-500 mb-2" />
-                        <h3 className="font-bold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Tidak Hadir</h3>
-                        <p className="text-3xl sm:text-4xl font-black text-red-600 mt-2">{stats.tidak_hadir_count}</p>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">{stats.tidak_hadir_percentage}% dari Bulan Ini</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-900">
-                    <CardContent className="p-4 sm:p-6 text-center flex flex-col items-center justify-center h-full">
-                        <Percent className="w-8 h-8 text-blue-500 mb-2" />
-                        <h3 className="font-bold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Persentase Kehadiran</h3>
-                        <p className="text-3xl sm:text-4xl font-black text-blue-600 mt-2">{stats.overall_percentage}%</p>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">Sesi Bulan Ini ({stats.total_sessions} Hari)</p>
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {statItems.map(({ label, value, detail, icon: Icon, tone, border }) => (
+                    <article key={label} className={cn('rounded-lg border bg-white p-4 shadow-sm dark:bg-slate-950/70', border)}>
+                        <div className="flex items-start justify-between gap-3"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p><Icon className={cn('h-5 w-5', tone)} /></div>
+                        <p className={cn('mt-4 text-3xl font-black tracking-tight', tone)}>{value}</p>
+                        <p className="mt-1 text-xs font-medium text-muted-foreground">{detail}</p>
+                    </article>
+                ))}
             </div>
 
-            <Card className="shadow-lg border-none overflow-hidden">
-                <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b flex flex-row items-center justify-between py-4">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <CalendarIcon className="w-5 h-5 text-primary" />
-                        Kalender Kehadiran (Senin-Jumat)
-                    </CardTitle>
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" size="icon" onClick={prevMonth}>
-                            <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                        <span className="font-semibold min-w-[120px] text-center">
-                            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                        </span>
-                        <Button variant="outline" size="icon" onClick={nextMonth} disabled={currentDate.getMonth() >= new Date().getMonth() && currentDate.getFullYear() >= new Date().getFullYear()}>
-                            <ChevronRight className="w-4 h-4" />
-                        </Button>
+            <section className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/5 dark:border-white/10 dark:bg-slate-950/75 dark:shadow-black/25">
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 className="flex items-center gap-2 text-lg font-bold"><CalendarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />Kalender Kehadiran</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">Hari belajar Senin sampai Jumat</p>
                     </div>
-                </CardHeader>
-                <CardContent className="p-6">
-                    <div className="grid grid-cols-5 gap-2 mb-2">
-                        {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map(day => (
-                            <div key={day} className="text-center font-bold text-xs sm:text-sm text-muted-foreground py-2">
-                                {day}
-                            </div>
-                        ))}
+                    <div className="flex items-center justify-between gap-2 sm:justify-end">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevMonth} aria-label="Bulan sebelumnya"><ChevronLeft className="h-4 w-4" /></Button>
+                        <span className="min-w-[132px] text-center text-sm font-bold">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextMonth} aria-label="Bulan berikutnya" disabled={currentDate.getMonth() >= new Date().getMonth() && currentDate.getFullYear() >= new Date().getFullYear()}><ChevronRight className="h-4 w-4" /></Button>
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
-                        {renderCalendar()}
+                </div>
+                <div className="p-3 sm:p-4">
+                    <div className="w-full">
+                      <div className="mb-1 grid grid-cols-5 gap-1 sm:gap-1.5">
+                        {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map(day => <div key={day} className="py-1.5 text-center text-[11px] font-bold uppercase text-muted-foreground">{day}</div>)}
+                      </div>
+                      <div className="grid grid-cols-5 gap-1 sm:gap-1.5">{renderCalendar()}</div>
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-xs font-medium text-muted-foreground dark:border-white/10 sm:justify-start">
+                        <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Tepat waktu</span>
+                        <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />Terlambat</span>
+                        <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Tidak hadir</span>
+                    </div>
+                </div>
+            </section>
 
             <AttendanceDetailsModal 
                 isOpen={isModalOpen} 

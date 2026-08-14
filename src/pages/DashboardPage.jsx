@@ -18,8 +18,9 @@ const DashboardPage = () => {
   const [santriProfile, setSantriProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
-  // Add body class for admin portal dropdown scoping
-  useAdminBodyClass(role === 'admin' || role === 'guru' || role === 'pentashih');
+  // Keep every authenticated dashboard on the neutral portal surface. Without
+  // this class the santri dashboard inherits the legacy forest-green body.
+  useAdminBodyClass(Boolean(role));
 
   useEffect(() => {
       console.log('DashboardPage mounted, Context State:', { role, userId: user?.id });

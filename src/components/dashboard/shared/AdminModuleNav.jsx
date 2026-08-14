@@ -1,4 +1,5 @@
 import React from 'react';
+import { LayoutGroup, motion } from 'framer-motion';
 
 /**
  * AdminModuleNav — Premium horizontal pill-based module navigation.
@@ -62,6 +63,7 @@ const AdminModuleNav = ({ tabs, activeTab, onTabChange }) => {
 
   return (
     <div className="admin-module-nav" role="tablist" aria-label="Navigasi modul admin">
+      <LayoutGroup id="admin-module-navigation">
       <div className="flex flex-wrap items-center gap-2 px-2 md:px-0 py-1">
         {groupedTabs.map((group, groupIdx) => (
           <React.Fragment key={group.key}>
@@ -82,20 +84,28 @@ const AdminModuleNav = ({ tabs, activeTab, onTabChange }) => {
                   role="tab"
                   aria-selected={isActive}
                   tabIndex={isActive ? 0 : -1}
-                  className={`admin-nav-pill ${isActive ? 'active' : ''}`}
+                  className={`admin-nav-pill lpq-shiny-button ${isActive ? 'active' : ''}`}
                   onClick={() => onTabChange(tab.value)}
                   onKeyDown={(e) => handleKeyDown(e, currentFlatIdx)}
                 >
-                  {Icon && (
-                    <Icon className="admin-nav-pill-icon" aria-hidden="true" />
+                  {isActive && (
+                    <motion.span
+                      layoutId="admin-module-active-pill"
+                      className="admin-nav-pill-indicator"
+                      transition={{ type: 'spring', stiffness: 430, damping: 34, mass: 0.72 }}
+                    />
                   )}
-                  <span>{tab.label}</span>
+                  {Icon && (
+                    <Icon className="admin-nav-pill-icon relative z-10" aria-hidden="true" />
+                  )}
+                  <span className="relative z-10">{tab.label}</span>
                 </button>
               );
             })}
           </React.Fragment>
         ))}
       </div>
+      </LayoutGroup>
     </div>
   );
 };

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { getStorageErrorMessage, uploadAvatar } from '@/lib/storageAdapters';
+import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C',
@@ -242,7 +243,7 @@ const SantriDewasaManagement = () => {
   const [previewImage, setPreviewImage] = useState(null);
 
   const [formData, setFormData] = useState({
-    nama_lengkap: '', nama_panggilan: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
+    nomor_induk_qiroati: '', nama_lengkap: '', nama_panggilan: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
     no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', email: '', password: '', sesi_mengaji: '', rfid_tag: '',
     jilid: 'Jilid 1A', id_kelas: null, kategori: 'Dewasa'
   });
@@ -275,7 +276,7 @@ const SantriDewasaManagement = () => {
               return isDewasa && isActive;
           });
           console.log(`Filtered Dewasa Santri (Aktif): ${filteredDewasa.length} records`);
-          setSantriList(filteredDewasa);
+          setSantriList(filteredDewasa.map(mapSantriForLegacyUi));
       }
 
       if (classesRes.error) {
@@ -430,6 +431,7 @@ const SantriDewasaManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const finalFormData = { ...formData, kategori: 'Dewasa', points: 0 };
+    finalFormData.nomor_induk_qiroati = normalizeNomorIndukQiroati(finalFormData.nomor_induk_qiroati);
 
     if (!finalFormData.nama_panggilan) {
         toast({ title: "Gagal", description: "Username (Nama Panggilan) wajib diisi.", variant: "destructive" });
@@ -449,22 +451,72 @@ const SantriDewasaManagement = () => {
       }
     }
 
-    if (!finalFormData.email) finalFormData.email = null;
-
-    let result;
-    if (editingSantri) {
-      result = await supabase.from('santri').update(finalFormData).eq('id', editingSantri.id);
-      toast({ title: "Berhasil!", description: "Data santri berhasil diperbarui" });
-    } else {
-      result = await supabase.from('santri').insert(finalFormData);
-      toast({ title: "Berhasil!", description: "Santri dewasa berhasil ditambahkan" });
+    if (!enableEdgeFunctions) {
+      toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+      return;
     }
 
-    if (result.error) toast({ title: "Gagal!", description: result.error.message, variant: "destructive" });
-    else {
-      loadData();
+    try {
+      let targetId = editingSantri?.id;
+      const selectedClassId = finalFormData.id_kelas || null;
+      const originalClassId = editingSantri?.current_class_id ?? editingSantri?.id_kelas ?? null;
+      const classChanged = selectedClassId !== originalClassId;
+      const profilePayload = editingSantri
+        ? pickChangedSantriProfileFields(finalFormData, editingSantri)
+        : pickSantriProfileFields(finalFormData);
+
+      delete profilePayload.current_class_id;
+      profilePayload.kategori = 'Dewasa';
+      profilePayload.nomor_induk_qiroati = finalFormData.nomor_induk_qiroati || null;
+
+      if (classChanged && !selectedClassId) {
+        throw new Error('Pilih kelas tujuan. Pengeluaran dari kelas dilakukan melalui migrasi kategori yang aman.');
+      }
+
+      if (!editingSantri) {
+        const { data, error } = await supabase.functions.invoke('manage-user', {
+          body: {
+            action: 'create',
+            role: 'santri',
+            profile: profilePayload,
+            initial_password: finalFormData.password,
+          },
+        });
+        if (error) throw error;
+        if (!data?.ok || !data?.data?.user_id) throw new Error(data?.error?.message || 'Akun santri dewasa gagal dibuat.');
+        targetId = data.data.user_id;
+      } else if (Object.keys(profilePayload).length > 0) {
+        const { data, error } = await supabase.functions.invoke('manage-user', {
+          body: {
+            action: 'update',
+            role: 'santri',
+            target_user_id: targetId,
+            profile: profilePayload,
+          },
+        });
+        if (error) throw error;
+        if (!data?.ok) throw new Error(data?.error?.message || 'Data santri dewasa gagal diperbarui.');
+      }
+
+      if (classChanged && selectedClassId) {
+        const { error } = await supabase.rpc('move_santri_to_class', {
+          p_santri_id: targetId,
+          p_to_class_id: selectedClassId,
+          p_reason: editingSantri ? 'Perubahan kelas santri dewasa' : 'Penempatan kelas awal santri dewasa',
+        });
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Berhasil!",
+        description: editingSantri ? "Data santri berhasil diperbarui" : "Santri dewasa berhasil ditambahkan"
+      });
+      await loadData();
+      window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
       setIsFormOpen(false);
       resetForm();
+    } catch (error) {
+      toast({ title: "Gagal!", description: error.message, variant: "destructive" });
     }
   };
 
@@ -537,16 +589,18 @@ const SantriDewasaManagement = () => {
           title: 'Migrasi ke TPQ',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori TPQ (Anak)? Santri akan dikeluarkan dari kelas Dewasa saat ini.`,
           onConfirm: async () => {
-              const { error } = await supabase.from('santri')
-                  .update({ kategori: 'Anak', id_kelas: null, order_in_class: null })
-                  .eq('id', editingSantri.id);
+              const { data, error } = await supabase.rpc('change_santri_category', {
+                  p_santri_id: editingSantri.id,
+                  p_target_category: 'Anak',
+                  p_reason: 'Migrasi santri dewasa ke TPQ oleh admin',
+              });
 
               if (error) {
                   toast({ title: "Gagal", description: error.message, variant: "destructive" });
               } else {
-                  toast({ title: "Berhasil", description: "Santri berhasil dipindahkan ke kategori TPQ (Anak)." });
+                  toast({ title: "Berhasil", description: data?.[0]?.message || "Santri berhasil dipindahkan ke kategori TPQ (Anak)." });
                   setIsFormOpen(false);
-                  loadData();
+                  await loadData();
               }
           }
       });
@@ -566,7 +620,7 @@ const SantriDewasaManagement = () => {
 
   const resetForm = () => {
     setFormData({
-        nama_lengkap: '', nama_panggilan: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
+        nomor_induk_qiroati: '', nama_lengkap: '', nama_panggilan: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
         no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', email: '', password: '', sesi_mengaji: sessionOptions[0] || 'Malam', rfid_tag: '',
         jilid: 'Jilid 1A', id_kelas: null, points: 0, kategori: 'Dewasa'
     });
@@ -747,7 +801,8 @@ const SantriDewasaManagement = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><User className="w-3 h-3"/> Username (Login)</label><Input type="text" value={formData.nama_panggilan || ''} onChange={(e) => setFormData({ ...formData, nama_panggilan: e.target.value })} required /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Key className="w-3 h-3"/> Password</label><Input type="text" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} /></div>
+                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor Induk Qiroati <span className="normal-case opacity-70">(opsional)</span></label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} /></div>
+                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Key className="w-3 h-3"/> Password Awal</label><Input type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} disabled={Boolean(editingSantri)} placeholder={editingSantri ? 'Kelola melalui reset password' : 'Masukkan password awal'} /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor HP (WA)</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
                                 <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>

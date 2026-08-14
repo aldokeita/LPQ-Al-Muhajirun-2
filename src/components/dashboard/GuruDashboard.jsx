@@ -16,18 +16,17 @@ import GuruAttendanceRecap from '@/components/dashboard/admin/GuruAttendanceReca
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, ArrowRightLeft, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, BadgeCheck, BadgeX } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, BadgeCheck, BadgeX } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
-import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { determineAttendanceStatus, calculateTimeDifference } from '@/utils/AttendanceStatusLogic';
-import { enableDeferredFeatures } from '@/lib/featureFlags';
 import {
-  buildProgressMap,
+  buildHafalanScoreMap,
+  DEVELOPMENT_SCORE_OPTIONS,
   fetchClassesWithActiveSantriForTeacher,
   fetchHafalanItems,
   fetchHafalanProgress,
@@ -37,6 +36,7 @@ import {
   upsertHafalanProgress
 } from '@/lib/academicAdapters';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
+import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 
 const jilidOptions = [
   'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
@@ -154,6 +154,7 @@ const GuruDashboard = () => {
   const [isHafalanOpen, setIsHafalanOpen] = useState(false);
   const [isMurojaahOpen, setIsMurojaahOpen] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState(null);
+  const [previewAvatar, setPreviewAvatar] = useState(null);
   const [selectedHafalan, setSelectedHafalan] = useState({ category: '', items: [] });
   const [murojaahSubmissions, setMurojaahSubmissions] = useState([]);
   const [currentSubmission, setCurrentSubmission] = useState(null);
@@ -163,11 +164,8 @@ const GuruDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
-  const [birthdayCount, setBirthdayCount] = useState(0);
   const [isJilidModalOpen, setIsJilidModalOpen] = useState(false);
   const [jilidChangeData, setJilidChangeData] = useState(null);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [santriToTransfer, setSantriToTransfer] = useState(null);
   const [paymentStatusBySantri, setPaymentStatusBySantri] = useState({});
 
   // Modals for Attendance
@@ -187,28 +185,37 @@ const GuruDashboard = () => {
             const foto_url = await resolveAvatarUrl({
                 ownerType: 'guru',
                 ownerId: guru.id,
+                avatarPath: guru.avatar_path,
                 fallbackUrl: guru.foto_url,
             });
             setGuruData({ ...guru, foto_url });
             const todayStr = new Date().toLocaleDateString('en-CA');
 
-            const [
-                hafalanItemsData,
-                progressData,
-                submissionsData,
-                classList,
-                santriBirthdaysRes,
-                guruBirthdaysRes
-            ] = await Promise.all([
+            const [hafalanItemsData, progressData, submissionsData, classList] = await Promise.all([
                 fetchHafalanItems(),
                 fetchHafalanProgress(),
                 fetchMurojaahSubmissions(),
-                fetchClassesWithActiveSantriForTeacher(guru.id),
-                supabase.from('santri').select('tanggal_lahir').eq('status', 'Aktif'),
-                supabase.from('guru').select('tanggal_lahir')
+                fetchClassesWithActiveSantriForTeacher(guru.id)
             ]);
 
-            setMyClasses(classList);
+            const classListWithAvatars = await Promise.all(classList.map(async (kelas) => ({
+                ...kelas,
+                santri: await Promise.all((kelas.santri || []).map(async (santri) => {
+                    try {
+                        const resolvedAvatar = await resolveAvatarUrl({
+                            ownerType: 'santri',
+                            ownerId: santri.id,
+                            avatarPath: santri.avatar_path,
+                            fallbackUrl: santri.foto_url,
+                        });
+                        return { ...santri, foto_url: resolvedAvatar || santri.foto_url || '' };
+                    } catch {
+                        return santri;
+                    }
+                }))
+            })));
+
+            setMyClasses(classListWithAvatars);
 
             if (classList.length > 0) {
                 const classIds = classList.map(c => c.id);
@@ -239,24 +246,9 @@ const GuruDashboard = () => {
             }
 
             setHafalanItems(hafalanItemsData || []);
-            setHafalanProgress(buildProgressMap(progressData || []));
+            setHafalanProgress(buildHafalanScoreMap(progressData || []));
             setMurojaahSubmissions(submissionsData || []);
 
-            if (santriBirthdaysRes.data || guruBirthdaysRes.data) {
-                const currentMonth = new Date().getMonth() + 1;
-                let count = 0;
-                const countBirthdays = (list) => {
-                    list?.forEach(person => {
-                        if (person.tanggal_lahir) {
-                            const bMonth = new Date(person.tanggal_lahir).getMonth() + 1;
-                            if (bMonth === currentMonth) count++;
-                        }
-                    });
-                };
-                countBirthdays(santriBirthdaysRes.data);
-                countBirthdays(guruBirthdaysRes.data);
-                setBirthdayCount(count);
-            }
         }
         setIsLoading(false);
       }
@@ -282,7 +274,7 @@ const GuruDashboard = () => {
   };
   const openMurojaahModal = (submission) => { setIsManualMurojaahActive(false); setCurrentSubmission(submission); setFeedback(submission.feedback || ''); setIsMurojaahOpen(true); };
 
-  const handleHafalanToggle = async (item) => {
+  const handleHafalanScoreChange = async (item, score) => {
     if (!selectedSantri) return;
 
     if (!selectedSantri.id || !user?.id) {
@@ -293,18 +285,22 @@ const GuruDashboard = () => {
     const category = selectedHafalan.category;
     const itemName = item.item_name;
     const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${category}-${itemName}`;
-    const newStatus = !hafalanProgress[key];
+    const previousScore = hafalanProgress[key];
 
     // Optimistic Update
-    setHafalanProgress(prev => ({...prev, [key]: newStatus}));
+    setHafalanProgress(prev => ({...prev, [key]: score}));
 
     try {
-        await upsertHafalanProgress({ santriId: selectedSantri.id, item: { ...item, category, item_name: itemName }, complete: newStatus, userId: user.id });
+        await upsertHafalanProgress({ santriId: selectedSantri.id, item: { ...item, category, item_name: itemName }, score, userId: user.id });
 
-        toast({ title: newStatus ? "Hafalan Tercapai" : "Hafalan Dibatalkan", description: `Item "${itemName}" telah diperbarui.`, duration: 2000 });
+        toast({
+            title: score === 4 ? "Hafalan Tercapai" : "Skor Hafalan Tersimpan",
+            description: `Item "${itemName}" mendapat skor ${score}.`,
+            duration: 2000
+        });
     } catch (error) {
         toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
-        setHafalanProgress(prev => ({...prev, [key]: !newStatus})); // Revert optimistic update
+        setHafalanProgress(prev => ({...prev, [key]: previousScore}));
     }
   };
 
@@ -343,6 +339,7 @@ const GuruDashboard = () => {
 
   const pendingSubmissionsCount = useMemo(() => murojaahSubmissions.filter(sub => sub.status === 'menunggu').length, [murojaahSubmissions]);
   const allMySantri = useMemo(() => myClasses.flatMap(c => c.santri), [myClasses]);
+  const birthdayStudentsThisMonth = useMemo(() => getBirthdaysThisMonth(allMySantri), [allMySantri]);
   const getCurrentPaymentStatus = useCallback((santriId) => paymentStatusBySantri[santriId] || 'Belum Lunas', [paymentStatusBySantri]);
   const categories = [...new Set(hafalanItems.map(i => i.category))];
   const filteredManualItems = hafalanItems.filter(i => i.category === manualMurojaahForm.category).map(i => i.item_name);
@@ -357,11 +354,6 @@ const GuruDashboard = () => {
       setJilidChangeData({ santri, direction: 'down', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex - 1] });
     }
     setIsJilidModalOpen(true);
-  };
-
-  const initiateTransfer = (santri) => {
-    setSantriToTransfer(santri);
-    setIsTransferModalOpen(true);
   };
 
   const confirmJilidChange = async () => {
@@ -404,7 +396,6 @@ const GuruDashboard = () => {
   const themeGradient = isFemale ? 'from-teal-500 to-emerald-600' : 'from-green-600 to-green-800';
   const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
   const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
-  const avatarGlow = "animate-pulse-glow";
   const itemsByJilid = selectedHafalan.items ? {
       1: selectedHafalan.items.filter(i => !i.jilid || String(i.jilid) === '1'), 2: selectedHafalan.items.filter(i => String(i.jilid) === '2'), 3: selectedHafalan.items.filter(i => String(i.jilid) === '3'), 4: selectedHafalan.items.filter(i => String(i.jilid) === '4'), 5: selectedHafalan.items.filter(i => String(i.jilid) === '5'), 6: selectedHafalan.items.filter(i => String(i.jilid) === '6'),
   } : {};
@@ -414,47 +405,48 @@ const GuruDashboard = () => {
       const data = {};
       selectedHafalan.items.forEach(item => {
           const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${selectedHafalan.category}-${item.item_name}`;
-          data[item.item_name] = !!hafalanProgress[key];
+          data[item.item_name] = hafalanProgress[key] || null;
       });
       return data;
   };
   const currentProgressData = getProgressData();
 
   return ( <>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 pb-8 pt-20 sm:px-6 lg:px-8">
         <BirthdayGreeting user={guruData} type="Guru" />
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground font-cinzel">Dashboard Guru</h1>
             <div className="flex flex-wrap gap-2 items-center justify-center md:justify-end">
                 <div className="relative mr-2">
-                    <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-primary/20 hover:bg-primary/10 text-primary hover:text-primary/80 shadow-sm" title="Ulang Tahun Bulan Ini"><Cake className="w-5 h-5" />{birthdayCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">{birthdayCount}</span>}</Button>
+                    <Button variant="outline" size="icon" onClick={() => setIsBirthdayModalOpen(true)} className="relative border-rose-200 bg-rose-50 text-rose-600 shadow-sm hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/20 dark:bg-slate-950 dark:text-rose-300 dark:hover:bg-slate-900" title="Ulang Tahun Bulan Ini"><Cake className="w-5 h-5" />{birthdayStudentsThisMonth.length > 0 && <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-bounce">{birthdayStudentsThisMonth.length}</span>}</Button>
                 </div>
-                {enableDeferredFeatures && (
-                  <>
-                    <Button onClick={() => navigate('/gatcha-game')} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md border-none"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
-                    <Button onClick={() => navigate('/quiz-hafalan')} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md border-none"><Gamepad2 className="w-4 h-4 mr-2"/> Play Quiz</Button>
-                    <Button onClick={() => navigate('/random-name')} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md border-none"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
-                  </>
-                )}
+                <Button onClick={() => navigate('/gatcha-game')} className="border-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/20 transition-all hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-lg hover:shadow-violet-500/30"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
+                <Button onClick={() => navigate('/quiz-hafalan')} className="border-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20 transition-all hover:-translate-y-0.5 hover:from-cyan-500 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/30"><PlayCircle className="w-4 h-4 mr-2"/> Play Quiz</Button>
+                <Button onClick={() => navigate('/random-name')} className="border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-400 hover:to-orange-500 hover:shadow-lg hover:shadow-amber-500/30"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
             </div>
         </div>
         {guruData && (
-          <div className={cn("relative mb-8 overflow-hidden rounded-3xl shadow-2xl text-white bg-gradient-to-br border border-white/10", themeGradient)}>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none animate-pulse-slow"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
-            <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-center gap-8">
-                <div className="relative group">
-                    <div className={cn("absolute -inset-2 rounded-full blur opacity-40 group-hover:opacity-75 transition duration-1000 animate-pulse bg-gradient-to-r", isFemale ? 'from-white to-teal-200' : 'from-white to-emerald-200')}></div>
-                    <Avatar className={cn("w-32 h-32 md:w-40 md:h-40 border-4 border-white/30 shadow-2xl relative z-10", avatarGlow)} style={{ '--glow-color': 'rgba(255, 255, 255, 0.6)' }}><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="text-4xl font-bold bg-white text-gray-700">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
-                    <div className="absolute bottom-2 right-2 bg-accent border-4 border-white w-6 h-6 rounded-full z-20"></div>
+          <section className="relative mb-8 overflow-hidden rounded-2xl border border-white/80 bg-slate-100 text-slate-900 shadow-[14px_14px_32px_rgba(15,23,42,0.16),-12px_-12px_28px_rgba(255,255,255,0.92)] dark:border-white/10 dark:bg-slate-950 dark:text-white dark:shadow-[14px_14px_32px_rgba(0,0,0,0.5),-10px_-10px_26px_rgba(30,41,59,0.3)]">
+            <div className={cn('absolute inset-x-0 top-0 h-1 bg-gradient-to-r', isFemale ? 'from-cyan-400 via-teal-400 to-violet-400' : 'from-cyan-500 via-blue-500 to-violet-500')} />
+            <div className="relative grid gap-7 p-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:p-8">
+              <div className="mx-auto rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)] md:mx-0">
+                <Avatar className="h-28 w-28 border-4 border-white shadow-lg dark:border-slate-800 md:h-32 md:w-32"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="bg-slate-200 text-4xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
+              </div>
+              <div className="min-w-0 space-y-3 text-center md:text-left">
+                <p className={cn('text-xs font-black uppercase tracking-[0.18em]', isFemale ? 'text-teal-600 dark:text-teal-300' : 'text-blue-600 dark:text-blue-300')}>Profil pengajar</p>
+                <div><h2 className="truncate text-3xl font-black tracking-tight sm:text-4xl">{guruData.nama}</h2><p className="mt-1 text-base font-semibold text-muted-foreground">{guruData.jabatan}</p></div>
+                <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-slate-100 px-3 py-2 text-xs font-bold shadow-[inset_2px_2px_5px_rgba(15,23,42,0.1),inset_-2px_-2px_5px_rgba(255,255,255,0.9)] dark:border-white/10 dark:bg-slate-900"><Users className="h-4 w-4 text-cyan-600" />{myClasses.length} kelas</span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-slate-100 px-3 py-2 text-xs font-bold shadow-[inset_2px_2px_5px_rgba(15,23,42,0.1),inset_-2px_-2px_5px_rgba(255,255,255,0.9)] dark:border-white/10 dark:bg-slate-900"><UserCheck className="h-4 w-4 text-emerald-600" />Aktif</span>
                 </div>
-                <div className="flex-grow text-center md:text-left space-y-3">
-                    <div><h2 className="text-3xl md:text-4xl font-black tracking-tight flex items-center justify-center md:justify-start gap-3 font-serif">{guruData.nama} <Sparkles className="w-6 h-6 text-accent animate-pulse" /></h2><p className="text-white/90 font-medium text-lg mt-1">{guruData.jabatan}</p></div>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4"><div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2 hover:bg-white/20 transition-colors"><Users className="w-4 h-4 text-white"/><div><p className="text-[10px] uppercase font-bold text-white/70">Total Kelas</p><p className="text-sm font-bold">{myClasses.length} Kelas</p></div></div><div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2 hover:bg-white/20 transition-colors"><Star className="w-4 h-4 text-accent"/><div><p className="text-[10px] uppercase font-bold text-white/70">Status</p><p className="text-sm font-bold">Aktif</p></div></div></div>
-                </div>
-                <div className="flex flex-col gap-3 min-w-[200px]"><Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm shadow-lg"><Edit className="w-4 h-4 mr-2" /> Edit Profil</Button><div className="grid grid-cols-2 gap-2"><Button onClick={() => setIsMmqOpen(true)} size="sm" className="bg-white/90 hover:bg-white text-primary border-0 shadow-md text-xs font-semibold">MMQ</Button><Button onClick={() => setIsRecapOpen(true)} size="sm" className="bg-white/90 hover:bg-white text-primary border-0 shadow-md text-xs font-semibold">Absensi</Button></div><Button onClick={() => setIsMurojaahOpen(true)} size="sm" className="bg-white text-primary hover:bg-white/90 shadow-lg w-full relative overflow-hidden font-bold"><Mic className="w-4 h-4 mr-2"/> Setoran Muroja'ah{pendingSubmissionsCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>}</Button></div>
+              </div>
+              <div className="grid min-w-[190px] gap-2 sm:grid-cols-2 md:grid-cols-1">
+                <Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-primary-foreground dark:border-white/10 dark:bg-slate-900 dark:hover:border-primary dark:hover:bg-primary dark:hover:text-primary-foreground"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
+                <div className="grid grid-cols-2 gap-2"><Button onClick={() => setIsMmqOpen(true)} size="sm" variant="outline">MMQ</Button><Button onClick={() => setIsRecapOpen(true)} size="sm" variant="outline">Absensi</Button></div>
+                <Button onClick={() => setIsMurojaahOpen(true)} size="sm" className="relative overflow-hidden bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"><Mic className="mr-2 h-4 w-4"/> Setoran Muroja'ah{pendingSubmissionsCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rose-500"></span>}</Button>
+              </div>
             </div>
-          </div>
+          </section>
         )}
         <div className="space-y-8">
             {myClasses.map(cls => (
@@ -488,10 +480,17 @@ const GuruDashboard = () => {
                                             <tr key={santri.id} className="border-b border-border/50 last:border-0 hover:bg-secondary/5 transition-colors duration-200">
                                                 <td className="py-3 px-4 text-muted-foreground">{index + 1}</td>
                                                 <td className="py-3 px-4 flex items-center gap-3">
-                                                    <Avatar className="w-8 h-8">
-                                                        <AvatarImage src={santri.foto_url} />
-                                                        <AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreviewAvatar(santri)}
+                                                        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                                        aria-label={`Lihat foto ${santri.nama_lengkap}`}
+                                                    >
+                                                        <Avatar className="w-9 h-9 border border-border shadow-sm transition-transform hover:scale-105">
+                                                            <AvatarImage src={santri.foto_url} className="object-cover" />
+                                                            <AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                    </button>
                                                     <span className="font-medium text-foreground">{santri.nama_lengkap}</span>
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
@@ -531,7 +530,6 @@ const GuruDashboard = () => {
                                                 <td className="py-3 px-4">
                                                     <div className="flex items-center gap-1">
                                                         <Button size="sm" variant="ghost" onClick={() => openDetailModal(santri)} className={cn("text-primary hover:text-primary hover:bg-primary/10")}>Detail</Button>
-                                                        <Button size="sm" variant="ghost" onClick={() => initiateTransfer(santri)} className="text-orange-500 hover:text-orange-600 hover:bg-orange-50" title="Pindah Kelas"><ArrowRightLeft className="w-4 h-4" /></Button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -546,8 +544,48 @@ const GuruDashboard = () => {
             ))}
         </div>
       </div>
+      <Dialog open={Boolean(previewAvatar)} onOpenChange={(open) => { if (!open) setPreviewAvatar(null); }}>
+        <DialogContent className="max-w-md overflow-hidden p-0">
+          <div className="aspect-square w-full bg-slate-100 dark:bg-slate-950">
+            {previewAvatar?.foto_url ? (
+              <img src={previewAvatar.foto_url} alt={`Foto ${previewAvatar.nama_lengkap}`} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+                <Avatar className="h-28 w-28"><AvatarFallback className="text-4xl">{previewAvatar?.nama_lengkap?.charAt(0)}</AvatarFallback></Avatar>
+                <p className="text-sm">Foto santri belum tersedia.</p>
+              </div>
+            )}
+          </div>
+          <DialogHeader className="px-6 pb-6">
+            <DialogTitle>{previewAvatar?.nama_lengkap}</DialogTitle>
+            <DialogDescription>Foto profil santri dari kelas yang Anda ampu.</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
       <SantriDetailModal santri={selectedSantri} isOpen={isDetailOpen} onOpenChange={setIsDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
-      {selectedSantri && (<Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}><DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>Progres Hafalan {selectedHafalan.category}</DialogTitle><DialogDescription>Santri: {selectedSantri.nama_lengkap} (Klik item untuk menandai hafalan)</DialogDescription></DialogHeader><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">{[1, 2, 3, 4, 5, 6].map(jilid => (<HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} progressData={currentProgressData} onItemClick={handleHafalanToggle} isInteractive={true} />))}</div></DialogContent></Dialog>)}
+      {selectedSantri && (
+        <Dialog open={isHafalanOpen} onOpenChange={setIsHafalanOpen}>
+          <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Skor Hafalan {selectedHafalan.category}</DialogTitle>
+              <DialogDescription>Santri: {selectedSantri.nama_lengkap}. Hafalan ditandai tercapai otomatis setelah memperoleh skor 4.</DialogDescription>
+              <div className="grid grid-cols-2 gap-2 pt-3 sm:grid-cols-4" aria-label="Keterangan skor perkembangan">
+                {DEVELOPMENT_SCORE_OPTIONS.map((option) => (
+                  <div key={option.score} className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-slate-900">
+                    <p className="text-xs font-black text-foreground">{option.score} · {option.code}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{option.label}</p>
+                  </div>
+                ))}
+              </div>
+            </DialogHeader>
+            <div className="grid min-w-0 grid-cols-1 gap-4 pt-4 md:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map(jilid => (
+                <HafalanDisplay key={jilid} jilid={jilid} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <Dialog open={isMurojaahOpen} onOpenChange={setIsMurojaahOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">
@@ -645,7 +683,7 @@ const GuruDashboard = () => {
                                     <Button onClick={handleSubmitFeedback} className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md"><Send className="w-4 h-4 mr-2"/> Simpan Penilaian</Button>
                                 </div>
                             ) : (
-                                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900 rounded-xl space-y-2">
+                                <div className="space-y-2 rounded-xl border border-green-100 bg-green-50 p-4 dark:border-emerald-400/25 dark:bg-slate-900/70">
                                     <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-bold"><CheckCircle2 className="w-5 h-5"/> Telah Dinilai</div>
                                     <p className="text-sm italic text-foreground/80">"{currentSubmission.feedback || 'Telah diverifikasi.'}"</p>
                                 </div>
@@ -672,8 +710,7 @@ const GuruDashboard = () => {
       {guruData && <EditGuruProfileModal isOpen={isEditProfileOpen} onOpenChange={setIsEditProfileOpen} guruData={guruData} onProfileUpdate={fetchGuruData} themeColor={themeGradient} />}
       <Dialog open={isRecapOpen} onOpenChange={setIsRecapOpen}><DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Rekap Absensi Guru</DialogTitle></DialogHeader><div className="mt-4"><GuruAttendanceRecap isReadOnly={true} /></div></DialogContent></Dialog>
       <AttendanceDetailsModal isOpen={isAttendanceModalOpen} onClose={() => { setIsAttendanceModalOpen(false); setAttendanceDetails(null); }} details={attendanceDetails} onSuccess={fetchGuruData} />
-      <StudentTransferModal isOpen={isTransferModalOpen} onClose={() => { setIsTransferModalOpen(false); setSantriToTransfer(null); }} santri={santriToTransfer} onTransferSuccess={fetchGuruData} />
-      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} />
+      <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={allMySantri} />
       <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} variant={confirmDialog.variant || "destructive"} confirmText={confirmDialog.confirmText || "Ya, Lanjutkan"} />
       <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Anak" />
     </>

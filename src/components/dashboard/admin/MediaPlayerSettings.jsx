@@ -1,18 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Upload, Music, Settings as SettingsIcon, Save } from 'lucide-react';
+import { Trash2, Upload, Music, Settings as SettingsIcon } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import { motion } from 'framer-motion';
 
-const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
+const MEDIA_SETTINGS_TABS = [
+    { id: 'playlist', label: 'Playlist & Upload', icon: Music },
+    { id: 'settings', label: 'Pengaturan Player', icon: SettingsIcon },
+];
+
+const MediaPlayerSettings = ({
+    isOpen,
+    onOpenChange,
+    onUpdate,
+    isShuffle,
+    isLoop,
+    isCrossfade,
+    onToggleShuffle,
+    onToggleLoop,
+    onToggleCrossfade,
+}) => {
     const [activeTab, setActiveTab] = useState('playlist');
     const [uploading, setUploading] = useState(false);
     const [playlist, setPlaylist] = useState([]);
@@ -130,20 +146,44 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-                    <DialogHeader>
+                <DialogContent className="media-settings-glass max-w-2xl max-h-[90vh] flex flex-col">
+                    <DialogHeader className="media-settings-glass__header">
                         <DialogTitle>Pengaturan Media Player</DialogTitle>
                         <DialogDescription>Kelola playlist dan pengaturan pemutar musik.</DialogDescription>
                     </DialogHeader>
                     
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="playlist">Playlist & Upload</TabsTrigger>
-                            <TabsTrigger value="settings">Pengaturan Player</TabsTrigger>
-                        </TabsList>
+                        <div className="media-settings-glass__tabs" role="tablist" aria-label="Pengaturan media player">
+                            {MEDIA_SETTINGS_TABS.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        className={`media-settings-glass__tab ${isActive ? 'is-active' : ''}`}
+                                        onClick={() => setActiveTab(tab.id)}
+                                    >
+                                        {isActive && (
+                                            <motion.span
+                                                layoutId="media-settings-active-pill"
+                                                className="media-settings-glass__tab-pill"
+                                                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                                            />
+                                        )}
+                                        <span className="media-settings-glass__tab-label">
+                                            <Icon className="w-4 h-4" />
+                                            {tab.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                         
                         <TabsContent value="playlist" className="flex-1 overflow-hidden flex flex-col space-y-4 pt-4">
-                            <Card className="shrink-0">
+                            <Card className="media-settings-glass__panel shrink-0">
                                 <CardContent className="pt-6 space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
@@ -167,7 +207,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                                 </CardContent>
                             </Card>
 
-                            <div className="flex-1 min-h-[200px] border rounded-md relative overflow-hidden">
+                            <div className="media-settings-glass__playlist flex-1 min-h-[200px] rounded-2xl relative overflow-hidden">
                                  <ScrollArea className="h-full w-full p-4">
                                     {playlist.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
@@ -177,7 +217,7 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                                     ) : (
                                         <div className="space-y-2">
                                             {playlist.map((track) => (
-                                                <div key={track.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border hover:border-blue-300 transition-colors">
+                                                <div key={track.id} className="media-settings-glass__track flex items-center justify-between p-3 rounded-xl transition-all">
                                                     <div className="flex items-center gap-3 overflow-hidden">
                                                         <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
                                                             <Music className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -199,33 +239,33 @@ const MediaPlayerSettings = ({ isOpen, onOpenChange, onUpdate }) => {
                         </TabsContent>
                         
                         <TabsContent value="settings" className="pt-4 space-y-4">
-                            <Card>
+                            <Card className="media-settings-glass__panel">
                                 <CardContent className="pt-6 space-y-6">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <Label className="text-base">Shuffle Default</Label>
                                             <p className="text-sm text-muted-foreground">Aktifkan mode acak secara default saat player dimuat.</p>
                                         </div>
-                                        <Switch checked={localStorage.getItem('mp_shuffle') === 'true'} onCheckedChange={(v) => { localStorage.setItem('mp_shuffle', v); toast({ title: "Disimpan", description: "Pengaturan shuffle diperbarui." }); }} />
+                                        <Switch checked={Boolean(isShuffle)} onCheckedChange={(checked) => { if (checked !== isShuffle) onToggleShuffle?.(); toast({ title: "Shuffle diperbarui", description: checked ? "Urutan lagu akan diacak." : "Playlist kembali berurutan." }); }} />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <Label className="text-base">Loop Default</Label>
                                             <p className="text-sm text-muted-foreground">Ulangi playlist secara otomatis.</p>
                                         </div>
-                                        <Switch checked={localStorage.getItem('mp_loop') === 'true'} onCheckedChange={(v) => { localStorage.setItem('mp_loop', v); toast({ title: "Disimpan", description: "Pengaturan loop diperbarui." }); }} />
+                                        <Switch checked={Boolean(isLoop)} onCheckedChange={(checked) => { if (checked !== isLoop) onToggleLoop?.(); toast({ title: "Loop diperbarui", description: checked ? "Playlist akan diputar berulang." : "Playlist berhenti di lagu terakhir." }); }} />
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <Label className="text-base">Crossfade</Label>
                                             <p className="text-sm text-muted-foreground">Transisi halus antar lagu (efek fade-out/fade-in).</p>
                                         </div>
-                                        <Switch checked={localStorage.getItem('mp_crossfade') === 'true'} onCheckedChange={(v) => { localStorage.setItem('mp_crossfade', v); toast({ title: "Disimpan", description: "Pengaturan crossfade diperbarui." }); }} />
+                                        <Switch checked={Boolean(isCrossfade)} onCheckedChange={(checked) => { if (checked !== isCrossfade) onToggleCrossfade?.(); toast({ title: "Crossfade diperbarui", description: checked ? "Transisi antar lagu dibuat lebih halus." : "Transisi lagu kembali langsung." }); }} />
                                     </div>
                                 </CardContent>
                             </Card>
-                            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 text-sm text-yellow-800 dark:text-yellow-200">
-                                Catatan: Pengaturan di atas disimpan di browser ini (Local Storage). Untuk pengaturan global, fitur sedang dalam pengembangan.
+                            <div className="media-settings-glass__note p-4 rounded-xl text-sm">
+                                Pengaturan aktif langsung pada Media Player dan tersimpan untuk browser perangkat ini.
                             </div>
                         </TabsContent>
                     </Tabs>

@@ -44,24 +44,43 @@ const AttendanceProfileCard = ({
   const isTeacher = variant === 'teacher';
 
   const {
-    label: levelLabel,
     color: levelColor,
-    enableGradient,
-    textColor,
+    cardBorderThickness,
     avatarBorderThickness,
-    textGradient,
   } = levelInfo || {};
 
-  const pointAccent = !isTeacher ? getPointAccent(points) : null;
-  const pointLevel = !isTeacher ? getPointLevel(points) : null;
+  const configuredAccent = !isTeacher && levelColor ? getConfiguredAccent(levelColor) : null;
+  const pointAccent = !isTeacher ? (configuredAccent || getPointAccent(points)) : null;
+  const pointLevel = !isTeacher ? (levelInfo?.label || getPointLevel(points)) : null;
+  const cardDepth = clampDepth(cardBorderThickness, 8);
+  const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
-  const cardStyle = pointAccent
-    ? {
-        '--attendance-profile-accent': pointAccent.color,
-        '--attendance-profile-accent-soft': pointAccent.soft,
-        '--attendance-profile-accent-glow': pointAccent.glow,
-      }
-    : undefined;
+  const displayMessage = formatAttendanceMessage(message);
+  const nameGradient = pointAccent
+    ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
+    : isTeacher
+      ? 'linear-gradient(135deg, #047857, #22c55e)'
+      : levelColor
+        ? `linear-gradient(135deg, ${levelColor}, color-mix(in srgb, ${levelColor} 58%, white))`
+        : 'linear-gradient(135deg, #047857, #34d399)';
+  const visualAccent = pointAccent || {
+    color: '#169b62',
+    gradientStart: '#087443',
+    gradientEnd: '#4ade80',
+    soft: 'rgba(22, 155, 98, 0.12)',
+    glow: 'rgba(22, 155, 98, 0.26)',
+  };
+  const cardStyle = {
+    '--attendance-profile-accent': visualAccent.color,
+    '--attendance-profile-gradient-start': visualAccent.gradientStart,
+    '--attendance-profile-gradient-end': visualAccent.gradientEnd,
+    '--attendance-profile-accent-soft': visualAccent.soft,
+    '--attendance-profile-accent-glow': visualAccent.glow,
+    '--attendance-card-shadow-y': `${Math.max(10, cardDepth * 2)}px`,
+    '--attendance-card-shadow-blur': `${Math.max(26, cardDepth * 5)}px`,
+    '--attendance-avatar-shadow-y': `${Math.max(7, avatarDepth * 2)}px`,
+    '--attendance-avatar-shadow-blur': `${Math.max(18, avatarDepth * 5)}px`,
+  };
   const studentStatusStyle = pointAccent
     ? {
         backgroundColor: 'rgba(255, 255, 255, 0.92)',
@@ -78,8 +97,8 @@ const AttendanceProfileCard = ({
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={`attendance-profile-card ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
       style={cardStyle}
       role="region"
       aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
@@ -91,18 +110,9 @@ const AttendanceProfileCard = ({
             style={{
               width: '100%',
               height: '100%',
-              ...(!isTeacher && levelColor
-                ? {
-                    borderColor: pointAccent?.color || levelColor,
-                    borderWidth: `${avatarBorderThickness || 4}px`,
-                    boxShadow: pointAccent
-                      ? `0 0 28px ${pointAccent.glow}, 0 8px 28px rgba(0,0,0,0.10)`
-                      : `0 0 20px ${levelColor}22, 0 8px 28px rgba(0,0,0,0.10)`,
-                  }
-                : {}),
             }}
           >
-          <AvatarImage src={photo} alt={name} className="object-cover" />
+          <AvatarImage src={photo} alt={name} loading="eager" fetchPriority="high" decoding="async" className="object-cover" />
           <AvatarFallback className="attendance-profile-card__avatar-fallback">
             {name?.[0]?.toUpperCase() || '?'}
           </AvatarFallback>
@@ -119,24 +129,6 @@ const AttendanceProfileCard = ({
           </motion.div>
         )}
 
-        {/* Level badge for students */}
-        {!isTeacher && levelLabel && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="attendance-profile-card__level-badge"
-            style={{ borderColor: pointAccent?.color || levelColor || 'var(--att-accent)' }}
-          >
-            <span
-              className={enableGradient ? 'gradient-text' : ''}
-              style={{ color: enableGradient ? undefined : levelColor || 'var(--att-accent)' }}
-            >
-              {levelLabel}
-            </span>
-          </motion.div>
-        )}
-
         {/* Role badge for teachers */}
         {isTeacher && (
           <div className="attendance-profile-card__role-badge">
@@ -148,17 +140,8 @@ const AttendanceProfileCard = ({
 
       {/* Name — primary hierarchy, centered */}
       <h2
-        className={`attendance-profile-card__name ${pointAccent ? 'attendance-profile-card__name--level' : ''}`}
-        style={
-          pointAccent
-            ? {
-                '--attendance-name-color': pointAccent.color,
-                '--attendance-name-glow': pointAccent.glow,
-              }
-            : !isTeacher && textGradient && textColor
-            ? { color: textColor }
-            : undefined
-        }
+        className="attendance-profile-card__name attendance-profile-card__name--gradient"
+        style={{ '--attendance-name-gradient': nameGradient }}
       >
         {name}
       </h2>
@@ -166,9 +149,6 @@ const AttendanceProfileCard = ({
       {/* Subtitle */}
       {isTeacher && jabatan && (
         <p className="attendance-profile-card__subtitle">{jabatan}</p>
-      )}
-      {!isTeacher && jilid && (
-        <p className="attendance-profile-card__subtitle">{jilid}</p>
       )}
 
       {/* Status & Time */}
@@ -242,8 +222,13 @@ const AttendanceProfileCard = ({
       </div>
 
       {/* Message */}
-      {message && (
-        <p className="attendance-profile-card__message">{message}</p>
+      {displayMessage && (
+        <div className="attendance-profile-card__message">
+          <span className="attendance-profile-card__message-icon" aria-hidden="true">
+            <CheckCircle className="w-4 h-4" />
+          </span>
+          <p>{displayMessage}</p>
+        </div>
       )}
 
       {/* Quote */}
@@ -304,11 +289,29 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
   </div>
 );
 
+function clampDepth(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(16, Math.max(0, parsed));
+}
+
+function getConfiguredAccent(color) {
+  return {
+    color,
+    gradientStart: `color-mix(in srgb, ${color} 72%, #111827)`,
+    gradientEnd: `color-mix(in srgb, ${color} 62%, white)`,
+    soft: `color-mix(in srgb, ${color} 14%, transparent)`,
+    glow: `color-mix(in srgb, ${color} 32%, transparent)`,
+  };
+}
+
 function getPointAccent(points = 0) {
   const safePoints = Number(points) || 0;
   if (safePoints <= 20) {
     return {
       color: '#22c55e',
+      gradientStart: '#15803d',
+      gradientEnd: '#4ade80',
       soft: 'rgba(34, 197, 94, 0.14)',
       glow: 'rgba(34, 197, 94, 0.5)',
     };
@@ -316,6 +319,8 @@ function getPointAccent(points = 0) {
   if (safePoints <= 50) {
     return {
       color: '#2563eb',
+      gradientStart: '#1d4ed8',
+      gradientEnd: '#60a5fa',
       soft: 'rgba(37, 99, 235, 0.14)',
       glow: 'rgba(37, 99, 235, 0.5)',
     };
@@ -323,12 +328,16 @@ function getPointAccent(points = 0) {
   if (safePoints <= 80) {
     return {
       color: '#f97316',
+      gradientStart: '#c2410c',
+      gradientEnd: '#fb923c',
       soft: 'rgba(249, 115, 22, 0.16)',
       glow: 'rgba(249, 115, 22, 0.55)',
     };
   }
   return {
     color: '#ef4444',
+    gradientStart: '#b91c1c',
+    gradientEnd: '#fb7185',
     soft: 'rgba(239, 68, 68, 0.16)',
     glow: 'rgba(239, 68, 68, 0.55)',
   };
@@ -360,6 +369,19 @@ function getStatusConfig(status) {
     default:
       return { label: status || 'Unknown', color: 'var(--att-text-muted)', icon: <Clock className="w-4 h-4" /> };
   }
+}
+
+function formatAttendanceMessage(message) {
+  if (!message) return message;
+
+  const normalizedMessage = String(message);
+  if (/berhasil\s+melakukan\s+absensi/i.test(normalizedMessage)) {
+    return 'Absensi Sesi Sore berhasil.';
+  }
+
+  return normalizedMessage
+    .replace(/\bpada\s+sesi\s*3\b/gi, 'pada Sesi Sore')
+    .replace(/\bsesi\s*3\b/gi, 'Sesi Sore');
 }
 
 export default AttendanceProfileCard;

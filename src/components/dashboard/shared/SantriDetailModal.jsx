@@ -15,6 +15,7 @@ import { calculateAttendanceData, getHafalanProgressData, getPointsData, generat
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriNotes, getAcademicErrorMessage, saveSantriNote } from '@/lib/academicAdapters';
+import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
 
 const jilidOptions = [
     'Pra TK A', 'Pra TK B', 'Pra TK C',
@@ -29,7 +30,7 @@ const jilidOptions = [
 ];
 
 const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }) => {
-    const { user } = useAuth();
+    const { user, role } = useAuth();
     const [notes, setNotes] = useState([]);
     const [newNote, setNewNote] = useState('');
     const [editingNote, setEditingNote] = useState(null);
@@ -290,6 +291,15 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ayah || santri.nama_ibu || '-'}</p>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="pt-6">
+                        <SantriDevelopmentProfile
+                            santriId={santri.id}
+                            userId={user?.id}
+                            editable={role === 'guru'}
+                            showBehavior={role === 'guru'}
+                        />
                     </div>
 
                     <div className="pt-6 space-y-4">

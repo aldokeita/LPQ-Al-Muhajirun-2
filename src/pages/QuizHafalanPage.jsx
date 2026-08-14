@@ -1,21 +1,20 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { Trophy, CheckCircle, RotateCcw, Users, Smartphone, Monitor, Gamepad2, Sparkles, ArrowLeft, HelpCircle, Search, ScanLine, Keyboard, Settings, Sun, Moon, UserCheck } from 'lucide-react';
+import { Trophy, CheckCircle, RotateCcw, Users, Smartphone, Monitor, Gamepad2, Sparkles, ArrowLeft, HelpCircle, Search, Sun, Moon, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { Helmet } from 'react-helmet';
 import useWindowSize from '@/hooks/useWindowSize';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { useTheme } from '@/contexts/ThemeContext';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 
 const QuizHafalanPage = () => {
   const navigate = useNavigate();
@@ -25,41 +24,50 @@ const QuizHafalanPage = () => {
   const { isDark, toggleTheme } = useTheme();
   
   // State
-  const [rfidTag, setRfidTag] = useState('');
-  const [gameState, setGameState] = useState('idle'); // idle, confirm_santri, spinning, question, result
+  const [gameState, setGameState] = useState('idle'); // idle, confirm_santri, spinning, wheel_stopped, question, result
   const [currentSantri, setCurrentSantri] = useState(null);
   const [validationGuru, setValidationGuru] = useState(null);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [wheelRotation, setWheelRotation] = useState(0);
+  const [stopCountdown, setStopCountdown] = useState(10);
+  const [roundDeadline, setRoundDeadline] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [orientation, setOrientation] = useState('landscape');
   const [spinningText, setSpinningText] = useState("MENGACAK SOAL..."); 
   const [resultType, setResultType] = useState('guru'); // 'guru' (points) or 'self' (no points)
   
-  const [showManualInput, setShowManualInput] = useState(false);
-  const [manualRfid, setManualRfid] = useState('');
+  const [santriList, setSantriList] = useState([]);
+  const [selectedSantriId, setSelectedSantriId] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [isRosterLoading, setIsRosterLoading] = useState(true);
 
-  // Settings State
+  // Wheel content
   const [flattenedItems, setFlattenedItems] = useState([]);
   const [displayItems, setDisplayItems] = useState([]); // Items currently shown on wheel (subset)
+  const [quizCategories, setQuizCategories] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [isPlayerLoading, setIsPlayerLoading] = useState(false);
   
-  const [showSettings, setShowSettings] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [adminPin, setAdminPin] = useState('1234');
-  
-  const inputRef = useRef(null);
   const isPracticeMode = role === 'santri';
 
   // Load Config from hafalan_items table
   useEffect(() => {
     const loadConfig = async () => {
-        // Fetch from the correct hafalan_items table
-        const { data: itemsData, error } = await supabase.from('hafalan_items').select('*');
-        const categoriesMap = {};
-        const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b' };
+        const [{ data: configData }, { data: itemsData }] = await Promise.all([
+            supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle(),
+            supabase.from('hafalan_items').select('*')
+        ]);
 
-        if (itemsData && itemsData.length > 0) {
-            itemsData.forEach(item => {
+        const savedCategories = configData?.content?.categories;
+        let categories = Array.isArray(savedCategories) && savedCategories.length > 0
+            ? savedCategories
+            : [];
+
+        if (categories.length === 0 && itemsData?.length) {
+            const categoriesMap = {};
+            const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b' };
+
+            itemsData.forEach((item) => {
                 if (!categoriesMap[item.category]) {
                     categoriesMap[item.category] = {
                         id: item.category,
@@ -70,11 +78,9 @@ const QuizHafalanPage = () => {
                 }
                 categoriesMap[item.category].items.push(item.item_name);
             });
+            categories = Object.values(categoriesMap);
         }
-        
-        let categories = Object.values(categoriesMap);
-        
-        // Fallback to static data if DB is empty
+
         if (categories.length === 0) {
             categories = [
                 { id: 1, label: 'Doa', color: '#3b82f6', items: doaHarian },
@@ -83,11 +89,36 @@ const QuizHafalanPage = () => {
             ];
         }
 
-        // Fetch pin from config if exists
-        const { data: configData } = await supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle();
-        if (configData?.content) {
-            setAdminPin(configData.content.adminPin || '1234');
-        }
+        categories = categories.filter((category) =>
+            String(category.label || '').trim().toLowerCase() !== 'staging test'
+        );
+
+        const canonicalLabels = {
+            doa: 'Doa Harian',
+            'doa harian': 'Doa Harian',
+            surat: 'Surat Pendek',
+            'surat pendek': 'Surat Pendek',
+            sholat: 'Bacaan Shalat',
+            shalat: 'Bacaan Shalat',
+            'bacaan sholat': 'Bacaan Shalat',
+            'bacaan shalat': 'Bacaan Shalat'
+        };
+        categories = categories.map((category, index) => ({
+            ...category,
+            id: category.id ?? `category-${index + 1}`,
+            label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
+            items: Array.isArray(category.items) ? category.items : []
+        }));
+
+        const requiredCategories = [
+            { id: 'doa-harian', label: 'Doa Harian', color: '#3b82f6', items: doaHarian },
+            { id: 'surat-pendek', label: 'Surat Pendek', color: '#a855f7', items: suratPendek },
+            { id: 'bacaan-shalat', label: 'Bacaan Shalat', color: '#f59e0b', items: bacaanShalat }
+        ].filter((required) => !categories.some((category) => category.label === required.label));
+        categories = [...categories, ...requiredCategories];
+
+        setQuizCategories(categories);
+        setSelectedCategoryIds(categories.map((category) => String(category.id)));
 
         // Flatten items
         const allItems = [];
@@ -97,12 +128,23 @@ const QuizHafalanPage = () => {
                     allItems.push({
                         text: item,
                         category: cat.label,
+                        categoryId: String(cat.id),
                         color: cat.color
                     });
                 });
             }
         });
         setFlattenedItems(allItems);
+
+        const { data: santriData, error: santriError } = await supabase
+          .from('santri')
+          .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
+          .order('nama_lengkap', { ascending: true });
+
+        if (!santriError) {
+          setSantriList((santriData || []).filter((santri) => santri.status !== 'inactive'));
+        }
+        setIsRosterLoading(false);
     };
     loadConfig();
   }, []);
@@ -124,20 +166,6 @@ const QuizHafalanPage = () => {
       }
   }, [isPracticeMode, user]);
 
-  // Focus Management
-  useEffect(() => {
-    const focusInput = () => {
-        if (!showManualInput && !showSettings && !isPracticeMode) inputRef.current?.focus();
-    }
-    focusInput();
-    const interval = setInterval(focusInput, 500);
-    window.addEventListener('click', focusInput);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('click', focusInput);
-    };
-  }, [showManualInput, showSettings, isPracticeMode]);
-
   useEffect(() => {
     if (width && height) {
       setOrientation(width > height ? 'landscape' : 'portrait');
@@ -147,16 +175,37 @@ const QuizHafalanPage = () => {
   // Effect for shuffling text during spin
   useEffect(() => {
       let interval;
-      if (gameState === 'spinning' && flattenedItems.length > 0) {
+      if (gameState === 'spinning' && displayItems.length > 0) {
           interval = setInterval(() => {
-              const randomItem = flattenedItems[Math.floor(Math.random() * flattenedItems.length)];
+              const randomItem = displayItems[Math.floor(Math.random() * displayItems.length)];
               setSpinningText(randomItem.text);
           }, 100);
       } else {
           setSpinningText("MENGACAK SOAL...");
       }
       return () => clearInterval(interval);
-  }, [gameState, flattenedItems]);
+  }, [gameState, displayItems]);
+
+  useEffect(() => {
+    if (!roundDeadline) return undefined;
+
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((roundDeadline - Date.now()) / 1000));
+      setStopCountdown(remaining);
+    };
+
+    updateCountdown();
+    const countdownTimer = setInterval(updateCountdown, 200);
+    const revealTimer = setTimeout(() => {
+      setGameState('question');
+      setRoundDeadline(null);
+    }, Math.max(0, roundDeadline - Date.now()));
+
+    return () => {
+      clearInterval(countdownTimer);
+      clearTimeout(revealTimer);
+    };
+  }, [roundDeadline]);
 
 
   const calculateLevel = (points) => {
@@ -166,135 +215,110 @@ const QuizHafalanPage = () => {
     return { label: 'Level S', color: 'text-purple-600', border: 'border-purple-500' };
   };
 
-  const processLogic = async (tag) => {
-    if (isPracticeMode) return;
-    
-    setIsLoading(true);
-    try {
-      if (gameState === 'idle' || gameState === 'result') {
-        const { data: santri } = await supabase.from('santri').select('*').eq('rfid_tag', tag).maybeSingle();
-        if (santri) {
-          setCurrentSantri(santri);
-          setGameState('confirm_santri');
-        } else {
-          toast({ title: "Kartu Tidak Dikenal", description: "Silahkan scan kartu santri yang terdaftar.", variant: "destructive" });
-        }
-      } else if (gameState === 'confirm_santri') {
-        if (currentSantri && tag === currentSantri.rfid_tag) {
-           spinWheel();
-        } else {
-           const { data: santri } = await supabase.from('santri').select('*').eq('rfid_tag', tag).maybeSingle();
-           if (santri) {
-             setCurrentSantri(santri); 
-             toast({ title: "Ganti Pemain", description: `Selamat datang, ${santri.nama_panggilan}!` });
-           } else {
-             toast({ title: "Konfirmasi Gagal", description: "Tap kartu santri yang sama untuk memutar.", variant: "destructive" });
-           }
-        }
-      } else if (gameState === 'question') {
-        // Determine if it's a Guru or the Santri themselves
-        const { data: guru } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
-        
-        if (guru) {
-           // Guru Validation -> Earn Points
-           validateAnswer(guru);
-        } else if (currentSantri && tag === currentSantri.rfid_tag) {
-           // Santri Self Validation -> No Points
-           selfValidate();
-        } else {
-           // Check if it's another santri just in case
-           toast({ title: "Kartu Tidak Sesuai", description: "Tap kartu Guru (untuk poin) atau kartu Santri sendiri (tanpa poin).", variant: "warning" });
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Error", description: "Terjadi kesalahan sistem.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const filteredSantri = santriList.filter((santri) => {
+    const query = studentSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [santri.nama_lengkap, santri.nama_panggilan, santri.jilid]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
 
-  const handleRfidSubmit = async (e) => {
-    e.preventDefault();
-    if (!rfidTag.trim() || isLoading || showSettings) return;
-    const tag = rfidTag.trim();
-    setRfidTag('');
-    await processLogic(tag);
+  const eligibleItems = useMemo(() => {
+    if (selectedCategoryIds.length === 0) return [];
+    const selectedIds = new Set(selectedCategoryIds.map(String));
+    return flattenedItems.filter((item) => selectedIds.has(String(item.categoryId)));
+  }, [flattenedItems, selectedCategoryIds]);
+
+  const allCategoriesSelected = quizCategories.length > 0 && selectedCategoryIds.length === quizCategories.length;
+
+  const toggleCategory = (categoryId) => {
+    const normalizedId = String(categoryId);
+    setSelectedCategoryIds((previous) => previous.includes(normalizedId)
+      ? previous.filter((id) => id !== normalizedId)
+      : [...previous, normalizedId]);
   };
-  
-  const handleManualSubmit = async (e) => {
-      e.preventDefault();
-      if (!manualRfid.trim() || isLoading) return;
-      const tag = manualRfid.trim();
-      setManualRfid('');
-      setShowManualInput(false);
-      await processLogic(tag);
+
+  const toggleAllCategories = () => {
+    setSelectedCategoryIds(allCategoriesSelected
+      ? []
+      : quizCategories.map((category) => String(category.id)));
+  };
+
+  const selectSantriForQuiz = async () => {
+    const selected = santriList.find((santri) => String(santri.id) === String(selectedSantriId));
+    if (!selected || eligibleItems.length === 0) return;
+
+    setIsPlayerLoading(true);
+    const foto_url = await resolveAvatarUrl({
+      ownerType: 'santri',
+      ownerId: selected.id,
+      avatarPath: selected.avatar_path,
+      fallbackUrl: selected.foto_url,
+    });
+    setCurrentSantri({ ...selected, foto_url });
+    setGameState('confirm_santri');
+    setIsPlayerLoading(false);
   };
 
   const spinWheel = () => {
-    if (flattenedItems.length === 0) {
-        toast({ title: "Error", description: "Belum ada data konten kuis.", variant: "destructive" });
+    if (eligibleItems.length === 0) {
+        toast({ title: "Pilih Kategori", description: "Pilih minimal satu kategori soal sebelum memutar roda.", variant: "destructive" });
         return;
     }
 
-    setGameState('spinning');
-    
-    // Select winner first
-    const winnerIndex = Math.floor(Math.random() * flattenedItems.length);
-    const winner = flattenedItems[winnerIndex];
-    setSelectedQuestion(winner);
+    const shuffledItems = [...eligibleItems]
+      .map((item) => ({ item, order: Math.random() }))
+      .sort((a, b) => a.order - b.order)
+      .map(({ item }) => item);
+    const itemsForWheel = shuffledItems.slice(0, Math.min(12, shuffledItems.length));
+    const winnerIndex = Math.floor(Math.random() * itemsForWheel.length);
+    const winner = itemsForWheel[winnerIndex];
 
-    // Prepare display items for wheel (limit to 24 for visual clarity + ensure winner is included)
-    let itemsForWheel = [];
-    if (flattenedItems.length <= 24) {
-        itemsForWheel = [...flattenedItems];
-    } else {
-        // Pick 23 random distinct items
-        const pool = flattenedItems.filter((_, idx) => idx !== winnerIndex);
-        const randomSubset = [];
-        const usedIndices = new Set();
-        while (randomSubset.length < 23 && pool.length > 0) {
-            const rand = Math.floor(Math.random() * pool.length);
-            if(!usedIndices.has(rand)) {
-                randomSubset.push(pool[rand]);
-                usedIndices.add(rand);
-            }
-        }
-        // Insert winner at random position
-        const insertPos = Math.floor(Math.random() * (randomSubset.length + 1));
-        randomSubset.splice(insertPos, 0, winner);
-        itemsForWheel = randomSubset;
-    }
     setDisplayItems(itemsForWheel);
+    setSelectedQuestion(winner);
+    setStopCountdown(10);
+    setRoundDeadline(Date.now() + 10000);
+    setGameState('spinning');
 
-    // Find index of winner in the *displayed* items to calculate rotation
-    const visualWinnerIndex = itemsForWheel.indexOf(winner);
-    
     const segmentSize = 360 / itemsForWheel.length;
-    const targetRotation = -((visualWinnerIndex * segmentSize) + (segmentSize / 2)); 
-    
-    const extraSpins = 360 * 10; // Longer spin
-    const finalRotation = wheelRotation + extraSpins + targetRotation - (wheelRotation % 360); 
-    const jitter = (Math.random() * 10) - 5; 
-    
-    setWheelRotation(finalRotation + jitter);
+    const winnerCenter = (winnerIndex * segmentSize) + (segmentSize / 2);
+    const targetAngle = (360 - winnerCenter) % 360;
+
+    setWheelRotation((previousRotation) => {
+      const normalizedCurrent = ((previousRotation % 360) + 360) % 360;
+      const correction = (targetAngle - normalizedCurrent + 360) % 360;
+      return previousRotation + (360 * 5) + correction;
+    });
 
     setTimeout(() => {
-      setGameState('question');
-    }, 8000); // 8s spin duration
+      setGameState('wheel_stopped');
+    }, 4750);
   };
 
   const validateAnswer = async (guru) => {
     setValidationGuru(guru);
     setResultType('guru');
     setGameState('result');
-    try {
-      const newPoints = (currentSantri.points || 0) + 1;
-      await supabase.rpc('increment_santri_points', { p_santri_id: currentSantri.id, p_amount: 1 });
-      setCurrentSantri(prev => ({ ...prev, points: newPoints }));
-    } catch (error) {
-      toast({ title: "Gagal Update Poin", description: error.message, variant: "destructive" });
+
+    const newPoints = (Number(currentSantri.points) || 0) + 1;
+    const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+      p_santri_id: currentSantri.id,
+      p_amount: 1
+    });
+
+    if (rpcError) {
+      const { error: fallbackError } = await supabase
+        .from('santri')
+        .update({ points: newPoints })
+        .eq('id', currentSantri.id);
+
+      if (fallbackError) {
+        toast({ title: "Gagal Update Poin", description: fallbackError.message, variant: "destructive" });
+        return;
+      }
     }
+
+    setCurrentSantri(prev => ({ ...prev, points: newPoints }));
   };
 
   const selfValidate = () => {
@@ -318,63 +342,89 @@ const QuizHafalanPage = () => {
         setSelectedQuestion(null);
         setValidationGuru(null);
         setResultType('guru');
+        setSelectedSantriId('');
+        setStudentSearch('');
     }
-  };
-
-  const handleSettingsAuth = () => {
-      if (pinInput === adminPin || pinInput === 'admin') {
-          toast({ title: "Akses Ditolak", description: "Konfigurasi game kini dipusatkan di Dashboard Admin.", variant: "warning" });
-          setPinInput('');
-          setShowSettings(false);
-      } else {
-          toast({ title: "Akses Ditolak", description: "PIN Salah.", variant: "destructive" });
-      }
   };
 
   const WheelComponent = () => {
       const itemCount = displayItems.length;
+      const segmentSize = itemCount > 0 ? 360 / itemCount : 360;
+      const wheelGradient = itemCount > 0
+        ? `conic-gradient(${displayItems.map((item, index) => {
+            const start = index * segmentSize;
+            const end = (index + 1) * segmentSize;
+            const segmentColor = index % 2 === 0
+              ? item.color
+              : `color-mix(in srgb, ${item.color} 78%, #0f172a)`;
+            return `${segmentColor} ${start}deg ${end}deg`;
+          }).join(', ')})`
+        : 'conic-gradient(#334155 0deg 360deg)';
+
       return (
-        <div className="relative w-[350px] h-[350px] md:w-[600px] md:h-[600px] mx-auto my-8">
-          {/* Pointer */}
-          <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-20 filter drop-shadow-lg">
-            <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-yellow-500"></div>
+        <div className={`quiz-wheel-stage ${gameState === 'wheel_stopped' ? 'quiz-wheel-stage--stopped' : ''}`}>
+          <div className="quiz-wheel-pointer" aria-hidden="true">
+            <div />
           </div>
-          
-          <motion.div 
-            className="w-full h-full rounded-full border-[12px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative bg-slate-900"
-            animate={{ rotate: wheelRotation }}
-            transition={{ duration: 8, ease: [0.1, 0, 0.1, 1] }} // Cubic-bezier for realistic deceleration
+
+          <motion.div
+            className="quiz-wheel"
+            style={{ background: wheelGradient, '--quiz-segment-size': `${segmentSize}deg` }}
+            animate={{
+              rotate: wheelRotation,
+              scale: gameState === 'wheel_stopped' ? [1, 1.018, 1] : 1,
+            }}
+            transition={{
+              rotate: { duration: 4.7, ease: [0.12, 0.72, 0.22, 1] },
+              scale: { duration: 0.72, ease: 'easeOut' },
+            }}
           >
-            {displayItems.map((item, i) => {
-                const rotate = (i * 360) / itemCount;
-                const skew = 90 - (360 / itemCount);
-                return (
-                    <div 
-                        key={i}
-                        className="absolute top-0 right-0 w-[50%] h-[50%] origin-bottom-left border-l border-white/10"
-                        style={{ 
-                            transform: `rotate(${rotate}deg) skewY(-${skew}deg)`,
-                            background: i % 2 === 0 ? item.color : `${item.color}dd` // Slight variation
-                        }}
-                    >
-                        <div 
-                            className="absolute text-white font-bold uppercase tracking-wider drop-shadow-md text-[10px] md:text-sm text-right w-[180px] md:w-[280px] top-[40%] left-[-100%] origin-center truncate px-2"
-                            style={{ 
-                                transform: `skewY(${skew}deg) rotate(${360/itemCount/2}deg) translate(10%, -50%)`
-                            }}
-                        >
-                           {item.text}
-                        </div>
-                    </div>
-                )
+            <div className="quiz-wheel__rings" aria-hidden="true" />
+            {displayItems.map((item, index) => {
+              const angle = (index * segmentSize) + (segmentSize / 2);
+              return (
+                <div
+                  key={`${item.categoryId}-${item.text}-${index}`}
+                  className="quiz-wheel__label"
+                  style={{ transform: `rotate(${angle - 90}deg) translateX(18%)` }}
+                >
+                  <span
+                    style={{
+                      '--quiz-label-size': `${Math.max(0.4, Math.min(0.78, 9 / Math.max(itemCount, 1)))}rem`,
+                    }}
+                  >
+                    {item.text}
+                  </span>
+                </div>
+              );
             })}
-            {/* Center Cap */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.8)] flex items-center justify-center z-10 border-4 border-slate-600">
-              <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center">
-                 <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />
-              </div>
+
+            <div className="quiz-wheel__hub">
+              <Sparkles className="w-8 h-8 text-yellow-300" />
             </div>
           </motion.div>
+
+          {gameState === 'wheel_stopped' && (
+            <motion.div
+              className="quiz-wheel-lock-ring"
+              initial={{ opacity: 0, scale: 0.72 }}
+              animate={{ opacity: [0, 1, 0.35], scale: [0.72, 1.08, 1] }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              aria-hidden="true"
+            />
+          )}
+
+          {(gameState === 'spinning' || gameState === 'wheel_stopped') && (
+            <motion.div
+              className="quiz-wheel-stop-badge"
+              initial={{ opacity: 0, scale: 0.72, y: 8, x: '-50%' }}
+              animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
+              transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            >
+              <CheckCircle className="w-5 h-5" />
+              {gameState === 'wheel_stopped' ? 'Soal terkunci' : 'Mengacak soal'} · {stopCountdown} detik
+            </motion.div>
+          )}
         </div>
       );
   };
@@ -399,8 +449,6 @@ const QuizHafalanPage = () => {
               <div className="flex items-center gap-2">
                  <Button variant="outline" size="icon" onClick={() => setOrientation(prev => prev === 'landscape' ? 'portrait' : 'landscape')} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}>{orientation === 'landscape' ? <Monitor className="w-4 h-4"/> : <Smartphone className="w-4 h-4"/>}</Button>
                  <Button variant="outline" size="icon" onClick={toggleTheme} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}>{isDark ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-slate-600" />}</Button>
-                 <Button variant="outline" size="icon" onClick={() => setShowManualInput(true)} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}><Keyboard className="w-4 h-4" /></Button>
-                 <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} className={isDark ? "border-white/20 text-white hover:bg-white/10" : "bg-white border-slate-300 hover:bg-slate-100"}><Settings className="w-4 h-4" /></Button>
               </div>
           )}
       </div>
@@ -411,7 +459,7 @@ const QuizHafalanPage = () => {
                 <motion.div key="profile" initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -50, opacity: 0 }} className={`flex flex-col items-center ${orientation === 'landscape' ? 'w-1/3' : 'w-full max-w-md'}`}>
                     <Card className={`w-full p-6 backdrop-blur-xl border-2 shadow-2xl relative overflow-hidden ${isDark ? 'bg-white/10 border-white/20' : 'bg-white/80 border-slate-200'} ${calculateLevel(currentSantri.points).border}`}>
                          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer"></div>
-                         <Avatar className="w-32 h-32 mx-auto border-4 border-white shadow-xl mb-4"><AvatarImage src={currentSantri.foto_url} className="object-cover"/><AvatarFallback className="text-4xl text-slate-800 font-bold">{currentSantri.nama_lengkap?.[0]}</AvatarFallback></Avatar>
+                         <Avatar className="w-32 h-32 mx-auto border-4 border-white shadow-xl mb-4"><AvatarImage src={currentSantri.foto_url} loading="eager" fetchPriority="high" decoding="async" className="object-cover"/><AvatarFallback className="text-4xl text-slate-800 font-bold">{currentSantri.nama_lengkap?.[0]}</AvatarFallback></Avatar>
                          <h2 className={`text-2xl font-bold mb-1 truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{currentSantri.nama_lengkap}</h2>
                          <p className={`${isDark ? 'text-white/70' : 'text-slate-500'} mb-4 font-mono`}>{currentSantri.jilid}</p>
                          <div className={`${isDark ? 'bg-slate-900/50 border-white/10' : 'bg-slate-100 border-slate-200'} rounded-xl p-4 flex justify-around items-center border`}>
@@ -433,30 +481,109 @@ const QuizHafalanPage = () => {
          <div className={`flex-1 flex flex-col items-center justify-center w-full max-w-4xl min-h-[400px]`}>
              <AnimatePresence mode="wait">
                 {gameState === 'idle' && (
-                    <motion.div key="idle" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} className="text-center space-y-6">
-                        <div className="relative w-48 h-48 mx-auto flex items-center justify-center"><div className={`absolute inset-0 border-4 ${isDark ? 'border-white/20' : 'border-slate-300'} rounded-full animate-ping opacity-20`}></div><div className="absolute inset-0 border-4 border-purple-500 rounded-full animate-pulse shadow-[0_0_50px_rgba(168,85,247,0.5)]"></div><ScanLine className={`w-20 h-20 ${isDark ? 'text-white' : 'text-slate-800'} animate-pulse`} /></div>
-                        <div><h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-2">SCAN KARTU SANTRI</h2><p className={`${isDark ? 'text-white/60' : 'text-slate-500'} text-lg`}>Silahkan tap kartu untuk memulai quiz.</p></div>
-                    </motion.div>
+                  <motion.div
+                    key="idle"
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.94, opacity: 0 }}
+                    className="w-full max-w-xl text-center space-y-6"
+                  >
+                    <div className="relative w-40 h-40 mx-auto flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/35 to-cyan-500/35 blur-2xl animate-pulse"></div>
+                      <Gamepad2 className={`relative w-20 h-20 ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                    </div>
+                    <div>
+                      <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-400 to-cyan-400 mb-2">PILIH SANTRI</h2>
+                      <p className={`${isDark ? 'text-white/60' : 'text-slate-500'} text-lg`}>Guru memilih pemain langsung dari kelas.</p>
+                    </div>
+                    <div className={`rounded-3xl p-5 md:p-6 backdrop-blur-xl ${isDark ? 'bg-white/8 shadow-[0_18px_50px_rgba(0,0,0,0.35)]' : 'bg-white/75 shadow-[0_18px_50px_rgba(71,85,105,0.16)]'}`}>
+                      <Input
+                        value={studentSearch}
+                        onChange={(event) => setStudentSearch(event.target.value)}
+                        placeholder="Cari nama, panggilan, atau jilid..."
+                        className={`mb-3 h-12 ${isDark ? 'bg-slate-900/70 border-white/10 text-white' : 'bg-white/90'}`}
+                      />
+                      <select
+                        value={selectedSantriId}
+                        onChange={(event) => setSelectedSantriId(event.target.value)}
+                        className={`w-full h-12 rounded-xl px-4 text-sm font-semibold outline-none ${isDark ? 'bg-slate-900/80 text-white' : 'bg-white text-slate-800'}`}
+                        disabled={isRosterLoading}
+                      >
+                        <option value="">{isRosterLoading ? 'Memuat santri...' : 'Pilih santri'}</option>
+                        {filteredSantri.map((santri) => (
+                          <option key={santri.id} value={santri.id}>
+                            {santri.nama_lengkap}{santri.jilid ? ` — ${santri.jilid}` : ''}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="mt-4 text-left">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className={`text-xs font-black uppercase tracking-[0.16em] ${isDark ? 'text-white/60' : 'text-slate-500'}`}>Kategori Soal</p>
+                          <button
+                            type="button"
+                            onClick={toggleAllCategories}
+                            className={`text-xs font-bold ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}
+                          >
+                            {allCategoriesSelected ? 'Kosongkan' : 'Pilih Semua'}
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {quizCategories.map((category) => {
+                            const isSelected = selectedCategoryIds.includes(String(category.id));
+                            return (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() => toggleCategory(category.id)}
+                                className={`quiz-category-chip ${isSelected ? 'quiz-category-chip--selected' : ''}`}
+                                style={{
+                                  '--quiz-category-color': category.color,
+                                  color: isSelected ? '#fff' : category.color,
+                                }}
+                              >
+                                <span className="quiz-category-chip__dot" />
+                                {category.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {eligibleItems.length === 0
+                          ? <p className="mt-2 text-xs font-semibold text-rose-500">Pilih minimal satu kategori.</p>
+                          : <p className={`mt-2 text-xs ${isDark ? 'text-white/45' : 'text-slate-500'}`}>
+                              {eligibleItems.length} soal aktif · maksimal 12 kandidat acak ditampilkan setiap putaran agar tetap terbaca.
+                            </p>}
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="lg"
+                        onClick={selectSantriForQuiz}
+                        disabled={!selectedSantriId || eligibleItems.length === 0 || isPlayerLoading}
+                        className="mt-4 w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-cyan-600 text-white font-black shadow-lg shadow-purple-500/25"
+                      >
+                        <Gamepad2 className="w-5 h-5 mr-2" /> {isPlayerLoading ? 'Menyiapkan Pemain...' : 'Pilih dan Lanjut'}
+                      </Button>
+                    </div>
+                  </motion.div>
                 )}
                 {gameState === 'confirm_santri' && (
                     <motion.div key="confirm" initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="text-center space-y-8">
                         <HelpCircle className="w-24 h-24 text-yellow-400 mx-auto animate-bounce" />
                         <div>
                             <h2 className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>Siap untuk Tantangan?</h2>
-                            {isPracticeMode ? (
-                                <Button onClick={spinWheel} size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xl px-8 py-6 rounded-full animate-pulse">PUTAR SEKARANG!</Button>
-                            ) : (
-                                <p className={`text-xl ${isDark ? 'text-white/80' : 'text-slate-600'}`}>Tap kartu <span className="font-bold text-yellow-400">{currentSantri.nama_panggilan}</span> sekali lagi untuk memutar Gacha!</p>
-                            )}
+                            <Button onClick={spinWheel} size="lg" className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-slate-950 font-black text-xl px-8 py-6 rounded-full shadow-lg shadow-orange-500/25 animate-pulse">
+                              PUTAR SEKARANG!
+                            </Button>
                         </div>
-                        {!isPracticeMode && <div className="flex justify-center gap-2 text-sm opacity-50"><Smartphone className="w-4 h-4" /> Tempel kartu pada reader</div>}
+                        {!isPracticeMode && <div className="flex justify-center gap-2 text-sm opacity-55"><UserCheck className="w-4 h-4" /> Guru mengendalikan permainan dari perangkat ini</div>}
                     </motion.div>
                 )}
-                {gameState === 'spinning' && (
-                    <motion.div key="spinning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
+                {(gameState === 'spinning' || gameState === 'wheel_stopped') && (
+                    <motion.div key="wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center w-full">
                         <WheelComponent />
                         <h2 className={`text-3xl md:text-4xl font-black mt-4 ${isDark ? 'text-white' : 'text-slate-900'} animate-pulse tracking-widest text-center px-4 leading-tight drop-shadow-md min-h-[3rem]`}>
-                             {spinningText}
+                             {gameState === 'wheel_stopped' ? `SOAL TERKUNCI — ${stopCountdown} DETIK` : `${spinningText} — ${stopCountdown} DETIK`}
                         </h2>
                     </motion.div>
                 )}
@@ -471,32 +598,42 @@ const QuizHafalanPage = () => {
                                     isPracticeMode ? (
                                         <Button onClick={() => setGameState('result')} className="w-full bg-green-600 hover:bg-green-500 text-white">Saya Sudah Hafal</Button>
                                     ) : (
-                                        <div className={`${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-slate-100 border-slate-200'} rounded-xl p-6 border animate-pulse`}>
-                                            <div className="flex flex-col gap-4 items-center">
-                                                <p className="text-yellow-500 font-bold flex items-center justify-center gap-2 text-xl"><Search className="w-6 h-6" /> MENUNGGU VALIDASI</p>
-                                                <div className="grid grid-cols-2 gap-4 w-full">
-                                                    <div className={`p-3 rounded-lg border ${isDark ? 'border-white/20 bg-white/5' : 'border-slate-300 bg-slate-50'} flex flex-col items-center`}>
-                                                        <UserCheck className="w-8 h-8 mb-2 text-blue-400"/>
-                                                        <p className="text-xs font-bold uppercase">TAP KARTU SANTRI</p>
-                                                        <p className="text-[10px] opacity-70">Tanpa Poin (Latihan)</p>
-                                                    </div>
-                                                    <div className={`p-3 rounded-lg border ${isDark ? 'border-white/20 bg-white/5' : 'border-slate-300 bg-slate-50'} flex flex-col items-center`}>
-                                                        <CheckCircle className="w-8 h-8 mb-2 text-green-400"/>
-                                                        <p className="text-xs font-bold uppercase">TAP KARTU GURU</p>
-                                                        <p className="text-[10px] opacity-70">Dapat Poin (Resmi)</p>
-                                                    </div>
-                                                </div>
+                                        <div className={`${isDark ? 'bg-slate-900/55' : 'bg-slate-100'} rounded-2xl p-6`}>
+                                          <div className="flex flex-col gap-4 items-center">
+                                            <p className="text-yellow-500 font-bold flex items-center justify-center gap-2 text-xl"><Search className="w-6 h-6" /> VALIDASI GURU</p>
+                                            <p className={`text-sm ${isDark ? 'text-white/65' : 'text-slate-500'}`}>Nilai jawaban santri secara langsung.</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={selfValidate}
+                                                className={`h-14 rounded-xl font-bold ${isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-700'}`}
+                                              >
+                                                <RotateCcw className="w-5 h-5 mr-2" /> Belum Tepat
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                onClick={() => validateAnswer({ nama: user?.nama || user?.nama_lengkap || 'Guru' })}
+                                                className="h-14 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black shadow-lg shadow-emerald-500/25"
+                                              >
+                                                <CheckCircle className="w-5 h-5 mr-2" /> Jawaban Benar +1
+                                              </Button>
                                             </div>
+                                          </div>
                                         </div>
                                     )
                                 )}
                                 {gameState === 'result' && (
                                     <div className="space-y-4">
-                                        <div className="flex justify-center"><CheckCircle className="w-20 h-20 text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.8)]" /></div>
+                                        <div className="flex justify-center">
+                                          {resultType === 'guru'
+                                            ? <CheckCircle className="w-20 h-20 text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.55)]" />
+                                            : <HelpCircle className="w-20 h-20 text-amber-400" />}
+                                        </div>
                                         <div>
-                                            <h3 className="text-2xl font-bold text-green-500">JAWABAN BENAR!</h3>
+                                            <h3 className={`text-2xl font-bold ${resultType === 'guru' ? 'text-green-500' : 'text-amber-400'}`}>{resultType === 'guru' ? 'JAWABAN BENAR!' : 'COBA LAGI!'}</h3>
                                             {!isPracticeMode && resultType === 'guru' && <p className={`${isDark ? 'text-white/70' : 'text-slate-600'} text-sm`}>Divalidasi oleh: {validationGuru?.nama}</p>}
-                                            {!isPracticeMode && resultType === 'self' && <p className={`${isDark ? 'text-white/70' : 'text-slate-600'} text-sm`}>Validasi Mandiri oleh Santri</p>}
+                                            {!isPracticeMode && resultType === 'self' && <p className={`${isDark ? 'text-white/70' : 'text-slate-600'} text-sm`}>Belum mendapat poin</p>}
                                         </div>
                                         <Button onClick={isPracticeMode ? practiceNext : resetGame} className={`mt-4 w-full ${isDark ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-900'}`}><RotateCcw className="w-4 h-4 mr-2"/> {isPracticeMode ? 'Lanjut Latihan' : 'Lanjut / Reset'}</Button>
                                     </div>
@@ -509,43 +646,6 @@ const QuizHafalanPage = () => {
          </div>
       </div>
 
-      {/* Settings Dialog - ONLY FOR ADMIN/TEACHER ACCESS (Not Practice Mode) */}
-      {!isPracticeMode && (
-          <Dialog open={showSettings} onOpenChange={setShowSettings}>
-              <DialogContent className={`${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900'} max-w-sm`}>
-                  <DialogHeader>
-                      <DialogTitle>Akses Pengaturan</DialogTitle>
-                      <DialogDescription className={isDark ? 'text-slate-400' : 'text-slate-500'}>Masukkan PIN untuk mengakses konfigurasi.</DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4">
-                      <Label>PIN Admin</Label>
-                      <Input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className={isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-slate-300 text-slate-900"} autoFocus/>
-                      <Button onClick={handleSettingsAuth} className="w-full">Verifikasi</Button>
-                  </div>
-              </DialogContent>
-          </Dialog>
-      )}
-
-      {/* Input Handling (Hidden) - Disabled in practice mode */}
-      {!isPracticeMode && (
-          <form onSubmit={handleRfidSubmit} className="absolute opacity-0 pointer-events-none">
-              <Input ref={inputRef} value={rfidTag} onChange={e => setRfidTag(e.target.value)} autoFocus autoComplete="off" />
-          </form>
-      )}
-      
-      {/* Manual Input - Disabled in practice mode */}
-      {!isPracticeMode && (
-          <Dialog open={showManualInput} onOpenChange={setShowManualInput}>
-              <DialogContent className={`${isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-white text-slate-900'}`}>
-                  <DialogHeader><DialogTitle>Input Manual</DialogTitle></DialogHeader>
-                  <form onSubmit={handleManualSubmit} className="space-y-4">
-                      <Input placeholder="Masukkan ID/RFID Tag..." value={manualRfid} onChange={e => setManualRfid(e.target.value)} autoFocus className={isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-300 text-slate-900"}/>
-                      <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white">Proses</Button>
-                  </form>
-              </DialogContent>
-          </Dialog>
-      )}
     </div>
     </>
   );

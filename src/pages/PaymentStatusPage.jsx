@@ -45,7 +45,7 @@ const PaymentStatusPage = () => {
       try {
         const { data: payment, error } = await supabase
           .from('payments')
-          .select('*, santri:santri_id(*, class:id_kelas(nama_kelas, id_guru), guru:id_kelas(guru:id_guru(nama)))')
+          .select('*, santri:santri_id(*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru, guru:id_guru(nama)))')
           .eq('id', paymentId)
           .single();
 
@@ -148,7 +148,7 @@ const PaymentStatusPage = () => {
   }
 
   const totalAmount = relatedPayments.reduce((sum, p) => sum + p.jumlah, 0);
-  const teacherName = paymentData.santri?.guru?.guru?.nama || 'Ustadz/Ustadzah';
+  const teacherName = paymentData.santri?.class?.guru?.nama || 'Ustadz/Ustadzah';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 flex justify-center relative overflow-hidden">

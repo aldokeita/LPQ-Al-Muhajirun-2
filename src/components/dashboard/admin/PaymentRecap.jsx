@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MONTH_NAMES, monthNumberToName, selectedMonthToNumber } from '@/lib/paymentAdapters';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const months = MONTH_NAMES;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF19A3'];
@@ -85,15 +86,16 @@ const PaymentRecap = () => {
         
         const { data: santriData, error: santriError } = await supabase
           .from('santri')
-          .select('id, nama_lengkap, status, sesi_mengaji, foto_url, rfid_tag');
+          .select('id, nama_lengkap, status, sesi_mengaji, foto_url, avatar_path, rfid_tag');
 
         if (paymentError || santriError) {
           toast({ title: "Error", description: "Gagal memuat data.", variant: "destructive" });
           return;
         }
 
+        const resolvedSantri = await resolveAvatarRecords(santriData, { ownerType: 'santri' });
         setAllPayments(paymentData || []);
-        setAllSantri(santriData || []);
+        setAllSantri(resolvedSantri);
         
         const years = [...new Set(paymentData.map(p => p.tahun || new Date(p.tanggal_pembayaran).getFullYear()))].filter(y => y).sort((a,b) => b-a);
         const currentYear = new Date().getFullYear();

@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 
 const ItemTypes = { SANTRI: 'santri', CLASS: 'class', SESSION: 'session', CLASS_ORDER: 'class_order' };
 const jilidOptions = ['Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B', 'Jilid 3A', 'Jilid 3B', 'Jilid 4A', 'Jilid 4B', 'Jilid 5A', 'Jilid 5B', 'Jilid Juz 27', 'Jilid 6A', 'Jilid 6B', 'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'];
@@ -343,7 +344,7 @@ const AdultClassManagement = () => {
   const [santriSearch, setSantriSearch] = useState('');
   const [unassignedFilterJilid, setUnassignedFilterJilid] = useState('all');
   const [formData, setFormData] = useState({ nama_kelas: '', sesi: '', id_guru: null, notes: '', kategori: 'Dewasa' });
-  const [sessionFilters, setSessionFilters] = useState(['Malam']);
+  const [sessionFilters, setSessionFilters] = useState(['Pagi', 'Siang', 'Malam']);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
 
   const fetchAllData = useCallback(async () => {
@@ -368,7 +369,7 @@ const AdultClassManagement = () => {
     }
     setClasses(classData || []);
     setGuruList(guruData || []);
-    setSantriList(santriData || []);
+    setSantriList((santriData || []).map(mapSantriForLegacyUi));
     setDailyAttendance(attendanceData || []);
     if (configData?.content) {
          let parsed = configData.content;
@@ -389,7 +390,16 @@ const AdultClassManagement = () => {
     }
   }, []);
 
-  useEffect(() => { fetchAllData(); }, [fetchAllData]);
+  useEffect(() => {
+    fetchAllData();
+    const refresh = () => fetchAllData();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('lpq:santri-data-changed', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('lpq:santri-data-changed', refresh);
+    };
+  }, [fetchAllData]);
 
   const handleSaveConfig = async (newLocalSessions) => {
       try {
@@ -458,24 +468,35 @@ const AdultClassManagement = () => {
     await Promise.all(updates);
   }, [santriList]);
 
-  const logMutation = async (santriId, fromClassId, toClassId, jilid) => {
-    if (fromClassId === toClassId) return;
-    await supabase.from('class_mutations').insert({ santri_id: santriId, from_class_id: fromClassId, to_class_id: toClassId, mutated_by: user.id, from_jilid: jilid, to_jilid: jilid });
-  };
-
   const handleDropSantri = async (item, toClassId) => {
     const { santriId, fromClassId } = item;
     if (fromClassId === toClassId) return;
-    const targetClass = classes.find(c => c.id === toClassId);
-    const newSession = targetClass ? targetClass.sesi : null;
     const santri = santriList.find(s => s.id === santriId);
-    const currentJilid = santri ? santri.jilid : 'Unknown';
-    const updates = { id_kelas: toClassId, order_in_class: toClassId ? (santriList.filter(s => s.id_kelas === toClassId).length + 1) : null };
-    if (newSession) updates.sesi_mengaji = newSession;
-    setSantriList(prev => prev.map(s => s.id === santriId ? { ...s, ...updates } : s));
-    const { error } = await supabase.from('santri').update(updates).eq('id', santriId);
-    if (error) { toast({ title: 'Gagal', variant: 'destructive' }); fetchAllData(); }
-    else { logMutation(santriId, fromClassId, toClassId, currentJilid); toast({ title: 'Berhasil' }); }
+    const targetClass = classes.find(c => c.id === toClassId);
+
+    if (!toClassId || !targetClass) {
+      toast({
+        title: 'Kelas tujuan diperlukan',
+        description: 'Mutasi harus menuju kelas aktif. Pengeluaran santri dari kelas belum didukung oleh operasi mutasi.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const { data, error } = await supabase.rpc('move_santri_to_class', {
+      p_santri_id: santriId,
+      p_to_class_id: toClassId,
+      p_reason: `Mutasi kelas dewasa: ${santri?.nama_lengkap || 'santri'} ke ${targetClass.nama_kelas}`
+    });
+
+    if (error) {
+      toast({ title: 'Mutasi gagal', description: error.message, variant: 'destructive' });
+      await fetchAllData();
+      return;
+    }
+
+    toast({ title: 'Mutasi berhasil', description: data?.[0]?.message || `${santri?.nama_lengkap || 'Santri'} dipindahkan ke ${targetClass.nama_kelas}.` });
+    await fetchAllData();
   };
 
   const initiateJilidChange = (santri, direction) => {
@@ -500,10 +521,28 @@ const AdultClassManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const classData = { ...formData, kategori: 'Dewasa' };
-    if (!editingClass) { classData.sort_order = classes.reduce((max, c) => Math.max(max, c.order || 0), 0) + 1; }
-    const { error } = editingClass ? await supabase.from('classes').update(classData).eq('id', editingClass.id) : await supabase.from('classes').insert(classData);
-    if (error) toast({ title: 'Gagal', variant: 'destructive' }); else { toast({ title: 'Berhasil' }); setIsFormOpen(false); fetchAllData(); }
+    const targetSession = formData.sesi || Object.keys(sessionTimes)[0];
+    const classData = {
+      nama_kelas: formData.nama_kelas.trim(),
+      sesi: targetSession,
+      id_guru: formData.id_guru || null,
+      kategori: 'Dewasa',
+      is_active: true,
+    };
+    if (!editingClass) {
+      classData.sort_order = classes.reduce((max, item) => Math.max(max, item.sort_order || 0), 0) + 1;
+    }
+    const { error } = editingClass
+      ? await supabase.from('classes').update(classData).eq('id', editingClass.id)
+      : await supabase.from('classes').insert(classData);
+    if (error) {
+      toast({ title: 'Gagal membuat kelas', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Berhasil', description: `Kelas ${classData.nama_kelas} berhasil disimpan.` });
+      setSessionFilters((current) => current.includes(targetSession) ? current : [...current, targetSession]);
+      setIsFormOpen(false);
+      await fetchAllData();
+    }
   };
 
   const showHistory = async () => {

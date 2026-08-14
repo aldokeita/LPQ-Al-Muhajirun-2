@@ -72,6 +72,28 @@ const mapErrorMessage = (error) => {
   return 'Terjadi kesalahan, silakan coba lagi.';
 };
 
+const getDeviceCategory = () => {
+  if (typeof navigator === 'undefined') return 'Unknown';
+  const userAgent = navigator.userAgent || '';
+  if (/tablet|ipad/i.test(userAgent)) return 'Tablet';
+  if (/mobile|iphone|android/i.test(userAgent)) return 'Mobile';
+  return 'Desktop';
+};
+
+const recordLoginResult = async ({ username, status }) => {
+  if (!isSupabaseConfigured || !username) return;
+  try {
+    await supabase.rpc('record_login_attempt', {
+      p_username_attempt: username,
+      p_status: status,
+      p_role: username.includes('@') ? null : 'santri',
+      p_device: getDeviceCategory(),
+    });
+  } catch {
+    // Login must remain available if the optional audit endpoint is temporarily unavailable.
+  }
+};
+
 /* ======================================== */
 /*            MAIN COMPONENT                */
 /* ======================================== */
@@ -168,11 +190,13 @@ const LoginPage = () => {
       );
 
       if (error) {
+        await recordLoginResult({ username: trimmedUsername, status: 'failed' });
         const errorMsg = mapErrorMessage(error);
         setFormError(errorMsg);
         setPassword('');
         setTimeout(() => passwordRef.current?.focus(), 100);
       } else if (loggedInUser) {
+        await recordLoginResult({ username: trimmedUsername, status: 'success' });
         toast({
           title: 'Login berhasil!',
           description: 'Mengalihkan ke dashboard...',
@@ -181,6 +205,7 @@ const LoginPage = () => {
         navigate('/dashboard');
       }
     } catch (err) {
+      await recordLoginResult({ username: trimmedUsername, status: 'failed' });
       setFormError('Terjadi kesalahan, silakan coba lagi.');
       setPassword('');
     } finally {
@@ -365,15 +390,14 @@ const LoginPage = () => {
                       }
                     }}
                     disabled={isSubmitting}
-                    className={`login-input${fieldErrors.password ? ' login-input--error' : ''}`}
-                    style={{ paddingRight: '3rem' }}
+                    className={`login-input login-input--password${fieldErrors.password ? ' login-input--error' : ''}`}
                     aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
                     aria-invalid={!!fieldErrors.password}
                     required
                   />
                   <button
                     type="button"
-                    className="login-password-toggle"
+                    className="login-password-toggle lpq-shiny-button"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isSubmitting}
                     aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
@@ -404,7 +428,7 @@ const LoginPage = () => {
               {/* Submit Button */}
               <button
                 type="submit"
-                className="login-submit-btn"
+                className="login-submit-btn lpq-shiny-button"
                 disabled={isSubmitting}
                 aria-busy={isSubmitting}
               >

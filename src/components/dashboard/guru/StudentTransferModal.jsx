@@ -47,24 +47,13 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
         setIsSubmitting(true);
         try {
             const targetClass = classes.find(c => c.id === selectedClassId);
-            
-            const { count } = await supabase.from('santri').select('*', { count: 'exact', head: true }).eq('id_kelas', selectedClassId);
-            const newOrder = (count || 0) + 1;
-
-            const { error } = await supabase.from('santri')
-                .update({ id_kelas: selectedClassId, order_in_class: newOrder, sesi_mengaji: targetClass?.sesi || santri.sesi_mengaji })
-                .eq('id', santri.id);
+            const { error } = await supabase.rpc('move_santri_to_class', {
+                p_santri_id: santri.id,
+                p_to_class_id: selectedClassId,
+                p_reason: `Mutasi kelas ke ${targetClass?.nama_kelas || 'kelas tujuan'}`
+            });
 
             if (error) throw error;
-
-            await supabase.from('class_mutations').insert({
-                santri_id: santri.id,
-                from_class_id: santri.id_kelas,
-                to_class_id: selectedClassId,
-                from_jilid: santri.jilid,
-                to_jilid: santri.jilid,
-                mutated_by: (await supabase.auth.getUser()).data.user?.id
-            });
 
             toast({ title: 'Transfer Berhasil', description: `${santri.nama_lengkap} berhasil dipindahkan ke kelas ${targetClass?.nama_kelas}.` });
             onTransferSuccess();
