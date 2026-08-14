@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare, Eye } from 'lucide-react';
@@ -16,6 +17,11 @@ import ClassAttendanceLiveEditor from './ClassAttendanceLiveEditor';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 import { createDefaultSantriLevelConfig, normalizeLevelConfigShape } from '@/lib/santriLevel';
+import {
+    QUIZ_HAFALAN_JILIDS,
+    createDefaultQuizHafalanConfig,
+    normalizeQuizHafalanConfig,
+} from '@/lib/quizHafalanConfig';
 import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, saveWhatsAppTemplates } from '@/lib/whatsappTemplateAdapters';
 
 const GameConfiguration = () => {
@@ -232,108 +238,77 @@ const GatchaSettings = () => {
 
 const QuizSettings = () => {
     const [isLoading, setIsLoading] = useState(false);
-    const [quizConfig, setQuizConfig] = useState([]);
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
-
-    const defaultQuizData = [
-        { id: 1, label: 'Doa Harian', color: '#3b82f6', items: doaHarian },
-        { id: 2, label: 'Surat Pendek', color: '#a855f7', items: suratPendek },
-        { id: 3, label: 'Bacaan Shalat', color: '#f59e0b', items: bacaanShalat }
-    ];
+    const [quizConfig, setQuizConfig] = useState(() => createDefaultQuizHafalanConfig().categories);
 
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
-            const { data } = await supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle();
-            if (data?.content) {
-                const loadedCats = data.content.categories || (Array.isArray(data.content) ? data.content : []);
-                const filteredCats = loadedCats.filter((category) =>
-                    String(category.label || '').trim().toLowerCase() !== 'staging test'
-                );
-                const canonicalLabels = {
-                    doa: 'Doa Harian',
-                    'doa harian': 'Doa Harian',
-                    surat: 'Surat Pendek',
-                    'surat pendek': 'Surat Pendek',
-                    sholat: 'Bacaan Shalat',
-                    shalat: 'Bacaan Shalat',
-                    'bacaan sholat': 'Bacaan Shalat',
-                    'bacaan shalat': 'Bacaan Shalat'
-                };
-                const normalizedCategories = filteredCats.map((category, index) => ({
-                    ...category,
-                    id: category.id ?? `category-${index + 1}`,
-                    label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
-                    items: Array.isArray(category.items) ? category.items : []
-                }));
-                const requiredCategories = defaultQuizData.filter((required) =>
-                    !normalizedCategories.some((category) => category.label === required.label)
-                );
-                const nextCategories = normalizedCategories.length === 0
-                    ? defaultQuizData
-                    : [...normalizedCategories, ...requiredCategories];
-                setQuizConfig(nextCategories);
+            const { data, error } = await supabase
+                .from('website_content')
+                .select('content')
+                .eq('key', 'quiz_hafalan_config')
+                .maybeSingle();
 
-                if (filteredCats.length !== loadedCats.length) {
-                    await supabase.from('website_content').upsert({
-                        key: 'quiz_hafalan_config',
-                        content: {
-                            ...(Array.isArray(data.content) ? {} : data.content),
-                            categories: nextCategories
-                        }
-                    }, { onConflict: 'key' });
-                }
+            if (error) {
+                toast({ title: 'Gagal memuat konfigurasi quiz', description: error.message, variant: 'destructive' });
             } else {
-                setQuizConfig(defaultQuizData);
+                const normalizedConfig = normalizeQuizHafalanConfig(data?.content);
+                setQuizConfig(normalizedConfig.categories);
+
+                // One-time cleanup keeps old custom categories and legacy jilid shapes
+                // from returning after the admin next opens this configuration.
+                if (data?.content && JSON.stringify(data.content) !== JSON.stringify(normalizedConfig)) {
+                    const { error: normalizeError } = await supabase
+                        .from('website_content')
+                        .upsert({ key: 'quiz_hafalan_config', content: normalizedConfig }, { onConflict: 'key' });
+                    if (normalizeError) {
+                        toast({ title: 'Konfigurasi quiz belum dinormalisasi', description: normalizeError.message, variant: 'destructive' });
+                    }
+                }
             }
             setIsLoading(false);
         };
         load();
-    }, []);
+    }, [toast]);
 
     const saveQuizConfig = async () => {
         setIsLoading(true);
-        const payload = {
-            categories: quizConfig.filter((category) =>
-                String(category.label || '').trim().toLowerCase() !== 'staging test'
-            )
-        };
-        const { error } = await supabase.from('website_content').upsert({ key: 'quiz_hafalan_config', content: payload }, { onConflict: 'key' });
+        const payload = normalizeQuizHafalanConfig({ categories: quizConfig });
+        const { error } = await supabase
+            .from('website_content')
+            .upsert({ key: 'quiz_hafalan_config', content: payload }, { onConflict: 'key' });
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Konfigurasi Quiz disimpan." });
         setIsLoading(false);
     };
 
     const resetToDefaults = () => {
-        if(window.confirm("Reset quiz ke konten standar (Doa, Surat, Sholat)?")) {
-            setQuizConfig(defaultQuizData);
+        if (window.confirm("Aktifkan kembali tiga kategori dan seluruh jilid?")) {
+            setQuizConfig(createDefaultQuizHafalanConfig().categories);
             toast({ title: "Reset Berhasil", description: "Quiz telah direset ke konten standar." });
         }
-    }
+    };
 
-    const addCategory = () => {
-        if (!newCategoryName) return;
-        const newId = Math.max(0, ...quizConfig.map(c => c.id)) + 1;
-        setQuizConfig([...quizConfig, { id: newId, label: newCategoryName, color: newCategoryColor, items: [] }]);
-        setNewCategoryName('');
+    const toggleCategory = (categoryId, enabled) => {
+        setQuizConfig((previous) => previous.map((category) => (
+            category.id === categoryId ? { ...category, enabled } : category
+        )));
     };
-    const removeCategory = (id) => setQuizConfig(prev => prev.filter(c => c.id !== id));
-    
-    const addItem = (catId, item) => {
-        if(!item) return;
-        setQuizConfig(prev => prev.map(c => c.id === catId ? { ...c, items: [...c.items, item] } : c));
-    };
-    const removeItem = (catId, idx) => {
-        setQuizConfig(prev => prev.map(c => c.id === catId ? { ...c, items: c.items.filter((_, i) => i !== idx) } : c));
+
+    const toggleJilid = (categoryId, jilid, enabled) => {
+        setQuizConfig((previous) => previous.map((category) => (
+            category.id === categoryId
+                ? { ...category, jilids: { ...category.jilids, [jilid]: enabled } }
+                : category
+        )));
     };
 
     return (
         <div className="game-config-panel game-config-panel--quiz space-y-6">
             <div className="game-config-section-heading">
                 <div>
-                    <h3 className="text-lg font-black flex items-center gap-2"><Sparkles className="w-5 h-5 text-cyan-500" /> Bank Soal Quiz Hafalan</h3>
-                    <p className="text-sm text-muted-foreground">Kategori dan soal di sini langsung digunakan roda quiz; guru memilih serta menilai santri tanpa RFID.</p>
+                    <h3 className="text-lg font-black flex items-center gap-2"><Sparkles className="w-5 h-5 text-cyan-500" /> Pengaturan Quiz Hafalan</h3>
+                    <p className="text-sm text-muted-foreground">Aktifkan kategori dan jilid secara terpisah. Item quiz tetap mengikuti master hafalan TPQ.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={resetToDefaults}><RefreshCw className="w-4 h-4 mr-2"/> Reset</Button>
@@ -341,51 +316,47 @@ const QuizSettings = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-1 h-fit">
-                    <CardHeader><CardTitle>Tambah Kategori</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <div><Label>Nama Kategori</Label><Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="Misal: Hadits"/></div>
-                        <div><Label>Warna</Label><Input type="color" value={newCategoryColor} onChange={e => setNewCategoryColor(e.target.value)} className="h-10 cursor-pointer w-full"/></div>
-                        <Button onClick={addCategory} className="w-full" variant="outline"><Plus className="w-4 h-4 mr-2"/> Tambah</Button>
-                    </CardContent>
-                </Card>
-
-                <div className="md:col-span-2 space-y-4">
-                    {quizConfig.map(cat => (
-                        <Card key={cat.id}>
-                            <CardHeader className="pb-2">
-                                <div className="flex justify-between items-center">
-                                    <CardTitle className="text-lg flex items-center gap-2"><div className="w-4 h-4 rounded-full" style={{background: cat.color}}></div> {cat.label}</CardTitle>
-                                    <Button variant="ghost" size="sm" onClick={() => removeCategory(cat.id)} className="text-red-500"><Trash2 className="w-4 h-4"/></Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-2">
-                                    <div className="flex gap-2">
-                                        <Input id={`new-item-${cat.id}`} placeholder="Tambah pertanyaan/item..." className="h-8 text-sm" onKeyDown={(e) => { if(e.key==='Enter'){ addItem(cat.id, e.currentTarget.value); e.currentTarget.value=''; }}}/>
-                                        <Button size="sm" onClick={() => { const el = document.getElementById(`new-item-${cat.id}`); addItem(cat.id, el.value); el.value=''; }}><Plus className="w-4 h-4"/></Button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {cat.items.map((item, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="game-quiz-item-chip"
-                                                style={{ '--quiz-item-accent': cat.color }}
-                                            >
-                                                <span className="game-quiz-item-chip__dot" />
-                                                <span>{item}</span>
-                                                <button onClick={() => removeItem(cat.id, idx)} aria-label={`Hapus ${item}`}><X className="w-3 h-3"/></button>
-                                            </div>
-                                        ))}
-                                        {cat.items.length === 0 && <span className="text-xs text-muted-foreground italic">Belum ada item</span>}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {quizConfig.map((category) => (
+                    <Card key={category.id} className="h-full">
+                        <CardHeader className="pb-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: category.color }} />
+                                    <div>
+                                        <CardTitle className="text-lg">{category.label}</CardTitle>
+                                        <p className="mt-1 text-xs text-muted-foreground">Kategori utama</p>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                <Switch
+                                    checked={category.enabled}
+                                    onCheckedChange={(enabled) => toggleCategory(category.id, enabled)}
+                                    aria-label={category.label + ' ' + (category.enabled ? 'aktif' : 'nonaktif')}
+                                />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {QUIZ_HAFALAN_JILIDS.map((jilid) => {
+                                const enabled = category.jilids?.[jilid] === true;
+                                return (
+                                    <div key={jilid} className="flex items-center justify-between rounded-xl border bg-muted/20 px-3 py-2.5">
+                                        <div>
+                                            <p className="text-sm font-semibold">Jilid {jilid}</p>
+                                            <p className="text-[11px] text-muted-foreground">{enabled ? 'Tersedia di quiz' : 'Disembunyikan dari quiz'}</p>
+                                        </div>
+                                        <Switch
+                                            checked={enabled}
+                                            onCheckedChange={(nextEnabled) => toggleJilid(category.id, jilid, nextEnabled)}
+                                            aria-label={category.label + ' Jilid ' + jilid + ' ' + (enabled ? 'aktif' : 'nonaktif')}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
+            <p className="text-xs text-muted-foreground">Quiz hanya menggunakan tiga kategori ini dan item hafalan TPQ yang aktif. Menonaktifkan semua jilid pada kategori akan menyembunyikan kategori tersebut dari pilihan pengguna.</p>
         </div>
     );
 };

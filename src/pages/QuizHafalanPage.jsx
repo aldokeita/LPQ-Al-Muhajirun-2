@@ -12,7 +12,12 @@ import { useToast } from '@/components/ui/use-toast';
 import { Helmet } from 'react-helmet';
 import useWindowSize from '@/hooks/useWindowSize';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
+import {
+  getEnabledQuizJilids,
+  getQuizCategoryByBackendKey,
+  normalizeQuizHafalanConfig,
+  normalizeQuizItemJilid,
+} from '@/lib/quizHafalanConfig';
 import { useTheme } from '@/contexts/ThemeContext';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 
@@ -51,136 +56,75 @@ const QuizHafalanPage = () => {
   
   const isPracticeMode = role === 'santri';
 
-  // Load Config from hafalan_items table
+  // Load only the configured TPQ quiz categories and jilid scopes.
   useEffect(() => {
     const loadConfig = async () => {
-        const [{ data: configData }, { data: itemsData }] = await Promise.all([
-            supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle(),
-            supabase.from('hafalan_items').select('id,category,jilid,item_name')
-        ]);
+      const [{ data: configData, error: configError }, { data: itemsData, error: itemsError }] = await Promise.all([
+        supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle(),
+        supabase
+          .from('hafalan_items')
+          .select('id,program_scope,category,jilid,item_name,item_order,is_active')
+          .eq('program_scope', 'TPQ')
+          .eq('is_active', true)
+          .in('category', ['Doa', 'Sholat', 'Surat'])
+          .in('jilid', ['1', '2', '3', '4', '5', '6'])
+          .order('item_order', { ascending: true }),
+      ]);
 
-        const savedCategories = configData?.content?.categories;
-        let categories = Array.isArray(savedCategories) && savedCategories.length > 0
-            ? savedCategories
-            : [];
+      if (configError) {
+        toast({ title: 'Gagal memuat konfigurasi quiz', description: configError.message, variant: 'destructive' });
+      }
+      if (itemsError) {
+        toast({ title: 'Gagal memuat item hafalan quiz', description: itemsError.message, variant: 'destructive' });
+      }
 
-        if (categories.length === 0 && itemsData?.length) {
-            const categoriesMap = {};
-            const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b', 'Tahfizh': '#10b981' };
+      const normalizedConfig = normalizeQuizHafalanConfig(configData?.content);
+      const activeCategories = normalizedConfig.categories
+        .map((category) => ({
+          ...category,
+          enabledJilids: getEnabledQuizJilids(category),
+        }))
+        .filter((category) => category.enabled && category.enabledJilids.length > 0);
+      const activeCategoriesByKey = new Map(activeCategories.map((category) => [category.key, category]));
 
-            itemsData.forEach((item) => {
-                if (!categoriesMap[item.category]) {
-                    categoriesMap[item.category] = {
-                        id: item.category,
-                        label: item.category,
-                        color: colors[item.category] || '#10b981',
-                        items: [],
-                        jilids: {}
-                    };
-                }
-                categoriesMap[item.category].items.push(item.item_name);
-                const jKey = item.jilid || 'Lainnya';
-                if (!categoriesMap[item.category].jilids[jKey]) {
-                    categoriesMap[item.category].jilids[jKey] = [];
-                }
-                categoriesMap[item.category].jilids[jKey].push(item.item_name);
-            });
-            categories = Object.values(categoriesMap);
-        }
+      const allItems = (itemsData || []).reduce((items, item) => {
+        const categoryDefinition = getQuizCategoryByBackendKey(item.category);
+        const category = categoryDefinition ? activeCategoriesByKey.get(categoryDefinition.key) : null;
+        const jilid = normalizeQuizItemJilid(item.jilid);
+        if (!category || !jilid || !category.enabledJilids.includes(jilid)) return items;
 
-        if (categories.length === 0) {
-            categories = [
-                { id: 1, label: 'Doa', color: '#3b82f6', items: doaHarian, jilids: {} },
-                { id: 2, label: 'Surat', color: '#a855f7', items: suratPendek, jilids: {} },
-            ];
-        }
-
-        categories = categories.filter((category) =>
-            String(category.label || '').trim().toLowerCase() !== 'staging test'
-        );
-
-        const canonicalLabels = {
-            doa: 'Doa Harian',
-            'doa harian': 'Doa Harian',
-            surat: 'Surat Pendek',
-            'surat pendek': 'Surat Pendek',
-            sholat: 'Bacaan Shalat',
-            shalat: 'Bacaan Shalat',
-            'bacaan sholat': 'Bacaan Shalat',
-            'bacaan shalat': 'Bacaan Shalat'
-        };
-        categories = categories.map((category, index) => ({
-            ...category,
-            id: category.id ?? `category-${index + 1}`,
-            label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
-            items: Array.isArray(category.items) ? category.items : [],
-            jilids: category.jilids && typeof category.jilids === 'object' ? category.jilids : {}
-        }));
-
-        const requiredCategories = [
-            { id: 'doa-harian', label: 'Doa Harian', color: '#3b82f6', items: doaHarian, jilids: {} },
-            { id: 'surat-pendek', label: 'Surat Pendek', color: '#a855f7', items: suratPendek, jilids: {} },
-        ];
-        categories = [...categories, ...requiredCategories];
-
-        setQuizCategories(categories);
-        setSelectedCategoryIds(categories.map((category) => String(category.id)));
-
-        // Flatten items with jilid info
-        const allItems = [];
-        const initialJilids = {};
-        categories.forEach(cat => {
-            const catId = String(cat.id);
-            initialJilids[catId] = [];
-            if(cat.jilids && Object.keys(cat.jilids).length > 0) {
-                Object.entries(cat.jilids).forEach(([jilid, jItems]) => {
-                    initialJilids[catId].push(jilid);
-                    jItems.forEach(item => {
-                        allItems.push({
-                            text: item,
-                            category: cat.label,
-                            categoryId: catId,
-                            jilid: jilid,
-                            color: cat.color
-                        });
-                    });
-                });
-            } else if(cat.items && Array.isArray(cat.items)) {
-                cat.items.forEach(item => {
-                    allItems.push({
-                        text: item,
-                        category: cat.label,
-                        categoryId: catId,
-                        jilid: null,
-                        color: cat.color
-                    });
-                });
-            }
+        items.push({
+          text: item.item_name,
+          category: category.label,
+          categoryId: String(category.id),
+          jilid,
+          color: category.color,
         });
-        setFlattenedItems(allItems);
+        return items;
+      }, []);
 
-        // Load saved jilid preferences, default all enabled
-        const savedJilids = configData?.content?.selectedJilids;
-        if (savedJilids && typeof savedJilids === 'object') {
-            setSelectedJilids(savedJilids);
-        } else {
-            setSelectedJilids(initialJilids);
-        }
+      setQuizCategories(activeCategories);
+      setSelectedCategoryIds(activeCategories.map((category) => String(category.id)));
+      setSelectedJilids(Object.fromEntries(
+        activeCategories.map((category) => [String(category.id), category.enabledJilids])
+      ));
+      setFlattenedItems(allItems);
 
-        const { data: santriData, error: santriError } = await supabase
-          .from('santri')
-          .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
-          .order('nama_lengkap', { ascending: true });
+      const { data: santriData, error: santriError } = await supabase
+        .from('santri')
+        .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
+        .order('nama_lengkap', { ascending: true });
 
-        if (!santriError) {
-          setSantriList((santriData || []).filter((santri) => santri.status !== 'inactive'));
-        }
-        setIsRosterLoading(false);
+      if (!santriError) {
+        setSantriList((santriData || []).filter((santri) => santri.status !== 'inactive'));
+      } else {
+        toast({ title: 'Gagal memuat daftar santri', description: santriError.message, variant: 'destructive' });
+      }
+      setIsRosterLoading(false);
     };
-    loadConfig();
-  }, []);
 
-  // Set current santri automatically if in practice mode
+    loadConfig();
+  }, [toast]);
   useEffect(() => {
       if (isPracticeMode && user) {
           setCurrentSantri({
@@ -581,7 +525,7 @@ const QuizHafalanPage = () => {
                           {quizCategories.map((category) => {
                             const isSelected = selectedCategoryIds.includes(String(category.id));
                             const catId = String(category.id);
-                            const jilidKeys = category.jilids ? Object.keys(category.jilids) : [];
+                            const jilidKeys = getEnabledQuizJilids(category);
                             return (
                               <div key={category.id} className="flex flex-col gap-1.5">
                                 <button
