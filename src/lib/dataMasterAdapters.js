@@ -52,6 +52,7 @@ export const pickSantriProfileFields = (input) => {
     current_class_id: input.current_class_id ?? input.id_kelas ?? null,
     sesi_mengaji: input.sesi_mengaji || null,
     jilid: input.jilid || null,
+    juz_hafalan: Array.isArray(input.juz_hafalan) ? input.juz_hafalan : [],
     tanggal_pendaftaran: input.tanggal_pendaftaran || null,
     nama_ayah: input.nama_ayah || null,
     nama_ibu: input.nama_ibu || null,

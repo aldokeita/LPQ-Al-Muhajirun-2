@@ -25,6 +25,7 @@ import {
   Dices,
   Trophy,
   Library,
+  BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
@@ -301,7 +302,7 @@ const DigitalAttendancePage = () => {
         .channel('digital-attendance-level-config')
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'website_content', filter: 'key=eq.level_config' },
+          { event: 'UPDATE', schema: 'public', table: 'website_content', filter: 'key=eq.level_config' },
           (payload) => {
             if (payload.new?.content) setLevelConfig(payload.new.content);
           }
@@ -415,7 +416,7 @@ const DigitalAttendancePage = () => {
         const todayStr = getLocalDateString(todayDate);
 
         let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [];
-        let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
+        let { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('rfid_tag', tag).maybeSingle();
 
         // Check MMQ Schedule if it's a Guru
         if (guruData) {
@@ -643,10 +644,10 @@ const DigitalAttendancePage = () => {
 
         let existingAttendance = null;
         if (userRole === 'guru') {
-             const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
+             const { data } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
              existingAttendance = data;
         } else {
-             const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
+             const { data } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
              existingAttendance = data;
         }
 
@@ -1120,6 +1121,15 @@ const DigitalAttendancePage = () => {
                 >
                   <Dices className="w-4 h-4" />
                   <span>Acak Nama</span>
+                </button>
+                <button
+                  className="attendance-header__action-btn attendance-header__action-btn--hijaiyah"
+                  onClick={() => navigate('/hijaiyah-game')}
+                  title="Play Hijaiyah"
+                  aria-label="Play Hijaiyah"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Hijaiyah</span>
                 </button>
               </>
             )}

@@ -17,31 +17,40 @@ import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDeta
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, BookOpen, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
+import DevelopmentScoreSelector from '@/components/dashboard/shared/DevelopmentScoreSelector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { buildSessionStartTimestamp, calculateTimeDifference, resolveAttendanceRecordStatus } from '@/utils/AttendanceStatusLogic';
 import {
   buildHafalanScoreMap,
+  buildJuzScoreMap,
+  buildSurahScoreMap,
   DEVELOPMENT_SCORE_OPTIONS,
   fetchClassesWithActiveSantriForTeacher,
   fetchHafalanItems,
   fetchHafalanProgress,
   fetchMurojaahSubmissions,
+  fetchSantriJuzScores,
+  fetchSantriSurahScores,
   getHafalanProgramScope,
   getAcademicErrorMessage,
   PTPT_TAHFIZH_TARGETS,
   updateMurojaahReview,
-  upsertHafalanProgress
+  upsertHafalanProgress,
+  upsertSantriJuzScore,
+  upsertSantriSurahScore
 } from '@/lib/academicAdapters';
+import { ALL_JUZ, getSurahNamesForJuz, normalizeJuzHafalan, parseJuzNumber } from '@/lib/quranJuzData';
 import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } from '@/lib/storageAdapters';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -181,6 +190,9 @@ const GuruDashboard = () => {
   const [currentSubmission, setCurrentSubmission] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [hafalanProgress, setHafalanProgress] = useState({});
+  const [juzScoreProgress, setJuzScoreProgress] = useState({});
+  const [surahScoreProgress, setSurahScoreProgress] = useState({});
+  const [expandedJuz, setExpandedJuz] = useState({});
   const [hafalanItems, setHafalanItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
@@ -200,7 +212,7 @@ const GuruDashboard = () => {
   const fetchGuruData = useCallback(async () => {
     if (user?.id) {
         setIsLoading(true);
-        const { data: guru } = await supabase.from('guru').select('*').eq('id', user.id).single();
+        const { data: guru } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('id', user.id).single();
         if(guru) {
             const foto_url = await resolveAvatarUrl({
                 ownerType: 'guru',
@@ -211,11 +223,13 @@ const GuruDashboard = () => {
             setGuruData({ ...guru, foto_url });
             const todayStr = new Date().toLocaleDateString('en-CA');
 
-            const [hafalanItemsData, progressData, submissionsData, classList] = await Promise.all([
+            const [hafalanItemsData, progressData, submissionsData, classList, juzScoreData, surahScoreData] = await Promise.all([
                 fetchHafalanItems(),
                 fetchHafalanProgress(),
                 fetchMurojaahSubmissions(),
-                fetchClassesWithActiveSantriForTeacher(guru.id)
+                fetchClassesWithActiveSantriForTeacher(guru.id),
+                fetchSantriJuzScores(),
+                fetchSantriSurahScores()
             ]);
 
             const classListWithAvatars = await Promise.all(classList.map(async (kelas) => ({
@@ -240,8 +254,7 @@ const GuruDashboard = () => {
             if (classList.length > 0) {
                 const classIds = classList.map(c => c.id);
                 // Fetch attendance records specifically for the guru's classes
-                const { data: attendanceRes } = await supabase.from('attendance')
-                    .select('*')
+                const { data: attendanceRes } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
                     .in('class_id', classIds)
                     .eq('attendance_date', todayStr);
 
@@ -253,6 +266,8 @@ const GuruDashboard = () => {
 
             setHafalanItems(hafalanItemsData || []);
             setHafalanProgress(buildHafalanScoreMap(progressData || []));
+            setJuzScoreProgress(buildJuzScoreMap(juzScoreData || []));
+            setSurahScoreProgress(buildSurahScoreMap(surahScoreData || []));
             setMurojaahSubmissions(submissionsData || []);
 
         }
@@ -280,6 +295,10 @@ const GuruDashboard = () => {
       const filteredItems = hafalanItems.filter((item) => (
         item.category === category && item.program_scope === programScope
       ));
+      const firstJuz = programScope === 'PTPT'
+        ? normalizeJuzHafalan(santri?.juz_hafalan || [])[0] || null
+        : null;
+      setExpandedJuz(firstJuz ? { [firstJuz]: true } : {});
       setSelectedSantri(santri);
       setSelectedHafalan({ category, programScope, items: filteredItems });
       setIsHafalanOpen(true);
@@ -313,6 +332,64 @@ const GuruDashboard = () => {
     } catch (error) {
         toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
         setHafalanProgress(prev => ({...prev, [key]: previousScore}));
+    }
+  };
+
+  const handleJuzScoreChange = async (juzNumber, score) => {
+    if (!selectedSantri) return;
+
+    if (!selectedSantri.id || !user?.id) {
+        toast({ title: "Validasi Gagal", description: "Sesi tidak valid, silahkan muat ulang halaman.", variant: "destructive" });
+        return;
+    }
+
+    const normalizedJuz = Number(juzNumber);
+    const key = `${selectedSantri.id}-${normalizedJuz}`;
+    const previousScore = juzScoreProgress[key];
+
+    // Optimistic Update
+    setJuzScoreProgress(prev => ({...prev, [key]: score}));
+
+    try {
+        await upsertSantriJuzScore({ santriId: selectedSantri.id, juzNumber: normalizedJuz, score, userId: user.id });
+
+        toast({
+            title: score === 4 ? "Hafalan Tercapai" : "Skor Juz Tersimpan",
+            description: `Juz ${normalizedJuz} mendapat skor ${score}.`,
+            duration: 2000
+        });
+    } catch (error) {
+        toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
+        setJuzScoreProgress(prev => ({...prev, [key]: previousScore}));
+    }
+  };
+
+  const handleSurahScoreChange = async (juzNumber, surahName, score) => {
+    if (!selectedSantri) return;
+
+    if (!selectedSantri.id || !user?.id) {
+        toast({ title: "Validasi Gagal", description: "Sesi tidak valid, silahkan muat ulang halaman.", variant: "destructive" });
+        return;
+    }
+
+    const normalizedJuz = Number(juzNumber);
+    const key = `${selectedSantri.id}-${normalizedJuz}:${surahName}`;
+    const previousScore = surahScoreProgress[key];
+
+    // Optimistic Update
+    setSurahScoreProgress(prev => ({...prev, [key]: score}));
+
+    try {
+        await upsertSantriSurahScore({ santriId: selectedSantri.id, juzNumber: normalizedJuz, surahName, score, userId: user.id });
+
+        toast({
+            title: score === 4 ? "Hafalan Surah Tercapai" : "Skor Surah Tersimpan",
+            description: `${surahName} mendapat skor ${score}.`,
+            duration: 2000
+        });
+    } catch (error) {
+        toast({ title: "Gagal Update Data", description: getAcademicErrorMessage(error), variant: "destructive" });
+        setSurahScoreProgress(prev => ({...prev, [key]: previousScore}));
     }
   };
 
@@ -410,8 +487,9 @@ const GuruDashboard = () => {
   const themeGradient = isFemale ? 'from-teal-500 to-emerald-600' : 'from-green-600 to-green-800';
   const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
   const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
-  const hafalanTargets = selectedHafalan.programScope === 'PTPT'
-      ? PTPT_TAHFIZH_TARGETS
+  const isPTPT = selectedHafalan.programScope === 'PTPT';
+  const hafalanTargets = isPTPT
+      ? (normalizeJuzHafalan(selectedSantri?.juz_hafalan || []).map(number => `Juz ${number}`))
       : ['1', '2', '3', '4', '5', '6'];
   const itemsByJilid = Object.fromEntries(hafalanTargets.map((target, index) => [
       target,
@@ -444,6 +522,7 @@ const GuruDashboard = () => {
                 <Button onClick={() => navigate('/gatcha-game')} className="border-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/20 transition-all hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-lg hover:shadow-violet-500/30"><Gamepad2 className="w-4 h-4 mr-2"/> Play Gatcha</Button>
                 <Button onClick={() => navigate('/quiz-hafalan')} className="border-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20 transition-all hover:-translate-y-0.5 hover:from-cyan-500 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/30"><PlayCircle className="w-4 h-4 mr-2"/> Play Quiz</Button>
                 <Button onClick={() => navigate('/random-name')} className="border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-400 hover:to-orange-500 hover:shadow-lg hover:shadow-amber-500/30"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
+                <Button onClick={() => navigate('/hijaiyah-game')} className="border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30"><BookOpen className="w-4 h-4 mr-2"/> Play Hijaiyah</Button>
             </div>
         </div>
         {guruData && (
@@ -623,9 +702,87 @@ const GuruDashboard = () => {
               </div>
             </DialogHeader>
             <div className="grid min-w-0 grid-cols-1 gap-4 pt-4 md:grid-cols-2 xl:grid-cols-3">
-              {hafalanTargets.map(jilid => (
-                <HafalanDisplay key={jilid} jilid={jilid} titlePrefix={selectedHafalan.programScope === 'PTPT' ? '' : 'Jilid'} items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
-              ))}
+              {isPTPT ? (
+                hafalanTargets.length === 0 ? (
+                  <p className="col-span-full rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+                    Admin belum menetapkan juz hafalan untuk santri ini. Atur centang juz dari menu Data Santri.
+                  </p>
+                ) : (
+                  <div className="col-span-full space-y-3">
+                    {hafalanTargets.map((juzLabel) => {
+                      const juzNumber = parseJuzNumber(juzLabel);
+                      const score = Number(juzScoreProgress[`${selectedSantri.id}-${juzNumber}`] || 0);
+                      const surahNames = getSurahNamesForJuz(juzNumber);
+                      const isCompleted = score === 4;
+                      const isExpanded = Boolean(expandedJuz[juzNumber]);
+                      const scoredSurahs = surahNames.filter((name) => Number(surahScoreProgress[`${selectedSantri.id}-${juzNumber}:${name}`] || 0) === 4).length;
+                      return (
+                        <Collapsible
+                          key={juzLabel}
+                          open={isExpanded}
+                          onOpenChange={(open) => setExpandedJuz((prev) => ({ ...prev, [juzNumber]: open }))}
+                        >
+                          <div className={cn(
+                            'overflow-hidden rounded-xl border transition-colors',
+                            isCompleted
+                              ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-400/25 dark:bg-slate-900/70'
+                              : 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/50'
+                          )}>
+                            <CollapsibleTrigger className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                              <div className="flex items-center justify-between gap-3 p-3">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <ChevronDown className={cn('h-4 w-4 flex-none text-muted-foreground transition-transform duration-200', isExpanded && 'rotate-180')} aria-hidden="true" />
+                                  <p className="text-sm font-bold text-foreground">{juzLabel}</p>
+                                  {isCompleted && <CheckCircle2 className="h-4 w-4 flex-none text-emerald-600" aria-label="Hafalan tercapai" />}
+                                </div>
+                                <span className="flex-none text-[11px] font-semibold text-muted-foreground">
+                                  {scoredSurahs}/{surahNames.length} surah skor 4
+                                </span>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="border-t border-slate-200/70 p-3 dark:border-slate-800">
+                                <div className="mb-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Skor Juz</p>
+                                    <span className="text-[11px] font-semibold text-muted-foreground">Hafalan juz dianggap tercapai saat skor 4</span>
+                                  </div>
+                                  <DevelopmentScoreSelector
+                                    value={score >= 1 && score <= 4 ? score : null}
+                                    onChange={(value) => handleJuzScoreChange(juzNumber, value)}
+                                    compact
+                                  />
+                                </div>
+                                <div className="space-y-2.5">
+                                  {surahNames.map((name) => {
+                                    const surahScore = Number(surahScoreProgress[`${selectedSantri.id}-${juzNumber}:${name}`] || 0);
+                                    return (
+                                      <div key={name} className="grid grid-cols-1 items-center gap-1.5 rounded-lg bg-background/60 p-2 dark:bg-slate-950/40 sm:grid-cols-[1fr_auto] sm:gap-3">
+                                        <p className="text-xs font-semibold text-foreground">{name}</p>
+                                        <div className="min-w-[120px] sm:min-w-[168px]">
+                                          <DevelopmentScoreSelector
+                                            value={surahScore >= 1 && surahScore <= 4 ? surahScore : null}
+                                            onChange={(value) => handleSurahScoreChange(juzNumber, name, value)}
+                                            compact
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </CollapsibleContent>
+                          </div>
+                        </Collapsible>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                hafalanTargets.map(jilid => (
+                  <HafalanDisplay key={jilid} jilid={jilid} titlePrefix="Jilid" items={itemsByJilid[jilid] || []} isDraggable={false} scoreData={currentProgressData} onScoreChange={handleHafalanScoreChange} />
+                ))
+              )}
             </div>
           </DialogContent>
         </Dialog>

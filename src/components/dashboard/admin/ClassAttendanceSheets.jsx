@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AdminEmptyState from '@/components/dashboard/shared/AdminEmptyState';
 import AdminErrorState from '@/components/dashboard/shared/AdminErrorState';
+import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { toast } from '@/components/ui/use-toast';
 import { fetchClassAttendanceSource } from '@/lib/classAttendanceAdapters';
 import { fetchClassAttendanceAppearance } from '@/lib/classAttendancePrintAdapters';
@@ -106,15 +107,24 @@ export const AttendancePaperPreview = ({
   classItem,
   dateSlots,
   monthLabel,
+  sessionTimes,
 }) => {
   const [firstPage] = createClassAttendancePages(classItem.roster);
   const config = normalizeClassAttendancePrintConfig(appearance?.config);
-  const { branding, content, typography } = config;
+  const { branding, content, typography, columnWidths } = config;
+  const sessionKey = String(classItem.sesi || '').trim();
+  const sessionHeaderBg = branding.sessionHeaderColors?.[sessionKey] || branding.tableHeaderBackground;
   const previewStyle = {
     '--attendance-preview-header-font': getClassAttendanceHeaderFontStack(typography.headerFont),
+    '--attendance-preview-yayasan-font': getClassAttendanceHeaderFontStack(typography.yayasanFont),
+    '--attendance-preview-yayasan-size': `${typography.yayasanSize}pt`,
+    '--attendance-preview-yayasan-offset-y': `${typography.yayasanOffsetY}mm`,
+    '--attendance-preview-eyebrow-font': getClassAttendanceHeaderFontStack(typography.eyebrowFont),
+    '--attendance-preview-title-font': getClassAttendanceHeaderFontStack(typography.titleFont),
     '--attendance-preview-title-size': `${typography.titleSize}pt`,
     '--attendance-preview-title-weight': typography.titleWeight,
     '--attendance-preview-header-offset-y': `${typography.headerOffsetY}mm`,
+    '--attendance-preview-address-font': getClassAttendanceHeaderFontStack(typography.addressFont),
     '--attendance-preview-address-offset-y': `${typography.addressOffsetY}mm`,
     '--attendance-preview-title-style': typography.titleItalic ? 'italic' : 'normal',
     '--attendance-preview-title-transform': typography.titleUppercase ? 'uppercase' : 'none',
@@ -130,7 +140,7 @@ export const AttendancePaperPreview = ({
     '--attendance-preview-header-color': branding.headerColor,
     '--attendance-preview-header-text-color': branding.headerTextColor,
     '--attendance-preview-accent': branding.accentColor,
-    '--attendance-preview-table-head': branding.tableHeaderBackground,
+    '--attendance-preview-table-head': sessionHeaderBg,
     '--attendance-preview-table-head-text': branding.tableHeaderText,
     '--attendance-preview-lpq-logo-size': `${branding.lpqLogoSize}mm`,
     '--attendance-preview-qiroati-logo-size': `${branding.qiroatiLogoSize}mm`,
@@ -144,6 +154,7 @@ export const AttendancePaperPreview = ({
             {branding.showLpqLogo && appearance?.lpqLogoUrl && <img className="is-lpq" src={appearance.lpqLogoUrl} alt="Logo LPQ Al-Muhajirun" />}
           </div>
           <div className="class-attendance-paper__institution-copy">
+            <p className="yayasan-line">{content.yayasanName}</p>
             <p>{content.institutionEyebrow}</p>
             <h3>{content.institutionName}</h3>
             <span>{content.address}</span>
@@ -156,8 +167,16 @@ export const AttendancePaperPreview = ({
         <dl className="class-attendance-paper__meta">
           <div><dt>{content.teacherLabel}</dt><dd>: {formatClassAttendanceTeacherName(classItem.guru?.nama)}</dd></div>
           <div><dt>{content.classLabel}</dt><dd>: {classItem.nama_kelas}</dd></div>
-          <div><dt>{content.sessionLabel}</dt><dd>: {classItem.sesi || 'Belum ditentukan'}</dd></div>
-          <div><dt>{content.createdLabel}</dt><dd>: Pratinjau</dd></div>
+          <div><dt>{content.sessionLabel}</dt><dd>: {(() => {
+            const raw = String(classItem.sesi || '').trim();
+            if (!raw) return 'Belum ditentukan';
+            const upper = raw.toUpperCase();
+            if (sessionTimes && sessionTimes[raw]) {
+              const { start, end } = sessionTimes[raw];
+              if (start && end) return `${upper} (${start} - ${end})`;
+            }
+            return upper;
+          })()}</dd></div>
         </dl>
 
         <table>
@@ -167,8 +186,9 @@ export const AttendancePaperPreview = ({
               <th rowSpan="2" className="name-column"><MultilineText value={content.nameColumn} /></th>
               <th rowSpan="2"><MultilineText value={content.levelColumn} /></th>
               <th rowSpan="2" className="phone-column"><MultilineText value={content.phoneColumn} /></th>
-              <th colSpan="23">{content.monthColumn}: {monthLabel}</th>
+              <th colSpan="23">{monthLabel}</th>
               <th rowSpan="2" className="progress-column"><MultilineText value={content.progressColumn} /></th>
+              <th rowSpan="2" className="percentage-column"><MultilineText value={content.percentageColumn} /></th>
             </tr>
             <tr>
               {dateSlots.map((slot, index) => <th key={`${slot?.dateKey || 'blank'}-${index}`} className="date-column">{slot?.day || ''}</th>)}
@@ -183,18 +203,17 @@ export const AttendancePaperPreview = ({
                 <td>{santri.isBlank ? '' : santri.no_hp_ortu || '—'}</td>
                 {dateSlots.map((slot, dateIndex) => <td key={`${slot?.dateKey || 'blank'}-${dateIndex}`} />)}
                 <td />
+                <td />
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr><th colSpan="4"><MultilineText value={content.teacherAttendanceLabel} /></th>{dateSlots.map((_, index) => <td key={index} />)}<td /></tr>
+            <tr><th colSpan="4"><MultilineText value={content.teacherAttendanceLabel} /></th>{dateSlots.map((_, index) => <td key={index} />)}<td /><td /></tr>
           </tfoot>
         </table>
 
         <footer>
           <span><strong>{content.notesLabel}</strong></span>
-          <span><strong>{content.absenceLabel}</strong></span>
-          <span><strong>{content.substituteLabel}</strong></span>
         </footer>
       </article>
     </div>
@@ -219,6 +238,7 @@ const ClassAttendanceSheets = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState('');
+  const { sessionTimes } = useAttendanceSessionConfiguration();
 
   const loadSource = useCallback(async ({ preserveSelection = true } = {}) => {
     setIsLoading(true);
@@ -340,6 +360,7 @@ const ClassAttendanceSheets = ({
         monthIndex: selectedMonth,
         printConfig: latestAppearance.config,
         qiroatiLogoDataUrl,
+        sessionTimes,
         year: selectedYear,
       });
       const filename = `absensi-${slugifyClassAttendanceFilename(latestClass.nama_kelas)}-${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}.html`;
@@ -492,7 +513,7 @@ const ClassAttendanceSheets = ({
                   </div>
                 )}
 
-                <AttendancePaperPreview appearance={appearance} classItem={selectedClass} dateSlots={dateSlots} monthLabel={monthLabel} />
+                <AttendancePaperPreview appearance={appearance} classItem={selectedClass} dateSlots={dateSlots} monthLabel={monthLabel} sessionTimes={sessionTimes} />
                 <p className="class-attendance-preview-note"><ShieldCheck aria-hidden="true" />HTML akan mengambil snapshot terbaru sekali lagi sebelum diunduh dan dapat dicetak tanpa koneksi internet.</p>
               </>
             ) : (

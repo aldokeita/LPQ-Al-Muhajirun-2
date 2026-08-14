@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -134,7 +134,7 @@ const GuruManagement = () => {
         toast({ title: "Memproses Backup", description: "Sedang menyiapkan data untuk diekspor..." });
         console.log("Starting Backup to Excel for Guru...");
 
-        const { data: allGuru, error } = await supabase.from('guru').select('*').order('nama');
+        const { data: allGuru, error } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').order('nama');
         if (error) {
             console.error("Backup DB Fetch Error:", error);
             throw new Error(error.message);

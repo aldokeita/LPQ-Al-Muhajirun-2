@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -197,8 +197,7 @@ const AttendanceRecap = () => {
             const santriIds = (santri || []).map((item) => item.id);
             const attendanceResult = santriIds.length > 0
                 ? await supabase
-                    .from('attendance')
-                    .select('*')
+                    .from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
                     .in('user_id', santriIds)
                     .gte('attendance_date', startDate)
                     .lte('attendance_date', endDate)

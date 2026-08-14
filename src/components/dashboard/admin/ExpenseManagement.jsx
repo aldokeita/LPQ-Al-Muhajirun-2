@@ -6,13 +6,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown, Eye, EyeOff, X, FileSpreadsheet, Printer, FolderSearch } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import * as XLSX from 'xlsx';
+import {
+    downloadDailyExpenseExcel,
+    downloadDailyExpensePdf,
+    getDayTotal,
+    printDailyExpenseHtml
+} from '@/lib/expenseReportAdapters';
 import {
     createExpense,
     expenseCategories,
     fetchCashflowSummary,
+    fetchDailyExpenseSummary,
     fetchExpensesByPeriod,
     formatRupiah,
     getFinanceErrorMessage,
@@ -21,6 +27,7 @@ import {
     softDeleteExpense,
     updateExpense
 } from '@/lib/financeAdapters';
+import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
@@ -30,12 +37,14 @@ const emptyForm = () => ({
     tanggal_pengeluaran: new Date().toISOString().slice(0, 10),
     kategori: expenseCategories[0],
     deskripsi: '',
-    jumlah: ''
+    jumlah: '',
+    bukti_url: ''
 });
 
 const ExpenseManagement = () => {
     const { user } = useAuth();
     const [expenses, setExpenses] = useState([]);
+    const [dailySummary, setDailySummary] = useState([]);
     const [cashflow, setCashflow] = useState({
         totalPemasukan: 0,
         totalPengeluaran: 0,
@@ -45,20 +54,25 @@ const ExpenseManagement = () => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [detailDate, setDetailDate] = useState(null);
     const [editingExpense, setEditingExpense] = useState(null);
     const [formData, setFormData] = useState(emptyForm);
-    const [filter, setFilter] = useState({ year: currentYear, month: new Date().getMonth() + 1 });
+    const [filter, setFilter] = useState({ year: currentYear, month: new Date().getMonth() + 1, date: '' });
 
     const fetchFinanceData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [expenseRows, summary] = await Promise.all([
+            const [expenseRows, summary, dailyRows] = await Promise.all([
                 fetchExpensesByPeriod(filter),
-                fetchCashflowSummary(filter)
+                fetchCashflowSummary(filter),
+                fetchDailyExpenseSummary(filter)
             ]);
             setExpenses(expenseRows);
             setCashflow(summary);
+            setDailySummary(dailyRows);
         } catch (error) {
             toast({
                 title: 'Gagal memuat data keuangan',
@@ -90,7 +104,8 @@ const ExpenseManagement = () => {
             tanggal_pengeluaran: expense.tanggal_pengeluaran,
             kategori: expense.kategori || expenseCategories[0],
             deskripsi: expense.deskripsi || '',
-            jumlah: String(expense.jumlah || '')
+            jumlah: String(expense.jumlah || ''),
+            bukti_url: expense.bukti_url || null
         });
         setIsFormOpen(true);
     };
@@ -114,6 +129,30 @@ const ExpenseManagement = () => {
     const handleInputChange = (e) => {
         const { id, value } = e.target;
         setFormData((prev) => ({ ...prev, [id]: value }));
+    };
+
+    const handleBuktiFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const { publicUrl } = await uploadWebsiteAsset({ folder: 'expenses', key: null, file });
+            setFormData((prev) => ({ ...prev, bukti_url: publicUrl }));
+            toast({ title: 'Berhasil', description: 'Bukti pengeluaran berhasil diunggah.' });
+        } catch (error) {
+            toast({
+                title: 'Gagal mengunggah bukti',
+                description: getStorageErrorMessage(error),
+                variant: 'destructive'
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemoveBukti = () => {
+        setFormData((prev) => ({ ...prev, bukti_url: null }));
     };
 
     const handleSubmit = async (e) => {
@@ -154,6 +193,37 @@ const ExpenseManagement = () => {
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Pengeluaran');
         const monthLabel = filter.month === 'all' ? 'Semua' : monthNames[Number(filter.month) - 1];
         XLSX.writeFile(workbook, `Pengeluaran_${filter.year}_${monthLabel}.xlsx`);
+    };
+
+    const getDayExpenses = (date) => expenses.filter((expense) => expense.tanggal_pengeluaran === date);
+
+    const handleOpenDetail = (date) => {
+        setDetailDate(date);
+        setIsDetailOpen(true);
+    };
+
+    const handleExportDayPdf = (date) => {
+        const dayExpenses = getDayExpenses(date);
+        if (dayExpenses.length === 0) return;
+        downloadDailyExpensePdf({ expenses: dayExpenses, date, total: getDayTotal(dayExpenses) });
+        toast({ title: 'PDF dibuat', description: 'File PDF pengeluaran harian berhasil diunduh.' });
+    };
+
+    const handleExportDayExcel = (date) => {
+        const dayExpenses = getDayExpenses(date);
+        if (dayExpenses.length === 0) return;
+        downloadDailyExpenseExcel({ expenses: dayExpenses, date, total: getDayTotal(dayExpenses) });
+        toast({ title: 'Excel dibuat', description: 'File Excel pengeluaran harian berhasil diunduh.' });
+    };
+
+    const handlePrintDay = (date) => {
+        const dayExpenses = getDayExpenses(date);
+        if (dayExpenses.length === 0) return;
+        try {
+            printDailyExpenseHtml({ expenses: dayExpenses, date, total: getDayTotal(dayExpenses) });
+        } catch (error) {
+            toast({ title: 'Gagal mencetak', description: error.message, variant: 'destructive' });
+        }
     };
 
     const chartData = useMemo(() => {
@@ -198,17 +268,33 @@ const ExpenseManagement = () => {
             </div>
 
             <div className="admin-filter-bar">
-                <Select value={String(filter.year)} onValueChange={(value) => setFilter((prev) => ({ ...prev, year: Number(value) }))}>
+                <Select value={String(filter.year)} onValueChange={(value) => setFilter((prev) => ({ ...prev, year: Number(value), date: '' }))}>
                     <SelectTrigger className="w-full md:w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{years.map((year) => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}</SelectContent>
                 </Select>
-                <Select value={String(filter.month)} onValueChange={(value) => setFilter((prev) => ({ ...prev, month: value === 'all' ? 'all' : Number(value) }))}>
+                <Select value={String(filter.month)} onValueChange={(value) => setFilter((prev) => ({ ...prev, month: value === 'all' ? 'all' : Number(value), date: '' }))}>
                     <SelectTrigger className="w-full md:w-[160px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Semua Bulan</SelectItem>
                         {monthOptions.map((month) => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
+                <Input
+                    type="date"
+                    value={filter.date}
+                    onChange={(e) => setFilter((prev) => ({ ...prev, date: e.target.value }))}
+                    className="w-full md:w-[190px]"
+                    aria-label="Filter tanggal spesifik"
+                />
+                {filter.date && (
+                    <button
+                        type="button"
+                        onClick={() => setFilter((prev) => ({ ...prev, date: '' }))}
+                        className="admin-action-cluster-btn"
+                    >
+                        <EyeOff className="w-3.5 h-3.5" /> Bersihkan Tanggal
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -242,6 +328,57 @@ const ExpenseManagement = () => {
                 </ResponsiveContainer>
             </div>
 
+            <div className="expense-glass-panel">
+                <div className="expense-glass-panel__header">
+                    <h3 className="expense-glass-panel__title">Rekap Pengeluaran Harian</h3>
+                    <span className="expense-glass-panel__meta">{dailySummary.length} hari dengan pengeluaran</span>
+                </div>
+                <div className="p-3">
+                    {isLoading ? (
+                        <div className="p-8 text-center text-sm text-muted-foreground">Memuat rekap harian...</div>
+                    ) : dailySummary.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-muted-foreground">Belum ada pengeluaran tercatat pada periode ini.</div>
+                    ) : (
+                        <div className="expense-glass-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Total Pengeluaran</th>
+                                        <th>Jumlah Kategori</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dailySummary.map((row) => {
+                                        const dayExpenses = expenses.filter((expense) => expense.tanggal_pengeluaran === row.tanggal);
+                                        const categories = new Set(dayExpenses.map((expense) => expense.kategori || 'Lainnya'));
+                                        return (
+                                            <tr key={row.tanggal}>
+                                                <td className="font-medium">{row.tanggal}</td>
+                                                <td className="font-bold text-foreground">{formatRupiah(row.total)}</td>
+                                                <td className="text-muted-foreground">{categories.size} kategori</td>
+                                                <td>
+                                                    <button className="expense-glass-btn expense-glass-btn--detail" onClick={() => handleOpenDetail(row.tanggal)}>
+                                                        <FolderSearch className="w-3.5 h-3.5" /> Detail
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    <tr className="expense-glass-table__total">
+                                        <td>Total Periode</td>
+                                        <td>{formatRupiah(cashflow.totalPengeluaran)}</td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <div className="admin-table-shell">
                 <div className="admin-table-scroll">
                     <table>
@@ -251,14 +388,15 @@ const ExpenseManagement = () => {
                                 <th>Kategori</th>
                                 <th>Keterangan</th>
                                 <th>Jumlah</th>
+                                <th>Bukti</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
-                                <tr><td colSpan="5" className="text-center py-8 text-muted-foreground">Memuat data pengeluaran...</td></tr>
+                                <tr><td colSpan="6" className="text-center py-8 text-muted-foreground">Memuat data pengeluaran...</td></tr>
                             ) : expenses.length === 0 ? (
-                                <tr><td colSpan="5">
+                                <tr><td colSpan="6">
                                     <div className="admin-table-empty">
                                         <TrendingDown />
                                         <p>Belum ada pengeluaran pada periode ini.</p>
@@ -270,6 +408,20 @@ const ExpenseManagement = () => {
                                     <td>{expense.kategori}</td>
                                     <td className="font-medium">{expense.deskripsi}</td>
                                     <td>{formatRupiah(expense.jumlah)}</td>
+                                    <td>
+                                        {expense.bukti_url ? (
+                                            <a
+                                                href={expense.bukti_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                                            >
+                                                <Eye className="w-3.5 h-3.5" /> Lihat bukti
+                                            </a>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">—</span>
+                                        )}
+                                    </td>
                                     <td>
                                         <div className="flex gap-2">
                                             <Button size="sm" variant="outline" onClick={() => handleEdit(expense)} aria-label="Edit pengeluaran">
@@ -315,8 +467,125 @@ const ExpenseManagement = () => {
                             <label className="block text-sm font-medium mb-1" htmlFor="jumlah">Jumlah (Rp)</label>
                             <Input id="jumlah" type="number" min="1" step="1" value={formData.jumlah} onChange={handleInputChange} required />
                         </div>
-                        <DialogFooter><Button type="submit" disabled={isSaving}>{isSaving ? 'Menyimpan...' : 'Simpan'}</Button></DialogFooter>
+                        <div>
+                            <label className="block text-sm font-medium mb-1" htmlFor="bukti_url">Bukti Pengeluaran</label>
+                            <div className="flex items-center gap-3">
+                                <Input
+                                    id="bukti_file"
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                                    onChange={handleBuktiFile}
+                                    disabled={isUploading}
+                                    className="flex-1"
+                                />
+                                {formData.bukti_url && (
+                                    <a
+                                        href={formData.bukti_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-9 flex-none items-center gap-1.5 rounded-md border border-input px-3 text-xs font-semibold text-primary hover:bg-secondary/50"
+                                    >
+                                        <Eye className="w-3.5 h-3.5" /> Pratinjau
+                                    </a>
+                                )}
+                                {formData.bukti_url && (
+                                    <Button type="button" variant="outline" size="icon" onClick={handleRemoveBukti} aria-label="Hapus bukti">
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
+                            <p className="text-xs mt-1 text-muted-foreground">
+                                {isUploading ? 'Mengunggah bukti...' : formData.bukti_url ? 'Bukti terunggah. Simpan untuk mengikat ke pengeluaran ini.' : 'Opsional. Unggah foto/scan bukti pengeluaran (JPG, PNG, WebP, atau PDF).'}
+                            </p>
+                        </div>
+                        <DialogFooter><Button type="submit" disabled={isSaving || isUploading}>{isSaving ? 'Menyimpan...' : 'Simpan'}</Button></DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+                <DialogContent className="expense-glass-modal max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Detail Pengeluaran Harian</DialogTitle>
+                        <DialogDescription>
+                            {detailDate
+                                ? new Date(`${detailDate}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+                                : 'Semua pengeluaran pada tanggal tersebut.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {detailDate && (() => {
+                        const dayExpenses = getDayExpenses(detailDate);
+                        const dayTotal = getDayTotal(dayExpenses);
+                        return (
+                            <div className="space-y-4">
+                                <div className="expense-glass-summary">
+                                    <div className="flex items-center gap-4">
+                                        <div>
+                                            <p className="expense-glass-summary__label">Total Pengeluaran</p>
+                                            <p className="expense-glass-summary__value">{formatRupiah(dayTotal)}</p>
+                                        </div>
+                                        <div className="expense-glass-summary__divider" />
+                                        <div>
+                                            <p className="expense-glass-summary__label">Transaksi</p>
+                                            <p className="expense-glass-summary__value">{dayExpenses.length}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button className="expense-glass-btn" onClick={() => handleExportDayPdf(detailDate)}>
+                                            <Download className="w-3.5 h-3.5" /> PDF
+                                        </button>
+                                        <button className="expense-glass-btn" onClick={() => handleExportDayExcel(detailDate)}>
+                                            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                                        </button>
+                                        <button className="expense-glass-btn" onClick={() => handlePrintDay(detailDate)}>
+                                            <Printer className="w-3.5 h-3.5" /> Cetak
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="expense-glass-modal-table max-h-[340px] overflow-auto">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th className="w-10">No</th>
+                                                <th>Kategori</th>
+                                                <th>Keterangan</th>
+                                                <th className="text-right">Jumlah</th>
+                                                <th>Bukti</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dayExpenses.length === 0 ? (
+                                                <tr><td colSpan="5" className="text-center py-8 text-muted-foreground">Tidak ada pengeluaran pada tanggal ini.</td></tr>
+                                            ) : dayExpenses.map((expense, idx) => (
+                                                <tr key={expense.id}>
+                                                    <td className="text-muted-foreground">{idx + 1}</td>
+                                                    <td>
+                                                        <span className="expense-glass-badge">{expense.kategori}</span>
+                                                    </td>
+                                                    <td className="font-medium">{expense.deskripsi}</td>
+                                                    <td className="text-right font-semibold">{formatRupiah(expense.jumlah)}</td>
+                                                    <td>
+                                                        {expense.bukti_url ? (
+                                                            <a
+                                                                href={expense.bukti_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                                                            >
+                                                                <Eye className="w-3.5 h-3.5" /> Lihat
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
         </div>

@@ -34,7 +34,8 @@ export const escapeAttendanceHtml = (value) => String(value ?? '')
 export const formatClassAttendanceTeacherName = (value) => {
   const name = String(value || '').trim();
   if (!name) return 'Belum ditentukan';
-  return name.replace(/^(?:ustadzah|ustadz|usth?\.?)(?:\s+|$)/i, '').trim() || name;
+  const cleaned = name.replace(/^(?:ustadzah|ustadz|usth?\.?)(?:\s+|$)/i, '').trim() || name;
+  return cleaned.toUpperCase();
 };
 
 const renderMultilineLabel = (value) => escapeAttendanceHtml(value).replaceAll('\n', '<br />');
@@ -42,6 +43,17 @@ const renderMultilineLabel = (value) => escapeAttendanceHtml(value).replaceAll('
 export const getClassAttendanceMonthLabel = (monthIndex, year) => (
   `${INDONESIAN_MONTHS[monthIndex] || INDONESIAN_MONTHS[0]} ${year}`
 );
+
+const formatSessionLabel = (sesi, sessionTimes) => {
+  const raw = String(sesi || '').trim();
+  if (!raw) return 'Belum ditentukan';
+  const upper = raw.toUpperCase();
+  if (sessionTimes && sessionTimes[raw]) {
+    const { start, end } = sessionTimes[raw];
+    if (start && end) return `${upper} (${start} - ${end})`;
+  }
+  return upper;
+};
 
 export const getClassAttendanceDateSlots = ({ year, monthIndex, holidays = [] }) => {
   const holidaySet = holidays instanceof Set ? holidays : new Set(holidays);
@@ -111,8 +123,8 @@ const renderDateHeaders = (dateSlots) => dateSlots.map((slot) => (
 
 const renderRosterRows = ({ page, dateSlots }) => page.rows.map((santri, rowIndex) => {
   const number = santri.isBlank ? '' : page.rosterOffset + rowIndex + 1;
-  const jilid = santri.isBlank ? '' : (santri.jilid || '—');
-  const parentPhone = santri.isBlank ? '' : (santri.no_hp_ortu || '—');
+  const jilid = santri.isBlank ? '' : (santri.jilid || '\u2014');
+  const parentPhone = santri.isBlank ? '' : (santri.no_hp_ortu || '\u2014');
   const attendanceCells = dateSlots.map(() => '<td class="attendance-cell"></td>').join('');
 
   return `
@@ -123,6 +135,7 @@ const renderRosterRows = ({ page, dateSlots }) => page.rows.map((santri, rowInde
       <td class="phone-cell">${escapeAttendanceHtml(parentPhone)}</td>
       ${attendanceCells}
       <td class="progress-cell"></td>
+      <td class="percentage-cell"></td>
     </tr>`;
 }).join('');
 
@@ -135,6 +148,7 @@ const renderPrintPage = ({
   monthLabel,
   page,
   qiroatiLogoDataUrl,
+  sessionTimes,
 }) => {
   const { branding, content } = config;
   const lpqLogo = branding.showLpqLogo && lpqLogoDataUrl
@@ -149,6 +163,7 @@ const renderPrintPage = ({
     <header class="institution-header">
       <div class="institution-logo-slot institution-logo-slot--left">${lpqLogo}</div>
       <div class="institution-copy">
+        <p class="yayasan-line">${escapeAttendanceHtml(content.yayasanName)}</p>
         <p>${escapeAttendanceHtml(content.institutionEyebrow)}</p>
         <h1>${escapeAttendanceHtml(content.institutionName)}</h1>
         <span>${escapeAttendanceHtml(content.address)}</span>
@@ -161,8 +176,7 @@ const renderPrintPage = ({
     <dl class="class-meta">
       <div><dt>${escapeAttendanceHtml(content.teacherLabel)}</dt><dd>: ${escapeAttendanceHtml(formatClassAttendanceTeacherName(classData.guru?.nama))}</dd></div>
       <div><dt>${escapeAttendanceHtml(content.classLabel)}</dt><dd>: ${escapeAttendanceHtml(classData.nama_kelas || 'Tanpa nama')}</dd></div>
-      <div><dt>${escapeAttendanceHtml(content.sessionLabel)}</dt><dd>: ${escapeAttendanceHtml(classData.sesi || 'Belum ditentukan')}</dd></div>
-      <div><dt>${escapeAttendanceHtml(content.createdLabel)}</dt><dd>: ${escapeAttendanceHtml(generatedAtLabel)}</dd></div>
+      <div><dt>${escapeAttendanceHtml(content.sessionLabel)}</dt><dd>: ${escapeAttendanceHtml(formatSessionLabel(classData.sesi, sessionTimes))}</dd></div>
     </dl>
 
     <table class="attendance-table">
@@ -173,6 +187,7 @@ const renderPrintPage = ({
         <col class="col-phone" />
         ${dateSlots.map(() => '<col class="col-date" />').join('')}
         <col class="col-progress" />
+        <col class="col-percentage" />
       </colgroup>
       <thead>
         <tr class="month-row">
@@ -180,8 +195,9 @@ const renderPrintPage = ({
           <th rowspan="2" scope="col">${renderMultilineLabel(content.nameColumn)}</th>
           <th rowspan="2" scope="col">${renderMultilineLabel(content.levelColumn)}</th>
           <th rowspan="2" scope="col">${renderMultilineLabel(content.phoneColumn)}</th>
-          <th colspan="${dateSlots.length}" scope="colgroup">${escapeAttendanceHtml(content.monthColumn)}: ${escapeAttendanceHtml(monthLabel)}</th>
+          <th colspan="${dateSlots.length}" scope="colgroup">${escapeAttendanceHtml(monthLabel)}</th>
           <th rowspan="2" scope="col">${renderMultilineLabel(content.progressColumn)}</th>
+          <th rowspan="2" scope="col">${renderMultilineLabel(content.percentageColumn)}</th>
         </tr>
         <tr class="date-row">${renderDateHeaders(dateSlots)}</tr>
       </thead>
@@ -191,14 +207,13 @@ const renderPrintPage = ({
           <th colspan="4" scope="row">${renderMultilineLabel(content.teacherAttendanceLabel)}</th>
           ${dateSlots.map(() => '<td></td>').join('')}
           <td></td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
 
     <footer class="attendance-notes">
       <div><strong>${escapeAttendanceHtml(content.notesLabel)}</strong><span></span></div>
-      <div><strong>${escapeAttendanceHtml(content.absenceLabel)}</strong><span></span></div>
-      <div><strong>${escapeAttendanceHtml(content.substituteLabel)}</strong><span></span></div>
     </footer>
   </section>`;
 };
@@ -212,6 +227,7 @@ export const buildClassAttendanceHtml = ({
   monthIndex,
   printConfig,
   qiroatiLogoDataUrl = '',
+  sessionTimes,
   year,
 }) => {
   const config = normalizeClassAttendancePrintConfig(printConfig);
@@ -230,12 +246,20 @@ export const buildClassAttendanceHtml = ({
     monthLabel,
     page,
     qiroatiLogoDataUrl,
+    sessionTimes,
   })).join('');
 
-  const { branding, content, typography } = config;
+  const { branding, content, typography, columnWidths } = config;
   const headerFont = getClassAttendanceHeaderFontStack(typography.headerFont);
+  const yayasanFont = getClassAttendanceHeaderFontStack(typography.yayasanFont);
+  const eyebrowFont = getClassAttendanceHeaderFontStack(typography.eyebrowFont);
+  const titleFont = getClassAttendanceHeaderFontStack(typography.titleFont);
+  const addressFont = getClassAttendanceHeaderFontStack(typography.addressFont);
   const titleTransform = typography.titleUppercase ? 'uppercase' : 'none';
   const tableHeaderTransform = typography.tableHeaderUppercase ? 'uppercase' : 'none';
+  const cw = columnWidths;
+  const sessionKey = String(classData.sesi || '').trim();
+  const sessionHeaderBg = branding.sessionHeaderColors?.[sessionKey] || branding.tableHeaderBackground;
 
   return `<!doctype html>
 <html lang="id">
@@ -251,9 +275,15 @@ export const buildClassAttendanceHtml = ({
       color: ${branding.headerColor};
       background: #e5e7eb;
       --attendance-header-font: ${headerFont};
+      --attendance-yayasan-font: ${yayasanFont};
+      --attendance-yayasan-size: ${typography.yayasanSize}pt;
+      --attendance-yayasan-offset-y: ${typography.yayasanOffsetY}mm;
+      --attendance-eyebrow-font: ${eyebrowFont};
+      --attendance-title-font: ${titleFont};
       --attendance-title-size: ${typography.titleSize}pt;
       --attendance-title-weight: ${typography.titleWeight};
       --attendance-header-offset-y: ${typography.headerOffsetY}mm;
+      --attendance-address-font: ${addressFont};
       --attendance-address-offset-y: ${typography.addressOffsetY}mm;
       --attendance-eyebrow-size: ${typography.eyebrowSize}pt;
       --attendance-address-size: ${typography.addressSize}pt;
@@ -264,7 +294,7 @@ export const buildClassAttendanceHtml = ({
       --attendance-body-weight: ${typography.bodyWeight};
       --attendance-accent: ${branding.accentColor};
       --attendance-header-text: ${branding.headerTextColor};
-      --attendance-table-head: ${branding.tableHeaderBackground};
+      --attendance-table-head: ${sessionHeaderBg};
       --attendance-table-head-text: ${branding.tableHeaderText};
     }
     * { box-sizing: border-box; }
@@ -284,9 +314,10 @@ export const buildClassAttendanceHtml = ({
     .institution-logo--qiroati { width: ${branding.qiroatiLogoSize}mm; height: ${branding.qiroatiLogoSize}mm; }
     .institution-brand-right { display: flex; min-height: 23mm; flex-direction: column; align-items: flex-end; justify-content: center; gap: .7mm; }
     .institution-copy { color: var(--attendance-header-text); text-align: center; transform: translateY(var(--attendance-header-offset-y)); }
-    .institution-copy p { margin: 0; font-family: var(--attendance-header-font); font-size: var(--attendance-eyebrow-size); font-weight: 800; letter-spacing: .08em; }
-    .institution-copy h1 { margin: .4mm 0; font-family: var(--attendance-header-font); font-size: var(--attendance-title-size); font-weight: var(--attendance-title-weight); font-style: ${typography.titleItalic ? 'italic' : 'normal'}; line-height: 1; letter-spacing: -.03em; text-transform: ${titleTransform}; }
-    .institution-copy span { display: block; font-size: var(--attendance-address-size); transform: translateY(var(--attendance-address-offset-y)); }
+    .institution-copy .yayasan-line { margin: 0 0 1mm; font-family: var(--attendance-yayasan-font); font-size: var(--attendance-yayasan-size); font-weight: 800; letter-spacing: .04em; transform: translateY(var(--attendance-yayasan-offset-y)); }
+    .institution-copy p { margin: 0; font-family: var(--attendance-eyebrow-font); font-size: var(--attendance-eyebrow-size); font-weight: 800; letter-spacing: .08em; }
+    .institution-copy h1 { margin: .4mm 0; font-family: var(--attendance-title-font); font-size: var(--attendance-title-size); font-weight: var(--attendance-title-weight); font-style: ${typography.titleItalic ? 'italic' : 'normal'}; line-height: 1; letter-spacing: -.03em; text-transform: ${titleTransform}; }
+    .institution-copy span { display: block; font-family: var(--attendance-address-font); font-size: var(--attendance-address-size); transform: translateY(var(--attendance-address-offset-y)); }
     .class-meta { display: grid; grid-template-columns: 1.3fr 1.2fr; gap: 1mm 8mm; margin: 2.5mm 0; font-size: 7pt; }
     .class-meta div { display: grid; grid-template-columns: 24mm 1fr; }
     .class-meta dt { font-weight: 800; }
@@ -300,15 +331,16 @@ export const buildClassAttendanceHtml = ({
     .attendance-table tfoot th, .attendance-table tfoot td { height: 5.5mm; background: #f8fafc; }
     .number-cell, .jilid-cell, .phone-cell, .attendance-cell { text-align: center; }
     .name-cell { padding-left: 1.5mm !important; font-weight: 600; }
-    .col-number { width: 7mm; }
-    .col-name { width: 41mm; }
-    .col-jilid { width: 14mm; }
-    .col-phone { width: 26mm; }
-    .col-date { width: 5mm; }
-    .col-progress { width: 40mm; }
-    .attendance-notes { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 5mm; margin-top: 3mm; font-size: 7pt; }
+    .col-number { width: ${cw.number}mm; }
+    .col-name { width: ${cw.name}mm; }
+    .col-jilid { width: ${cw.jilid}mm; }
+    .col-phone { width: ${cw.phone}mm; }
+    .col-date { width: ${cw.date}mm; }
+    .col-progress { width: ${cw.progress}mm; }
+    .col-percentage { width: ${cw.percentage}mm; }
+    .attendance-notes { display: block; margin-top: 3mm; font-size: 7pt; }
     .attendance-notes div { display: flex; gap: 2mm; align-items: flex-end; min-height: 9mm; }
-    .attendance-notes span { flex: 1; border-bottom: .25mm solid #64748b; }
+    .attendance-notes span { flex: 1; }
     @page { size: A4 landscape; margin: 6mm; }
     @media print {
       html, body { width: auto; min-height: auto; background: #fff; }

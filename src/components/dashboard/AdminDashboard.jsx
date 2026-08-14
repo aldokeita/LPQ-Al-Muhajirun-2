@@ -218,6 +218,13 @@ const AdminDashboard = () => {
             >
               <Shuffle className="w-4 h-4"/><span>Acak Nama</span>
             </button>
+            <button
+              type="button"
+              onClick={() => navigate('/hijaiyah-game')}
+              className="attendance-header__action-btn attendance-header__action-btn--hijaiyah lpq-shiny-button"
+            >
+              <BookOpen className="w-4 h-4"/><span>Play Hijaiyah</span>
+            </button>
           </>
         )}
       </AdminPageHeader>

@@ -34,6 +34,7 @@ import QuizHafalanPage from '@/pages/QuizHafalanPage';
 import GatchaGamePage from '@/pages/GatchaGamePage';
 import GalleryPage from '@/pages/GalleryPage';
 import RandomNamePage from '@/pages/RandomNamePage';
+import HijaiyahGamePage from '@/pages/HijaiyahGamePage';
 import TopScorePage from '@/pages/TopScorePage';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -144,6 +145,7 @@ function App() {
                     <Route path="/gatcha-game" element={<ProtectedRoute><GatchaGamePage /></ProtectedRoute>} />
                     <Route path="/random-name" element={<ProtectedRoute><RandomNamePage /></ProtectedRoute>} />
                     <Route path="/top-score" element={<ProtectedRoute><TopScorePage /></ProtectedRoute>} />
+                    <Route path="/hijaiyah-game" element={<ProtectedRoute><HijaiyahGamePage /></ProtectedRoute>} />
                   </>
                 ) : (
                   <>
@@ -151,6 +153,7 @@ function App() {
                     <Route path="/gatcha-game" element={<ProtectedRoute><DeferredFeaturePage /></ProtectedRoute>} />
                     <Route path="/random-name" element={<ProtectedRoute><DeferredFeaturePage /></ProtectedRoute>} />
                     <Route path="/top-score" element={<ProtectedRoute><DeferredFeaturePage /></ProtectedRoute>} />
+                    <Route path="/hijaiyah-game" element={<ProtectedRoute><DeferredFeaturePage /></ProtectedRoute>} />
                   </>
                 )}
 

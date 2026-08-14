@@ -258,7 +258,7 @@ const SantriDewasaManagement = () => {
     try {
       console.log('--- INVESTIGATION: Fetching all santri (Dewasa) ---');
       const [santriRes, classesRes, configRes] = await Promise.all([
-        supabase.from('santri').select('*'),
+        supabase.from('santri').select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ayah, nama_ibu, no_kk, no_nik, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, tanggal_pendaftaran, alamat, no_hp_ortu, foto_url, avatar_path, email, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, link_qiroati, default_spp_amount, juz_hafalan, berkas_foto, berkas_akta, berkas_kk, berkas_form, created_at, updated_at, deleted_at, created_by, updated_by'),
         supabase.from('classes').select('id, nama_kelas, kategori, guru:id_guru(nama)'),
         supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
       ]);
@@ -751,77 +751,76 @@ const SantriDewasaManagement = () => {
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingSantri ? 'Edit Santri Dewasa' : 'Tambah Santri Dewasa'}</DialogTitle></DialogHeader>
+        <DialogContent className="santri-glass-modal max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold tracking-tight">{editingSantri ? 'Edit Santri Dewasa' : 'Tambah Santri Dewasa'}</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-muted/20 rounded-xl border">
-                <Avatar className="w-24 h-24 border-4 border-background shadow-md cursor-pointer hover:opacity-80 transition-opacity" onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
+            <div className="santri-glass-avatar-section sm:flex-row sm:items-center">
+                <Avatar className="santri-glass-avatar w-24 h-24 cursor-pointer" onClick={() => formData.foto_url && setPreviewImage(formData.foto_url)}>
                     <AvatarImage src={formData.foto_url} /><AvatarFallback><Upload /></AvatarFallback>
                 </Avatar>
-                <div className="flex-1 w-full space-y-2">
-                    <div className="flex gap-2">
-                         <Button type="button" onClick={triggerPhotoUpload} variant="outline" disabled={isUploading || !enableEdgeFunctions || !editingSantri?.id} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : (!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined)}>{isUploading ? 'Mengunggah...' : 'Upload Foto'}</Button>
+                <div className="flex-1 w-full space-y-2.5">
+                    <div className="flex flex-wrap gap-2">
+                         <button type="button" className="santri-glass-avatar-upload" onClick={triggerPhotoUpload} disabled={isUploading || !enableEdgeFunctions || !editingSantri?.id} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : (!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined)}>
+                             <Upload className="w-3.5 h-3.5" /> {isUploading ? 'Mengunggah...' : 'Upload Foto'}
+                         </button>
                          <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP (Max 2 MB). Simpan akun baru sebelum upload.</p>
                     <div className="relative">
-                        <Input type="text" placeholder="https://example.com/foto.jpg" value={formData.foto_url || ''} onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })} className="pl-9 text-xs" />
+                        <Input type="text" placeholder="https://example.com/foto.jpg" value={formData.foto_url || ''} onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })} className="santri-glass-avatar-input pl-9 text-xs" />
                         <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground"/>
                     </div>
                 </div>
             </div>
 
-            <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                    <TabsTrigger value="personal" className="flex items-center gap-2"><User className="w-4 h-4"/> Data Diri & Kontak</TabsTrigger>
-                    <TabsTrigger value="academic" className="flex items-center gap-2"><GraduationCap className="w-4 h-4"/> Data Akademik</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="personal">
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Informasi Pribadi & Kontak</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><User className="w-3 h-3"/> Username (Login)</label><Input type="text" value={formData.nama_panggilan || ''} onChange={(e) => setFormData({ ...formData, nama_panggilan: e.target.value })} required /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor Induk Qiroati <span className="normal-case opacity-70">(opsional)</span></label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground flex items-center gap-1"><Key className="w-3 h-3"/> Password Awal</label><Input type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} disabled={Boolean(editingSantri)} placeholder={editingSantri ? 'Kelola melalui reset password' : 'Masukkan password awal'} /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Nomor HP (WA)</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} /></div>
-                                <div className="col-span-full space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="academic">
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Data Akademik</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Kelas Dewasa</label><Select value={formData.id_kelas || 'none'} onValueChange={val => setFormData({ ...formData, id_kelas: val === 'none' ? null : val })}><SelectTrigger><SelectValue placeholder="Pilih Kelas" /></SelectTrigger><SelectContent><SelectItem value="none">Belum Masuk Kelas</SelectItem>{classesList.map(c => <SelectItem key={c.id} value={c.id}>{c.nama_kelas}</SelectItem>)}</SelectContent></Select></div>
-                                <div className="space-y-1.5"><label className="text-xs font-medium uppercase text-muted-foreground">Token RFID</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
-
-            <DialogFooter className="pt-4 flex justify-between sm:justify-between w-full">
-                {editingSantri && (
-                    <Button type="button" variant="outline" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200" onClick={handleMigration}>
-                        <ArrowRightLeft className="w-4 h-4 mr-2"/> Migrasi ke TPQ
-                    </Button>
-                )}
-                <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button>
-                    <Button type="submit">{editingSantri ? 'Simpan Perubahan' : 'Tambah Santri Dewasa'}</Button>
+            <div className="santri-glass-card">
+                <div className="santri-glass-card-header">
+                    <h4 className="santri-glass-card-title">Informasi Pribadi &amp; Kontak</h4>
                 </div>
-            </DialogFooter>
+                <div className="santri-glass-card-body">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="santri-glass-label">Nama Lengkap</label><Input type="text" value={formData.nama_lengkap || ''} onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })} required /></div>
+                        <div><label className="santri-glass-label"><span className="santri-glass-label-icon"><User className="w-3 h-3" /> Username (Login)</span></label><Input type="text" value={formData.nama_panggilan || ''} onChange={(e) => setFormData({ ...formData, nama_panggilan: e.target.value })} required /></div>
+                        <div><label className="santri-glass-label">Nomor Induk Qiroati <span className="normal-case opacity-70">(opsional)</span></label><Input type="text" value={formData.nomor_induk_qiroati || ''} onChange={(e) => setFormData({ ...formData, nomor_induk_qiroati: e.target.value })} /></div>
+                        <div><label className="santri-glass-label"><span className="santri-glass-label-icon"><Key className="w-3 h-3" /> Password Awal</span></label><Input type="password" value={formData.password || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required={!editingSantri} disabled={Boolean(editingSantri)} placeholder={editingSantri ? 'Kelola melalui reset password' : 'Masukkan password awal'} /></div>
+                        <div><label className="santri-glass-label">Nomor HP (WA)</label><Input type="tel" value={formData.no_hp_ortu || ''} onChange={(e) => setFormData({ ...formData, no_hp_ortu: e.target.value })} /></div>
+                        <div><label className="santri-glass-label">Jenis Kelamin</label><Select value={formData.jenis_kelamin} onValueChange={val => setFormData({ ...formData, jenis_kelamin: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content"><SelectItem value="Laki-laki">Laki-laki</SelectItem><SelectItem value="Perempuan">Perempuan</SelectItem></SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Tempat Lahir</label><Input type="text" value={formData.tempat_lahir || ''} onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })} /></div>
+                        <div><label className="santri-glass-label">Tanggal Lahir</label><Input type="date" value={formData.tanggal_lahir || ''} onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })} /></div>
+                        <div className="md:col-span-2"><label className="santri-glass-label">Alamat</label><Textarea value={formData.alamat || ''} onChange={(e) => setFormData({ ...formData, alamat: e.target.value })} /></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="santri-glass-card">
+                <div className="santri-glass-card-header">
+                    <h4 className="santri-glass-card-title">Data Akademik</h4>
+                </div>
+                <div className="santri-glass-card-body">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="santri-glass-label">Jilid</label><Select value={formData.jilid} onValueChange={val => setFormData({ ...formData, jilid: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content">{jilidOptions.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Sesi Mengaji</label><Select value={formData.sesi_mengaji} onValueChange={val => setFormData({ ...formData, sesi_mengaji: val })}><SelectTrigger className="santri-glass-select"><SelectValue /></SelectTrigger><SelectContent className="santri-glass-select-content">{sessionOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Kelas Dewasa</label><Select value={formData.id_kelas || 'none'} onValueChange={val => setFormData({ ...formData, id_kelas: val === 'none' ? null : val })}><SelectTrigger className="santri-glass-select"><SelectValue placeholder="Pilih Kelas" /></SelectTrigger><SelectContent className="santri-glass-select-content"><SelectItem value="none">Belum Masuk Kelas</SelectItem>{classesList.map(c => <SelectItem key={c.id} value={c.id}>{c.nama_kelas}</SelectItem>)}</SelectContent></Select></div>
+                        <div><label className="santri-glass-label">Token RFID</label><Input type="text" value={formData.rfid_tag || ''} onChange={(e) => setFormData({ ...formData, rfid_tag: e.target.value })} /></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                {editingSantri ? (
+                    <button type="button" className="santri-glass-btn santri-glass-btn--migration" onClick={handleMigration}>
+                        <ArrowRightLeft className="w-4 h-4" /> Migrasi ke TPQ
+                    </button>
+                ) : <div />}
+                <div className="flex gap-2">
+                    <button type="button" className="santri-glass-btn" onClick={() => setIsFormOpen(false)}>Batal</button>
+                    <button type="submit" className="santri-glass-btn santri-glass-btn--primary">
+                        {editingSantri ? 'Simpan Perubahan' : 'Tambah Santri Dewasa'}
+                    </button>
+                </div>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

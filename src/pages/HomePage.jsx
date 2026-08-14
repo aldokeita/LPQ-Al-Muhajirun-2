@@ -84,7 +84,7 @@ const HomePage = () => {
     if (isSupabaseConfigured) {
       channel = supabase
         .channel('website_content_homepage_reactbits')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, (payload) => {
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'website_content', filter: 'key=eq.homepage_reactbits' }, (payload) => {
           if (payload.new?.key && payload.new.is_public !== false) {
             setContent((previous) => ({ ...previous, [payload.new.key]: payload.new.content }));
           }

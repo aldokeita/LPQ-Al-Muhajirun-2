@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -358,8 +358,8 @@ const AdultClassManagement = () => {
     ] = await Promise.all([
       supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').eq('kategori', 'Dewasa').order('sort_order', { ascending: true, nullsFirst: false }),
       supabase.from('guru').select('id, nama, foto_url, no_hp'),
-      supabase.from('santri').select('*').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
-      supabase.from('attendance').select('*').eq('attendance_date', today),
+      supabase.from('santri').select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ayah, nama_ibu, no_kk, no_nik, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, tanggal_pendaftaran, alamat, no_hp_ortu, foto_url, avatar_path, email, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, link_qiroati, default_spp_amount, juz_hafalan, berkas_foto, berkas_akta, berkas_kk, berkas_form, created_at, updated_at, deleted_at, created_by, updated_by').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
+      supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', today),
       supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
     ]);
 
