@@ -46,6 +46,7 @@ const QuizHafalanPage = () => {
   const [displayItems, setDisplayItems] = useState([]); // Items currently shown on wheel (subset)
   const [quizCategories, setQuizCategories] = useState([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [selectedJilids, setSelectedJilids] = useState({});
   const [isPlayerLoading, setIsPlayerLoading] = useState(false);
   
   const isPracticeMode = role === 'santri';
@@ -55,7 +56,7 @@ const QuizHafalanPage = () => {
     const loadConfig = async () => {
         const [{ data: configData }, { data: itemsData }] = await Promise.all([
             supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle(),
-            supabase.from('hafalan_items').select('*')
+            supabase.from('hafalan_items').select('id,category,jilid,item_name')
         ]);
 
         const savedCategories = configData?.content?.categories;
@@ -65,7 +66,7 @@ const QuizHafalanPage = () => {
 
         if (categories.length === 0 && itemsData?.length) {
             const categoriesMap = {};
-            const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b' };
+            const colors = { 'Doa': '#3b82f6', 'Surat': '#a855f7', 'Sholat': '#f59e0b', 'Tahfizh': '#10b981' };
 
             itemsData.forEach((item) => {
                 if (!categoriesMap[item.category]) {
@@ -73,19 +74,24 @@ const QuizHafalanPage = () => {
                         id: item.category,
                         label: item.category,
                         color: colors[item.category] || '#10b981',
-                        items: []
+                        items: [],
+                        jilids: {}
                     };
                 }
                 categoriesMap[item.category].items.push(item.item_name);
+                const jKey = item.jilid || 'Lainnya';
+                if (!categoriesMap[item.category].jilids[jKey]) {
+                    categoriesMap[item.category].jilids[jKey] = [];
+                }
+                categoriesMap[item.category].jilids[jKey].push(item.item_name);
             });
             categories = Object.values(categoriesMap);
         }
 
         if (categories.length === 0) {
             categories = [
-                { id: 1, label: 'Doa', color: '#3b82f6', items: doaHarian },
-                { id: 2, label: 'Surat', color: '#a855f7', items: suratPendek },
-                { id: 3, label: 'Sholat', color: '#f59e0b', items: bacaanShalat }
+                { id: 1, label: 'Doa', color: '#3b82f6', items: doaHarian, jilids: {} },
+                { id: 2, label: 'Surat', color: '#a855f7', items: suratPendek, jilids: {} },
             ];
         }
 
@@ -107,34 +113,59 @@ const QuizHafalanPage = () => {
             ...category,
             id: category.id ?? `category-${index + 1}`,
             label: canonicalLabels[String(category.label || '').trim().toLowerCase()] || category.label,
-            items: Array.isArray(category.items) ? category.items : []
+            items: Array.isArray(category.items) ? category.items : [],
+            jilids: category.jilids && typeof category.jilids === 'object' ? category.jilids : {}
         }));
 
         const requiredCategories = [
-            { id: 'doa-harian', label: 'Doa Harian', color: '#3b82f6', items: doaHarian },
-            { id: 'surat-pendek', label: 'Surat Pendek', color: '#a855f7', items: suratPendek },
-            { id: 'bacaan-shalat', label: 'Bacaan Shalat', color: '#f59e0b', items: bacaanShalat }
-        ].filter((required) => !categories.some((category) => category.label === required.label));
+            { id: 'doa-harian', label: 'Doa Harian', color: '#3b82f6', items: doaHarian, jilids: {} },
+            { id: 'surat-pendek', label: 'Surat Pendek', color: '#a855f7', items: suratPendek, jilids: {} },
+        ];
         categories = [...categories, ...requiredCategories];
 
         setQuizCategories(categories);
         setSelectedCategoryIds(categories.map((category) => String(category.id)));
 
-        // Flatten items
+        // Flatten items with jilid info
         const allItems = [];
+        const initialJilids = {};
         categories.forEach(cat => {
-            if(cat.items && Array.isArray(cat.items)) {
+            const catId = String(cat.id);
+            initialJilids[catId] = [];
+            if(cat.jilids && Object.keys(cat.jilids).length > 0) {
+                Object.entries(cat.jilids).forEach(([jilid, jItems]) => {
+                    initialJilids[catId].push(jilid);
+                    jItems.forEach(item => {
+                        allItems.push({
+                            text: item,
+                            category: cat.label,
+                            categoryId: catId,
+                            jilid: jilid,
+                            color: cat.color
+                        });
+                    });
+                });
+            } else if(cat.items && Array.isArray(cat.items)) {
                 cat.items.forEach(item => {
                     allItems.push({
                         text: item,
                         category: cat.label,
-                        categoryId: String(cat.id),
+                        categoryId: catId,
+                        jilid: null,
                         color: cat.color
                     });
                 });
             }
         });
         setFlattenedItems(allItems);
+
+        // Load saved jilid preferences, default all enabled
+        const savedJilids = configData?.content?.selectedJilids;
+        if (savedJilids && typeof savedJilids === 'object') {
+            setSelectedJilids(savedJilids);
+        } else {
+            setSelectedJilids(initialJilids);
+        }
 
         const { data: santriData, error: santriError } = await supabase
           .from('santri')
@@ -226,8 +257,15 @@ const QuizHafalanPage = () => {
   const eligibleItems = useMemo(() => {
     if (selectedCategoryIds.length === 0) return [];
     const selectedIds = new Set(selectedCategoryIds.map(String));
-    return flattenedItems.filter((item) => selectedIds.has(String(item.categoryId)));
-  }, [flattenedItems, selectedCategoryIds]);
+    return flattenedItems.filter((item) => {
+      if (!selectedIds.has(String(item.categoryId))) return false;
+      if (item.jilid) {
+        const enabledJilids = selectedJilids[String(item.categoryId)];
+        if (Array.isArray(enabledJilids) && !enabledJilids.includes(item.jilid)) return false;
+      }
+      return true;
+    });
+  }, [flattenedItems, selectedCategoryIds, selectedJilids]);
 
   const allCategoriesSelected = quizCategories.length > 0 && selectedCategoryIds.length === quizCategories.length;
 
@@ -236,6 +274,17 @@ const QuizHafalanPage = () => {
     setSelectedCategoryIds((previous) => previous.includes(normalizedId)
       ? previous.filter((id) => id !== normalizedId)
       : [...previous, normalizedId]);
+  };
+
+  const toggleJilid = (categoryId, jilid) => {
+    const catId = String(categoryId);
+    setSelectedJilids((prev) => {
+      const current = Array.isArray(prev[catId]) ? [...prev[catId]] : [];
+      const idx = current.indexOf(jilid);
+      if (idx >= 0) current.splice(idx, 1);
+      else current.push(jilid);
+      return { ...prev, [catId]: current };
+    });
   };
 
   const toggleAllCategories = () => {
@@ -528,23 +577,45 @@ const QuizHafalanPage = () => {
                             {allCategoriesSelected ? 'Kosongkan' : 'Pilih Semua'}
                           </button>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
                           {quizCategories.map((category) => {
                             const isSelected = selectedCategoryIds.includes(String(category.id));
+                            const catId = String(category.id);
+                            const jilidKeys = category.jilids ? Object.keys(category.jilids) : [];
                             return (
-                              <button
-                                key={category.id}
-                                type="button"
-                                onClick={() => toggleCategory(category.id)}
-                                className={`quiz-category-chip ${isSelected ? 'quiz-category-chip--selected' : ''}`}
-                                style={{
-                                  '--quiz-category-color': category.color,
-                                  color: isSelected ? '#fff' : category.color,
-                                }}
-                              >
-                                <span className="quiz-category-chip__dot" />
-                                {category.label}
-                              </button>
+                              <div key={category.id} className="flex flex-col gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCategory(category.id)}
+                                  className={`quiz-category-chip ${isSelected ? 'quiz-category-chip--selected' : ''}`}
+                                  style={{
+                                    '--quiz-category-color': category.color,
+                                    color: isSelected ? '#fff' : category.color,
+                                  }}
+                                >
+                                  <span className="quiz-category-chip__dot" />
+                                  {category.label}
+                                </button>
+                                {isSelected && jilidKeys.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pl-1">
+                                    {jilidKeys.map((jilid) => {
+                                      const enabledJilids = selectedJilids[catId] || [];
+                                      const jilidOn = enabledJilids.includes(jilid);
+                                      return (
+                                        <button
+                                          key={jilid}
+                                          type="button"
+                                          onClick={() => toggleJilid(catId, jilid)}
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${jilidOn ? 'text-white border-transparent' : 'text-muted-foreground border-slate-300 dark:border-slate-700 hover:border-slate-400'}`}
+                                          style={jilidOn ? { background: category.color, borderColor: category.color } : {}}
+                                        >
+                                          {jilid}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
