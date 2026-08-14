@@ -24,6 +24,8 @@ import { Badge } from '@/components/ui/badge';
 import { toPng } from 'html-to-image';
 import QRCode from 'qrcode';
 import { calculateAttendanceData, getHafalanProgressData, getPointsData } from '@/utils/reportUtils';
+import { fetchReceiptLogoDataUrl } from '@/lib/publicContentAdapters';
+import CmsLogo from '@/components/public/CmsLogo';
 
 const PaymentStatusPage = () => {
   const { paymentId } = useParams();
@@ -34,7 +36,19 @@ const PaymentStatusPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const receiptRef = useRef(null);
   const [qrCodeDataURL, setQrCodeDataURL] = useState('');
+  const [receiptLogoUrl, setReceiptLogoUrl] = useState('');
   
+  useEffect(() => {
+    let active = true;
+    fetchReceiptLogoDataUrl().then((logoUrl) => {
+      if (active) setReceiptLogoUrl(logoUrl);
+    }).catch(() => {
+      if (active) setReceiptLogoUrl('');
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   // Report Card Data States
   const [attendanceSummary, setAttendanceSummary] = useState(null);
   const [hafalanData, setHafalanData] = useState(null);
@@ -165,7 +179,7 @@ const PaymentStatusPage = () => {
               {/* HEADER SECTION (Dual Logos) */}
               <div className="px-10 pt-10 pb-6 border-b-4 border-primary/20 relative">
                   <div className="flex justify-between items-center">
-                      <img src="/lpq-mark.svg" alt="LPQ Logo" className="w-20 h-20 object-contain"/>
+                      <CmsLogo src={receiptLogoUrl} alt="Logo LPQ Al-Muhajirun" width={80} height={80} className="w-20 h-20" />
                       <div className="text-center flex-1 px-4">
                           <h1 className="text-2xl font-black text-slate-900 font-serif uppercase tracking-widest">LPQ Al-Muhajirun</h1>
                           <h2 className="text-lg font-bold text-primary tracking-wide">Lembaga Pendidikan Al-Qur'an</h2>

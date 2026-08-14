@@ -1,0 +1,27 @@
+.cms-logo-slot {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.cms-logo-slot__image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+
+.cms-logo-slot__image.is-loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cms-logo-slot__image {
+    transition: none;
+  }
+}

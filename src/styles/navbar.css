@@ -40,22 +40,6 @@
   text-decoration: none;
 }
 
-.navbar-logo img,
-.navbar-logo__fallback {
-  height: 3rem;
-  width: 3rem;
-  object-fit: contain;
-}
-
-.navbar-logo__fallback {
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 1px solid rgba(4, 120, 87, 0.24);
-  background: rgba(255, 255, 255, 0.74);
-  font-size: 0.72rem;
-  font-weight: 950;
-}
 
 .navbar-logo span span,
 .navbar-logo > span {
@@ -63,6 +47,13 @@
   font-size: 0.94rem;
   font-weight: 950;
   line-height: 1.08;
+}
+
+.navbar-logo > .cms-logo-slot {
+  display: block;
+  flex: 0 0 auto;
+  font-size: 0;
+  line-height: 0;
 }
 
 .navbar-logo small {
@@ -264,9 +255,10 @@
     width: min(100% - 0.8rem, 80rem);
   }
 
-  .navbar-logo > span {
+  .navbar-logo > span.font-cinzel {
     display: none;
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

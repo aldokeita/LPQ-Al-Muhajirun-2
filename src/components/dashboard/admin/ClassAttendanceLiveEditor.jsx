@@ -126,7 +126,7 @@ const ClassAttendanceLiveEditor = ({
 }) => {
   const [appearance, setAppearance] = useState(() => ({
     config: normalizeClassAttendancePrintConfig(),
-    lpqLogoUrl: '/lpq-mark.svg',
+    lpqLogoUrl: '',
     qiroatiLogoUrl: '',
   }));
   const [activePanel, setActivePanel] = useState('content');

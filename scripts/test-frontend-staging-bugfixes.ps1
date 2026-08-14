@@ -61,10 +61,27 @@ Add-Check "website content helper always sends non-null content field" {
 
 Add-Check "logo upload saves url before showing success" {
   $text = Read-Text "src/components/dashboard/admin/ContentManagement.jsx"
-  if ($text -notmatch "assertNonEmptyWebsiteContentString\('logoUrl', publicUrl\)") { throw "logo URL is not validated" }
-  if ($text -notmatch "saveWebsiteContentItem\(\{ key: 'logoUrl', content: logoUrl, isPublic: true \}\)") { throw "logo is not persisted with content payload" }
+  if (-not $text.Contains("['logoUrl', 'qiroatiLogoUrl']")) { throw "logo keys are not handled by the shared upload flow" }
+  if (-not $text.Contains("assertNonEmptyWebsiteContentString(type, publicUrl)")) { throw "logo URL is not validated" }
+  if (-not $text.Contains("saveWebsiteContentItem({ key: type, content: logoUrl, isPublic: true })")) { throw "logo is not persisted with content payload" }
   if ($text -notmatch "Logo Disimpan!") { throw "success toast is not tied to database save" }
 }
+Add-Check "public content media lifecycle uses WebP and removes linked assets" {
+  $storage = Read-Text "src/lib/storageAdapters.js"
+  $content = Read-Text "src/components/dashboard/admin/ContentManagement.jsx"
+  $adapter = Read-Text "src/lib/publicContentAdapters.js"
+  $newsDetail = Read-Text "src/pages/NewsDetailPage.jsx"
+  $announcementDetail = Read-Text "src/pages/AnnouncementDetailPage.jsx"
+  $newsCss = Read-Text "src/styles/public-news.css"
+  $announcementCss = Read-Text "src/styles/public-announcements.css"
+  if ($storage -notmatch "compressWebsiteImageToWebp" -or $content -notmatch "convertToWebp: shouldConvertToWebp") { throw "article uploads do not convert images to WebP" }
+  if ($adapter -notmatch "deleteWebsiteAssetByUrl" -or $storage -notmatch "\.remove\(\[path\]\)") { throw "linked website asset cleanup is missing" }
+  if ($content -notmatch "deleteNews\(id\)" -or $content -notmatch "deleteAnnouncement\(id\)") { throw "admin delete action is not permanent" }
+  if ($newsDetail -notmatch "news-detail-excerpt" -or $announcementDetail -notmatch "ann-detail-excerpt") { throw "detail pages do not render content summaries" }
+  if ($newsCss -notmatch "object-fit: contain" -or $newsCss -match "aspect-ratio: 21 / 9") { throw "news detail image can still be cropped" }
+  if ($announcementCss -notmatch "object-fit: contain") { throw "announcement detail image containment is missing" }
+}
+
 
 Add-Check "avatar upload uses direct Storage first and authenticated Edge fallback" {
   $text = Read-Text "src/lib/storageAdapters.js"
@@ -475,11 +492,36 @@ Add-Check "payment proof uses uploaded website logo as embeddable image" {
   if ($helper -notmatch "readAsDataURL") { throw "receipt logo is not embedded for html-to-image" }
   if ($modal -notmatch "fetchReceiptLogoDataUrl") { throw "payment proof modal does not load uploaded logo" }
   if ($system -notmatch "fetchReceiptLogoDataUrl") { throw "payment system receipt does not load uploaded logo" }
-  if ($modal -notmatch "imagePlaceholder: '/lpq-mark.svg'" -or $system -notmatch "imagePlaceholder: '/lpq-mark.svg'") { throw "receipt image generation lacks local image fallback" }
+  if ($modal -match "imagePlaceholder: '/lpq-mark.svg'" -or $system -match "imagePlaceholder: '/lpq-mark.svg'") { throw "receipt image generation still contains a base logo fallback" }
+  if ($modal -notmatch "CmsLogo" -or $system -notmatch "CmsLogo") { throw "receipt render does not use the CMS logo slot" }
   if ($helper -notmatch "waitForImagesToLoad") { throw "receipt image helper does not wait for embedded logo/images" }
   if ($modal -notmatch "waitForImagesToLoad\(receiptRef\.current\)" -or $system -notmatch "waitForImagesToLoad\(receiptRef\.current\)") { throw "receipt export does not wait for images before rendering" }
 }
 
+Add-Check "CMS logo is exclusive and fades in without base fallback" {
+  $sources = @(
+    'src/App.jsx',
+    'src/components/Navbar.jsx',
+    'src/pages/LoginPage.jsx',
+    'src/pages/TvDisplayPage.jsx',
+    'src/components/public/home/homeUtils.js',
+    'src/components/public/home/HeroSection.jsx',
+    'src/components/dashboard/admin/ClassAttendanceLiveEditor.jsx',
+    'src/components/dashboard/admin/ClassAttendanceSheets.jsx',
+    'src/lib/classAttendancePrintAdapters.js',
+    'src/components/dashboard/admin/PaymentProofModal.jsx',
+    'src/components/dashboard/admin/PaymentSystem.jsx',
+    'src/pages/PaymentStatusPage.jsx',
+    'src/lib/publicContentAdapters.js'
+  )
+  foreach ($source in $sources) {
+    $content = Read-Text $source
+    if ($content -match 'lpq-mark\.svg|LOCAL_LOGO|imagePlaceholder') { throw "$source still contains a base logo fallback" }
+  }
+  $logo = Read-Text 'src/components/public/CmsLogo.jsx'
+  $styles = Read-Text 'src/styles/cms-logo.css'
+  if ($logo -notmatch 'setLoadedSrc' -or $styles -notmatch 'opacity: 0' -or $styles -notmatch 'is-loaded') { throw 'CMS logo fade-in slot is incomplete' }
+}
 Add-Check "TV Display maps final santri schema and avatar fallback" {
   $text = Read-Text "src/pages/TvDisplayPage.jsx"
   if ($text -notmatch "current_class_id") { throw "TV display does not query current_class_id" }
@@ -541,10 +583,11 @@ Add-Check "level configuration saves with verified readback and drives digital a
   if ($attendance -notmatch "resolveSantriLevel\(\{ points, gender, config: levelConfig \}\)") { throw "digital attendance does not use the shared level resolver" }
   if ($resolver -notmatch "cardBorderThickness" -or $resolver -notmatch "avatarBorderThickness") { throw "shared resolver omits profile-card visual settings" }
   if ($configuration -notmatch "const \[isSaving, setIsSaving\]" -or $configuration -notmatch 'type="button" onClick=\{saveLevelConfig\}') { throw "level save button can remain locked by initial loading" }
-  foreach ($stage in @('Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Mythic')) {
-    if ($resolver -notmatch "name: '$stage'") { throw "level stage $stage is missing from the shared defaults" }
+  if (-not $resolver.Contains("const LEVEL_NAMES = [")) { throw "22-sublevel defaults are missing" }
+  foreach ($stage in @('Bronze I', 'Bronze II', 'Silver I', 'Gold I', 'Platinum I', 'Diamond I', 'Heroic', 'Grandmaster')) {
+    if (-not $resolver.Contains("'$stage'")) { throw "level substage $stage is missing from the shared defaults" }
   }
-  if ($attendance -notmatch "label: 'Bronze'") { throw "attendance fallback is inconsistent with the Bronze stage" }
+  if (-not $attendance.Contains("label: resolvedLevel.name")) { throw "attendance keeps a duplicate hardcoded level label" }
   if ($resolver -notmatch "typeof config !== 'string'" -or $resolver -notmatch "Object\.entries\(value\)" -or $resolver -notmatch "parsed\.putra") { throw "legacy string/object level settings are not normalized" }
   if ($resolver -notmatch "isLegacyLevelCollection" -or $resolver -notmatch "createDefaultSantriLevelConfig") { throw "legacy A/B/C/S levels are not upgraded to the six-stage configuration" }
   if ($configuration -notmatch "id: index \+ 1" -or $configuration -notmatch "level\.id === id") { throw "editable levels do not have isolated stable ids" }

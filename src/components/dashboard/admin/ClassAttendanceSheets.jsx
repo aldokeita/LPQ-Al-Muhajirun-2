@@ -230,7 +230,7 @@ const ClassAttendanceSheets = ({
   const [source, setSource] = useState({ classes: [], holidays: new Set(), fetchedAt: null });
   const [appearance, setAppearance] = useState(() => ({
     config: normalizeClassAttendancePrintConfig(),
-    lpqLogoUrl: '/lpq-mark.svg',
+    lpqLogoUrl: '',
     qiroatiLogoUrl: '',
   }));
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -343,7 +343,7 @@ const ClassAttendanceSheets = ({
       const [lpqLogoDataUrl, qiroatiLogoDataUrl] = await Promise.all([
         latestAppearance.config.branding.showLpqLogo
           ? getEmbeddedAsset(latestAppearance.lpqLogoUrl)
-            .catch(() => getEmbeddedAsset('/lpq-mark.svg'))
+            .catch(() => '')
           : Promise.resolve(''),
         latestAppearance.config.branding.showQiroatiLogo
           ? getEmbeddedAsset(latestAppearance.qiroatiLogoUrl).catch((logoError) => {

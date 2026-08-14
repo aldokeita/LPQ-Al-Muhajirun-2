@@ -7,6 +7,7 @@ import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import TextType from '@/components/reactbits/TextType/TextType';
+import CmsLogo from '@/components/public/CmsLogo';
 import { useTheme } from '@/contexts/ThemeContext';
 import '@/styles/public-login.css';
 import { LOGIN_SECURITY_CONSENT_KEY, recordLoginAttempt } from '@/lib/loginSecurityAdapters';
@@ -95,7 +96,7 @@ const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('/lpq-mark.svg');
+  const [logoUrl, setLogoUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -137,8 +138,8 @@ const LoginPage = () => {
       .channel('website_content_login_logo')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'website_content', filter: 'key=eq.logoUrl' },
-        (payload) => setLogoUrl(payload.new?.content || '/lpq-mark.svg'),
+        { event: '*', schema: 'public', table: 'website_content', filter: 'key=eq.logoUrl' },
+        (payload) => setLogoUrl(typeof payload.new?.content === 'string' ? payload.new.content.trim() : ''),
       )
       .subscribe();
 
@@ -271,7 +272,7 @@ const LoginPage = () => {
             animate="visible"
           >
             <div className="login-brand-logo">
-              <img src={logoUrl} alt="Logo LPQ Al-Muhajirun" />
+              <CmsLogo src={logoUrl} alt="Logo LPQ Al-Muhajirun" width="100%" height="100%" />
             </div>
             <h1 className="login-brand-name font-cinzel">LPQ Al-Muhajirun</h1>
             <p className="login-brand-sub font-montserrat">Metode Qiroati Baturaja</p>

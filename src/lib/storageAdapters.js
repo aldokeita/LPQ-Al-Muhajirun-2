@@ -7,6 +7,7 @@ const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_AVATAR_SOURCE_SIZE = 12 * 1024 * 1024;
 const MAX_AVATAR_DIMENSION = 400;
 const MAX_WEBSITE_ASSET_SIZE = 20 * 1024 * 1024;
+const MAX_WEBSITE_IMAGE_DIMENSION = 2400;
 const AVATAR_URL_CACHE_TTL = 45 * 60 * 1000;
 const avatarUrlCache = new Map();
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -37,7 +38,7 @@ export const validateAvatarFile = (file) => {
 const canvasToWebpBlob = (canvas, quality) => new Promise((resolve, reject) => {
   canvas.toBlob((blob) => {
     if (blob) resolve(blob);
-    else reject(new Error('Browser gagal mengonversi avatar ke WebP.'));
+    else reject(new Error('Browser gagal mengonversi gambar ke WebP.'));
   }, 'image/webp', quality);
 });
 
@@ -123,6 +124,53 @@ export const validateWebsiteAssetFile = (file) => {
   if (!WEBSITE_ASSET_TYPES.has(file.type)) throw new Error('Aset website harus berupa JPG, JPEG, PNG, WebP, atau PDF.');
   if (file.size > MAX_WEBSITE_ASSET_SIZE) throw new Error('Ukuran aset website maksimal 20 MB.');
 };
+export const compressWebsiteImageToWebp = async (file) => {
+  validateWebsiteAssetFile(file);
+  if (!IMAGE_TYPES.has(file.type)) return file;
+  if (typeof document === 'undefined') {
+    throw new Error('Kompresi gambar hanya dapat dilakukan di browser.');
+  }
+
+  const decoded = await loadAvatarImage(file);
+  try {
+    const initialScale = Math.min(1, MAX_WEBSITE_IMAGE_DIMENSION / Math.max(decoded.width, decoded.height));
+    let width = Math.max(1, Math.round(decoded.width * initialScale));
+    let height = Math.max(1, Math.round(decoded.height * initialScale));
+    const qualitySteps = [0.88, 0.8, 0.72, 0.64];
+    let outputBlob = null;
+
+    for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d', { alpha: true });
+      if (!context) throw new Error('Browser tidak mendukung kompresi gambar.');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(decoded.image, 0, 0, width, height);
+
+      for (const quality of qualitySteps) {
+        outputBlob = await canvasToWebpBlob(canvas, quality);
+        if (outputBlob.size <= MAX_WEBSITE_ASSET_SIZE) break;
+      }
+      if (outputBlob?.size <= MAX_WEBSITE_ASSET_SIZE) break;
+      width = Math.max(1, Math.round(width * 0.78));
+      height = Math.max(1, Math.round(height * 0.78));
+    }
+
+    if (!outputBlob || outputBlob.size > MAX_WEBSITE_ASSET_SIZE) {
+      throw new Error('Gambar masih lebih dari 20 MB setelah dikompres. Pilih gambar dengan resolusi lebih kecil.');
+    }
+
+    return new File([outputBlob], 'content.webp', {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } finally {
+    decoded.cleanup();
+  }
+};
+
 
 export const getAvatarPath = ({ ownerType, ownerId }) => {
   if (!ownerId) throw new Error('Akun harus tersimpan sebelum avatar dapat diunggah.');
@@ -350,18 +398,64 @@ export const getWebsiteAssetPath = ({ folder = 'general', key, file }) => {
   return `${safeFolder}/${randomPart}.${ext}`;
 };
 
-export const uploadWebsiteAsset = async ({ folder, key, file }) => {
-  validateWebsiteAssetFile(file);
-  const path = getWebsiteAssetPath({ folder, key, file });
+export const uploadWebsiteAsset = async ({ folder, key, file, convertToWebp = false }) => {
+  const preparedFile = convertToWebp && IMAGE_TYPES.has(file?.type)
+    ? await compressWebsiteImageToWebp(file)
+    : file;
+  validateWebsiteAssetFile(preparedFile);
+  const path = getWebsiteAssetPath({ folder, key, file: preparedFile });
   const { error } = await supabase.storage
     .from(WEBSITE_ASSETS_BUCKET)
-    .upload(path, file, {
+    .upload(path, preparedFile, {
       cacheControl: '3600',
       upsert: Boolean(key),
-      contentType: file.type,
+      contentType: preparedFile.type,
     });
   if (error) throw error;
 
   const { data } = supabase.storage.from(WEBSITE_ASSETS_BUCKET).getPublicUrl(path);
   return { path, publicUrl: data.publicUrl };
+};
+
+export const getWebsiteAssetPathFromUrl = (assetUrl) => {
+  if (!assetUrl || !supabaseUrl) return null;
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(assetUrl, supabaseUrl);
+    const configuredOrigin = new URL(supabaseUrl).origin;
+    if (parsedUrl.origin !== configuredOrigin) return null;
+  } catch {
+    return null;
+  }
+
+  const marker = '/storage/v1/object/';
+  const markerIndex = parsedUrl.pathname.indexOf(marker);
+  if (markerIndex < 0) return null;
+
+  const segments = parsedUrl.pathname
+    .slice(markerIndex + marker.length)
+    .split('/')
+    .filter(Boolean);
+  if (segments.length < 3) return null;
+
+  const visibility = segments.shift();
+  const bucket = segments.shift();
+  if (!['public', 'sign', 'authenticated'].includes(visibility)) return null;
+  if (bucket !== WEBSITE_ASSETS_BUCKET) return null;
+
+  try {
+    return decodeURIComponent(segments.join('/'));
+  } catch {
+    return null;
+  }
+};
+
+export const deleteWebsiteAssetByUrl = async (assetUrl) => {
+  const path = getWebsiteAssetPathFromUrl(assetUrl);
+  if (!path) return { deleted: false, path: null };
+
+  const { error } = await supabase.storage.from(WEBSITE_ASSETS_BUCKET).remove([path]);
+  if (error) throw error;
+  return { deleted: true, path };
 };
