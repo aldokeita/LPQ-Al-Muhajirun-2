@@ -364,9 +364,8 @@ const AnnouncementDetailPage = () => {
               <img
                 src={announcement.image_url}
                 alt={announcement.title}
-                width="1200"
-                height="514"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '1.4rem 1.4rem 0 0' }}
+                loading="eager"
+                decoding="async"
               />
             </div>
           </motion.div>
