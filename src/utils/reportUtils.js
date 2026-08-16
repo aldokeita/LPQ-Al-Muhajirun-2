@@ -19,6 +19,7 @@ import {
 } from 'docx';
 import {
     fetchCharacterAssessmentItems,
+    fetchCharacterStrengthItems,
     fetchSantriCharacterScores,
     fetchSantriCharacterStrengths,
     DEVELOPMENT_SCORE_OPTIONS
@@ -181,14 +182,16 @@ export const getPointsData = async (santriId, startDate, endDate) => {
 
 export const getCharacterAssessmentData = async (santriId) => {
     try {
-        const [items, scores, strengths] = await Promise.all([
-            fetchCharacterAssessmentItems(),
+        const [items, strengthItems, scores, strengths] = await Promise.all([
+            fetchCharacterAssessmentItems({ includeInactive: true }),
+            fetchCharacterStrengthItems({ includeInactive: true }),
             fetchSantriCharacterScores(santriId),
             fetchSantriCharacterStrengths(santriId)
         ]);
 
         const scoreMap = new Map((scores || []).map(s => [s.item_id, Number(s.score)]));
-        const selectedStrengths = (strengths || []).map(s => s.strength_key);
+        const strengthLabels = new Map((strengthItems || []).map((item) => [item.strength_key, item.label]));
+        const selectedStrengths = (strengths || []).map((strength) => strength.strength_label || strengthLabels.get(strength.strength_key) || strength.strength_key);
 
         const assessedItems = (items || []).map(item => {
             const score = scoreMap.get(item.id) || 3; // Default 3 (BSH) if unrated
@@ -357,7 +360,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
             styles: { fontSize: 9, cellPadding: 4 }
         });
 
-        // --- 15 Aspek Perkembangan Karakter Table ---
+        // --- Perkembangan Karakter Table ---
         currentY = doc.lastAutoTable.finalY + 8;
         if (currentY > 220) {
             doc.addPage();
@@ -367,7 +370,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryDark);
-        doc.text("2. Penilaian 15 Aspek Perkembangan Karakter & Adab", 15, currentY);
+        doc.text("2. Penilaian Perkembangan Karakter & Adab", 15, currentY);
 
         const characterRows = (characterData.items || []).map((item, idx) => [
             (idx + 1).toString(),

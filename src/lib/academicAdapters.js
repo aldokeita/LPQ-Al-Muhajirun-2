@@ -11,19 +11,6 @@ export const DEVELOPMENT_SCORE_OPTIONS = [
     { score: 4, code: 'SB', label: 'Sangat Berkembang', tone: 'emerald' }
 ];
 
-export const CHARACTER_STRENGTH_OPTIONS = [
-    'Disiplin',
-    'Jujur',
-    'Mandiri',
-    'Percaya Diri',
-    'Bertanggung Jawab',
-    'Sopan Santun',
-    'Peduli',
-    'Rajin Beribadah',
-    'Semangat Belajar',
-    "Gemar Membaca Al-Qur'an"
-];
-
 export const VIOLATION_LEVELS = {
     Ringan: {
         examples: 'Terlambat, lupa membawa buku, tidak memakai ID Card, atau bercanda saat belajar',
@@ -75,6 +62,9 @@ export const groupHafalanItemsByTarget = (items = [], targets = PTPT_TAHFIZH_TAR
 
 export const getAcademicErrorMessage = (error) => {
     const message = String(error?.message || error || '');
+    if (message.includes('character_config_admin_only')) {
+        return 'Hanya admin yang dapat mengubah konfigurasi karakter.';
+    }
     if (message.includes('row-level security') || error?.code === '42501') {
         return 'Anda tidak memiliki akses untuk data akademik ini.';
     }
@@ -92,6 +82,15 @@ export const getAcademicErrorMessage = (error) => {
     }
     if (message.includes('santri_behavior_records_level_check')) {
         return 'Tingkat pelanggaran tidak valid.';
+    }
+    if (message.includes('character_config_item_not_found')) {
+        return 'Kategori karakter tidak ditemukan. Muat ulang halaman lalu coba lagi.';
+    }
+    if (message.includes('character_config_invalid_direction')) {
+        return 'Arah urutan kategori tidak valid.';
+    }
+    if (error?.code === '23505') {
+        return 'Nama atau urutan kategori sudah digunakan.';
     }
     if (message.includes('murojaah_submissions_status_check')) {
         return 'Status murojaah tidak valid.';
@@ -291,16 +290,113 @@ export const upsertHafalanProgress = async ({ santriId, item, score, userId }) =
     if (result.error) throw result.error;
 };
 
-export const fetchCharacterAssessmentItems = async () => {
-    const { data, error } = await supabase
+export const fetchCharacterAssessmentItems = async ({ includeInactive = false } = {}) => {
+    let query = supabase
         .from('character_assessment_items')
         .select('id,item_order,item_name,is_active')
-        .eq('is_active', true)
         .order('item_order', { ascending: true });
+    if (!includeInactive) query = query.eq('is_active', true);
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
 };
 
+export const fetchCharacterStrengthItems = async ({ includeInactive = false } = {}) => {
+    let query = supabase
+        .from('character_strength_items')
+        .select('strength_key,item_order,label,is_active')
+        .order('item_order', { ascending: true });
+    if (!includeInactive) query = query.eq('is_active', true);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+};
+
+const assertCharacterLabel = (label) => {
+    const value = String(label || '').trim();
+    if (!value) throw new Error('Nama kategori karakter wajib diisi.');
+    if (value.length > 120) throw new Error('Nama kategori karakter maksimal 120 karakter.');
+    return value;
+};
+
+export const createCharacterAssessmentItem = async ({ itemName, itemOrder }) => {
+    const payload = {
+        item_name: assertCharacterLabel(itemName),
+        item_order: Number(itemOrder),
+        is_active: true
+    };
+    if (!Number.isInteger(payload.item_order) || payload.item_order < 1) {
+        throw new Error('Urutan kategori karakter harus berupa angka positif.');
+    }
+    const { data, error } = await supabase
+        .from('character_assessment_items')
+        .insert(payload)
+        .select('id,item_order,item_name,is_active')
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateCharacterAssessmentItem = async ({ id, itemName, isActive }) => {
+    const payload = {};
+    if (itemName !== undefined) payload.item_name = assertCharacterLabel(itemName);
+    if (isActive !== undefined) payload.is_active = Boolean(isActive);
+    if (!Object.keys(payload).length) throw new Error('Tidak ada perubahan kategori karakter.');
+    const { data, error } = await supabase
+        .from('character_assessment_items')
+        .update(payload)
+        .eq('id', id)
+        .select('id,item_order,item_name,is_active')
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const createCharacterStrengthItem = async ({ strengthKey, label, itemOrder }) => {
+    const value = assertCharacterLabel(label);
+    const key = String(strengthKey || '').trim();
+    if (!key) throw new Error('Key kategori karakter wajib diisi.');
+    const order = Number(itemOrder);
+    if (!Number.isInteger(order) || order < 1) throw new Error('Urutan kategori karakter harus berupa angka positif.');
+    const { data, error } = await supabase
+        .from('character_strength_items')
+        .insert({ strength_key: key, label: value, item_order: order, is_active: true })
+        .select('strength_key,item_order,label,is_active')
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateCharacterStrengthItem = async ({ strengthKey, label, isActive }) => {
+    const payload = {};
+    if (label !== undefined) payload.label = assertCharacterLabel(label);
+    if (isActive !== undefined) payload.is_active = Boolean(isActive);
+    if (!Object.keys(payload).length) throw new Error('Tidak ada perubahan kategori karakter.');
+    const { data, error } = await supabase
+        .from('character_strength_items')
+        .update(payload)
+        .eq('strength_key', strengthKey)
+        .select('strength_key,item_order,label,is_active')
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const moveCharacterAssessmentItem = async (itemId, direction) => {
+    const { error } = await supabase.rpc('move_character_assessment_item', {
+        p_item_id: itemId,
+        p_direction: direction
+    });
+    if (error) throw error;
+};
+
+export const moveCharacterStrengthItem = async (strengthKey, direction) => {
+    const { error } = await supabase.rpc('move_character_strength_item', {
+        p_strength_key: strengthKey,
+        p_direction: direction
+    });
+    if (error) throw error;
+};
 export const fetchSantriCharacterScores = async (santriId) => {
     const { data, error } = await supabase
         .from('santri_character_scores')
@@ -338,15 +434,18 @@ export const upsertSantriCharacterScore = async ({ santriId, itemId, score, user
 };
 
 export const fetchSantriCharacterStrengths = async (santriId) => {
-    const { data, error } = await supabase
-        .from('santri_character_strengths')
-        .select('santri_id,strength_key,selected_by,selected_at')
-        .eq('santri_id', santriId)
-        .order('selected_at', { ascending: true });
+    const [{ data, error }, strengthItems] = await Promise.all([
+        supabase
+            .from('santri_character_strengths')
+            .select('santri_id,strength_key,selected_by,selected_at')
+            .eq('santri_id', santriId)
+            .order('selected_at', { ascending: true }),
+        fetchCharacterStrengthItems({ includeInactive: true })
+    ]);
     if (error) throw error;
-    return data || [];
+    const labels = new Map((strengthItems || []).map((item) => [item.strength_key, item.label]));
+    return (data || []).map((row) => ({ ...row, strength_label: labels.get(row.strength_key) || row.strength_key }));
 };
-
 export const setSantriCharacterStrength = async ({ santriId, strengthKey, selected, userId }) => {
     const query = selected
         ? supabase.from('santri_character_strengths').upsert({
