@@ -608,12 +608,20 @@ Add-Check "admin guru edit resets Auth password through the guarded function" {
 }
 
 Add-Check "WhatsApp message templates are editable and used by jilid and payment flows" {
+Add-Check "Canonical Jilid 6 and PTPT promotion transition" {
+  $levels = Read-Text "src/lib/santriJilid.js"
+  $class = Read-Text "src/components/dashboard/admin/ClassManagement.jsx"
+  $guru = Read-Text "src/components/dashboard/GuruDashboard.jsx"
+  if ($levels -notmatch "SANTRI_JILID_OPTIONS" -or $levels -notmatch "SANTRI_PROMOTION_OPTIONS" -or $levels -notmatch "SANTRI_PTPT_LABEL") { throw "canonical jilid progression helper is incomplete" }
+  if ($class -notmatch "change_santri_category" -or $class -notmatch "p_target_category: 'PTPT'") { throw "admin PTPT transition does not use the category RPC" }
+  if ($guru -notmatch "Peralihan ke program Santri PTPT diproses oleh admin") { throw "guru PTPT transition guard is missing" }
+}
   $configuration = Read-Text "src/components/dashboard/admin/GameConfiguration.jsx"
   $adapter = Read-Text "src/lib/whatsappTemplateAdapters.js"
   $jilid = Read-Text "src/components/dashboard/admin/JilidChangeModal.jsx"
   $proof = Read-Text "src/components/dashboard/admin/PaymentProofModal.jsx"
   $payments = Read-Text "src/components/dashboard/admin/PaymentSystem.jsx"
-  if ($configuration -notmatch "\{ id: 'whatsapp', label: 'Pesan WhatsApp'" -or $configuration -notmatch "saveWhatsAppTemplates") { throw "WhatsApp template editor is unavailable" }
+  if ($configuration -notmatch "Whatsapp & Jilid" -or $configuration -notmatch "saveWhatsAppTemplates" -or $configuration -notmatch "saveWhatsAppGroupLinks") { throw "WhatsApp and jilid editor is unavailable" }
   if ($adapter -notmatch "whatsapp_message_templates" -or $adapter -notmatch "isPublic: false" -or $adapter -notmatch "renderWhatsAppTemplate") { throw "WhatsApp templates are not stored privately or rendered safely" }
   if ($jilid -notmatch "templates\.jilidPromotion" -or $jilid -notmatch "templates\.jilidDemotion") { throw "jilid messages do not use configured templates" }
   if ($proof -notmatch "paymentMessageTemplate" -or $payments -notmatch "templates\.paymentReceipt") { throw "payment messages do not use configured templates" }

@@ -23,6 +23,13 @@ import {
     normalizeQuizHafalanConfig,
 } from '@/lib/quizHafalanConfig';
 import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, saveWhatsAppTemplates } from '@/lib/whatsappTemplateAdapters';
+import {
+    DEFAULT_WHATSAPP_GROUP_LINKS,
+    WHATSAPP_GROUP_LINK_FIELDS,
+    fetchWhatsAppGroupLinks,
+    saveWhatsAppGroupLinks,
+    validateWhatsAppGroupLinks,
+} from '@/lib/whatsappGroupLinkAdapters';
 
 const GameConfiguration = () => {
     const [activeTab, setActiveTab] = useState('attendance');
@@ -30,7 +37,7 @@ const GameConfiguration = () => {
         { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
         { id: 'attendance-editor', label: 'Live Editor Absensi', icon: Eye },
         { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
-        { id: 'whatsapp', label: 'Pesan WhatsApp', icon: MessageSquare },
+        { id: 'whatsapp', label: 'Whatsapp & Jilid', icon: MessageSquare },
         ...(enableGameFeatures ? [
             { id: 'gatcha', label: 'Gatcha Game', icon: Gamepad2 },
             { id: 'quiz', label: 'Quiz Hafalan', icon: Trophy },
@@ -598,12 +605,18 @@ const TEMPLATE_FIELDS = [
 const WhatsAppTemplateSettings = () => {
     const [templates, setTemplates] = useState({ ...DEFAULT_WHATSAPP_TEMPLATES });
     const [isLoading, setIsLoading] = useState(true);
+    const [groupLinks, setGroupLinks] = useState({ ...DEFAULT_WHATSAPP_GROUP_LINKS });
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         let active = true;
-        fetchWhatsAppTemplates()
-            .then((data) => active && setTemplates(data))
+        Promise.all([fetchWhatsAppTemplates(), fetchWhatsAppGroupLinks()])
+            .then(([templateData, linkData]) => {
+                if (!active) return;
+                setTemplates(templateData);
+                setGroupLinks(linkData);
+            })
+            .catch((error) => active && toast({ title: 'Gagal memuat konfigurasi WhatsApp', description: error.message, variant: 'destructive' }))
             .finally(() => active && setIsLoading(false));
         return () => { active = false; };
     }, []);
@@ -614,9 +627,14 @@ const WhatsAppTemplateSettings = () => {
             for (const field of TEMPLATE_FIELDS) {
                 if (!templates[field.key]?.trim()) throw new Error(`Template ${field.title} tidak boleh kosong.`);
             }
-            const saved = await saveWhatsAppTemplates(templates);
+            const normalizedLinks = validateWhatsAppGroupLinks(groupLinks);
+            const [saved, savedLinks] = await Promise.all([
+                saveWhatsAppTemplates(templates),
+                saveWhatsAppGroupLinks(normalizedLinks),
+            ]);
             setTemplates(saved);
-            toast({ title: 'Berhasil', description: 'Template pesan WhatsApp telah disimpan dan langsung digunakan.' });
+            setGroupLinks(savedLinks);
+            toast({ title: 'Berhasil', description: 'Template pesan dan link grup WhatsApp telah disimpan dan langsung digunakan.' });
         } catch (error) {
             toast({ title: 'Gagal menyimpan template', description: error.message, variant: 'destructive' });
         } finally {
@@ -632,9 +650,32 @@ const WhatsAppTemplateSettings = () => {
                     <p className="text-sm text-muted-foreground">Gunakan variabel dinamis agar pesan tetap personal tanpa menulis ulang setiap transaksi.</p>
                 </div>
                 <Button type="button" onClick={handleSave} disabled={isLoading || isSaving} className="game-config-save">
-                    <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Menyimpan...' : 'Simpan Template'}
+                    <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Menyimpan...' : 'Simpan Template & Link'}
                 </Button>
             </div>
+            <section className="rounded-lg border bg-background/80 p-4 shadow-sm">
+                <div className="mb-4">
+                    <h4 className="font-bold text-foreground">Link Grup WhatsApp per Jilid</h4>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Atur tautan grup yang dipakai otomatis pada pesan kenaikan dan penurunan jilid. Perubahan tersimpan di konfigurasi website.</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {WHATSAPP_GROUP_LINK_FIELDS.map((field) => (
+                        <div key={field.key} className="space-y-1.5">
+                            <Label htmlFor={`whatsapp-group-${field.key}`}>{field.label}</Label>
+                            <Input
+                                id={`whatsapp-group-${field.key}`}
+                                type="url"
+                                value={groupLinks[field.key] || ''}
+                                onChange={(event) => setGroupLinks((current) => ({ ...current, [field.key]: event.target.value }))}
+                                placeholder="https://chat.whatsapp.com/..."
+                                disabled={isLoading || isSaving}
+                                aria-label={`Link grup WhatsApp ${field.label}`}
+                            />
+                        </div>
+                    ))}
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">Gunakan URL grup WhatsApp yang diawali https://chat.whatsapp.com/.</p>
+            </section>
 
             <div className="grid gap-4 xl:grid-cols-2">
                 {TEMPLATE_FIELDS.map((field, index) => (

@@ -20,6 +20,7 @@ import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 import AdultClassManagement from './AdultClassManagement';
+import { SANTRI_JILID_OPTIONS, SANTRI_PTPT_LABEL, SANTRI_PROMOTION_OPTIONS, normalizeSantriJilid } from '@/lib/santriJilid';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
@@ -31,11 +32,7 @@ const ItemTypes = {
   CLASS_ORDER: 'class_order'
 };
 
-const jilidOptions = [
-  'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
-  'Jilid 3A', 'Jilid 3B', 'Jilid 4A', 'Jilid 4B', 'Jilid 5A', 'Jilid 5B', 'Jilid Juz 27', 'Jilid 6A', 'Jilid 6B',
-  'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
+const jilidOptions = SANTRI_JILID_OPTIONS;
 
 // Draggable Session Item for Config
 const DraggableSessionItem = ({ name, time, index, moveSession, onDelete, onUpdate }) => {
@@ -636,13 +633,16 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   };
 
   const initiateJilidChange = (santri, direction) => {
-      const currentIndex = jilidOptions.indexOf(santri.jilid);
+      const currentJilid = normalizeSantriJilid(santri.jilid);
+      const progressionOptions = kategori === 'Anak' ? SANTRI_PROMOTION_OPTIONS : jilidOptions;
+      const currentIndex = progressionOptions.indexOf(currentJilid);
+      if (currentIndex < 0) { toast({ title: 'Info', description: 'Level santri belum memiliki urutan kenaikan yang valid.' }); return; }
       if (direction === 'up') {
-        if (currentIndex >= jilidOptions.length - 1) { toast({ title: 'Info', description: 'Santri sudah di jilid terakhir.' }); return; }
-        setJilidChangeData({ santri, direction: 'up', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex + 1] });
+        if (currentIndex >= progressionOptions.length - 1) { toast({ title: 'Info', description: 'Santri sudah di tahap terakhir.' }); return; }
+        setJilidChangeData({ santri, direction: 'up', currentJilid, nextJilid: progressionOptions[currentIndex + 1] });
       } else {
         if (currentIndex <= 0) { toast({ title: 'Info', description: 'Santri sudah di jilid pertama.' }); return; }
-        setJilidChangeData({ santri, direction: 'down', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex - 1] });
+        setJilidChangeData({ santri, direction: 'down', currentJilid, nextJilid: progressionOptions[currentIndex - 1] });
       }
       setIsJilidModalOpen(true);
   };
@@ -650,6 +650,18 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
+      if (nextJilid === SANTRI_PTPT_LABEL) {
+          const { error: categoryError } = await supabase.rpc('change_santri_category', {
+              p_santri_id: santri.id,
+              p_target_category: 'PTPT',
+              p_reason: 'Kenaikan santri TPQ ke program PTPT',
+          });
+          if (categoryError) { toast({ title: 'Gagal memindahkan kategori', description: categoryError.message, variant: 'destructive' }); return; }
+          toast({ title: 'Berhasil!', description: 'Santri dipindahkan ke program PTPT.' });
+          await fetchAllData();
+          setIsJilidModalOpen(false); setJilidChangeData(null);
+          return;
+      }
       const { error: updateError } = await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
       if (updateError) { toast({ title: 'Gagal!', description: updateError.message, variant: 'destructive' }); return; }
       await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });

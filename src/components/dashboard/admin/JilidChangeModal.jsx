@@ -5,15 +5,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
 import { MessageCircle, ChevronRight, Check, AlertTriangle } from 'lucide-react';
-import { generateWhatsAppLink, resolveWhatsAppGroupLink, WHATSAPP_GROUP_LINKS } from '@/utils/whatsappMessages';
+import { generateWhatsAppLink, resolveWhatsAppGroupLink } from '@/utils/whatsappMessages';
 import { toast } from '@/components/ui/use-toast';
 import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
+import { fetchWhatsAppGroupLinks, getWhatsAppGroupLink } from '@/lib/whatsappGroupLinkAdapters';
+import { SANTRI_PTPT_LABEL } from '@/lib/santriJilid';
 
 const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, nextJilid, onConfirm, kategori = 'Anak' }) => {
     const [message, setMessage] = useState('');
     const [hasSiblings, setHasSiblings] = useState(false);
     const [isLoadingLink, setIsLoadingLink] = useState(false);
 
+    const isCategoryTransition = nextJilid === SANTRI_PTPT_LABEL;
     useEffect(() => {
         if (isOpen && santri) {
             checkSiblings();
@@ -35,44 +38,27 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
 
     const fetchGroupLinkAndGenerateMessage = async () => {
         setIsLoadingLink(true);
-        let groupLink = '';
-        
         try {
-            // First check hardcoded mapping for immediate result
-            const targetJilid = direction === 'up' ? nextJilid : nextJilid; // For demotion nextJilid is the target destination too
-            const mapKey = Object.keys(WHATSAPP_GROUP_LINKS).find(k => targetJilid?.includes(k));
-            if (mapKey) {
-                groupLink = WHATSAPP_GROUP_LINKS[mapKey];
-            }
-
-            // If not found in mapping, try DB (fallback)
-            if (!groupLink) {
-                const { data, error } = await supabase
-                    .from('whatsapp_group_links')
-                    .select('whatsapp_link')
-                    .eq('jilid', targetJilid)
-                    .maybeSingle();
-
-                if (!error && data) {
-                    groupLink = data.whatsapp_link;
-                }
-            }
+            const [groupLinks, templates] = await Promise.all([
+                fetchWhatsAppGroupLinks(),
+                fetchWhatsAppTemplates(),
+            ]);
+            const groupLink = getWhatsAppGroupLink(nextJilid, groupLinks);
+            generateMessage(groupLink, templates, groupLinks);
         } catch (err) {
-            console.error("Error fetching whatsapp link:", err);
+            toast({ title: 'Gagal memuat konfigurasi WhatsApp', description: err.message || 'Link grup belum dapat dimuat.', variant: 'destructive' });
         } finally {
             setIsLoadingLink(false);
-            const templates = await fetchWhatsAppTemplates();
-            generateMessage(groupLink, templates);
         }
     };
 
-    const generateMessage = (groupLink, templates) => {
+    const generateMessage = (groupLink, templates, groupLinks) => {
         const template = direction === 'up' ? templates.jilidPromotion : templates.jilidDemotion;
         setMessage(renderWhatsAppTemplate(template, {
             nama_santri: santri.nama_lengkap,
             jilid_lama: currentJilid,
             jilid_baru: nextJilid,
-            link_grup: resolveWhatsAppGroupLink(nextJilid, groupLink),
+            link_grup: resolveWhatsAppGroupLink(nextJilid, groupLink, groupLinks),
             nama_lembaga: 'LPQ Al-Muhajirun',
             kategori,
         }));
@@ -95,10 +81,12 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         {direction === 'up' ? <ChevronRight className="text-green-500"/> : <AlertTriangle className="text-orange-500"/>}
-                        Konfirmasi {direction === 'up' ? 'Kenaikan' : 'Penurunan'} Jilid {kategori === 'Dewasa' ? '(Dewasa)' : ''}
+                        {isCategoryTransition ? 'Konfirmasi Kenaikan ke Santri PTPT' : <>Konfirmasi {direction === 'up' ? 'Kenaikan' : 'Penurunan'} Jilid {kategori === 'Dewasa' ? '(Dewasa)' : ''}</>}
                     </DialogTitle>
                     <DialogDescription>
-                        Mengubah jilid dari <strong>{currentJilid}</strong> ke <strong>{nextJilid}</strong>.
+                        {isCategoryTransition
+                            ? <>Memindahkan program santri dari <strong>{currentJilid}</strong> ke <strong>{SANTRI_PTPT_LABEL}</strong>. Kelas aktif akan ditutup melalui proses migrasi kategori.</>
+                            : <>Mengubah jilid dari <strong>{currentJilid}</strong> ke <strong>{nextJilid}</strong>.</>}
                     </DialogDescription>
                 </DialogHeader>
                 

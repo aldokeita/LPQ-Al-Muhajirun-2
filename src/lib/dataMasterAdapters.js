@@ -1,7 +1,10 @@
+import { normalizeSantriJilid } from '@/lib/santriJilid';
+
 export const activeStatusValues = new Set(['aktif', 'active']);
 
 export const mapSantriForLegacyUi = (santri) => ({
   ...santri,
+  jilid: normalizeSantriJilid(santri.jilid),
   id_kelas: santri.current_class_id ?? santri.id_kelas ?? null,
   class: santri.class ?? santri.current_class ?? null,
   tanggal_pendaftaran: santri.tanggal_pendaftaran ?? santri.created_at ?? null,
@@ -51,7 +54,7 @@ export const pickSantriProfileFields = (input) => {
     rfid_tag: input.rfid_tag || null,
     current_class_id: input.current_class_id ?? input.id_kelas ?? null,
     sesi_mengaji: input.sesi_mengaji || null,
-    jilid: input.jilid || null,
+    jilid: normalizeSantriJilid(input.jilid) || null,
     juz_hafalan: Array.isArray(input.juz_hafalan) ? input.juz_hafalan : [],
     tanggal_pendaftaran: input.tanggal_pendaftaran || null,
     nama_ayah: input.nama_ayah || null,
