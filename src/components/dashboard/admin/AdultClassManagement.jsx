@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { changeSantriJilid } from '@/lib/santriJilidAdapters';
 import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { SANTRI_JILID_OPTIONS, normalizeSantriJilid } from '@/lib/santriJilid';
 
@@ -515,9 +516,16 @@ const AdultClassManagement = () => {
 
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
-      const { santri, currentJilid, nextJilid } = jilidChangeData;
-      await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
+      const { santri, nextJilid } = jilidChangeData;
+      const { error: updateError } = await changeSantriJilid({
+          santriId: santri.id,
+          toJilid: nextJilid,
+          reason: 'Perubahan jilid melalui dashboard santri dewasa',
+      });
+      if (updateError) {
+          toast({ title: 'Gagal menyimpan jilid', description: updateError.message, variant: 'destructive' });
+          return;
+      }
       toast({ title: 'Berhasil' }); fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
   };
 

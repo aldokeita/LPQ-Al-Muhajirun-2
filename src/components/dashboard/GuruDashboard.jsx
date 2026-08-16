@@ -52,6 +52,7 @@ import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDial
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SANTRI_JILID_OPTIONS, normalizeSantriJilid } from '@/lib/santriJilid';
+import { changeSantriJilid } from '@/lib/santriJilidAdapters';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -452,10 +453,13 @@ const GuruDashboard = () => {
 
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
-      const { santri, currentJilid, nextJilid } = jilidChangeData;
-      const { error: updateError } = await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
+      const { santri, nextJilid } = jilidChangeData;
+      const { error: updateError } = await changeSantriJilid({
+          santriId: santri.id,
+          toJilid: nextJilid,
+          reason: 'Perubahan jilid melalui dashboard guru',
+      });
       if (updateError) { toast({ title: 'Gagal!', description: updateError.message, variant: 'destructive' }); return; }
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
       toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${nextJilid}.` });
       setMyClasses(prev => prev.map(cls => ({ ...cls, santri: cls.santri.map(s => s.id === santri.id ? {...s, jilid: nextJilid} : s) })));
       setIsJilidModalOpen(false); setJilidChangeData(null);
