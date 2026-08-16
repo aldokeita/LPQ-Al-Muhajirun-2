@@ -23,18 +23,9 @@ import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/li
 import { mapSantriForLegacyUi, normalizeNomorIndukQiroati, pickChangedSantriProfileFields, pickSantriProfileFields } from '@/lib/dataMasterAdapters';
 import { archiveSantriAccounts } from '@/lib/santriArchiveAdapters';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
+import { SANTRI_JILID_OPTIONS } from '@/lib/santriJilid';
 
-const jilidOptions = [
-    'Pra TK A', 'Pra TK B', 'Pra TK C',
-    'Jilid 1A', 'Jilid 1B', 'Jilid 1C',
-    'Jilid 2A', 'Jilid 2B',
-    'Jilid 3A', 'Jilid 3B',
-    'Jilid 4A', 'Jilid 4B',
-    'Jilid 5A', 'Jilid 5B',
-    'Jilid Juz 27',
-    'Jilid 6A', 'Jilid 6B',
-    'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
+const jilidOptions = SANTRI_JILID_OPTIONS;
 
 const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Dewasa' }) => {
   const [file, setFile] = useState(null);

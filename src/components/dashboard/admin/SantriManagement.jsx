@@ -27,20 +27,11 @@ import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArch
 import { copyTextToClipboard } from '@/lib/clipboardUtils';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 import DataPagination from '@/components/dashboard/shared/DataPagination';
+import { SANTRI_JILID_OPTIONS, getSantriJilidQueryValues, normalizeSantriJilid } from '@/lib/santriJilid';
 
 const PAGE_SIZE = 10;
 
-const jilidOptions = [
-    'Pra TK A', 'Pra TK B', 'Pra TK C', 
-    'Jilid 1A', 'Jilid 1B', 'Jilid 1C',
-    'Jilid 2A', 'Jilid 2B',
-    'Jilid 3A', 'Jilid 3B',
-    'Jilid 4A', 'Jilid 4B',
-    'Jilid 5A', 'Jilid 5B',
-    'Jilid Juz 27',
-    'Jilid 6A', 'Jilid 6B',
-    'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
+const jilidOptions = SANTRI_JILID_OPTIONS;
 
 const ptptTargetOptions = ALL_JUZ;
 
@@ -564,7 +555,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           if (currentTab === 'ptpt') {
             query = query.contains('juz_hafalan', [filters.jilid]);
           } else {
-            query = query.eq('jilid', filters.jilid);
+            query = query.in('jilid', getSantriJilidQueryValues(filters.jilid));
           }
         }
         if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
@@ -779,7 +770,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         query = query.or(`nama_lengkap.ilike.%${normalizedSearch}%,nama_panggilan.ilike.%${normalizedSearch}%,nama_ayah.ilike.%${normalizedSearch}%,rfid_tag.ilike.%${normalizedSearch}%`);
       }
       if (filters.sesi !== 'all') query = query.in('sesi_mengaji', [String(getSessionNumber(filters.sesi)), filters.sesi]);
-      if (filters.jilid !== 'all') query = query.eq('jilid', filters.jilid);
+      if (filters.jilid !== 'all') query = query.in('jilid', getSantriJilidQueryValues(filters.jilid));
       if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
       if (filters.rfid === 'unassigned') query = query.or('rfid_tag.is.null,rfid_tag.eq.');
 
@@ -875,8 +866,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     // Normalize PTPT juz_hafalan to ordered "Juz N" labels
     if (subCategory === 'ptpt') {
         finalFormData.juz_hafalan = normalizeJuzHafalan(finalFormData.juz_hafalan).map(number => `Juz ${number}`);
+    } else {
+        finalFormData.jilid = normalizeSantriJilid(finalFormData.jilid);
     }
-
     const requiredFields = [
       ['nama_lengkap', 'Nama lengkap'],
       ['tanggal_lahir', 'Tanggal lahir'],
@@ -1242,7 +1234,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const sortedAndFilteredSantri = useMemo(() => {
     let sortableItems = [...santriList];
     if (filters.sesi !== 'all') sortableItems = sortableItems.filter(s => getSessionName(s.sesi_mengaji) === filters.sesi);
-    if (filters.jilid !== 'all') sortableItems = sortableItems.filter(s => s.jilid === filters.jilid);
+    if (filters.jilid !== 'all') sortableItems = sortableItems.filter(s => normalizeSantriJilid(s.jilid) === normalizeSantriJilid(filters.jilid));
     if (filters.rfid !== 'all') {
         sortableItems = sortableItems.filter(s => filters.rfid === 'assigned' ? !!s.rfid_tag : !s.rfid_tag);
     }

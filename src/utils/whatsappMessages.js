@@ -2,30 +2,21 @@
 /**
  * Utility functions for generating WhatsApp messages for Jilid promotions/demotions
  */
+import {
+  DEFAULT_WHATSAPP_GROUP_LINKS,
+  getWhatsAppGroupLink,
+} from '@/lib/whatsappGroupLinkAdapters';
 
-// Mapping of Jilid names to WhatsApp group links
-export const WHATSAPP_GROUP_LINKS = {
-  'Pra TK': 'https://chat.whatsapp.com/DMMQcs0KKgA6B1uQBBF1wW',
-  'Jilid 1': 'https://chat.whatsapp.com/KL0chOjFnCOFZWutZMLF9N',
-  'Jilid 2': 'https://chat.whatsapp.com/HBkwsj5OiB0CNue4fxtDDb',
-  'Jilid 3': 'https://chat.whatsapp.com/EW9AgzpFzO0FBGJbPC7gl4',
-  'Jilid 4': 'https://chat.whatsapp.com/FNBLu53Y5EcF2VpiCw5M1f',
-  'Jilid 5': 'https://chat.whatsapp.com/Ju4BylNCKHN1RZMqeAhWdy',
-  'Jilid 6': 'https://chat.whatsapp.com/HhQNv7GxbHH5eSJrX8I2Uv',
-  'Al-Qur\'an': 'https://chat.whatsapp.com/GgZkyYvhbHb4zckp0TlibF',
-  'Gharib': 'https://chat.whatsapp.com/GgZkyYvhbHb4zckp0TlibF',
-  'Tajwid': 'https://chat.whatsapp.com/GgZkyYvhbHb4zckp0TlibF',
-};
+// Centralized defaults are kept in the adapter; this export preserves the old API.
+
+export const WHATSAPP_GROUP_LINKS = DEFAULT_WHATSAPP_GROUP_LINKS;
 
 /**
  * Helper to get link from mapping, falling back to provided link or default message
  */
-export const resolveWhatsAppGroupLink = (jilidName, providedLink) => {
+export const resolveWhatsAppGroupLink = (jilidName, providedLink, configuredLinks = WHATSAPP_GROUP_LINKS) => {
   if (providedLink && providedLink !== '[Link Grup Belum Tersedia]') return providedLink;
-  
-  // Normalize key lookup
-  const key = Object.keys(WHATSAPP_GROUP_LINKS).find(k => jilidName?.includes(k));
-  return key ? WHATSAPP_GROUP_LINKS[key] : '[Link Grup Belum Tersedia]';
+  return getWhatsAppGroupLink(jilidName, configuredLinks);
 };
 
 /**
