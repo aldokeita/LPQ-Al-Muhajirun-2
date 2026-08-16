@@ -649,6 +649,33 @@ Add-Check "guru attendance detail modal stays compact and editable" {
   if ($recap -notmatch "handleSaveAttendance\(\{ markAbsent: true \}\)" -or $recap -notmatch "Simpan Perubahan") { throw "guru attendance edit actions were lost" }
 }
 
+Add-Check "santri jilid persistence uses atomic scoped RPC" {
+  $adapter = Read-Text "src/lib/santriJilidAdapters.js"
+  $migration = Read-Text "supabase/migrations/20260816000200_change_santri_jilid_rpc.sql"
+  $sources = @(
+    "src/components/dashboard/admin/ClassManagement.jsx",
+    "src/components/dashboard/GuruDashboard.jsx",
+    "src/components/dashboard/admin/AdultClassManagement.jsx"
+  )
+  if ($adapter -notmatch "change_santri_jilid" -or $adapter -notmatch "Perubahan jilid belum dikonfirmasi") {
+    throw "jilid adapter does not verify persisted RPC result"
+  }
+  if ($migration -notmatch "security definer" -or $migration -notmatch "set search_path = public, pg_temp") {
+    throw "jilid RPC is not hardened"
+  }
+  if ($migration -notmatch "guru_has_santri_access" -or $migration -notmatch "jilid_history") {
+    throw "jilid RPC scope or history insert is missing"
+  }
+  foreach ($source in $sources) {
+    $text = Read-Text $source
+    if ($text -notmatch "changeSantriJilid") {
+      throw "$source does not use the persisted jilid RPC"
+    }
+    if ($text -match "\.from\('santri'\)\.update\(\{\s*jilid:\s*nextJilid") {
+      throw "$source still has a silent direct jilid update"
+    }
+  }
+}
 $passed = @($checks | Where-Object { $_.Status -eq "PASS" }).Count
 $failed = @($checks | Where-Object { $_.Status -eq "FAIL" }).Count
 

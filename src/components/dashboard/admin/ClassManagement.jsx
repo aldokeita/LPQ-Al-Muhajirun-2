@@ -22,6 +22,7 @@ import { motion } from 'framer-motion';
 import AdultClassManagement from './AdultClassManagement';
 import { SANTRI_JILID_OPTIONS, SANTRI_PTPT_LABEL, SANTRI_PROMOTION_OPTIONS, normalizeSantriJilid } from '@/lib/santriJilid';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
+import { changeSantriJilid } from '@/lib/santriJilidAdapters';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
@@ -649,7 +650,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
-      const { santri, currentJilid, nextJilid } = jilidChangeData;
+      const { santri, nextJilid } = jilidChangeData;
       if (nextJilid === SANTRI_PTPT_LABEL) {
           const { error: categoryError } = await supabase.rpc('change_santri_category', {
               p_santri_id: santri.id,
@@ -662,9 +663,12 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           setIsJilidModalOpen(false); setJilidChangeData(null);
           return;
       }
-      const { error: updateError } = await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
+      const { error: updateError } = await changeSantriJilid({
+          santriId: santri.id,
+          toJilid: nextJilid,
+          reason: 'Perubahan jilid melalui dashboard admin',
+      });
       if (updateError) { toast({ title: 'Gagal!', description: updateError.message, variant: 'destructive' }); return; }
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
       toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${nextJilid}.` });
       fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
   };

@@ -48,7 +48,8 @@ $expectedNames = @(
   "20260805000100_santri_juz_hafalan.sql",
   "20260805000200_ptpt_jilid_label.sql",
   "20260805000300_santri_surah_scores.sql",
-  "20260816000100_normalize_santri_jilid_and_whatsapp_links.sql"
+  "20260816000100_normalize_santri_jilid_and_whatsapp_links.sql",
+  "20260816000200_change_santri_jilid_rpc.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }
