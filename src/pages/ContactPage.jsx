@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import {
@@ -16,7 +16,8 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
+import { fetchWebsiteContentMap, submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
+import { normalizePhoneForLink, normalizePublicContactConfig } from '@/lib/publicPageContentAdapters';
 import '@/styles/public-contact.css';
 
 /* ---------- Animation Variants ---------- */
@@ -46,7 +47,21 @@ const ContactPage = () => {
     phone: '',
     message: '',
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contactConfig, setContactConfig] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    fetchWebsiteContentMap({ keys: ['contactInfo'], publicOnly: true })
+      .then((contentMap) => {
+        if (active && contentMap.contactInfo) setContactConfig(normalizePublicContactConfig(contentMap.contactInfo));
+      })
+      .catch(() => {
+        // Contact information is optional until configured by an administrator.
+      });
+    return () => { active = false; };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,13 +88,18 @@ const ContactPage = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const mapEmbedUrl =
-    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1507.950540742548!2d104.17345737504412!3d-4.1204841258880505!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e39afc61f68c737%3A0x81c3bbf753bbe64a!2sLembaga%20Pendidikan%20Quran%20Al%20Muhajirun!5e0!3m2!1sid!2sid!4v1782219186348!5m2!1sid!2sid';
 
-  const mapsLink =
-    'https://www.google.com/maps/place/Lembaga+Pendidikan+Quran+Al+Muhajirun/@-4.1204841,104.1734574,17z';
-
-  const waLink = 'https://wa.me/6285609025238';
+  const configured = normalizePublicContactConfig(contactConfig);
+  const whatsappNumber = String(configured.whatsappNumber || '').trim();
+  const phoneNumber = String(configured.phoneNumber || '').trim();
+  const email = String(configured.email || '').trim();
+  const mapEmbedUrl = String(configured.mapEmbedUrl || '').trim();
+  const mapsLink = String(configured.mapsLink || '').trim();
+  const waDigits = normalizePhoneForLink(whatsappNumber);
+  const phoneDigits = normalizePhoneForLink(phoneNumber);
+  const waLink = waDigits ? 'https://wa.me/' + waDigits : '';
+  const phoneLink = phoneDigits ? 'tel:' + phoneDigits : '';
+  const emailLink = email ? 'mailto:' + email : '';
 
   return (
     <>
@@ -132,44 +152,44 @@ const ContactPage = () => {
                 rel="noopener noreferrer"
                 className="cp-channel-card"
                 variants={staggerItem}
-                aria-label="Chat WhatsApp: 0856-0902-5238"
+                aria-label={'Chat WhatsApp: ' + whatsappNumber}
               >
                 <div className="cp-channel-card__icon cp-channel-card__icon--emerald" aria-hidden="true">
                   <MessageCircle className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="cp-channel-card__label">WhatsApp</p>
-                  <p className="cp-channel-card__value">0856-0902-5238</p>
+                  <p className="cp-channel-card__value">{whatsappNumber || 'Belum diatur'}</p>
                 </div>
               </motion.a>
 
               <motion.a
-                href="tel:085609025238"
+                href={phoneLink || undefined}
                 className="cp-channel-card"
                 variants={staggerItem}
-                aria-label="Telepon: 0856-0902-5238"
+                aria-label={'Telepon: ' + phoneNumber}
               >
                 <div className="cp-channel-card__icon cp-channel-card__icon--cyan" aria-hidden="true">
                   <Phone className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="cp-channel-card__label">Telepon</p>
-                  <p className="cp-channel-card__value">0856-0902-5238</p>
+                  <p className="cp-channel-card__value">{phoneNumber || 'Belum diatur'}</p>
                 </div>
               </motion.a>
 
               <motion.a
-                href="mailto:admin@lpqalmuhajirun.id"
+                href={emailLink || undefined}
                 className="cp-channel-card"
                 variants={staggerItem}
-                aria-label="Email: admin@lpqalmuhajirun.id"
+                aria-label={'Email: ' + email}
               >
                 <div className="cp-channel-card__icon cp-channel-card__icon--amber" aria-hidden="true">
                   <Mail className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="cp-channel-card__label">Email</p>
-                  <p className="cp-channel-card__value">admin@lpqalmuhajirun.id</p>
+                  <p className="cp-channel-card__value">{email || 'Belum diatur'}</p>
                 </div>
               </motion.a>
             </motion.div>
@@ -215,10 +235,10 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Alamat</p>
                     <p className="cp-info-item__value">
-                      <a href={mapsLink} target="_blank" rel="noopener noreferrer">
-                        Jl. R. Suprapto No 195 Kel. Kemala Raja
+                      <a href={mapsLink || undefined} target="_blank" rel="noopener noreferrer">
+                        {configured.addressLine1 || 'Alamat belum diatur'}
                         <br />
-                        (Depan Masjid Imam Bonjol)
+                        {configured.addressLine2 || ''}
                       </a>
                     </p>
                   </div>
@@ -231,7 +251,7 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Telepon</p>
                     <p className="cp-info-item__value">
-                      <a href="tel:085609025238">0856-0902-5238</a>
+                      <a href={phoneLink || undefined}>{phoneNumber || 'Belum diatur'}</a>
                     </p>
                   </div>
                 </div>
@@ -243,7 +263,7 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Email</p>
                     <p className="cp-info-item__value">
-                      <a href="mailto:admin@lpqalmuhajirun.id">admin@lpqalmuhajirun.id</a>
+                      <a href={emailLink || undefined}>{email || 'Belum diatur'}</a>
                     </p>
                   </div>
                 </div>
@@ -255,7 +275,7 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Jam Layanan</p>
                     <p className="cp-info-item__value">
-                      Senin &ndash; Sabtu, 08:00 &ndash; 16:00 WIB
+                      {configured.hours || 'Jam layanan belum diatur'}
                     </p>
                   </div>
                 </div>
@@ -264,7 +284,7 @@ const ContactPage = () => {
                   <p className="cp-social__title">Media Sosial</p>
                   <div className="cp-social__links">
                     <a
-                      href="#"
+                      href={configured.facebookUrl || undefined}
                       className="cp-social__link"
                       aria-label="Facebook LPQ Al-Muhajirun"
                       target="_blank"
@@ -273,7 +293,7 @@ const ContactPage = () => {
                       <Facebook className="w-4 h-4" />
                     </a>
                     <a
-                      href="#"
+                      href={configured.instagramUrl || undefined}
                       className="cp-social__link"
                       aria-label="Instagram LPQ Al-Muhajirun"
                       target="_blank"
@@ -282,7 +302,7 @@ const ContactPage = () => {
                       <Instagram className="w-4 h-4" />
                     </a>
                     <a
-                      href="#"
+                      href={configured.youtubeUrl || undefined}
                       className="cp-social__link"
                       aria-label="YouTube LPQ Al-Muhajirun"
                       target="_blank"
@@ -380,7 +400,7 @@ const ContactPage = () => {
                     Lokasi Kami
                   </h2>
                   <a
-                    href={mapsLink}
+                    href={mapsLink || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="cp-map__open-link"
@@ -390,13 +410,17 @@ const ContactPage = () => {
                   </a>
                 </div>
                 <div className="cp-map__iframe-wrap">
-                  <iframe
-                    src={mapEmbedUrl}
-                    loading="lazy"
-                    title="Peta Lokasi LPQ Al-Muhajirun"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    allowFullScreen
-                  />
+                  {mapEmbedUrl ? (
+                    <iframe
+                      src={mapEmbedUrl}
+                      loading="lazy"
+                      title="Peta lokasi"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <p className="px-4 py-8 text-sm text-muted-foreground">Lokasi belum dikonfigurasi.</p>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -429,7 +453,7 @@ const ContactPage = () => {
                   Chat WhatsApp
                 </a>
                 <a
-                  href={mapsLink}
+                  href={mapsLink || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="cp-cta__btn cp-cta__btn--secondary"

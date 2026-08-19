@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Gamepad2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart, Save } from 'lucide-react';
+import { Plus, Trash2, Gamepad2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Save } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
+import PublicContentHub from '@/components/dashboard/admin/PublicContentHub';
+import { normalizePublicContactConfig } from '@/lib/publicPageContentAdapters';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
@@ -165,7 +167,7 @@ const HafalanItemManager = ({
 
 const ContentManagement = () => {
   const [content, setContent] = useState({
-    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', qiroatiLogoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, hijaiyahFindingBackgroundUrl: '', santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
+    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', qiroatiLogoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, hijaiyahFindingBackgroundUrl: '', santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }, contactInfo: {}
   });
 
   const [feedbacks, setFeedbacks] = useState([]);
@@ -175,9 +177,10 @@ const ContentManagement = () => {
   const [formState, setFormState] = useState({});
   const [santriList, setSantriList] = useState([]);
   const [guruList, setGuruList] = useState([]);
-  const [activeTab, setActiveTab] = useState("homepage");
+  const [activeTab, setActiveTab] = useState("public");
   const [enrollmentData, setEnrollmentData] = useState({ categories: [] });
   const [isEnrollmentSaving, setIsEnrollmentSaving] = useState(false);
+  const [isContactSaving, setIsContactSaving] = useState(false);
 
   useEffect(() => { fetchContent(); fetchSantriAndGuru(); fetchFeedbacks(); }, []);
 
@@ -214,6 +217,7 @@ const ContentManagement = () => {
     const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'testimonials', 'schedules', 'faqs'];
     arrayKeys.forEach(key => { if (!newContent[key] || !Array.isArray(newContent[key])) newContent[key] = []; });
     if(!newContent.quotas) newContent.quotas = { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 };
+    newContent.contactInfo = normalizePublicContactConfig(newContent.contactInfo);
     if(!newContent.model3dSettings || typeof newContent.model3dSettings !== 'object' || Array.isArray(newContent.model3dSettings)) {
       newContent.model3dSettings = { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 };
     }
@@ -390,6 +394,27 @@ const ContentManagement = () => {
   const handleGuruOfTheMonthChange = (personId, alasan) => { const person = guruList.find(p => p.id === personId); if (person) setContent(prev => ({ ...prev, guruOfTheMonth: { ...person, alasan } })); };
   const handleLeaderboardChange = (index, personId, achievement) => { const person = santriList.find(p => p.id === personId); if (person) { const newLeaderboard = [...content.leaderboard]; newLeaderboard[index] = { ...person, achievement }; setContent(prev => ({ ...prev, leaderboard: newLeaderboard })); } };
   const handleOpacityChange = (key, value) => { setContent(prev => ({...prev, [key]: value[0]})); };
+  const updateContactInfo = (field, value) => {
+    setContent(prev => ({ ...prev, contactInfo: { ...normalizePublicContactConfig(prev.contactInfo), [field]: value } }));
+  };
+  const handleSaveContact = async () => {
+    setIsContactSaving(true);
+    try {
+      const contactInfo = normalizePublicContactConfig(content.contactInfo);
+      const urlFields = ['mapsLink', 'mapEmbedUrl', 'facebookUrl', 'instagramUrl', 'youtubeUrl'];
+      const invalidUrl = urlFields.find((field) => { const value = String(contactInfo[field] || '').trim(); if (!value) return false; try { return !['http:', 'https:'].includes(new URL(value).protocol); } catch { return true; } });
+      if (invalidUrl) throw new Error('URL ' + invalidUrl + ' harus diawali http:// atau https://.');
+      const emailValue = String(contactInfo.email || '').trim();
+      if (contactInfo.email && (!emailValue.includes('@') || !emailValue.includes('.'))) throw new Error('Format email publik belum valid.');
+      const saved = await saveWebsiteContentItem({ key: 'contactInfo', content: contactInfo, isPublic: true });
+      setContent(prev => ({ ...prev, contactInfo: saved.content || normalizePublicContactConfig(content.contactInfo) }));
+      toast({ title: 'Kontak tersimpan', description: 'Informasi kontak publik berhasil diperbarui.' });
+    } catch (error) {
+      toast({ title: 'Kontak gagal disimpan', description: getPublicContentErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setIsContactSaving(false);
+    }
+  };
 
   /* ---- Enrollment Data Handlers ---- */
   const updateEnrollmentCategory = (catIndex, field, value) => {
@@ -518,13 +543,11 @@ const ContentManagement = () => {
   };
 
   const tabs = [
-      { id: 'homepage', label: 'Halaman Depan', icon: Home },
-      { id: 'apresiasi', label: 'Apresiasi', icon: Heart },
-      { id: 'media', label: 'Media & Galeri', icon: ImageIcon },
-      { id: 'enrollment', label: 'Informasi Pendaftaran', icon: ClipboardList },
+      { id: 'public', label: 'Halaman Publik', icon: FileText },
       { id: 'pesan', label: 'Pesan Masuk', icon: Mail },
       { id: 'hafalan', label: 'Hafalan', icon: BookCopy },
   ];
+
 
   const renderModalContent = () => {
     if (!modalType) return null;
@@ -587,8 +610,11 @@ const ContentManagement = () => {
             </div>
         </div>
 
-        <TabsContent value="homepage" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-            <div className="grid gap-4 lg:grid-cols-2">
+        <TabsContent value="public" className="animate-in fade-in slide-in-from-bottom-2">
+          <PublicContentHub
+            sections={{
+              home: (
+                <div className="space-y-6">            <div className="grid gap-4 lg:grid-cols-2">
               <div className="admin-card p-4">
                 <h3 className="font-bold text-xl mb-1">Logo LPQ</h3>
                 <p className="mb-4 text-sm text-muted-foreground">Dipakai pada website dan sisi kiri header absensi kelas.</p>
@@ -689,30 +715,26 @@ const ContentManagement = () => {
                 </Button>
               </div>
             </div>
-        </TabsContent>
-
-        <TabsContent value="apresiasi" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 flex gap-3 mb-4"><Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" /><div className="text-sm text-blue-700 dark:text-blue-300"><p className="font-bold mb-1">Info Pindah Lokasi</p><p>Pengaturan <strong>TV Leaderboard</strong> telah dipindahkan ke menu <strong>Pengaturan TV</strong> sesuai permintaan.</p></div></div>
+                </div>
+              ),
+              apresiasi: (
+                <div className="space-y-6">          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 flex gap-3 mb-4"><Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" /><div className="text-sm text-blue-700 dark:text-blue-300"><p className="font-bold mb-1">Info Pindah Lokasi</p><p>Pengaturan <strong>TV Leaderboard</strong> telah dipindahkan ke menu <strong>Pengaturan TV</strong> sesuai permintaan.</p></div></div>
           <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4 flex items-center"><Star className="w-6 h-6 mr-2 text-blue-500" /> Papan Peringkat (Website)</h3>{[0, 1, 2].map(index => (<div key={index} className="admin-card p-4 space-y-3 mb-4 bg-background"><h4 className="font-semibold">Peringkat #{index + 1}</h4><Select onValueChange={val => handleLeaderboardChange(index, val, content.leaderboard?.[index]?.achievement || '')} value={content.leaderboard?.[index]?.id}><SelectTrigger><SelectValue placeholder="Pilih Santri" /></SelectTrigger><SelectContent>{santriList.map(s => <SelectItem key={s.id} value={s.id}>{s.nama_lengkap}</SelectItem>)}</SelectContent></Select><Input placeholder="Deskripsi Prestasi" value={content.leaderboard?.[index]?.achievement || ''} onChange={e => handleLeaderboardChange(index, content.leaderboard?.[index]?.id, e.target.value)} /></div>))}</div>
           <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4 flex items-center"><Trophy className="w-6 h-6 mr-2 text-amber-500" /> Santri of the Month</h3>{[0, 1, 2].map(index => (<div key={index} className="admin-card p-4 space-y-3 mb-4 bg-background"><h4 className="font-semibold">Pilihan Santri #{index + 1}</h4><Select onValueChange={val => handleSantriOfTheMonthChange(index, val, content.santriOfTheMonth?.[index]?.alasan || '')} value={content.santriOfTheMonth?.[index]?.id}><SelectTrigger><SelectValue placeholder="Pilih Santri" /></SelectTrigger><SelectContent>{santriList.map(s => <SelectItem key={s.id} value={s.id}>{s.nama_lengkap}</SelectItem>)}</SelectContent></Select><Input placeholder="Alasan apresiasi..." value={content.santriOfTheMonth?.[index]?.alasan || ''} onChange={e => handleSantriOfTheMonthChange(index, content.santriOfTheMonth?.[index]?.id, e.target.value)} /></div>))}</div>
           <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4 flex items-center"><Trophy className="w-6 h-6 mr-2 text-amber-500" /> Guru of the Month</h3><div className="admin-card p-4 space-y-3 bg-background"><Select onValueChange={val => handleGuruOfTheMonthChange(val, content.guruOfTheMonth?.alasan || '')} value={content.guruOfTheMonth?.id}><SelectTrigger><SelectValue placeholder="Pilih Guru" /></SelectTrigger><SelectContent>{guruList.map(g => <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>)}</SelectContent></Select><Input placeholder="Alasan apresiasi..." value={content.guruOfTheMonth?.alasan || ''} onChange={e => handleGuruOfTheMonthChange(content.guruOfTheMonth?.id, e.target.value)} /></div></div>
-        </TabsContent>
-
-        <TabsContent value="media" className="grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2">
+                </div>
+              ),
+              'educational-media': (
+                <div className="grid gap-6 md:grid-cols-2">
             <div className="col-span-full"><ContentSection title="Galeri Kegiatan" modalType="galleryPhotos" data={content.galleryPhotos} icon={<ImageIcon/>} renderItem={item => <div className="flex items-center gap-2"><img src={item.url} className="w-12 h-12 object-cover rounded-md" /><p className="truncate">{item.caption}</p></div>} /></div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Gamepad2/> Background Mencari Hijaiyah</h3><p className="text-sm text-muted-foreground">Latar gambar untuk mode Mencari pada permainan Play Hijaiyah. Unggah gambar pemandangan (mis. hutan) agar terlihat realistis.</p><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'hijaiyahFindingBackground')} />{content.hijaiyahFindingBackgroundUrl ? (<><img src={content.hijaiyahFindingBackgroundUrl} alt="Preview background hijaiyah" className="w-full h-40 object-cover rounded-md mt-2" /><Button variant="ghost" size="sm" onClick={handleRemoveHijaiyahBackground} className="text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Hapus</Button></>) : <p className="text-sm text-muted-foreground">Belum ada background. Gunakan scene bawaan sementara.</p>}</div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><FileText/> Brosur Pendaftaran</h3><Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, 'brochures')} /><div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">{content.brochures.map(file => (<div key={file.id} className="flex justify-between items-center p-2 border rounded-lg bg-background"><span>{file.name}</span><Button variant="ghost" size="icon" onClick={() => handleDeleteItem('brochures', file.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></div>))}</div></div>
             <div className="admin-card p-4 space-y-4"><h3 className="font-bold text-xl flex items-center gap-2"><Library/> Pustaka Digital</h3><Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileUpload(e, 'pustaka')} /><div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">{content.pustaka.map(file => (<div key={file.id} className="flex justify-between items-center p-2 border rounded-lg bg-background"><span>{file.name}</span><Button variant="ghost" size="icon" onClick={() => handleDeleteItem('pustaka', file.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></div>))}</div></div>
-            <ContentSection title="Berita" modalType="news" data={content.news} icon={<BookCopy/>} renderItem={item => <p className="truncate">{item.title}</p>} />
-            <ContentSection title="Pengumuman" modalType="announcements" data={content.announcements} icon={<MessageSquare/>} renderItem={item => <p className="truncate">{item.title}</p>} />
-            <ContentSection title="Artikel Parenting" modalType="parentingArticles" data={content.parentingArticles} icon={<Users/>} renderItem={item => <p className="truncate">{item.title}</p>} />
             <ContentSection title="Diskusi Wali Santri" modalType="waliDiscussions" data={content.waliDiscussions} icon={<Users/>} renderItem={item => <p className="truncate">{item.title} - {item.date}</p>} />
-            <ContentSection title="Video Qiroati" modalType="qiroatiVideos" data={content.qiroatiVideos} icon={<Video/>} renderItem={item => <p className="truncate">{item.title}</p>} />
-            <ContentSection title="Video Hafalan" modalType="hafalanVideos" data={content.hafalanVideos} icon={<Video/>} renderItem={item => <p className="truncate">{item.title}</p>} />
-          <ContentSection title="Fasilitas" modalType="facilities" data={content.facilities} icon={<Building/>} renderItem={item => <p className="truncate">{item.name}</p>} />
-        </TabsContent>
-        <TabsContent value="enrollment" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="mb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                </div>
+              ),
+              registration: (
+                <div className="space-y-6">          <div className="mb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-bold text-xl flex items-center gap-2"><ClipboardList className="w-5 h-5" /> Informasi Pendaftaran</h3>
               <p className="text-sm text-muted-foreground mt-1">Kelola biaya, catatan, dan syarat pendaftaran yang tampil di halaman publik.</p>
@@ -844,8 +866,68 @@ const ContentManagement = () => {
               </div>
             ))
           )}
-        </TabsContent>
-        <TabsContent value="pesan" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                </div>
+              ),
+              'learning-system': (              <div className="grid gap-6 md:grid-cols-2">
+                <ContentSection title="Video Qiroati" modalType="qiroatiVideos" data={content.qiroatiVideos} icon={<Video/>} renderItem={item => <p className="truncate">{item.title}</p>} />
+                <ContentSection title="Video Hafalan" modalType="hafalanVideos" data={content.hafalanVideos} icon={<Video/>} renderItem={item => <p className="truncate">{item.title}</p>} />
+              </div>              ),
+              parenting: (
+                <div className="space-y-6">              <ContentSection title="Artikel Parenting" modalType="parentingArticles" data={content.parentingArticles} icon={<Users/>} renderItem={item => <div><p className="truncate font-semibold">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.summary || 'Tanpa ringkasan'}</p></div>} />                </div>
+              ),
+              news: (
+                <div className="space-y-6">              <ContentSection title="Berita" modalType="news" data={content.news} icon={<BookCopy/>} renderItem={item => <div><p className="truncate font-semibold">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.summary || 'Tanpa ringkasan'}</p></div>} />                </div>
+              ),
+              announcements: (
+                <div className="space-y-6">              <ContentSection title="Pengumuman" modalType="announcements" data={content.announcements} icon={<MessageSquare/>} renderItem={item => <div><p className="truncate font-semibold">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.summary || 'Tanpa ringkasan'}</p></div>} />                </div>
+              ),
+              profile: (
+                <div className="space-y-6">              <ContentSection title="Fasilitas" modalType="facilities" data={content.facilities} icon={<Building/>} renderItem={item => <p className="truncate">{item.name}</p>} />                </div>
+              ),
+              contact: (
+                <div className="space-y-6">
+                  <div className="admin-card space-y-5 p-5">
+                    <div>
+                      <h3 className="font-bold text-xl">Informasi Kontak Publik</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">Data ini disimpan sebagai konfigurasi publik dan dipakai halaman Kontak. Biarkan kosong bila belum ingin menampilkan kanal tertentu.</p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {[
+                        ['whatsappNumber', 'Nomor WhatsApp', '0856-...'],
+                        ['phoneNumber', 'Nomor Telepon', 'Nomor yang tampil pada halaman'],
+                        ['email', 'Email Publik', 'admin@...'],
+                        ['hours', 'Jam Layanan', 'Senin - Sabtu, 08:00 - 16:00 WIB'],
+                        ['addressLine1', 'Alamat Baris 1', 'Alamat utama'],
+                        ['addressLine2', 'Alamat Baris 2', 'Patokan atau keterangan alamat'],
+                        ['mapsLink', 'Link Google Maps', 'https://...'],
+                        ['mapEmbedUrl', 'URL Embed Peta', 'https://www.google.com/maps/embed?...'],
+                        ['facebookUrl', 'Facebook', 'https://facebook.com/...'],
+                        ['instagramUrl', 'Instagram', 'https://instagram.com/...'],
+                        ['youtubeUrl', 'YouTube', 'https://youtube.com/...'],
+                      ].map(([field, label, placeholder]) => (
+                        <div key={field} className="space-y-1.5">
+                          <label className="text-sm font-medium" htmlFor={`contact-${field}`}>{label}</label>
+                          <Input id={`contact-${field}`} value={content.contactInfo?.[field] || ''} onChange={(event) => updateContactInfo(field, event.target.value)} placeholder={placeholder} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end border-t pt-4">
+                      <Button type="button" onClick={handleSaveContact} disabled={isContactSaving}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isContactSaving ? 'Menyimpan...' : 'Simpan Kontak'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ),              'tv-display': (
+                <div className="space-y-6">              <div className="admin-card p-5">
+                <h3 className="font-bold text-xl">TV Display</h3>
+                <p className="mt-2 text-sm text-muted-foreground">Pengaturan TV Display yang sudah ada tetap berada pada menu pengaturan TV. Blok informasi tambahan dapat dikelola di sini.</p>
+              </div>                </div>
+              ),
+            }}
+          />
+        </TabsContent>        <TabsContent value="pesan" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="font-bold text-xl flex items-center gap-2"><Mail />Pesan dari Pengunjung</h3>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
                 {feedbacks.length > 0 ? feedbacks.map(fb => (<div key={fb.id} className="admin-card p-4 bg-background relative"><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => handleDeleteFeedback(fb.id)}><Trash2 className="h-4 w-4" /></Button><p className="font-semibold text-lg">{fb.nama || 'Anonim'}</p><div className="text-sm text-muted-foreground mb-2"><span>{fb.email || '-'}</span> | <span>{fb.phone || '-'}</span> | <span>{new Date(fb.created_at).toLocaleString('id-ID')}</span></div><p className="whitespace-pre-wrap">{fb.message}</p></div>)) : (<p className="text-center text-muted-foreground py-4">Tidak ada pesan masuk.</p>)}

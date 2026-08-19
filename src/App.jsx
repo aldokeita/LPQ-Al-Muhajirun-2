@@ -30,6 +30,7 @@ import SystemPage from '@/pages/SystemPage';
 import WaliDiscussionPage from '@/pages/WaliDiscussionPage';
 import DigitalAttendancePage from '@/pages/DigitalAttendancePage';
 import TvDisplayPage from '@/pages/TvDisplayPage';
+import PublicContentBlockRenderer from '@/components/public/PublicContentBlockRenderer';
 import QuizHafalanPage from '@/pages/QuizHafalanPage';
 import GatchaGamePage from '@/pages/GatchaGamePage';
 import GalleryPage from '@/pages/GalleryPage';
@@ -102,6 +103,12 @@ const DeferredFeaturePage = () => (
   </div>
 );
 
+const PublicPageWithBlocks = ({ pageKey, children }) => (
+  <>
+    {children}
+    <PublicContentBlockRenderer pageKey={pageKey} />
+  </>
+);
 const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
 const operationalDisplayRoles = ['admin', 'guru', 'pentashih'];
 
@@ -162,17 +169,17 @@ function App() {
                     <Navbar />
                     <main className="flex-grow">
                       <Routes>
-                        <Route path="/" element={<HomePage />} />
+                        <Route path="/" element={<PublicPageWithBlocks pageKey="home"><HomePage /></PublicPageWithBlocks>} />
                         <Route path="/login" element={<LoginPage />} />
-                        <Route path="/profil" element={<ProfilePage />} />
-                        <Route path="/profil/galeri" element={<GalleryPage />} />
-                        <Route path="/pendaftaran/informasi" element={<RegistrationInfoPage />} />
-                        <Route path="/pendaftaran/brosur" element={<BrochurePage />} />
-                        <Route path="/pendaftaran/sistem" element={<SystemPage />} />
-                        <Route path="/parenting" element={<ParentingPage />} />
-                        <Route path="/parenting/:articleId" element={<ParentingArticlePage />} />
-                        <Route path="/parenting/media-edukatif" element={<EduMediaPage />} />
-                        <Route path="/parenting/diskusi-wali" element={<WaliDiscussionPage />} />
+                        <Route path="/profil" element={<PublicPageWithBlocks pageKey="profile"><ProfilePage /></PublicPageWithBlocks>} />
+                        <Route path="/profil/galeri" element={<PublicPageWithBlocks pageKey="gallery"><GalleryPage /></PublicPageWithBlocks>} />
+                        <Route path="/pendaftaran/informasi" element={<PublicPageWithBlocks pageKey="registration"><RegistrationInfoPage /></PublicPageWithBlocks>} />
+                        <Route path="/pendaftaran/brosur" element={<PublicPageWithBlocks pageKey="registration-brochure"><BrochurePage /></PublicPageWithBlocks>} />
+                        <Route path="/pendaftaran/sistem" element={<PublicPageWithBlocks pageKey="registration-system"><SystemPage /></PublicPageWithBlocks>} />
+                        <Route path="/parenting" element={<PublicPageWithBlocks pageKey="parenting"><ParentingPage /></PublicPageWithBlocks>} />
+                        <Route path="/parenting/:articleId" element={<PublicPageWithBlocks pageKey="parenting-article"><ParentingArticlePage /></PublicPageWithBlocks>} />
+                        <Route path="/parenting/media-edukatif" element={<PublicPageWithBlocks pageKey="parenting-media"><EduMediaPage /></PublicPageWithBlocks>} />
+                        <Route path="/parenting/diskusi-wali" element={<PublicPageWithBlocks pageKey="wali-discussion"><WaliDiscussionPage /></PublicPageWithBlocks>} />
                         {enableDeferredFeatures ? (
                           <>
                             <Route path="/forum" element={<ForumPage />} />
@@ -184,14 +191,14 @@ function App() {
                             <Route path="/forum/:topicId" element={<DeferredFeaturePage />} />
                           </>
                         )}
-                        <Route path="/kontak" element={<ContactPage />} />
+                        <Route path="/kontak" element={<PublicPageWithBlocks pageKey="contact"><ContactPage /></PublicPageWithBlocks>} />
                         <Route path="/status-pembayaran/:paymentId" element={<PaymentStatusPage />} />
-                        <Route path="/berita" element={<NewsPage />} />
-                        <Route path="/berita/:id" element={<NewsDetailPage />} />
-                        <Route path="/pengumuman" element={<AnnouncementPage />} />
-                        <Route path="/pengumuman/:id" element={<AnnouncementDetailPage />} />
-                        <Route path="/metode-qiroati" element={<QiroatiMethodPage />} />
-                        <Route path="/fasilitas" element={<FacilitiesPage />} />
+                        <Route path="/berita" element={<PublicPageWithBlocks pageKey="news"><NewsPage /></PublicPageWithBlocks>} />
+                        <Route path="/berita/:id" element={<PublicPageWithBlocks pageKey="news-detail"><NewsDetailPage /></PublicPageWithBlocks>} />
+                        <Route path="/pengumuman" element={<PublicPageWithBlocks pageKey="announcements"><AnnouncementPage /></PublicPageWithBlocks>} />
+                        <Route path="/pengumuman/:id" element={<PublicPageWithBlocks pageKey="announcement-detail"><AnnouncementDetailPage /></PublicPageWithBlocks>} />
+                        <Route path="/metode-qiroati" element={<PublicPageWithBlocks pageKey="learning-system"><QiroatiMethodPage /></PublicPageWithBlocks>} />
+                        <Route path="/fasilitas" element={<PublicPageWithBlocks pageKey="facilities"><FacilitiesPage /></PublicPageWithBlocks>} />
                         <Route path="/dashboard" element={<ProtectedRoute allowedRoles={allDashboardRoles}><DashboardPage /></ProtectedRoute>} />
                       </Routes>
                     </main>
