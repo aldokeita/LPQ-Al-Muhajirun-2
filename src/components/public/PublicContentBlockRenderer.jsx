@@ -121,22 +121,23 @@ const renderBlockBody = (block) => {
   }
 };
 
-const PublicContentBlockRenderer = ({ pageKey, className = '' }) => {
+const PublicContentBlockRenderer = ({ pageKey, pageKeys = [], className = '' }) => {
+  const pageKeySignature = Array.from(new Set([...(Array.isArray(pageKeys) ? pageKeys : []), pageKey].filter(Boolean))).join('|');
   const [blocks, setBlocks] = useState([]);
 
   useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured) return () => { active = false; };
-    fetchPublicContentBlocks(pageKey)
+    Promise.all(pageKeySignature.split('|').filter(Boolean).map((key) => fetchPublicContentBlocks(key)))
       .then((data) => {
-        if (active) setBlocks(data);
+        if (active) setBlocks(data.flat());
       })
       .catch(() => {
         // Modular content is additive. A missing migration or unavailable block must not break the legacy page.
         if (active) setBlocks([]);
       });
     return () => { active = false; };
-  }, [pageKey]);
+  }, [pageKeySignature]);
 
   if (blocks.length === 0) return null;
 

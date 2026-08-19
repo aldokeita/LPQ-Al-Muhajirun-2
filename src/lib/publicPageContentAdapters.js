@@ -67,6 +67,78 @@ export const PUBLIC_PAGE_GROUPS = [
     pages: ['tv-display'],
   },
 ];
+export const PUBLIC_PAGE_BLOCK_TEMPLATES = {
+  home: [
+    { block_key: 'welcome-message', title: 'Pesan sambutan', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'featured-programs', title: 'Program unggulan', block_type: 'cards', content: { items: [] } },
+    { block_key: 'home-cta', title: 'Ajakan utama', block_type: 'link', content: { label: '', url: '', target: '_self' } },
+  ],
+  registration: [
+    { block_key: 'registration-note', title: 'Catatan pendaftaran', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'registration-link', title: 'Tautan pendaftaran', block_type: 'link', content: { label: '', url: '', target: '_self' } },
+  ],
+  'registration-brochure': [
+    { block_key: 'brochure-intro', title: 'Pengantar brosur', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'registration-system': [
+    { block_key: 'registration-system-note', title: 'Penjelasan alur pendaftaran', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'learning-system': [
+    { block_key: 'learning-system-intro', title: 'Pengantar sistem mengaji', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'learning-system-media', title: 'Media sistem mengaji', block_type: 'embed', content: { url: '', title: '' } },
+  ],
+  'educational-media': [
+    { block_key: 'educational-media-intro', title: 'Pengantar media edukatif', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'educational-media-links', title: 'Tautan media edukatif', block_type: 'cards', content: { items: [] } },
+  ],
+  parenting: [
+    { block_key: 'parenting-intro', title: 'Pengantar parenting', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'parenting-resource', title: 'Sumber parenting', block_type: 'cards', content: { items: [] } },
+  ],
+  'parenting-media': [
+    { block_key: 'parenting-media-intro', title: 'Pengantar media parenting', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'parenting-article': [
+    { block_key: 'parenting-article-note', title: 'Catatan detail artikel', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'wali-discussion': [
+    { block_key: 'wali-discussion-note', title: 'Informasi diskusi wali', block_type: 'rich_text', content: { body: '' } },
+  ],
+  profile: [
+    { block_key: 'profile-intro', title: 'Pengantar profil', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'profile-values', title: 'Nilai lembaga', block_type: 'cards', content: { items: [] } },
+  ],
+  facilities: [
+    { block_key: 'facilities-intro', title: 'Pengantar fasilitas', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'facilities-highlight', title: 'Fasilitas pilihan', block_type: 'image', content: { url: '', alt: '', caption: '' } },
+  ],
+  gallery: [
+    { block_key: 'gallery-intro', title: 'Pengantar galeri', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'gallery-feature', title: 'Cerita kegiatan', block_type: 'cards', content: { items: [] } },
+  ],
+  contact: [
+    { block_key: 'contact-note', title: 'Catatan layanan', block_type: 'rich_text', content: { body: '' } },
+    { block_key: 'contact-map', title: 'Peta lokasi', block_type: 'embed', content: { url: '', title: '' } },
+  ],
+  apresiasi: [
+    { block_key: 'appreciation-note', title: 'Pengantar apresiasi', block_type: 'rich_text', content: { body: '' } },
+  ],
+  news: [
+    { block_key: 'news-intro', title: 'Pengantar berita', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'news-detail': [
+    { block_key: 'news-detail-note', title: 'Catatan detail berita', block_type: 'rich_text', content: { body: '' } },
+  ],
+  announcements: [
+    { block_key: 'announcement-intro', title: 'Pengantar pengumuman', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'announcement-detail': [
+    { block_key: 'announcement-detail-note', title: 'Catatan detail pengumuman', block_type: 'rich_text', content: { body: '' } },
+  ],
+  'tv-display': [
+    { block_key: 'tv-display-note', title: 'Informasi layar display', block_type: 'rich_text', content: { body: '' } },
+  ],
+};
 export const PUBLIC_BLOCK_TYPES = [
   { value: 'rich_text', label: 'Teks' },
   { value: 'image', label: 'Gambar' },

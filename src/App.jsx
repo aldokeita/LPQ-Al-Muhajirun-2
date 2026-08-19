@@ -103,10 +103,10 @@ const DeferredFeaturePage = () => (
   </div>
 );
 
-const PublicPageWithBlocks = ({ pageKey, children }) => (
+const PublicPageWithBlocks = ({ pageKey, pageKeys, children }) => (
   <>
     {children}
-    <PublicContentBlockRenderer pageKey={pageKey} />
+    <PublicContentBlockRenderer pageKey={pageKey} pageKeys={pageKeys} />
   </>
 );
 const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
@@ -145,7 +145,7 @@ function App() {
             <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
               <Routes>
                 <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
-                <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><TvDisplayPage /></ProtectedRoute>} />
+                <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><PublicPageWithBlocks pageKey="tv-display"><TvDisplayPage /></PublicPageWithBlocks></ProtectedRoute>} />
                 {enableGameFeatures ? (
                   <>
                     <Route path="/quiz-hafalan" element={<ProtectedRoute><QuizHafalanPage /></ProtectedRoute>} />
@@ -169,7 +169,7 @@ function App() {
                     <Navbar />
                     <main className="flex-grow">
                       <Routes>
-                        <Route path="/" element={<PublicPageWithBlocks pageKey="home"><HomePage /></PublicPageWithBlocks>} />
+                        <Route path="/" element={<PublicPageWithBlocks pageKeys={['home', 'apresiasi']}><HomePage /></PublicPageWithBlocks>} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/profil" element={<PublicPageWithBlocks pageKey="profile"><ProfilePage /></PublicPageWithBlocks>} />
                         <Route path="/profil/galeri" element={<PublicPageWithBlocks pageKey="gallery"><GalleryPage /></PublicPageWithBlocks>} />
@@ -178,7 +178,7 @@ function App() {
                         <Route path="/pendaftaran/sistem" element={<PublicPageWithBlocks pageKey="registration-system"><SystemPage /></PublicPageWithBlocks>} />
                         <Route path="/parenting" element={<PublicPageWithBlocks pageKey="parenting"><ParentingPage /></PublicPageWithBlocks>} />
                         <Route path="/parenting/:articleId" element={<PublicPageWithBlocks pageKey="parenting-article"><ParentingArticlePage /></PublicPageWithBlocks>} />
-                        <Route path="/parenting/media-edukatif" element={<PublicPageWithBlocks pageKey="parenting-media"><EduMediaPage /></PublicPageWithBlocks>} />
+                        <Route path="/parenting/media-edukatif" element={<PublicPageWithBlocks pageKeys={['educational-media', 'parenting-media']}><EduMediaPage /></PublicPageWithBlocks>} />
                         <Route path="/parenting/diskusi-wali" element={<PublicPageWithBlocks pageKey="wali-discussion"><WaliDiscussionPage /></PublicPageWithBlocks>} />
                         {enableDeferredFeatures ? (
                           <>

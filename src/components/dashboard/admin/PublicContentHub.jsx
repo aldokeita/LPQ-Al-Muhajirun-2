@@ -14,8 +14,11 @@ import {
   PUBLIC_BLOCK_TYPES,
   PUBLIC_PAGE_DEFINITIONS,
   PUBLIC_PAGE_GROUPS,
+  PUBLIC_PAGE_BLOCK_TEMPLATES,
   savePublicContentBlock,
 } from '@/lib/publicPageContentAdapters';
+
+import PublicBlockContentEditor from '@/components/dashboard/admin/PublicBlockContentEditor';
 
 const GROUP_ICONS = {
   home: Home,
@@ -25,6 +28,22 @@ const GROUP_ICONS = {
   institution: Building2,
   publication: Newspaper,
   display: MonitorPlay,
+};
+const getDefaultBlockContent = (blockType) => {
+  if (blockType === 'image') return { url: '', alt: '', caption: '' };
+  if (blockType === 'link') return { label: '', url: '', target: '_self' };
+  if (blockType === 'embed') return { url: '', title: '' };
+  if (blockType === 'cards') return { items: [] };
+  return { body: '' };
+};
+
+const parseBlockContent = (value) => {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
 };
 const blankBlock = (pageKey) => ({
   page_key: pageKey,
@@ -62,13 +81,14 @@ const getBlockPreview = (block) => {
   return 'Blok siap diisi';
 };
 
-const PublicBlockManager = ({ pageKey, pageLabel }) => {
+const PublicBlockManager = ({ pageKey, pageLabel, templates = [] }) => {
   const [blocks, setBlocks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [form, setForm] = useState(() => blankBlock(pageKey));
   const [isSaving, setIsSaving] = useState(false);
+  const formContent = useMemo(() => parseBlockContent(form.contentJson), [form.contentJson]);
 
   const loadBlocks = useCallback(async () => {
     setIsLoading(true);
@@ -92,11 +112,28 @@ const PublicBlockManager = ({ pageKey, pageLabel }) => {
     setIsEditorOpen(true);
   };
 
+  const openTemplate = (template) => {
+    setForm({
+      ...blankBlock(pageKey),
+      block_key: template.block_key,
+      block_type: template.block_type,
+      title: template.title,
+      contentJson: JSON.stringify(template.content || getDefaultBlockContent(template.block_type), null, 2),
+    });
+    setIsEditorOpen(true);
+  };
   const openEdit = (block) => {
     setForm(blockToForm(block));
     setIsEditorOpen(true);
   };
 
+  const handleTypeChange = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      block_type: value,
+      contentJson: prev.id ? prev.contentJson : JSON.stringify(getDefaultBlockContent(value), null, 2),
+    }));
+  };
   const handleSave = async () => {
     let content;
     try {
@@ -156,6 +193,24 @@ const PublicBlockManager = ({ pageKey, pageLabel }) => {
         </div>
       </div>
 
+      {templates.length > 0 && !isLoading ? (
+        <div className="mt-4 rounded-xl border border-cyan-200/60 bg-cyan-50/45 p-4 dark:border-cyan-300/10 dark:bg-cyan-950/15">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Struktur halaman siap pakai</p>
+              <p className="text-xs text-muted-foreground">Pilih struktur yang sesuai, lalu isi datanya. Tidak ada konten lama yang akan diubah.</p>
+            </div>
+            <span className="text-[11px] font-medium text-muted-foreground">{templates.length} struktur</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {templates.map((template) => (
+              <Button key={template.block_key} type="button" variant="outline" size="sm" onClick={() => openTemplate(template)}>
+                {template.title}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {error ? (
         <div className="mt-4 rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/20 dark:text-amber-100" role="alert">
           <p className="font-semibold">Blok modular belum dapat dimuat</p>
@@ -216,7 +271,7 @@ const PublicBlockManager = ({ pageKey, pageLabel }) => {
             <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Jenis blok</label>
-                <Select value={form.block_type} onValueChange={(value) => setForm((prev) => ({ ...prev, block_type: value }))}>
+                <Select value={form.block_type} onValueChange={handleTypeChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{PUBLIC_BLOCK_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent>
                 </Select>
@@ -230,12 +285,20 @@ const PublicBlockManager = ({ pageKey, pageLabel }) => {
               <div><p className="text-sm font-medium">Tampilkan ke publik</p><p className="text-xs text-muted-foreground">Nonaktifkan sementara tanpa menghapus blok.</p></div>
               <Switch checked={form.is_visible} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, is_visible: checked }))} aria-label="Tampilkan blok ke publik" />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor={`block-content-${pageKey}`}>Isi JSON</label>
-              <Textarea id={`block-content-${pageKey}`} rows={10} value={form.contentJson} onChange={(event) => setForm((prev) => ({ ...prev, contentJson: event.target.value }))} className="font-mono text-xs" />
-              <p className="text-xs text-muted-foreground">Contoh teks: <code>{'{ "body": "Isi konten" }'}</code>. Untuk media dapat memakai <code>url</code>, <code>alt</code>, atau <code>items</code>.</p>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <PublicBlockContentEditor
+                blockType={form.block_type}
+                content={formContent}
+                onChange={(nextContent) => setForm((prev) => ({ ...prev, contentJson: JSON.stringify(nextContent, null, 2) }))}
+              />
             </div>
-          </div>
+            <details className="rounded-xl border bg-background/60 p-3">
+              <summary className="cursor-pointer text-sm font-medium">Isi JSON lanjutan</summary>
+              <div className="mt-3 space-y-2">
+                <Textarea id={'block-content-' + pageKey} rows={8} value={form.contentJson} onChange={(event) => setForm((prev) => ({ ...prev, contentJson: event.target.value }))} className="font-mono text-xs" />
+                <p className="text-xs text-muted-foreground">Gunakan bagian ini hanya untuk field tambahan yang belum tersedia di editor visual.</p>
+              </div>
+            </details>          </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)}>Batal</Button>
             <Button type="button" onClick={handleSave} disabled={isSaving}><Save className="mr-2 h-4 w-4" />{isSaving ? 'Menyimpan…' : 'Simpan blok'}</Button>
@@ -328,7 +391,7 @@ const PublicContentHub = ({ sections = {} }) => {
             Editor halaman {activeDefinition.label} siap ditambahkan melalui blok modular.
           </div>
         )}
-        <PublicBlockManager pageKey={activePage} pageLabel={activeDefinition.label} />
+        <PublicBlockManager pageKey={activePage} pageLabel={activeDefinition.label} templates={PUBLIC_PAGE_BLOCK_TEMPLATES[activePage] || []} />
       </div>
     </section>
   );
