@@ -17,7 +17,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchWebsiteContentMap, submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
-import { normalizePhoneForLink, normalizePublicContactConfig } from '@/lib/publicPageContentAdapters';
+import { normalizePhoneForLink, normalizePublicContactConfig } from '@/lib/publicContentAdapters';
 import '@/styles/public-contact.css';
 
 /* ---------- Animation Variants ---------- */

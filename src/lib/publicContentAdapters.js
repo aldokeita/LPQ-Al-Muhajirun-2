@@ -68,6 +68,17 @@ export const normalizeWebsiteContentValue = (value) => {
   return value;
 };
 
+export const normalizePublicContactConfig = (value) => (
+  value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+);
+
+export const normalizePhoneForLink = (value) => {
+  const digits = String(value || '').replace(/[^0-9+]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) return '62' + digits.slice(1);
+  return digits.startsWith('+') ? digits.slice(1) : digits;
+};
+
 export const assertNonEmptyWebsiteContentString = (key, value) => {
   const normalized = typeof value === 'string' ? value.trim() : '';
   if (!normalized) throw new Error(`${key} tidak boleh kosong.`);

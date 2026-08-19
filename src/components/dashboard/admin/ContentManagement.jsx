@@ -14,8 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
-import PublicContentHub from '@/components/dashboard/admin/PublicContentHub';
-import { normalizePublicContactConfig } from '@/lib/publicPageContentAdapters';
+import PublicPageContentTabs from '@/components/dashboard/admin/PublicPageContentTabs';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
@@ -32,7 +31,8 @@ import {
   saveNews,
   saveWebsiteContentItem,
   saveWebsiteContentItems,
-  slugify
+  slugify,
+  normalizePublicContactConfig
 } from '@/lib/publicContentAdapters';
 
 const TPQ_LEVELS = [1, 2, 3, 4, 5, 6].map(String);
@@ -611,7 +611,7 @@ const ContentManagement = () => {
         </div>
 
         <TabsContent value="public" className="animate-in fade-in slide-in-from-bottom-2">
-          <PublicContentHub
+          <PublicPageContentTabs
             sections={{
               home: (
                 <div className="space-y-6">            <div className="grid gap-4 lg:grid-cols-2">
@@ -922,7 +922,7 @@ const ContentManagement = () => {
               ),              'tv-display': (
                 <div className="space-y-6">              <div className="admin-card p-5">
                 <h3 className="font-bold text-xl">TV Display</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Pengaturan TV Display yang sudah ada tetap berada pada menu pengaturan TV. Blok informasi tambahan dapat dikelola di sini.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Pengaturan TV Display yang sudah ada tetap berada pada menu pengaturan TV agar jadwal dan layar tetap sinkron.</p>
               </div>                </div>
               ),
             }}
