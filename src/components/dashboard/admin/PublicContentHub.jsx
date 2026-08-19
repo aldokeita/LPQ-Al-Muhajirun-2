@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Blocks, Eye, EyeOff, FilePlus2, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Blocks, BookOpen, Building2, ClipboardList, Eye, EyeOff, FilePlus2, Home, MonitorPlay, Newspaper, Pencil, RefreshCw, Save, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,19 @@ import {
   getPublicContentErrorMessage,
   PUBLIC_BLOCK_TYPES,
   PUBLIC_PAGE_DEFINITIONS,
+  PUBLIC_PAGE_GROUPS,
   savePublicContentBlock,
 } from '@/lib/publicPageContentAdapters';
 
+const GROUP_ICONS = {
+  home: Home,
+  registration: ClipboardList,
+  learning: BookOpen,
+  parenting: Users,
+  institution: Building2,
+  publication: Newspaper,
+  display: MonitorPlay,
+};
 const blankBlock = (pageKey) => ({
   page_key: pageKey,
   block_key: '',
@@ -238,7 +248,18 @@ const PublicBlockManager = ({ pageKey, pageLabel }) => {
 
 const PublicContentHub = ({ sections = {} }) => {
   const [activePage, setActivePage] = useState('home');
-  const activeDefinition = useMemo(() => PUBLIC_PAGE_DEFINITIONS.find((page) => page.key === activePage) || PUBLIC_PAGE_DEFINITIONS[0], [activePage]);
+  const activeGroup = useMemo(
+    () => PUBLIC_PAGE_GROUPS.find((group) => group.pages.includes(activePage)) || PUBLIC_PAGE_GROUPS[0],
+    [activePage],
+  );
+  const activeGroupPages = useMemo(
+    () => activeGroup.pages.map((pageKey) => PUBLIC_PAGE_DEFINITIONS.find((page) => page.key === pageKey)).filter(Boolean),
+    [activeGroup],
+  );
+  const activeDefinition = useMemo(
+    () => PUBLIC_PAGE_DEFINITIONS.find((page) => page.key === activePage) || PUBLIC_PAGE_DEFINITIONS[0],
+    [activePage],
+  );
 
   return (
     <section className="space-y-5" aria-labelledby="public-content-hub-title">
@@ -252,21 +273,53 @@ const PublicContentHub = ({ sections = {} }) => {
         </div>
       </div>
 
-      <div role="tablist" aria-label="Halaman publik" className="flex gap-2 overflow-x-auto pb-1">
-        {PUBLIC_PAGE_DEFINITIONS.map((page) => (
-          <button
-            key={page.key}
-            type="button"
-            role="tab"
-            aria-selected={activePage === page.key}
-            aria-controls={`public-panel-${page.key}`}
-            onClick={() => setActivePage(page.key)}
-            className={`min-w-max rounded-xl border px-3 py-2 text-left text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${activePage === page.key ? 'border-cyan-400/70 bg-cyan-50 text-cyan-900 shadow-sm dark:border-cyan-300/30 dark:bg-cyan-950/35 dark:text-cyan-100' : 'border-border bg-background/70 text-muted-foreground hover:border-cyan-300/60 hover:text-foreground'}`}
-          >
-            <span className="block font-semibold">{page.label}</span>
-            <span className="mt-0.5 block max-w-[11rem] truncate text-[11px] opacity-75">{page.description}</span>
-          </button>
-        ))}
+      <div className="rounded-2xl border border-border/70 bg-muted/25 p-2 shadow-sm dark:bg-white/[0.03] sm:p-3">
+        <div role="tablist" aria-label="Kelompok halaman publik" className="flex flex-wrap gap-2">
+          {PUBLIC_PAGE_GROUPS.map((group) => {
+            const Icon = GROUP_ICONS[group.key] || Blocks;
+            const isActive = activeGroup.key === group.key;
+
+            return (
+              <button
+                key={group.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={'public-subnav-' + group.key}
+                onClick={() => setActivePage(group.pages[0])}
+                className={'inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ' + (isActive ? 'border-cyan-400/70 bg-cyan-600 text-white shadow-md shadow-cyan-900/15 dark:border-cyan-300/40 dark:bg-cyan-500/20 dark:text-cyan-100' : 'border-border/80 bg-background/75 text-muted-foreground hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-cyan-50/70 hover:text-foreground dark:bg-background/35 dark:hover:bg-cyan-950/30')}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{group.label}</span>
+                <span className={'rounded-full px-1.5 py-0.5 text-[10px] leading-none ' + (isActive ? 'bg-white/20 text-white dark:bg-cyan-100/15 dark:text-cyan-100' : 'bg-muted text-muted-foreground')}>
+                  {group.pages.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div id={'public-subnav-' + activeGroup.key} className="mt-3 border-t border-border/60 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{activeGroup.description}</p>
+            <span className="text-[11px] font-medium text-muted-foreground">{activeGroupPages.length} halaman dalam kelompok ini</span>
+          </div>
+          <div role="tablist" aria-label={'Halaman ' + activeGroup.label} className="mt-2 flex flex-wrap gap-2">
+            {activeGroupPages.map((page) => (
+              <button
+                key={page.key}
+                type="button"
+                role="tab"
+                aria-selected={activePage === page.key}
+                aria-controls={'public-panel-' + page.key}
+                onClick={() => setActivePage(page.key)}
+                className={'min-h-9 rounded-full border px-3 py-1.5 text-left text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ' + (activePage === page.key ? 'border-foreground bg-foreground text-background shadow-sm dark:border-cyan-200/40 dark:bg-cyan-100 dark:text-slate-950' : 'border-border/70 bg-background/65 text-muted-foreground hover:border-cyan-300/70 hover:text-foreground dark:bg-background/25')}
+              >
+                {page.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div id={`public-panel-${activePage}`} role="tabpanel" tabIndex={0} className="space-y-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">

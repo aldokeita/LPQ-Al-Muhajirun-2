@@ -23,6 +23,50 @@ export const PUBLIC_PAGE_DEFINITIONS = [
   { key: 'announcement-detail', label: 'Detail Pengumuman', description: 'Blok tambahan untuk detail pengumuman.' },
   { key: 'tv-display', label: 'TV Display', description: 'Blok informasi untuk layar display.' },
 ];
+export const PUBLIC_PAGE_GROUPS = [
+  {
+    key: 'home',
+    label: 'Beranda',
+    description: 'Identitas, hero, apresiasi, dan ajakan utama.',
+    pages: ['home', 'apresiasi'],
+  },
+  {
+    key: 'registration',
+    label: 'Pendaftaran',
+    description: 'Biaya, syarat, brosur, dan alur pendaftaran.',
+    pages: ['registration', 'registration-brochure', 'registration-system'],
+  },
+  {
+    key: 'learning',
+    label: 'Pembelajaran',
+    description: 'Sistem mengaji dan media pembelajaran.',
+    pages: ['learning-system', 'educational-media'],
+  },
+  {
+    key: 'parenting',
+    label: 'Parenting',
+    description: 'Artikel, media, dan ruang diskusi wali santri.',
+    pages: ['parenting', 'parenting-media', 'parenting-article', 'wali-discussion'],
+  },
+  {
+    key: 'institution',
+    label: 'Profil & Kontak',
+    description: 'Profil lembaga, fasilitas, galeri, dan kontak.',
+    pages: ['profile', 'facilities', 'gallery', 'contact'],
+  },
+  {
+    key: 'publication',
+    label: 'Publikasi',
+    description: 'Berita dan pengumuman beserta halaman detailnya.',
+    pages: ['news', 'news-detail', 'announcements', 'announcement-detail'],
+  },
+  {
+    key: 'display',
+    label: 'TV Display',
+    description: 'Konten tambahan untuk layar display.',
+    pages: ['tv-display'],
+  },
+];
 export const PUBLIC_BLOCK_TYPES = [
   { value: 'rich_text', label: 'Teks' },
   { value: 'image', label: 'Gambar' },
