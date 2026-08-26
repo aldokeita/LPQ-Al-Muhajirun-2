@@ -203,6 +203,15 @@ export const normalizeClassAttendancePrintConfig = (value) => {
   };
 };
 
+export const getClassAttendanceMonthHeaderLabel = (config, monthLabel) => {
+  const configuredLabel = String(config?.content?.monthColumn || '').trim();
+  const defaultLabel = String(DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG.content.monthColumn || '').trim();
+
+  return configuredLabel && configuredLabel !== defaultLabel
+    ? configuredLabel
+    : monthLabel;
+};
+
 export const getClassAttendanceHeaderFontStack = (fontKey) => (
   CLASS_ATTENDANCE_HEADER_FONTS[fontKey]?.stack || CLASS_ATTENDANCE_HEADER_FONTS.serif.stack
 );

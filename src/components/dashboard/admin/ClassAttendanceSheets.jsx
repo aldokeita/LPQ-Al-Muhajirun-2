@@ -24,6 +24,7 @@ import { fetchClassAttendanceSource } from '@/lib/classAttendanceAdapters';
 import { fetchClassAttendanceAppearance } from '@/lib/classAttendancePrintAdapters';
 import {
   getClassAttendanceHeaderFontStack,
+  getClassAttendanceMonthHeaderLabel,
   normalizeClassAttendancePrintConfig,
 } from '@/lib/classAttendancePrintConfig';
 import {
@@ -111,6 +112,7 @@ export const AttendancePaperPreview = ({
 }) => {
   const [firstPage] = createClassAttendancePages(classItem.roster);
   const config = normalizeClassAttendancePrintConfig(appearance?.config);
+  const effectiveMonthLabel = getClassAttendanceMonthHeaderLabel(config, monthLabel);
   const { branding, content, typography, columnWidths } = config;
   const sessionKey = String(classItem.sesi || '').trim();
   const sessionHeaderBg = branding.sessionHeaderColors?.[sessionKey] || branding.tableHeaderBackground;
@@ -186,7 +188,7 @@ export const AttendancePaperPreview = ({
               <th rowSpan="2" className="name-column"><MultilineText value={content.nameColumn} /></th>
               <th rowSpan="2"><MultilineText value={content.levelColumn} /></th>
               <th rowSpan="2" className="phone-column"><MultilineText value={content.phoneColumn} /></th>
-              <th colSpan="23">{monthLabel}</th>
+              <th colSpan="23">{effectiveMonthLabel}</th>
               <th rowSpan="2" className="progress-column"><MultilineText value={content.progressColumn} /></th>
               <th rowSpan="2" className="percentage-column"><MultilineText value={content.percentageColumn} /></th>
             </tr>

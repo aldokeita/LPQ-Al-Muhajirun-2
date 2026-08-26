@@ -6,6 +6,7 @@ import {
 } from '../src/lib/classAttendanceSheet.js';
 import {
   DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG,
+  getClassAttendanceMonthHeaderLabel,
   normalizeClassAttendancePrintConfig,
 } from '../src/lib/classAttendancePrintConfig.js';
 
@@ -46,7 +47,7 @@ const html = buildClassAttendanceHtml({
 });
 assert.match(html, /@page \{ size: A4 landscape;/);
 assert.match(html, /colspan="21"/);
-assert.match(html, /Nabila/);
+assert.match(html, /Nabila/i);
 assert.doesNotMatch(html, /Ustadzah Nabila/);
 assert.doesNotMatch(html, /Halaman 1\/1/);
 assert.doesNotMatch(html, /https?:\/\//);
@@ -60,4 +61,28 @@ assert.equal(normalized.content.address, DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG.c
 assert.equal(normalized.typography.titleSize, 30);
 assert.equal(normalized.branding.accentColor, DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG.branding.accentColor);
 
+const configuredMonth = normalizeClassAttendancePrintConfig({
+  content: { monthColumn: 'September' },
+});
+assert.equal(getClassAttendanceMonthHeaderLabel(configuredMonth, 'Agustus 2026'), 'September');
+assert.equal(
+  getClassAttendanceMonthHeaderLabel(normalizeClassAttendancePrintConfig(), 'Agustus 2026'),
+  'Agustus 2026',
+);
+
+const configuredMonthHtml = buildClassAttendanceHtml({
+  classData: {
+    nama_kelas: 'Kelas Utama',
+    sesi: 'Pagi',
+    guru: { nama: 'Ustadzah Nabila' },
+    roster,
+  },
+  dateSlots: getClassAttendanceDateSlots({ year: 2026, monthIndex: 7 }),
+  generatedAt: new Date('2026-08-01T08:00:00+07:00'),
+  monthIndex: 7,
+  printConfig: { content: { monthColumn: 'September' } },
+  year: 2026,
+});
+assert.match(configuredMonthHtml, /September/);
+assert.doesNotMatch(configuredMonthHtml, /Agustus 2026/);
 console.log('Class attendance sheet tests passed.');

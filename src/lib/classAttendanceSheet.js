@@ -1,5 +1,6 @@
 import {
   getClassAttendanceHeaderFontStack,
+  getClassAttendanceMonthHeaderLabel,
   normalizeClassAttendancePrintConfig,
 } from './classAttendancePrintConfig.js';
 
@@ -231,7 +232,10 @@ export const buildClassAttendanceHtml = ({
   year,
 }) => {
   const config = normalizeClassAttendancePrintConfig(printConfig);
-  const monthLabel = getClassAttendanceMonthLabel(monthIndex, year);
+  const monthLabel = getClassAttendanceMonthHeaderLabel(
+    config,
+    getClassAttendanceMonthLabel(monthIndex, year),
+  );
   const generatedAtLabel = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'medium',
     timeStyle: 'short',
