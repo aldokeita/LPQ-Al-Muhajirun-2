@@ -24,6 +24,7 @@ import CmsLogo from '@/components/public/CmsLogo';
 // Absensi berubah sepanjang sesi mengaji, daftar santri dan kelas tidak.
 const ATTENDANCE_REFRESH_MS = 30 * 1000;
 const MASTER_REFRESH_MS = 30 * 60 * 1000;
+const MASTER_REALTIME_DEBOUNCE_MS = 3 * 1000;
 
 const registrationSessionTimes = {
   'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
@@ -404,13 +405,36 @@ const TvDisplayPage = () => {
             }
         };
 
+        // Perubahan data master jarang terjadi, jadi notifikasi apa pun cukup memicu
+        // penarikan ulang alih-alih menerapkan delta satu per satu. Debounce menyatukan
+        // perubahan beruntun, misalnya saat admin menyimpan banyak santri sekaligus.
+        let masterRefreshTimer = null;
+        const scheduleMasterRefresh = () => {
+            if (masterRefreshTimer) return;
+            masterRefreshTimer = setTimeout(() => {
+                masterRefreshTimer = null;
+                fetchMasterData();
+            }, MASTER_REALTIME_DEBOUNCE_MS);
+        };
+
+        const masterChannel = supabase
+            .channel('tv-display-master-data')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'santri' }, scheduleMasterRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'classes' }, scheduleMasterRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, scheduleMasterRefresh)
+            .subscribe();
+
         fetchMasterData();
         fetchAttendance();
+        // Interval dipertahankan sebagai jaring pengaman: koneksi realtime bisa putus
+        // tanpa pemberitahuan, dan layar ini berjalan tanpa ada yang menunggui.
         const masterInterval = setInterval(fetchMasterData, MASTER_REFRESH_MS);
         const attendanceInterval = setInterval(fetchAttendance, ATTENDANCE_REFRESH_MS);
         return () => {
             clearInterval(masterInterval);
             clearInterval(attendanceInterval);
+            if (masterRefreshTimer) clearTimeout(masterRefreshTimer);
+            supabase.removeChannel(masterChannel);
         };
     }, []);
 
