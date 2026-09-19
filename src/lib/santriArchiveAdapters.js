@@ -1,7 +1,4 @@
-// Pembacaan arsip sudah berpindah ke endpoint Worker. Penulisannya masih memanggil
-// Edge Function manage-user, yang belum dipindahkan; itu pekerjaan tersendiri.
-import { supabase } from '@/lib/customSupabaseClient';
-import { query } from '@/lib/dataClient';
+import { manageUser, query } from '@/lib/dataClient';
 import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
@@ -76,13 +73,11 @@ export const setSantriArchived = async ({ santriId, archived, reason }) => {
   const fallback = archived
     ? 'Santri gagal dipindahkan ke arsip.'
     : 'Santri gagal dipulihkan dari arsip.';
-  const { data, error } = await supabase.functions.invoke('manage-user', {
-    body: {
-      action,
-      role: 'santri',
-      target_user_id: santriId,
-      reason: reason || undefined,
-    },
+  const { data, error } = await manageUser({
+    action,
+    role: 'santri',
+    target_user_id: santriId,
+    reason: reason || undefined,
   });
 
   if (error) throw new Error(await getFunctionErrorMessage(error, fallback));
@@ -98,12 +93,10 @@ export const archiveSantriAccounts = async (santriIds, reason) => {
 
 export const deleteSantriPermanent = async (santriId) => {
   const fallback = 'Penghapusan permanen santri gagal.';
-  const { data, error } = await supabase.functions.invoke('manage-user', {
-    body: {
-      action: 'delete',
-      role: 'santri',
-      target_user_id: santriId,
-    },
+  const { data, error } = await manageUser({
+    action: 'delete',
+    role: 'santri',
+    target_user_id: santriId,
   });
 
   if (error) throw new Error(await getFunctionErrorMessage(error, fallback));

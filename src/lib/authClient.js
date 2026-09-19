@@ -34,11 +34,21 @@ const request = async (path, { method = 'GET', body = null } = {}) => {
   return payload;
 };
 
+// Jenis perangkat hanya diketahui di sisi klien dan ikut dikirim agar tercatat di
+// login_logs, menggantikan panggilan terpisah ke Edge Function record-login-attempt.
+const deviceHint = () => {
+  if (typeof navigator === 'undefined') return null;
+  return /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
+};
+
 export const loginSantri = ({ identifier, nomorInduk }) =>
-  request('/api/auth/login/santri', { method: 'POST', body: { identifier, nomor_induk: nomorInduk } });
+  request('/api/auth/login/santri', {
+    method: 'POST',
+    body: { identifier, nomor_induk: nomorInduk, device: deviceHint() },
+  });
 
 export const loginStaff = ({ email, password }) =>
-  request('/api/auth/login/staff', { method: 'POST', body: { email, password } });
+  request('/api/auth/login/staff', { method: 'POST', body: { email, password, device: deviceHint() } });
 
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
 

@@ -1,41 +1,13 @@
-import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/customSupabaseClient';
+// Pencatatan percobaan login.
+//
+// Dulu modul ini memanggil Edge Function record-login-attempt tersendiri. Sekarang
+// endpoint login Worker sudah mencatat setiap percobaan — berhasil maupun gagal —
+// lengkap dengan IP, user agent, dan jenis perangkat yang dikirim bersama permintaan
+// login. Memanggil endpoint kedua hanya akan menghasilkan catatan ganda.
+//
+// Fungsi ini dipertahankan agar LoginPage tidak perlu diubah, dan tetap memulangkan
+// true seperti sebelumnya. Jenis perangkat dikirim lewat authClient saat login.
 
 export const LOGIN_SECURITY_CONSENT_KEY = 'lpq_login_security_notice_v1';
 
-const parseSafeResponse = async (response) => {
-  const text = await response.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text.slice(0, 300) };
-  }
-};
-export const recordLoginAttempt = async ({ username, status, device }) => {
-  if (!supabaseUrl || !supabaseAnonKey || !username) return false;
-
-  const headers = {
-    apikey: supabaseAnonKey,
-    'Content-Type': 'application/json',
-  };
-  if (status === 'success') {
-    const { data } = await supabase.auth.getSession();
-    if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
-  }
-
-  try {
-    const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/record-login-attempt`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        username_attempt: String(username).trim().slice(0, 160),
-        status,
-        device,
-      }),
-    });
-    const body = await parseSafeResponse(response);
-    return response.ok && body?.ok !== false;
-  } catch {
-    return false;
-  }
-};
+export const recordLoginAttempt = async () => true;

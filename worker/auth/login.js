@@ -76,10 +76,13 @@ export const consumeRateLimit = async (db, { purpose, ipHash, aliasHash }, optio
   return { allowed: blockedUntil === null, blockedUntil, attempts };
 };
 
-export const recordLoginAttempt = async (db, { userId = null, role = null, usernameAttempt = null, status, request = null }) => {
+// Jenis perangkat hanya diketahui sisi klien, jadi dikirim bersama permintaan login
+// alih-alih lewat endpoint tersendiri. Endpoint terpisah tanpa autentikasi akan menjadi
+// jalan mudah membanjiri tabel log.
+export const recordLoginAttempt = async (db, { userId = null, role = null, usernameAttempt = null, status, device = null, request = null }) => {
   await db
-    .prepare(`insert into "login_logs" ("id", "user_id", "role", "username_attempt", "status", "ip_address", "country", "user_agent", "created_at")
-              values (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .prepare(`insert into "login_logs" ("id", "user_id", "role", "username_attempt", "status", "ip_address", "country", "device", "user_agent", "created_at")
+              values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
       crypto.randomUUID(),
       userId,
@@ -88,6 +91,7 @@ export const recordLoginAttempt = async (db, { userId = null, role = null, usern
       status,
       request?.headers.get('cf-connecting-ip') ?? null,
       request?.cf?.country ?? null,
+      typeof device === 'string' ? device.slice(0, 120) : null,
       request?.headers.get('user-agent') ?? null,
       nowIso(),
     )

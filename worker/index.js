@@ -10,6 +10,7 @@
 import { handleAuth } from './routes/auth.js';
 import { handleData } from './routes/data.js';
 import { handleRpc } from './routes/rpc.js';
+import { handleManageUser } from './routes/manage-user.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -31,6 +32,11 @@ const handleApi = async (request, env, url) => {
 
   if (url.pathname.startsWith('/api/rpc/')) {
     const response = await handleRpc(request, env, url);
+    if (response) return response;
+  }
+
+  if (url.pathname === '/api/manage-user') {
+    const response = await handleManageUser(request, env, url);
     if (response) return response;
   }
 

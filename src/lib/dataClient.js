@@ -75,3 +75,37 @@ export const remove = (table, id) => request('/api/data/delete', { table, id });
 
 // Nama RPC sama dengan nama function lama, jadi pemanggilan lama bisa dipetakan langsung.
 export const rpc = (name, params = {}) => request(`/api/rpc/${name}`, params);
+
+// Pengelolaan akun memakai amplop { ok, data, error } seperti Edge Function lama,
+// sehingga pemanggil yang sudah memeriksa data.ok tidak perlu diubah.
+export const manageUser = async (body) => {
+  let response;
+  try {
+    response = await fetch('/api/manage-user', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (networkError) {
+    const error = new Error(`Gagal menghubungi server: ${networkError.message}`);
+    error.code = 'network_error';
+    return { data: null, error };
+  }
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok || payload?.ok === false) {
+    const error = new Error(payload?.error?.message ?? 'Operasi akun gagal.');
+    error.code = payload?.error?.code ?? 'manage_user_failed';
+    error.status = response.status;
+    return { data: null, error };
+  }
+
+  return { data: payload, error: null };
+};

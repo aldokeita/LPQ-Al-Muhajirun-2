@@ -45,9 +45,9 @@ const tooManyAttempts = (limit) =>
     { 'retry-after': String(Math.max(1, Math.ceil((Date.parse(limit.blockedUntil) - Date.now()) / 1000))) },
   );
 
-const succeed = async (env, request, { userId, role, usernameAttempt }) => {
+const succeed = async (env, request, { userId, role, usernameAttempt, device = null }) => {
   const { token, expiresAt } = await issueSession(env.SESSION_SECRET, { userId });
-  await recordLoginAttempt(env.DB, { userId, role, usernameAttempt, status: 'success', request });
+  await recordLoginAttempt(env.DB, { userId, role, usernameAttempt, status: 'success', device, request });
   return json(
     { user: { id: userId, role }, expires_at: expiresAt },
     200,
@@ -65,10 +65,12 @@ export const handleAuth = async (request, env, url) => {
 
     const result = await loginSantri(env.DB, { identifier, nomorInduk: body?.nomor_induk ?? body?.password });
     if (!result.ok) {
-      await recordLoginAttempt(env.DB, { usernameAttempt: identifier, status: 'failed', request });
+      await recordLoginAttempt(env.DB, { usernameAttempt: identifier, status: 'failed', device: body?.device, request });
       return json(INVALID_LOGIN, 401);
     }
-    return succeed(env, request, { userId: result.userId, role: result.role, usernameAttempt: identifier });
+    return succeed(env, request, {
+      userId: result.userId, role: result.role, usernameAttempt: identifier, device: body?.device,
+    });
   }
 
   if (url.pathname === '/api/auth/login/staff' && request.method === 'POST') {
@@ -80,10 +82,12 @@ export const handleAuth = async (request, env, url) => {
 
     const result = await loginStaff(env.DB, { email, password: body?.password });
     if (!result.ok) {
-      await recordLoginAttempt(env.DB, { usernameAttempt: email, status: 'failed', request });
+      await recordLoginAttempt(env.DB, { usernameAttempt: email, status: 'failed', device: body?.device, request });
       return json(INVALID_LOGIN, 401);
     }
-    return succeed(env, request, { userId: result.userId, role: result.role, usernameAttempt: email });
+    return succeed(env, request, {
+      userId: result.userId, role: result.role, usernameAttempt: email, device: body?.device,
+    });
   }
 
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
