@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Database, Download, Upload, FileJson, FileSpreadsheet, FileText, AlertTriangle, Loader2, Save, Lock, Eye, EyeOff } from 'lucide-react';
+import { Database, Download, Upload, FileJson, FileSpreadsheet, FileText, AlertTriangle, CheckCircle, Loader2, Save, Lock, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
