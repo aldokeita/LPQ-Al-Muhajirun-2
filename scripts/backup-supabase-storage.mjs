@@ -29,6 +29,21 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const outputDir = path.resolve(getArg('--out', path.join(privateRoot, `backup-${stamp}`)));
 const concurrency = Number(getArg('--concurrency', '4'));
 
+// Kredensial dibaca dari file env di dalam _private_reference (gitignored) supaya
+// tidak perlu menempel di shell history maupun berpindah antar sesi terminal.
+const envFile = path.resolve(getArg('--env-file', path.join(privateRoot, 'backup.env')));
+if (fs.existsSync(envFile)) {
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const split = trimmed.indexOf('=');
+    if (split < 1) continue;
+    const name = trimmed.slice(0, split).trim();
+    if (process.env[name]) continue;
+    process.env[name] = trimmed.slice(split + 1).trim().replace(/^['"]|['"]$/g, '');
+  }
+}
+
 const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 

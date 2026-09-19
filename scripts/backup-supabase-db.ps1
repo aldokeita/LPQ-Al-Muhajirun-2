@@ -10,7 +10,12 @@
 # Jalankan scripts/backup-supabase-storage.mjs untuk file, arahkan ke folder yang sama.
 
 param(
-  [string]$OutputDir = ""
+  [string]$OutputDir = "",
+  [string]$EnvFile = "",
+  # Versi tooling pg_dump ditentukan oleh major_version di config.toml, bukan oleh
+  # versi server. Produksi berjalan di Postgres 17 sementara config lokal memakai 15,
+  # jadi dump dijalankan lewat workdir sementara agar konfigurasi dev tidak terganggu.
+  [int]$MajorVersion = 17
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,9 +23,38 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $privateRoot = Join-Path $root "_private_reference"
 
+# Kredensial dibaca dari file env di dalam _private_reference (gitignored) supaya
+# tidak perlu menempel di shell history maupun berpindah antar sesi terminal.
+if (-not $EnvFile) { $EnvFile = Join-Path $privateRoot "backup.env" }
+if (Test-Path $EnvFile) {
+  foreach ($line in Get-Content $EnvFile) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed -or $trimmed.StartsWith("#")) { continue }
+    $split = $trimmed.IndexOf("=")
+    if ($split -lt 1) { continue }
+    $name = $trimmed.Substring(0, $split).Trim()
+    $value = $trimmed.Substring($split + 1).Trim().Trim('"').Trim("'")
+    Set-Item -Path "env:$name" -Value $value
+  }
+}
+
+# Dua cara memberi kredensial:
+#   1. SUPABASE_DB_URL  - connection string utuh, password sudah di-percent-encode sendiri.
+#   2. SUPABASE_DB_HOST + SUPABASE_DB_PASSWORD - password mentah, skrip yang meng-encode.
+# Cara kedua menghindari kesalahan encoding manual pada password berkarakter spesial.
 $dbUrl = $env:SUPABASE_DB_URL
+if ($env:SUPABASE_DB_PASSWORD) {
+  $dbHost = if ($env:SUPABASE_DB_HOST) { $env:SUPABASE_DB_HOST } else { "db.csvjeetirzdgebeoglqe.supabase.co" }
+  $dbPort = if ($env:SUPABASE_DB_PORT) { $env:SUPABASE_DB_PORT } else { "5432" }
+  $dbUser = if ($env:SUPABASE_DB_USER) { $env:SUPABASE_DB_USER } else { "postgres" }
+  $dbName = if ($env:SUPABASE_DB_NAME) { $env:SUPABASE_DB_NAME } else { "postgres" }
+  $encoded = [uri]::EscapeDataString($env:SUPABASE_DB_PASSWORD)
+  $dbUrl = "postgresql://${dbUser}:${encoded}@${dbHost}:${dbPort}/${dbName}"
+  Write-Host "Connection string dibangun dari SUPABASE_DB_PASSWORD (host: $dbHost, port: $dbPort, user: $dbUser)."
+}
+
 if (-not $dbUrl) {
-  Write-Error "SUPABASE_DB_URL belum diset. Ambil dari Dashboard > Project Settings > Database > Connection string (URI), lalu percent-encode password-nya."
+  Write-Error "Kredensial belum tersedia. Isi $EnvFile dengan SUPABASE_DB_PASSWORD=<password mentah> (disarankan), atau SUPABASE_DB_URL=<connection string lengkap>."
   exit 1
 }
 
@@ -37,8 +71,22 @@ if (-not $resolvedTarget.StartsWith($resolvedParent)) {
   exit 1
 }
 
+# Path harus absolut: --workdir membuat CLI meresolusi path relatif terhadap workdir.
+$OutputDir = $resolvedTarget
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 Write-Host "Backup database -> $OutputDir"
+
+$dumpWorkdir = Join-Path ([System.IO.Path]::GetTempPath()) "lpq-dump-pg$MajorVersion"
+New-Item -ItemType Directory -Force -Path (Join-Path $dumpWorkdir "supabase") | Out-Null
+@"
+project_id = "lpq-dump-pg$MajorVersion"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = $MajorVersion
+"@ | Set-Content (Join-Path $dumpWorkdir "supabase/config.toml") -Encoding utf8
+Write-Host "Tooling pg_dump: Postgres $MajorVersion (workdir sementara)"
 
 # Urutan dump dipisah supaya tiap bagian bisa diulang sendiri kalau gagal di tengah,
 # tanpa perlu menarik ulang seluruh database (egress produksi sedang mahal).
@@ -58,7 +106,7 @@ foreach ($job in $jobs) {
     Write-Host "  lewati $($job.File) (sudah ada)"
   } else {
     Write-Host "  dump $($job.Desc) ..."
-    $dumpArgs = @("db", "dump", "--db-url", $dbUrl, "-f", $target) + $job.Args
+    $dumpArgs = @("db", "dump", "--workdir", $dumpWorkdir, "--db-url", $dbUrl, "-f", $target) + $job.Args
     & supabase @dumpArgs
     if ($LASTEXITCODE -ne 0) {
       Write-Error "Gagal dump $($job.Desc). Perbaiki, lalu jalankan ulang skrip ini dengan -OutputDir `"$OutputDir`" untuk melanjutkan."
@@ -80,8 +128,7 @@ foreach ($job in $jobs) {
 $manifestPath = Join-Path $OutputDir "db-manifest.json"
 [ordered]@{
   created_at = (Get-Date).ToString("o")
-  project_ref = "tzgdnhjbsuokljvsbzke"
-  postgres_version = "17.6"
+  project_ref = "csvjeetirzdgebeoglqe"
   note = "Dump database saja. File Storage dibackup terpisah via backup-supabase-storage.mjs."
   files = $manifest
 } | ConvertTo-Json -Depth 5 | Set-Content -Path $manifestPath -Encoding utf8
