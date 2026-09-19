@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lpq-al-muhajirun",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-19",
+
+  // Worker melayani hasil build Vite sekaligus API di satu domain, jadi tidak ada CORS.
+  // Rute /api/* harus lebih dulu sampai ke Worker, kalau tidak akan tertelan
+  // penanganan SPA yang memulangkan index.html untuk path tak dikenal.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lpq-al-muhajirun",
+      "database_id": "e88de8ce-95d4-4215-b6c5-7dbf324069a7"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
