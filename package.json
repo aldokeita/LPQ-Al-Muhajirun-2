@@ -14,7 +14,8 @@
     "d1:schema": "node scripts/generate-d1-schema.mjs _private_reference/backup-2026-09-19-143019/02-schema-public.sql migrations-d1/0001_initial_schema.sql",
     "test:auth": "node --experimental-sqlite scripts/test-worker-authorization.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
     "test:password": "node --experimental-sqlite scripts/test-worker-auth-password.mjs migrations-d1/0001_initial_schema.sql",
-    "test:login": "node --experimental-sqlite scripts/test-worker-login.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql"
+    "test:login": "node --experimental-sqlite scripts/test-worker-login.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
+    "test:endpoints": "node --experimental-sqlite scripts/test-worker-endpoints.mjs"
   },
   "overrides": {
     "eslint-config-react-app": {

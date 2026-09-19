@@ -7,6 +7,8 @@
 // terpasang, tidak boleh ada endpoint di sini yang memulangkan data santri, wali, atau
 // pembayaran. RLS tidak lagi menjaga apa pun setelah lepas dari Postgres.
 
+import { handleAuth } from './routes/auth.js';
+
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -14,6 +16,12 @@ const json = (data, status = 200) =>
   });
 
 const handleApi = async (request, env, url) => {
+  if (url.pathname.startsWith('/api/auth/')) {
+    const response = await handleAuth(request, env, url);
+    if (response) return response;
+    return json({ error: 'method_not_allowed', path: url.pathname }, 405);
+  }
+
   // Endpoint kesehatan: memastikan binding D1 benar-benar tersambung tanpa
   // membocorkan isi tabel apa pun.
   if (url.pathname === '/api/health') {
