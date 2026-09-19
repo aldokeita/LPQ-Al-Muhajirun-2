@@ -4,8 +4,9 @@
 // query sengaja sempit: hanya tabel dan kolom yang ada di manifest, hanya operator yang
 // terdaftar, dan selalu dibatasi jumlah barisnya.
 
-import { createAuthorizer } from '../auth/authorize.js';
+import { AuthorizationError, createAuthorizer } from '../auth/authorize.js';
 import { QueryError, runQuery } from '../data/query.js';
+import { deleteRow, insertRow, updateRow } from '../data/mutate.js';
 import { readSessionCookie, verifySession } from '../auth/session.js';
 
 const json = (data, status = 200) =>
@@ -14,8 +15,16 @@ const json = (data, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
 
+const ROUTES = {
+  '/api/data/query': (db, authorizer, body) => runQuery(db, authorizer.ctx, authorizer, body),
+  '/api/data/insert': (db, authorizer, body) => insertRow(db, authorizer, body),
+  '/api/data/update': (db, authorizer, body) => updateRow(db, authorizer, body),
+  '/api/data/delete': (db, authorizer, body) => deleteRow(db, authorizer, body),
+};
+
 export const handleData = async (request, env, url) => {
-  if (url.pathname !== '/api/data/query') return null;
+  const handler = ROUTES[url.pathname];
+  if (!handler) return null;
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   let body;
@@ -26,17 +35,27 @@ export const handleData = async (request, env, url) => {
   }
 
   const payload = await verifySession(env.SESSION_SECRET, readSessionCookie(request));
+  // Penulisan selalu menuntut sesi; pembacaan publik ditangani kebijakan per tabel.
+  if (!payload && url.pathname !== '/api/data/query') {
+    return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
+  }
   const authorizer = createAuthorizer(env.DB, payload?.sub ?? null);
 
   try {
-    const result = await runQuery(env.DB, authorizer.ctx, authorizer, body);
-    return json({ data: result.rows, limit: result.limit, offset: result.offset });
+    const result = await handler(env.DB, authorizer, body);
+    if (url.pathname === '/api/data/query') {
+      return json({ data: result.rows, limit: result.limit, offset: result.offset });
+    }
+    return json({ data: result });
   } catch (error) {
     if (error instanceof QueryError) {
       return json({ error: error.status === 403 ? 'forbidden' : 'invalid_query', message: error.message }, error.status);
     }
+    if (error instanceof AuthorizationError) {
+      return json({ error: 'forbidden', message: 'Akses ditolak.' }, error.status ?? 403);
+    }
     // Detail galat internal tidak dibocorkan ke pemanggil.
-    console.error('[data] query gagal:', error.message);
-    return json({ error: 'query_failed', message: 'Permintaan tidak dapat diproses.' }, 500);
+    console.error('[data] permintaan gagal:', error.message);
+    return json({ error: 'request_failed', message: 'Permintaan tidak dapat diproses.' }, 500);
   }
 };
