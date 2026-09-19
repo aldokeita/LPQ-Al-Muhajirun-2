@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { rpc } from '@/lib/dataClient';
 
 const errorText = (error) => [error?.message, error?.details, error?.hint]
   .filter(Boolean)
@@ -8,17 +8,23 @@ const errorText = (error) => [error?.message, error?.details, error?.hint]
 export const getClassTransferErrorMessage = (error) => {
   const text = errorText(error);
   const code = String(error?.code || '').toUpperCase();
+  // Backend Worker memulangkan status HTTP; kode Postgres dipertahankan agar pesan
+  // tetap benar bila modul ini masih dilayani backend lama.
+  const status = Number(error?.status) || 0;
 
   if (code === 'PGRST202' || text.includes('schema cache') || text.includes('could not find the function')) {
     return 'Fitur transfer kelas belum diterapkan pada backend. Hubungi admin sistem.';
   }
-  if (text.includes('failed to fetch') || text.includes('networkerror') || text.includes('network request')) {
+  if (code === 'NETWORK_ERROR' || text.includes('failed to fetch') || text.includes('networkerror')
+      || text.includes('network request') || text.includes('gagal menghubungi server')) {
     return 'Koneksi ke server terganggu. Periksa internet lalu coba lagi.';
   }
-  if (code === '42501' || code === '28000' || text.includes('tidak memiliki akses') || text.includes('permission denied')) {
+  if (code === '42501' || code === '28000' || status === 401 || status === 403
+      || text.includes('tidak memiliki akses') || text.includes('permission denied')
+      || text.includes('hanya guru pengampu')) {
     return 'Anda tidak memiliki izin untuk mentransfer santri ini.';
   }
-  if (code === 'P0002' || text.includes('tidak ditemukan') || text.includes('belum memiliki membership')) {
+  if (code === 'P0002' || status === 404 || text.includes('tidak ditemukan') || text.includes('belum memiliki membership')) {
     return 'Data santri atau kelas aktif tidak ditemukan. Muat ulang dashboard lalu coba lagi.';
   }
   if (text.includes('tidak aktif')) {
@@ -37,7 +43,7 @@ export const getClassTransferErrorMessage = (error) => {
 };
 
 export const fetchGuruTransferClassOptions = async (santriId) => {
-  const { data, error } = await supabase.rpc('get_guru_transfer_class_options', {
+  const { data, error } = await rpc('get_guru_transfer_class_options', {
     p_santri_id: santriId,
   });
   if (error) throw error;
@@ -53,7 +59,7 @@ export const fetchGuruTransferClassOptions = async (santriId) => {
 };
 
 export const transferSantriByGuru = async ({ santriId, targetClassId, reason }) => {
-  const { data, error } = await supabase.rpc('transfer_santri_to_class_by_guru', {
+  const { data, error } = await rpc('transfer_santri_to_class_by_guru', {
     p_santri_id: santriId,
     p_to_class_id: targetClassId,
     p_reason: String(reason || '').trim() || null,

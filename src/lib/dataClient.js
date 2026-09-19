@@ -17,7 +17,9 @@ const request = async (path, body) => {
       body: JSON.stringify(body),
     });
   } catch (networkError) {
-    return { data: null, error: new Error(`Gagal menghubungi server: ${networkError.message}`) };
+    const error = new Error(`Gagal menghubungi server: ${networkError.message}`);
+    error.code = 'network_error';
+    return { data: null, error };
   }
 
   let payload = null;
