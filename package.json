@@ -18,7 +18,9 @@
     "test:endpoints": "node --experimental-sqlite scripts/test-worker-endpoints.mjs",
     "test:data": "node --experimental-sqlite scripts/test-worker-data.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
     "test:mutate": "node --experimental-sqlite scripts/test-worker-mutate.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
-    "test:worker": "npm run test:auth && npm run test:data && npm run test:mutate && npm run test:login && npm run test:password"
+    "test:worker": "npm run test:triggers && npm run test:auth && npm run test:data && npm run test:mutate && npm run test:rpc && npm run test:login && npm run test:password",
+    "test:rpc": "node --experimental-sqlite scripts/test-worker-rpc.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
+    "test:triggers": "node --experimental-sqlite scripts/test-d1-triggers.mjs migrations-d1/0001_initial_schema.sql"
   },
   "overrides": {
     "eslint-config-react-app": {

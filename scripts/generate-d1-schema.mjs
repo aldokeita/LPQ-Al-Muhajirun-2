@@ -341,6 +341,48 @@ for (const name of ordered) {
   out.push('');
 }
 
+// Trigger.
+//
+// Postgres memakai trigger BEFORE yang mengubah NEW sebelum baris ditulis. SQLite tidak
+// punya bentuk itu, jadi padanannya trigger AFTER yang menulis ulang kolomnya. Setiap
+// trigger diberi penjaga WHEN agar tidak memicu dirinya sendiri bila recursive_triggers
+// menyala, sekaligus membuatnya idempoten.
+const triggerTables = new Set();
+for (const m of sql.matchAll(/CREATE (?:OR REPLACE )?TRIGGER "[a-z_0-9]+"[\s\S]*?ON "public"\."([a-z_0-9]+)"[\s\S]*?EXECUTE FUNCTION "public"\."set_updated_at"/g)) {
+  triggerTables.add(m[1]);
+}
+
+out.push('-- Trigger updated_at');
+out.push('');
+const NOW_EXPR = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+for (const table of [...triggerTables].sort()) {
+  if (!tables.has(table) || !tables.get(table).columns.some((c) => c.name === 'updated_at')) {
+    warnings.push(`Trigger updated_at dilewati: tabel "${table}" tidak punya kolom updated_at.`);
+    continue;
+  }
+  out.push(`CREATE TRIGGER "set_${table}_updated_at" AFTER UPDATE ON "${table}"`);
+  out.push(`FOR EACH ROW WHEN NEW."updated_at" IS OLD."updated_at"`);
+  out.push('BEGIN');
+  out.push(`  UPDATE "${table}" SET "updated_at" = ${NOW_EXPR} WHERE "id" = NEW."id";`);
+  out.push('END;');
+  out.push('');
+}
+
+// Status hafalan selalu diturunkan dari nilainya, tidak pernah dipercayakan ke pemanggil.
+if (tables.has('hafalan_progress')) {
+  const statusExpr = `CASE WHEN NEW."score" = 4 THEN 'lulus' ELSE 'proses' END`;
+  out.push('-- Status hafalan mengikuti nilai');
+  out.push('');
+  for (const [event, clause] of [['INSERT', 'AFTER INSERT ON "hafalan_progress"'], ['UPDATE', 'AFTER UPDATE OF "score", "status" ON "hafalan_progress"']]) {
+    out.push(`CREATE TRIGGER "sync_hafalan_status_on_${event.toLowerCase()}" ${clause}`);
+    out.push(`FOR EACH ROW WHEN NEW."status" IS NOT ${statusExpr}`);
+    out.push('BEGIN');
+    out.push(`  UPDATE "hafalan_progress" SET "status" = ${statusExpr} WHERE "id" = NEW."id";`);
+    out.push('END;');
+    out.push('');
+  }
+}
+
 out.push('-- Index');
 out.push('');
 for (const idx of indexes.sort((a, b) => a.table.localeCompare(b.table) || a.name.localeCompare(b.name))) {
