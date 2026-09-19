@@ -1,0 +1,121 @@
+// Menguji adapter frontend terhadap Worker yang benar-benar berjalan.
+//
+// Ini menembus seluruh lapisan: login, cookie sesi, endpoint, otorisasi, sampai D1.
+// Yang dibuktikan adalah bentuk kembaliannya tetap { data, error } seperti konvensi lama,
+// sehingga 80 berkas yang sudah menangani bentuk itu tidak perlu diubah polanya.
+//
+// Jalankan `npx wrangler dev --port 8788 --local` lebih dulu, dengan akun admin uji
+// sudah tersemai di D1 lokal.
+//
+// Pemakaian:
+//   node --experimental-sqlite scripts/test-frontend-adapter.mjs [baseUrl]
+
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const baseUrl = process.argv[2] ?? 'http://127.0.0.1:8788';
+
+// Adapter memakai fetch relatif; di Node perlu diarahkan ke server dev, dan cookie
+// sesi harus dibawa sendiri karena Node tidak punya cookie jar.
+let sessionCookie = null;
+const realFetch = globalThis.fetch;
+globalThis.fetch = (input, init = {}) => {
+  const url = typeof input === 'string' && input.startsWith('/') ? `${baseUrl}${input}` : input;
+  const headers = { ...(init.headers ?? {}) };
+  if (sessionCookie) headers.cookie = sessionCookie;
+  return realFetch(url, { ...init, headers });
+};
+
+const { changeSantriJilid } = await import('../src/lib/santriJilidAdapters.js');
+const { query, queryOne, rpc } = await import('../src/lib/dataClient.js');
+
+const findLocalD1 = () => {
+  const stack = [path.join('.wrangler', 'state', 'v3', 'd1')];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    if (!fs.existsSync(dir)) continue;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.name.endsWith('.sqlite')) return full;
+    }
+  }
+  return null;
+};
+
+const sqlite = new DatabaseSync(findLocalD1(), { readOnly: true });
+
+let passed = 0;
+let failed = 0;
+const check = (label, actual, expected = true) => {
+  const ok = actual === expected;
+  if (ok) passed += 1; else failed += 1;
+  console.log(`  ${ok ? 'OK   ' : 'GAGAL'} ${label}${ok ? '' : ` (dapat ${JSON.stringify(actual)}, harus ${JSON.stringify(expected)})`}`);
+};
+
+const run = async () => {
+  console.log('sebelum login:');
+  const denied = await query({ table: 'santri', columns: ['id'], limit: 5 });
+  check('membaca santri ditolak', denied.error !== null, true);
+  check('galat memulangkan objek Error', denied.error instanceof Error, true);
+  check('data null saat galat', denied.data, null);
+  console.log('');
+
+  console.log('login admin uji:');
+  const login = await realFetch(`${baseUrl}/api/auth/login/staff`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'admin.uji@contoh.test', password: 'UjiAdmin#2026' }),
+  });
+  check('login berhasil', login.status, 200);
+  sessionCookie = (login.headers.get('set-cookie') ?? '').split(';')[0];
+  check('cookie sesi diperoleh', sessionCookie.startsWith('session='), true);
+  console.log('');
+
+  console.log('membaca lewat adapter:');
+  const santriList = await query({ table: 'santri', columns: ['id', 'nama_lengkap', 'jilid'], limit: 5 });
+  check('tidak ada galat', santriList.error, null);
+  check('memulangkan array', Array.isArray(santriList.data), true);
+  check('terisi', santriList.data.length > 0, true);
+
+  const aktif = await query({ table: 'santri', columns: ['id', 'status'], filters: { status: 'Aktif' }, limit: 10 });
+  check('filter ringkas bekerja', aktif.data.every((r) => r.status === 'Aktif'), true);
+
+  const satu = await queryOne({ table: 'santri', columns: ['id'] });
+  check('queryOne memulangkan satu objek', typeof satu.data?.id, 'string');
+  console.log('');
+
+  console.log('RPC lewat adapter santriJilidAdapters:');
+  const target = sqlite.prepare(`
+    select s.id, s.jilid from santri s
+     join user_profiles up on up.id = s.id
+    where up.role = 'santri' and up.status = 'active' and s.deleted_at is null
+      and lower(trim(s.status)) in ('aktif','active')
+    limit 1`).get();
+
+  const kosong = await changeSantriJilid({ santriId: null, toJilid: 'Jilid 2' });
+  check('santri kosong ditolak di sisi klien', kosong.error?.message, 'Santri belum dipilih.');
+
+  const hasil = await changeSantriJilid({ santriId: target.id, toJilid: 'Jilid 5' });
+  check('perubahan jilid berhasil', hasil.error, null);
+  check('memulangkan santri_id', hasil.data?.santri_id, target.id);
+  check('jilid tujuan benar', hasil.data?.to_jilid, 'Jilid 5');
+  check('ditandai berubah', hasil.data?.changed, true);
+
+  const ulang = await changeSantriJilid({ santriId: target.id, toJilid: 'Jilid 5' });
+  check('perubahan berulang bukan galat', ulang.error, null);
+  check('dilaporkan tidak berubah', ulang.data?.changed, false);
+  console.log('');
+
+  console.log('galat RPC diteruskan apa adanya:');
+  const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
+  check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');
+  check('bentuknya tetap { data, error }', ditolak.data, null);
+  console.log('');
+
+  console.log(`lulus: ${passed}, gagal: ${failed}`);
+  process.exit(failed === 0 ? 0 : 1);
+};
+
+run();
