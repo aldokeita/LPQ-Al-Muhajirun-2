@@ -14,6 +14,7 @@ import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
 import ClassAttendanceLiveEditor from './ClassAttendanceLiveEditor';
+import CharacterConfiguration from './CharacterConfiguration';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 import { createDefaultSantriLevelConfig, normalizeLevelConfigShape } from '@/lib/santriLevel';
@@ -37,6 +38,7 @@ const GameConfiguration = () => {
         { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
         { id: 'attendance-editor', label: 'Live Editor Absensi', icon: Eye },
         { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
+        { id: 'characters', label: 'Karakter Santri', icon: Sparkles },
         { id: 'whatsapp', label: 'Whatsapp & Jilid', icon: MessageSquare },
         ...(enableGameFeatures ? [
             { id: 'gatcha', label: 'Gatcha Game', icon: Gamepad2 },
@@ -102,6 +104,9 @@ const GameConfiguration = () => {
                     <LevelSettings />
                 </TabsContent>
 
+                <TabsContent value="characters" className="animate-in fade-in slide-in-from-bottom-2">
+                    <CharacterConfiguration />
+                </TabsContent>
                 <TabsContent value="whatsapp" className="animate-in fade-in slide-in-from-bottom-2">
                     <WhatsAppTemplateSettings />
                 </TabsContent>

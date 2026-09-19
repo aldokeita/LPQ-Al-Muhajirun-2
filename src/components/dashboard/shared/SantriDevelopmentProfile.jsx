@@ -11,10 +11,10 @@ import { toast } from '@/components/ui/use-toast';
 import DevelopmentScoreSelector from '@/components/dashboard/shared/DevelopmentScoreSelector';
 import DashboardDisclosure from '@/components/dashboard/shared/DashboardDisclosure';
 import {
-  CHARACTER_STRENGTH_OPTIONS,
   DEVELOPMENT_SCORE_OPTIONS,
   VIOLATION_LEVELS,
   fetchCharacterAssessmentItems,
+  fetchCharacterStrengthItems,
   fetchSantriBehaviorRecords,
   fetchSantriCharacterScores,
   fetchSantriCharacterStrengths,
@@ -51,6 +51,7 @@ const createBehaviorForm = () => ({
 
 const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBehavior = false, collapsible = false }) => {
   const [items, setItems] = useState([]);
+  const [strengthItems, setStrengthItems] = useState([]);
   const [scores, setScores] = useState({});
   const [strengths, setStrengths] = useState(new Set());
   const [behaviorRecords, setBehaviorRecords] = useState([]);
@@ -64,13 +65,15 @@ const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBeha
     setLoading(true);
     setError('');
     try {
-      const [assessmentItems, scoreRows, strengthRows, records] = await Promise.all([
+      const [assessmentItems, configuredStrengths, scoreRows, strengthRows, records] = await Promise.all([
         fetchCharacterAssessmentItems(),
+        fetchCharacterStrengthItems({ includeInactive: true }),
         fetchSantriCharacterScores(santriId),
         fetchSantriCharacterStrengths(santriId),
         showBehavior ? fetchSantriBehaviorRecords(santriId) : Promise.resolve([])
       ]);
       setItems(assessmentItems);
+      setStrengthItems(configuredStrengths);
       setScores(Object.fromEntries(scoreRows.map((row) => [row.item_id, Number(row.score)])));
       setStrengths(new Set(strengthRows.map((row) => row.strength_key)));
       setBehaviorRecords(records);
@@ -213,16 +216,18 @@ const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBeha
         summary={<span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-200">{strengths.size} karakter terpilih</span>}
       >
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {CHARACTER_STRENGTH_OPTIONS.map((strength) => {
-            const selected = strengths.has(strength);
+          {strengthItems.map((strength) => {
+            const selected = strengths.has(strength.strength_key);
+            if (!strength.is_active && !selected) return null;
             return editable ? (
-              <label key={strength} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors', selected ? 'border-violet-300 bg-violet-50 dark:border-violet-400/30 dark:bg-slate-900/70' : 'hover:bg-muted/50')}>
-                <Checkbox checked={selected} onCheckedChange={(checked) => handleStrengthChange(strength, Boolean(checked))} disabled={savingKey === `strength-${strength}`} />
-                <span className="text-sm font-medium">{strength}</span>
+              <label key={strength.strength_key} className={cn('flex items-center gap-3 rounded-lg border p-3 transition-colors', strength.is_active ? 'cursor-pointer' : 'cursor-not-allowed opacity-70', selected ? 'border-violet-300 bg-violet-50 dark:border-violet-400/30 dark:bg-slate-900/70' : 'hover:bg-muted/50')}>
+                <Checkbox checked={selected} onCheckedChange={(checked) => handleStrengthChange(strength.strength_key, Boolean(checked))} disabled={!strength.is_active || savingKey === 'strength-' + strength.strength_key} />
+                <span className="text-sm font-medium">{strength.label}</span>
+                {!strength.is_active && <span className="ml-auto text-[10px] font-semibold uppercase text-muted-foreground">Arsip</span>}
               </label>
             ) : selected ? (
-              <div key={strength} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 dark:border-violet-400/30 dark:bg-slate-900/70 dark:text-violet-200">
-                <CheckCircle2 className="h-4 w-4" />{strength}
+              <div key={strength.strength_key} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 dark:border-violet-400/30 dark:bg-slate-900/70 dark:text-violet-200">
+                <CheckCircle2 className="h-4 w-4" />{strength.label}
               </div>
             ) : null;
           })}
