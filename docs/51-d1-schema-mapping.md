@@ -219,7 +219,33 @@ lewat Worker yang memeriksa otorisasi, bukan dijadikan publik demi kemudahan cac
 7. Verifikasi paritas: bandingkan jumlah baris per tabel dengan angka di bagian 1, dan uji
    setiap kombinasi peran terhadap tabel kebijakan.
 
-## 9. Risiko yang perlu diawasi
+## 9. Status pelaksanaan
+
+Langkah 1 dan 3 dari urutan di atas sudah selesai dan terverifikasi.
+
+| Berkas | Isi |
+|---|---|
+| `scripts/generate-d1-schema.mjs` | penerjemah skema |
+| `migrations-d1/0001_initial_schema.sql` | 36 tabel + `users`, 84 index, 79 CHECK, 97 FK |
+| `scripts/convert-d1-data.mjs` | pengubah data `COPY` menjadi `INSERT` |
+
+Keduanya diuji dengan mengeksekusi hasilnya di SQLite asli lewat `node:sqlite`, bukan sekadar
+dibaca:
+
+- Skema dimuat bersih; 409 kolom dicocokkan satu per satu dengan sumber Postgres, nol selisih.
+- Data 14.581 baris dimuat dalam 259 ms dengan `PRAGMA foreign_keys = ON`, nol pelanggaran.
+- Hitungan baris ke-28 tabel berisi cocok persis dengan dump Postgres.
+- Total `payments` sama sampai rupiah terakhir: 82.581.000 di kedua sisi.
+- Seluruh timestamp lolos pemeriksaan format ISO-8601, nol yang menyimpang.
+- `juz_hafalan` terbaca sebagai array JSON dan bisa difilter lewat `json_each`.
+
+CHECK diuji dengan data buruk dan benar-benar menolak, termasuk terjemahan `!~ '\s'` yang
+dicocokkan terhadap keenam karakter spasi putih yang dicakup Postgres.
+
+Hasil konversi data ditulis ke `_private_reference/` karena memuat 602 akun beserta hash
+password dan data pribadi santri.
+
+## 10. Risiko yang perlu diawasi
 
 **Hilangnya jaring pengaman database.** RLS menjaga data walaupun ada bug di frontend. Setelah
 pindah, satu query yang lupa melewati lapisan otorisasi langsung membocorkan data santri.
