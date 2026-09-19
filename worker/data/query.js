@@ -118,13 +118,26 @@ const validateColumns = (table, requested) => {
   return requested;
 };
 
-const buildFilters = (table, filters) => {
+const MAX_FILTER_DEPTH = 3;
+
+const buildFilters = (table, filters, depth = 0) => {
   if (filters === undefined || filters === null) return { sql: [], params: [] };
   if (!Array.isArray(filters)) throw new QueryError('filters harus berupa array.');
+  if (depth > MAX_FILTER_DEPTH) throw new QueryError('Filter bersarang terlalu dalam.');
 
   const sql = [];
   const params = [];
   for (const filter of filters) {
+    // Kelompok OR: { or: [ ...filter ] }. Kedalamannya dibatasi agar permintaan
+    // tidak bisa merangkai ekspresi yang berlipat tanpa batas.
+    if (filter && Array.isArray(filter.or)) {
+      if (filter.or.length === 0) throw new QueryError('Kelompok "or" tidak boleh kosong.');
+      const nested = buildFilters(table, filter.or, depth + 1);
+      sql.push(`(${nested.sql.join(' or ')})`);
+      params.push(...nested.params);
+      continue;
+    }
+
     const { column, op, value } = filter ?? {};
     if (!columnExists(table, column)) throw new QueryError(`Kolom "${column}" tidak dikenal pada tabel "${table}".`);
     const qualified = `${quote(table)}.${quote(column)}`;
@@ -181,11 +194,22 @@ export const runQuery = async (db, ctx, authorizer, body) => {
     params.push(...publicRead.params);
   }
 
+  // Urutan bisa lebih dari satu kolom. Penempatan NULL dinyatakan eksplisit karena
+  // Postgres menaruhnya di akhir untuk urutan menaik sedangkan SQLite di awal.
   let orderSql = '';
-  if (body?.order) {
-    const { column, ascending = true } = body.order;
-    if (!columnExists(table, column)) throw new QueryError(`Kolom urut "${column}" tidak dikenal.`);
-    orderSql = ` order by ${quote(table)}.${quote(column)} ${ascending ? 'asc' : 'desc'}`;
+  const orders = body?.order ? (Array.isArray(body.order) ? body.order : [body.order]) : [];
+  if (orders.length > 0) {
+    const parts = [];
+    for (const entry of orders) {
+      const { column, ascending = true, nullsFirst = null } = entry ?? {};
+      if (!columnExists(table, column)) throw new QueryError(`Kolom urut "${column}" tidak dikenal.`);
+      const qualified = `${quote(table)}.${quote(column)}`;
+      if (nullsFirst !== null) {
+        parts.push(`case when ${qualified} is null then ${nullsFirst ? 0 : 1} else ${nullsFirst ? 1 : 0} end`);
+      }
+      parts.push(`${qualified} ${ascending ? 'asc' : 'desc'}`);
+    }
+    orderSql = ` order by ${parts.join(', ')}`;
   }
 
   const limit = Math.min(Math.max(Number.isInteger(body?.limit) ? body.limit : DEFAULT_LIMIT, 1), MAX_LIMIT);

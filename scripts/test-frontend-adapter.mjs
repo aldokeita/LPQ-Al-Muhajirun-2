@@ -167,6 +167,32 @@ const run = async () => {
     'Koneksi ke server terganggu. Periksa internet lalu coba lagi.');
   console.log('');
 
+  console.log('classAttendanceAdapters:');
+  const { fetchClassAttendanceSource } = await import('../src/lib/classAttendanceAdapters.js');
+  const sumber = await fetchClassAttendanceSource({ year: 2026 });
+  check('memulangkan daftar kelas', Array.isArray(sumber.classes) && sumber.classes.length > 0, true);
+  check('hari libur berupa Set', sumber.holidays instanceof Set, true);
+
+  const kelasBerisi = sumber.classes.find((c) => c.roster.length > 0);
+  check('ada kelas dengan roster terisi', Boolean(kelasBerisi), true);
+  check('roster hanya berisi santri aktif', kelasBerisi.roster.every((s) => {
+    const status = String(s.status ?? '').trim().toLowerCase();
+    return !status || status === 'aktif' || status === 'active';
+  }), true);
+  check('roster terurut menaik', kelasBerisi.roster.every((s, i, arr) => {
+    if (i === 0) return true;
+    const prev = Number.isFinite(arr[i - 1].order_in_class) ? arr[i - 1].order_in_class : Number.MAX_SAFE_INTEGER;
+    const cur = Number.isFinite(s.order_in_class) ? s.order_in_class : Number.MAX_SAFE_INTEGER;
+    return prev <= cur;
+  }), true);
+
+  // Join guru dulu dilakukan database; sekarang dijahit di klien dan harus tetap terisi.
+  const kelasBerguru = sumber.classes.find((c) => c.id_guru);
+  check('nama guru terjahit dari tabel terpisah', typeof kelasBerguru?.guru?.nama, 'string');
+  check('kelas tanpa guru memberi peringatan',
+    sumber.classes.filter((c) => !c.guru?.nama).every((c) => c.warnings.includes('Guru belum ditentukan')), true);
+  console.log('');
+
   console.log('galat RPC diteruskan apa adanya:');
   const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
   check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');

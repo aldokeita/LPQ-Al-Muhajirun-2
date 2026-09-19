@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { query } from '@/lib/dataClient';
 
 const isActiveSantriStatus = (status) => {
   const normalized = String(status || '').trim().toLowerCase();
@@ -19,28 +19,44 @@ export const fetchClassAttendanceSource = async ({ year }) => {
   const calendarStart = `${year}-01-01`;
   const calendarEnd = `${year}-12-31`;
 
-  const [classResult, santriResult, membershipResult, calendarResult] = await Promise.all([
-    supabase
-      .from('classes')
-      .select('id, nama_kelas, id_guru, sesi, kategori, sort_order, is_active, guru:id_guru(id, nama)')
-      .eq('is_active', true)
-      .is('deleted_at', null)
-      .order('sort_order', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('santri')
-      .select('id, nama_lengkap, no_hp_ortu, jilid, current_class_id, order_in_class, status, deleted_at')
-      .is('deleted_at', null)
-      .order('order_in_class', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('class_memberships')
-      .select('santri_id, class_id, order_in_class')
-      .eq('status', 'active'),
-    supabase
-      .from('academic_calendar')
-      .select('date, is_holiday')
-      .gte('date', calendarStart)
-      .lte('date', calendarEnd)
-      .eq('is_holiday', true),
+  // Guru dulu diambil lewat join bersarang. Endpoint data tidak melayani join, jadi
+  // tabelnya ditarik terpisah lalu dijahit di sini. Hasilnya sama: bila pemohon tidak
+  // berhak membaca tabel guru, namanya kosong — persis seperti yang dilakukan RLS.
+  const [classResult, santriResult, membershipResult, calendarResult, guruResult] = await Promise.all([
+    query({
+      table: 'classes',
+      columns: ['id', 'nama_kelas', 'id_guru', 'sesi', 'kategori', 'sort_order', 'is_active'],
+      filters: [
+        { column: 'is_active', op: 'eq', value: 1 },
+        { column: 'deleted_at', op: 'is_null' },
+      ],
+      order: [{ column: 'sort_order', ascending: true, nullsFirst: false }],
+      limit: 1000,
+    }),
+    query({
+      table: 'santri',
+      columns: ['id', 'nama_lengkap', 'no_hp_ortu', 'jilid', 'current_class_id', 'order_in_class', 'status', 'deleted_at'],
+      filters: [{ column: 'deleted_at', op: 'is_null' }],
+      order: [{ column: 'order_in_class', ascending: true, nullsFirst: false }],
+      limit: 1000,
+    }),
+    query({
+      table: 'class_memberships',
+      columns: ['santri_id', 'class_id', 'order_in_class'],
+      filters: [{ column: 'status', op: 'eq', value: 'active' }],
+      limit: 1000,
+    }),
+    query({
+      table: 'academic_calendar',
+      columns: ['date', 'is_holiday'],
+      filters: [
+        { column: 'date', op: 'gte', value: calendarStart },
+        { column: 'date', op: 'lte', value: calendarEnd },
+        { column: 'is_holiday', op: 'eq', value: 1 },
+      ],
+      limit: 1000,
+    }),
+    query({ table: 'guru', columns: ['id', 'nama'], limit: 1000 }),
   ]);
 
   const firstError = [
@@ -54,11 +70,16 @@ export const fetchClassAttendanceSource = async ({ year }) => {
     throw new Error(firstError.message || 'Gagal memuat sumber data absensi kelas.');
   }
 
+  // Tabel guru boleh gagal tanpa menggagalkan seluruh lembar absensi: peringatan
+  // "Guru belum ditentukan" di bawah sudah menangani nama yang kosong.
+  const guruById = new Map((guruResult.error ? [] : guruResult.data).map((item) => [item.id, item]));
+
   const membershipsBySantri = new Map(
     (membershipResult.data || []).map((membership) => [membership.santri_id, membership]),
   );
   const classMap = new Map((classResult.data || []).map((classItem) => [classItem.id, {
     ...classItem,
+    guru: guruById.get(classItem.id_guru) ?? null,
     roster: [],
     warnings: [],
   }]));

@@ -136,6 +136,61 @@ const run = async () => {
   check('filter contains pada kolom JSON bekerja', contains.rows.every((r) => r.juz_hafalan.includes('Juz 30')), true);
   console.log('');
 
+  console.log('kelompok OR:');
+  const orRows = await query(admin.id, {
+    table: 'santri',
+    columns: ['id', 'status', 'deleted_at'],
+    filters: [{
+      or: [
+        { column: 'status', op: 'eq', value: 'Nonaktif' },
+        { column: 'deleted_at', op: 'not_null' },
+      ],
+    }],
+    limit: 1000,
+  });
+  check('setiap baris memenuhi salah satu syarat',
+    orRows.rows.every((r) => r.status === 'Nonaktif' || r.deleted_at !== null), true);
+  const aktifOnly = await query(admin.id, {
+    table: 'santri', columns: ['id'], filters: [{ column: 'status', op: 'eq', value: 'Aktif' }], limit: 1000,
+  });
+  check('hasil OR berbeda dari filter tunggal', orRows.rows.length !== aktifOnly.rows.length, true);
+
+  // Kombinasi AND di luar dengan OR di dalam harus menyempitkan, bukan melebarkan.
+  const combined = await query(admin.id, {
+    table: 'santri',
+    columns: ['id', 'kategori', 'status'],
+    filters: [
+      { column: 'kategori', op: 'eq', value: 'Anak' },
+      { or: [{ column: 'status', op: 'eq', value: 'Aktif' }, { column: 'status', op: 'eq', value: 'Nonaktif' }] },
+    ],
+    limit: 1000,
+  });
+  check('AND di luar tetap berlaku', combined.rows.every((r) => r.kategori === 'Anak'), true);
+  check('OR di dalam membatasi status', combined.rows.every((r) => ['Aktif', 'Nonaktif'].includes(r.status)), true);
+  await expectRejected('kelompok OR kosong ditolak', admin.id, { table: 'santri', filters: [{ or: [] }] });
+  await expectRejected('kolom tak dikenal di dalam OR ditolak', admin.id,
+    { table: 'santri', filters: [{ or: [{ column: 'xx', op: 'eq', value: 1 }] }] });
+  console.log('');
+
+  console.log('urutan dan penempatan NULL:');
+  const nullsLast = await query(admin.id, {
+    table: 'santri', columns: ['id', 'order_in_class'],
+    order: [{ column: 'order_in_class', ascending: true, nullsFirst: false }], limit: 1000,
+  });
+  const firstNullAt = nullsLast.rows.findIndex((r) => r.order_in_class === null);
+  const lastValueAt = nullsLast.rows.map((r) => r.order_in_class).lastIndexOf(
+    [...nullsLast.rows].reverse().find((r) => r.order_in_class !== null)?.order_in_class ?? null,
+  );
+  check('NULL ditempatkan setelah nilai', firstNullAt === -1 || firstNullAt > lastValueAt - 1, true);
+  const nullsFirst = await query(admin.id, {
+    table: 'santri', columns: ['id', 'order_in_class'],
+    order: [{ column: 'order_in_class', ascending: true, nullsFirst: true }], limit: 5,
+  });
+  check('NULL bisa ditempatkan di awal', nullsFirst.rows[0]?.order_in_class, null);
+  await expectRejected('kolom urut tak dikenal di dalam array ditolak', admin.id,
+    { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
+  console.log('');
+
   console.log(`lulus: ${passed}, gagal: ${failed}`);
   process.exit(failed === 0 ? 0 : 1);
 };

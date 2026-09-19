@@ -1,4 +1,7 @@
+// Pembacaan arsip sudah berpindah ke endpoint Worker. Penulisannya masih memanggil
+// Edge Function manage-user, yang belum dipindahkan; itu pekerjaan tersendiri.
 import { supabase } from '@/lib/customSupabaseClient';
+import { query } from '@/lib/dataClient';
 import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
@@ -36,12 +39,20 @@ export const getFunctionErrorMessage = async (error, fallback) => {
 
 export const getArchivedSantri = async (categories = []) => {
   const [{ data: santriRows, error: santriError }, { data: classRows, error: classError }] = await Promise.all([
-    supabase
-      .from('santri')
-      .select(ARCHIVE_SELECT)
-      .or('status.eq.Nonaktif,status.eq.inactive,deleted_at.not.is.null')
-      .order('deleted_at', { ascending: false, nullsFirst: false }),
-    supabase.from('classes').select('id,nama_kelas'),
+    query({
+      table: 'santri',
+      columns: ARCHIVE_SELECT.split(','),
+      filters: [{
+        or: [
+          { column: 'status', op: 'eq', value: 'Nonaktif' },
+          { column: 'status', op: 'eq', value: 'inactive' },
+          { column: 'deleted_at', op: 'not_null' },
+        ],
+      }],
+      order: [{ column: 'deleted_at', ascending: false, nullsFirst: false }],
+      limit: 1000,
+    }),
+    query({ table: 'classes', columns: ['id', 'nama_kelas'], limit: 1000 }),
   ]);
 
   if (santriError) throw santriError;
