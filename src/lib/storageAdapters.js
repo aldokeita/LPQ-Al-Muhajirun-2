@@ -8,8 +8,48 @@ const MAX_AVATAR_SOURCE_SIZE = 12 * 1024 * 1024;
 const MAX_AVATAR_DIMENSION = 400;
 const MAX_WEBSITE_ASSET_SIZE = 20 * 1024 * 1024;
 const MAX_WEBSITE_IMAGE_DIMENSION = 2400;
-const AVATAR_URL_CACHE_TTL = 45 * 60 * 1000;
+// Setiap kali signed URL dirotasi, URL-nya berubah dan cache browser meleset sehingga
+// seluruh avatar terunduh ulang. Masa berlakunya dipanjangkan agar URL stabil berhari-hari;
+// cache di-refresh sehari sebelum signed URL benar-benar kedaluwarsa.
+const AVATAR_URL_TTL_SECONDS = 7 * 24 * 60 * 60;
+const AVATAR_URL_CACHE_TTL = 6 * 24 * 60 * 60 * 1000;
+const AVATAR_URL_CACHE_STORAGE_KEY = 'lpq:avatar-url-cache:v1';
 const avatarUrlCache = new Map();
+let avatarUrlCacheHydrated = false;
+
+// Cache dipertahankan antar muat halaman supaya layar yang di-reload tidak menandatangani
+// ulang seluruh avatar dan memaksa pengunduhan ulang.
+const hydrateAvatarUrlCache = () => {
+  if (avatarUrlCacheHydrated) return;
+  avatarUrlCacheHydrated = true;
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(AVATAR_URL_CACHE_STORAGE_KEY);
+    if (!raw) return;
+    const now = Date.now();
+    for (const [key, entry] of Object.entries(JSON.parse(raw) || {})) {
+      if (entry?.url && entry.expiresAt > now) avatarUrlCache.set(key, entry);
+    }
+  } catch {
+    // Penyimpanan browser bisa tidak tersedia atau isinya rusak; cache bukan syarat wajib.
+  }
+};
+
+// Penulisan ditunda: satu halaman bisa meresolusi ratusan avatar sekaligus, dan menulis
+// ulang seluruh cache pada tiap avatar membuat biayanya tumbuh kuadratik.
+let persistTimer = null;
+const persistAvatarUrlCache = () => {
+  if (typeof localStorage === 'undefined') return;
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try {
+      localStorage.setItem(AVATAR_URL_CACHE_STORAGE_KEY, JSON.stringify(Object.fromEntries(avatarUrlCache)));
+    } catch {
+      // Kuota penuh atau mode privat: abaikan, cache memori tetap bekerja.
+    }
+  }, 1000);
+};
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const WEBSITE_ASSET_TYPES = new Set([...IMAGE_TYPES, 'application/pdf']);
 
@@ -291,7 +331,7 @@ const normalizeLocalSignedUrl = (signedUrl) => {
   }
 };
 
-export const createSignedAvatarUrl = async (path, expiresIn = 3600) => {
+export const createSignedAvatarUrl = async (path, expiresIn = AVATAR_URL_TTL_SECONDS) => {
   if (!path) return null;
   const { data, error } = await supabase.storage.from(AVATAR_BUCKET).createSignedUrl(path, expiresIn);
   if (error) return null;
@@ -338,12 +378,15 @@ export const preloadAvatarUrl = (url) => {
 };
 
 export const resolveAvatarUrl = async ({ ownerType, ownerId, avatarPath, fallbackUrl }) => {
+  hydrateAvatarUrlCache();
   const path = avatarPath || (ownerId ? getAvatarPath({ ownerType, ownerId }) : null);
   const cacheKey = path ? `${AVATAR_BUCKET}:${path}` : null;
   const cached = cacheKey ? avatarUrlCache.get(cacheKey) : null;
 
+  // URL yang sudah ada di cache tidak di-preload ulang: gambarnya sudah dipegang browser,
+  // dan membuat objek Image baru tiap pemanggilan sia-sia pada layar yang menyegarkan terus.
   if (cached && cached.expiresAt > Date.now()) {
-    return preloadAvatarUrl(cached.url);
+    return cached.url;
   }
 
   const signedUrl = await createSignedAvatarUrl(path);
@@ -354,6 +397,7 @@ export const resolveAvatarUrl = async ({ ownerType, ownerId, avatarPath, fallbac
       url: signedUrl,
       expiresAt: Date.now() + AVATAR_URL_CACHE_TTL,
     });
+    persistAvatarUrlCache();
   }
 
   return preloadAvatarUrl(resolvedUrl);

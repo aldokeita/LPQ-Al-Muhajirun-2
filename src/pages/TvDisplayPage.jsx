@@ -21,6 +21,10 @@ import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionC
 import { resolveSantriLevel } from '@/lib/santriLevel';
 import CmsLogo from '@/components/public/CmsLogo';
 
+// Absensi berubah sepanjang sesi mengaji, daftar santri dan kelas tidak.
+const ATTENDANCE_REFRESH_MS = 30 * 1000;
+const MASTER_REFRESH_MS = 30 * 60 * 1000;
+
 const registrationSessionTimes = {
   'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
   'Siang': { start: '13:00', end: '15:30', defaultQuota: 80 },
@@ -318,9 +322,11 @@ const TvDisplayPage = () => {
         }
     };
 
+    // Layar TV menyala sepanjang hari, jadi frekuensi tarikan menentukan biaya egress.
+    // Data master (konfigurasi, kelas, santri) praktis tidak berubah dalam sehari dan
+    // ditarik jarang; hanya absensi yang butuh penyegaran cepat.
     useEffect(() => {
-        const fetchData = async () => {
-            const today = getLocalDateString();
+        const fetchMasterData = async () => {
             try {
                 const { data: cfg } = await supabase.from('website_content').select('content').eq('key', 'tv_config').maybeSingle();
                 if(cfg?.content) setConfig(prev => ({...prev, ...cfg.content}));
@@ -333,7 +339,7 @@ const TvDisplayPage = () => {
                     setLogoUrl(logoContent.content.trim());
                 }
 
-                const [classesRes, santriRes, attendanceRes] = await Promise.all([
+                const [classesRes, santriRes] = await Promise.all([
                     supabase
                         .from('classes')
                         .select('id, nama_kelas, sesi, kategori, sort_order, is_active, guru:id_guru(nama)')
@@ -344,12 +350,10 @@ const TvDisplayPage = () => {
                         .select('id, nama_lengkap, nama_panggilan, nomor_induk_qiroati, kategori, status, foto_url, avatar_path, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin')
                         .eq('status', 'Aktif')
                         .order('nama_lengkap', { ascending: true }),
-                    supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', today),
                 ]);
 
                 if (classesRes.error) throw classesRes.error;
                 if (santriRes.error) throw santriRes.error;
-                if (attendanceRes.error) throw attendanceRes.error;
 
                 const santriWithAvatars = await Promise.all((santriRes.data || []).map(async (item) => {
                     const foto_url = await resolveAvatarUrl({
@@ -370,7 +374,6 @@ const TvDisplayPage = () => {
 
                 if (classes && santri) {
                     setSantriList(santri);
-                    setDailyAttendance(attendanceRes.data || []);
 
                     const sessionPriority = { 'Pagi': 1, 'Siang': 2, 'Sore': 3, 'Malam': 4 };
                     const sortedClasses = classes.sort((a, b) => (sessionPriority[a.sesi] || 99) - (sessionPriority[b.sesi] || 99));
@@ -384,13 +387,31 @@ const TvDisplayPage = () => {
                 }
             } catch {
                 setSantriList([]);
-                setDailyAttendance([]);
                 setClassData([]);
             }
         };
-        fetchData();
-        const dataInterval = setInterval(fetchData, 30000);
-        return () => clearInterval(dataInterval);
+
+        const fetchAttendance = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('attendance')
+                    .select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
+                    .eq('attendance_date', getLocalDateString());
+                if (error) throw error;
+                setDailyAttendance(data || []);
+            } catch {
+                setDailyAttendance([]);
+            }
+        };
+
+        fetchMasterData();
+        fetchAttendance();
+        const masterInterval = setInterval(fetchMasterData, MASTER_REFRESH_MS);
+        const attendanceInterval = setInterval(fetchAttendance, ATTENDANCE_REFRESH_MS);
+        return () => {
+            clearInterval(masterInterval);
+            clearInterval(attendanceInterval);
+        };
     }, []);
 
     const getCurrentSessionTime = () => {
