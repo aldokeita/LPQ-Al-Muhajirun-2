@@ -12,6 +12,11 @@
 
 import { currentUserRole, guruHasSantriAccess } from '../auth/predicates.js';
 
+// Tanggal operasional mengikuti WIB, bukan UTC. current_date di Postgres memakai zona
+// server yang berjalan UTC, sehingga mutasi sore hari tercatat di tanggal berikutnya.
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+const todayWib = () => new Date(Date.now() + WIB_OFFSET_MS).toISOString().slice(0, 10);
+
 export class RpcError extends Error {
   constructor(message, status = 400) {
     super(message);
