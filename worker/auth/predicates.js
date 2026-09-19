@@ -4,12 +4,13 @@
 // supabase/migrations. Kalau salah satunya melonggar, data santri ikut terbuka —
 // tidak ada lagi RLS di belakangnya sejak lepas dari Postgres.
 //
-// Perbedaan yang disengaja dari versi Postgres: tanggal dibandingkan dalam UTC,
-// sama seperti current_date di server Supabase yang berjalan UTC. Lembaga ini berada
-// di WIB, jadi jendela penugasan pentashih bergeser hingga tujuh jam di hari pergantian.
-// Perilaku ini dipertahankan apa adanya agar migrasi tidak mengubah makna data.
+// Perbedaan yang disengaja dari versi Postgres: tanggal dibandingkan dalam WIB, bukan UTC.
+// current_date di Supabase mengikuti server yang berjalan UTC, sehingga jendela penugasan
+// pentashih bergeser hingga tujuh jam di hari pergantian. Lembaga ini berada di WIB dan
+// tanggal penugasan dimaksudkan sebagai tanggal setempat, jadi perilakunya dibetulkan.
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date(Date.now() + WIB_OFFSET_MS).toISOString().slice(0, 10);
 
 // Hasil predikat di-cache per request: satu permintaan bisa memeriksa santri yang sama
 // berkali-kali, dan tiap pemeriksaan adalah satu query D1.
