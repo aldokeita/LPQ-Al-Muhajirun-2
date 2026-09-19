@@ -6,6 +6,15 @@
 -- Kolom uang disimpan sebagai INTEGER dalam satuan sen.
 -- UUID tidak punya default: dibuat di Worker lewat crypto.randomUUID().
 
+-- Kolom array Postgres (text[]) disimpan sebagai array JSON dalam kolom TEXT:
+--   guru.roles          hanya dibaca utuh lalu disaring di klien
+--   santri.juz_hafalan  difilter keanggotaannya, pakai:
+--     WHERE EXISTS (SELECT 1 FROM json_each("santri"."juz_hafalan") WHERE "value" = ?)
+--
+-- Index GIN "guru_roles_gin_idx" sengaja tidak dibawa: tidak ada function maupun query
+-- yang memakainya, jadi tidak ada yang hilang. json_each tidak bisa diindeks di SQLite,
+-- tetapi santri hanya berisi ratusan baris sehingga pemindaian penuh tetap murah.
+
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE "users" (
@@ -161,7 +170,7 @@ CREATE TABLE "auth_login_aliases" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   PRIMARY KEY ("id"),
-  CONSTRAINT "auth_login_aliases_alias_no_space" CHECK (("alias_value" NOT LIKE '% %' AND instr("alias_value", char(9)) = 0 AND instr("alias_value", char(10)) = 0 AND instr("alias_value", char(13)) = 0)),
+  CONSTRAINT "auth_login_aliases_alias_no_space" CHECK (("alias_value" NOT LIKE '% %' AND instr("alias_value", char(9)) = 0 AND instr("alias_value", char(10)) = 0 AND instr("alias_value", char(11)) = 0 AND instr("alias_value", char(12)) = 0 AND instr("alias_value", char(13)) = 0)),
   CONSTRAINT "auth_login_aliases_alias_trimmed" CHECK (("alias_value" = trim("alias_value"))),
   CONSTRAINT "auth_login_aliases_alias_type_check" CHECK (("alias_type" = 'nomor_induk_qiroati')),
   CONSTRAINT "auth_login_aliases_internal_email_not_blank" CHECK ((length(trim("internal_email")) > 0)),
@@ -258,7 +267,7 @@ CREATE TABLE "santri" (
   CONSTRAINT "santri_email_trimmed" CHECK ((("email" IS NULL) OR ("email" = trim("email")))),
   CONSTRAINT "santri_kategori_check" CHECK (("kategori" IN ('Anak', 'PTPT', 'Dewasa'))),
   CONSTRAINT "santri_nama_lengkap_not_blank" CHECK ((length(trim("nama_lengkap")) > 0)),
-  CONSTRAINT "santri_nomor_induk_no_space" CHECK (("nomor_induk_qiroati" NOT LIKE '% %' AND instr("nomor_induk_qiroati", char(9)) = 0 AND instr("nomor_induk_qiroati", char(10)) = 0 AND instr("nomor_induk_qiroati", char(13)) = 0)),
+  CONSTRAINT "santri_nomor_induk_no_space" CHECK (("nomor_induk_qiroati" NOT LIKE '% %' AND instr("nomor_induk_qiroati", char(9)) = 0 AND instr("nomor_induk_qiroati", char(10)) = 0 AND instr("nomor_induk_qiroati", char(11)) = 0 AND instr("nomor_induk_qiroati", char(12)) = 0 AND instr("nomor_induk_qiroati", char(13)) = 0)),
   CONSTRAINT "santri_nomor_induk_required_for_non_adult" CHECK ((("kategori" = 'Dewasa') OR ("nomor_induk_qiroati" IS NOT NULL))),
   CONSTRAINT "santri_nomor_induk_trimmed" CHECK (("nomor_induk_qiroati" = trim("nomor_induk_qiroati"))),
   CONSTRAINT "santri_points_non_negative" CHECK (("points" >= 0)),

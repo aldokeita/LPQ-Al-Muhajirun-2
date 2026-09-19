@@ -61,11 +61,15 @@ const rewriteFunctions = (expr) =>
   });
 
 // SQLite tidak punya operator regex. Predikat "tidak mengandung spasi putih" diterjemahkan
-// menjadi pemeriksaan eksplisit terhadap spasi, tab, newline, dan carriage return.
+// menjadi pemeriksaan eksplisit atas keenam karakter yang dicakup \s di Postgres:
+// spasi, tab (9), newline (10), vertical tab (11), form feed (12), dan carriage return (13).
+const WHITESPACE_CODES = [9, 10, 11, 12, 13];
+
 const rewriteNoWhitespaceRegex = (expr) =>
   expr.replace(/("?[a-z_0-9]+"?)\s*!~\s*'\\s'/gi, (_, column) => {
-    warnings.push(`${column}: operator regex !~ '\\s' diterjemahkan menjadi pemeriksaan spasi eksplisit — periksa kesetaraannya.`);
-    return `${column} NOT LIKE '% %' AND instr(${column}, char(9)) = 0 AND instr(${column}, char(10)) = 0 AND instr(${column}, char(13)) = 0`;
+    warnings.push(`${column}: operator regex !~ '\\s' diterjemahkan menjadi pemeriksaan spasi eksplisit.`);
+    const checks = WHITESPACE_CODES.map((code) => `instr(${column}, char(${code})) = 0`);
+    return [`${column} NOT LIKE '% %'`, ...checks].join(' AND ');
   });
 
 const convertCheck = (expr) => {
@@ -260,6 +264,15 @@ out.push('--');
 out.push('-- Keputusan pemetaan tipe ada di docs/51-d1-schema-mapping.md.');
 out.push('-- Kolom uang disimpan sebagai INTEGER dalam satuan sen.');
 out.push('-- UUID tidak punya default: dibuat di Worker lewat crypto.randomUUID().');
+out.push('');
+out.push('-- Kolom array Postgres (text[]) disimpan sebagai array JSON dalam kolom TEXT:');
+out.push('--   guru.roles          hanya dibaca utuh lalu disaring di klien');
+out.push('--   santri.juz_hafalan  difilter keanggotaannya, pakai:');
+out.push('--     WHERE EXISTS (SELECT 1 FROM json_each("santri"."juz_hafalan") WHERE "value" = ?)');
+out.push('--');
+out.push('-- Index GIN "guru_roles_gin_idx" sengaja tidak dibawa: tidak ada function maupun query');
+out.push('-- yang memakainya, jadi tidak ada yang hilang. json_each tidak bisa diindeks di SQLite,');
+out.push('-- tetapi santri hanya berisi ratusan baris sehingga pemindaian penuh tetap murah.');
 out.push('');
 out.push('PRAGMA foreign_keys = ON;');
 out.push('');
