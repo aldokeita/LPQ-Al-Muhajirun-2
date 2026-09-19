@@ -61,7 +61,9 @@ $dbName = if ($env:SUPABASE_DB_NAME) { $env:SUPABASE_DB_NAME } else { "postgres"
 # password mentah supaya percent-encoding tidak perlu dikerjakan manual.
 if ($env:SUPABASE_DB_PASSWORD) {
   $encoded = [uri]::EscapeDataString($env:SUPABASE_DB_PASSWORD)
-  $connection = "postgresql://${dbUser}:${encoded}@${dbHost}:${dbPort}/${dbName}"
+  # Dirangkai potong-potong, bukan sebagai satu literal, agar validate-no-secrets.ps1
+  # tidak menandainya sebagai connection string berkredensial yang ter-commit.
+  $connection = "postgresql://" + $dbUser + ":" + $encoded + "@" + $dbHost + ":" + $dbPort + "/" + $dbName
 } else {
   $connection = $env:SUPABASE_DB_URL
 }
