@@ -8,7 +8,10 @@
     "generate:llms": "node tools/generate-llms.js",
     "build": "node tools/build.js",
     "preview": "vite preview --host :: --port 3000",
-    "lint": "eslint . --quiet"
+    "lint": "eslint . --quiet",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "node tools/build.js && wrangler deploy",
+    "d1:schema": "node scripts/generate-d1-schema.mjs _private_reference/backup-2026-09-19-143019/02-schema-public.sql migrations-d1/0001_initial_schema.sql"
   },
   "overrides": {
     "eslint-config-react-app": {
