@@ -200,6 +200,88 @@ export const getGuruTransferClassOptions = async (db, ctx, { santriId }) => {
   }));
 };
 
+// Kategori tujuan hanya menerima tiga nilai, dengan TPQ sebagai nama lain dari Anak.
+const CATEGORY_TARGETS = { ANAK: 'Anak', TPQ: 'Anak', PTPT: 'PTPT', DEWASA: 'Dewasa' };
+
+// Kategori yang tersimpan dinormalkan untuk dibandingkan, tetapi nilai aslinya yang
+// dilaporkan kembali — versi Postgres pun memulangkan s.kategori apa adanya.
+const canonicalCategory = (value) => {
+  const upper = String(value ?? 'ANAK').trim().toUpperCase() || 'ANAK';
+  return CATEGORY_TARGETS[upper] ?? value;
+};
+
+export const changeSantriCategory = async (db, ctx, { santriId, targetCategory, reason = null }) => {
+  if (!ctx.userId) throw new RpcError('Login diperlukan untuk memindahkan kategori santri.', 401);
+  if ((await currentUserRole(ctx)) !== 'admin') {
+    throw new RpcError('Hanya admin yang boleh memindahkan kategori santri.', 403);
+  }
+  if (!santriId) throw new RpcError('Santri wajib dipilih.');
+
+  const target = CATEGORY_TARGETS[String(targetCategory ?? '').trim().toUpperCase()] ?? null;
+  if (!target) throw new RpcError('Kategori tujuan harus TPQ, PTPT, atau Dewasa.');
+
+  const santri = await db
+    .prepare('select "id", "nama_lengkap", "kategori", "current_class_id" from "santri" where "id" = ? limit 1')
+    .bind(santriId)
+    .first();
+  if (!santri) throw new RpcError('Santri tidak ditemukan.', 404);
+
+  if (canonicalCategory(santri.kategori) === target) {
+    return {
+      santri_id: santriId,
+      from_category: santri.kategori,
+      to_category: target,
+      from_class_id: santri.current_class_id,
+      mutation_id: null,
+      changed: false,
+      message: `${santri.nama_lengkap} sudah berada pada kategori ${target}.`,
+      active_memberships: await countActiveMemberships(db, santriId),
+    };
+  }
+
+  const membership = await loadActiveMembership(db, santriId);
+  const fromClassId = membership?.class_id ?? santri.current_class_id;
+  const today = todayWib();
+  const timestamp = nowIso();
+  const trimmedReason = String(reason ?? '').trim();
+
+  // Pindah kategori mengeluarkan santri dari kelasnya tanpa kelas pengganti, jadi
+  // current_class_id dan urutannya dikosongkan.
+  const statements = [
+    db.prepare(`update "class_memberships" set "status" = 'moved', "end_date" = ?, "updated_by" = ?, "updated_at" = ?
+                 where "santri_id" = ? and "status" = 'active'`)
+      .bind(today, ctx.userId, timestamp, santriId),
+    db.prepare(`update "santri" set "kategori" = ?, "current_class_id" = null, "order_in_class" = null,
+                 "updated_by" = ?, "updated_at" = ? where "id" = ?`)
+      .bind(target, ctx.userId, timestamp, santriId),
+  ];
+
+  // Mutasi hanya dicatat bila ada kelas asal yang ditinggalkan.
+  let mutationId = null;
+  if (fromClassId) {
+    mutationId = crypto.randomUUID();
+    statements.push(
+      db.prepare(`insert into "class_mutations"
+                   ("id", "santri_id", "from_class_id", "to_class_id", "mutation_date", "reason", "created_by", "created_at")
+                   values (?, ?, ?, null, ?, ?, ?, ?)`)
+        .bind(mutationId, santriId, fromClassId, today, trimmedReason || 'Migrasi kategori santri', ctx.userId, timestamp),
+    );
+  }
+
+  await db.batch(statements);
+
+  return {
+    santri_id: santriId,
+    from_category: santri.kategori,
+    to_category: target,
+    from_class_id: fromClassId,
+    mutation_id: mutationId,
+    changed: true,
+    message: `${santri.nama_lengkap} berhasil dipindahkan ke kategori ${target}.`,
+    active_memberships: await countActiveMemberships(db, santriId),
+  };
+};
+
 export const transferSantriToClassByGuru = async (db, ctx, { santriId, toClassId, reason = null }) => {
   await requireGuru(ctx, 'mentransfer santri', 'Hanya guru pengampu yang dapat mentransfer santri.');
   if (!santriId) throw new RpcError('Santri wajib dipilih.');

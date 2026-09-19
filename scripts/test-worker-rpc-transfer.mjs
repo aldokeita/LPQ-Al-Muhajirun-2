@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import { createAuthContext } from '../worker/auth/predicates.js';
 import { RpcError } from '../worker/rpc/santri.js';
 import {
-  getGuruTransferClassOptions, moveSantriToClass, transferSantriToClassByGuru,
+  changeSantriCategory, getGuruTransferClassOptions, moveSantriToClass, transferSantriToClassByGuru,
 } from '../worker/rpc/class-transfer.js';
 
 const [, , schemaPath, dataPath] = process.argv;
@@ -174,6 +174,35 @@ const run = async () => {
   await expectMessage('kelas tujuan tak dikenal ditolak',
     moveSantriToClass(db, adminCtx, { santriId: santri.id, toClassId: '00000000-0000-0000-0000-000000000000' }),
     'Kelas tujuan tidak ditemukan.');
+  console.log('');
+
+  console.log('change_santri_category:');
+  const beforeCategory = sqlite.prepare('select kategori, current_class_id from santri where id = ?').get(santri.id);
+  await expectMessage('kategori tak dikenal ditolak',
+    changeSantriCategory(db, adminCtx, { santriId: santri.id, targetCategory: 'REMAJA' }),
+    'Kategori tujuan harus TPQ, PTPT, atau Dewasa.');
+  await expectMessage('guru ditolak',
+    changeSantriCategory(db, guruCtx, { santriId: santri.id, targetCategory: 'PTPT' }),
+    'Hanya admin yang boleh memindahkan kategori santri.');
+
+  // TPQ dan Anak adalah kategori yang sama, jadi ini harus terbaca sebagai tanpa perubahan.
+  const sameCategory = await changeSantriCategory(db, adminCtx, { santriId: santri.id, targetCategory: 'TPQ' });
+  check('TPQ dianggap sama dengan Anak', sameCategory.changed, false);
+  check('kategori asal dilaporkan apa adanya', sameCategory.from_category, beforeCategory.kategori);
+  check('pesan kategori sama sesuai format lama', sameCategory.message, `${santri.nama_lengkap} sudah berada pada kategori Anak.`);
+
+  const switched = await changeSantriCategory(db, adminCtx, { santriId: santri.id, targetCategory: 'Dewasa' });
+  check('pindah kategori berhasil', switched.changed, true);
+  check('pesan sesuai format lama', switched.message, `${santri.nama_lengkap} berhasil dipindahkan ke kategori Dewasa.`);
+  const afterCategory = sqlite.prepare('select kategori, current_class_id, order_in_class from santri where id = ?').get(santri.id);
+  check('kategori tersimpan', afterCategory.kategori, 'Dewasa');
+  check('kelas dikosongkan', afterCategory.current_class_id, null);
+  check('urutan dikosongkan', afterCategory.order_in_class, null);
+  check('tidak ada keanggotaan aktif tersisa', activeMemberships(santri.id), 0);
+  check('mutasi mencatat kelas tujuan kosong',
+    sqlite.prepare('select to_class_id from class_mutations where id = ?').get(switched.mutation_id).to_class_id, null);
+  check('alasan bawaan dipakai',
+    sqlite.prepare('select reason from class_mutations where id = ?').get(switched.mutation_id).reason, 'Migrasi kategori santri');
   console.log('');
 
   console.log('santri non-aktif:');
