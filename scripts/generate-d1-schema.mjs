@@ -11,6 +11,7 @@
 // otomatis dari dump dan sudah dipatok di docs/51-d1-schema-mapping.md.
 
 import fs from 'node:fs';
+import path from 'node:path';
 
 const [, , inputPath, outputPath] = process.argv;
 if (!inputPath || !outputPath) {
@@ -354,6 +355,28 @@ for (const idx of indexes.sort((a, b) => a.table.localeCompare(b.table) || a.nam
 out.push('');
 
 fs.writeFileSync(outputPath, `${out.join('\n')}`);
+
+// Manifest kolom dipakai lapisan data untuk memvalidasi nama tabel dan kolom sebelum
+// merangkainya ke SQL. Nama tabel dan kolom tidak bisa diparameterkan, jadi satu-satunya
+// pengaman adalah mencocokkannya dengan daftar yang dihasilkan dari skema ini.
+const manifest = {};
+for (const name of ordered) {
+  manifest[name] = tables.get(name).columns.map((c) => c.name);
+}
+const manifestPath = outputPath.replace(/\.sql$/, '').replace(/[^/\\]+$/, '') + '../worker/data/schema-manifest.js';
+const manifestBody = `// Dihasilkan oleh scripts/generate-d1-schema.mjs. Jangan diedit langsung.
+// Daftar kolom sah per tabel, dipakai untuk memvalidasi query sebelum dirangkai ke SQL.
+
+export const SCHEMA_COLUMNS = ${JSON.stringify(manifest, null, 2)};
+
+export const tableExists = (table) => Object.prototype.hasOwnProperty.call(SCHEMA_COLUMNS, table);
+
+export const columnExists = (table, column) =>
+  tableExists(table) && SCHEMA_COLUMNS[table].includes(column);
+`;
+fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+fs.writeFileSync(manifestPath, manifestBody);
+console.log(`manifest kolom -> ${path.normalize(manifestPath)}`);
 
 console.log(`tabel  : ${ordered.length}`);
 console.log(`index  : ${indexes.length}`);

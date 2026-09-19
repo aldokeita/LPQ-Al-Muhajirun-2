@@ -8,6 +8,7 @@
 // pembayaran. RLS tidak lagi menjaga apa pun setelah lepas dari Postgres.
 
 import { handleAuth } from './routes/auth.js';
+import { handleData } from './routes/data.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -20,6 +21,11 @@ const handleApi = async (request, env, url) => {
     const response = await handleAuth(request, env, url);
     if (response) return response;
     return json({ error: 'method_not_allowed', path: url.pathname }, 405);
+  }
+
+  if (url.pathname.startsWith('/api/data/')) {
+    const response = await handleData(request, env, url);
+    if (response) return response;
   }
 
   // Endpoint kesehatan: memastikan binding D1 benar-benar tersambung tanpa
