@@ -31,6 +31,7 @@ const AttendanceProfileCard = ({
   time,
   jilid,
   points,
+  pointDelta,
   kelas,
   sesi,
   rfid,
@@ -205,7 +206,14 @@ const AttendanceProfileCard = ({
               <DetailItem icon={<BookOpen className="w-4 h-4" />} label="Jilid" value={jilid} pointAccent={pointAccent} accent />
             )}
             {points !== undefined && points !== null && (
-              <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} pointAccent={pointAccent} amber />
+              <DetailItem
+                icon={<Star className="w-4 h-4" />}
+                label="Poin"
+                value={points}
+                pointAccent={pointAccent}
+                amber
+                delta={pointDelta}
+              />
             )}
             {pointLevel && (
               <DetailItem icon={<Crown className="w-4 h-4" />} label="Level" value={pointLevel} pointAccent={pointAccent} />
@@ -258,7 +266,7 @@ const AttendanceProfileCard = ({
 };
 
 /* --- Detail Item --- */
-const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) => (
+const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent, delta }) => (
   <div
     className="attendance-profile-card__detail-item"
     style={
@@ -298,6 +306,17 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) =>
         {value}
       </span>
     </div>
+    {/* Badge perubahan poin. Warnanya mengambil gradien tema kartu yang sama dengan
+        nama santri, jadi ikut berubah mengikuti level — yang membedakan naik dan
+        turun cuma tandanya, bukan warnanya. */}
+    {Number.isFinite(delta) && delta !== 0 && (
+      <span
+        className={`attendance-profile-card__detail-badge ${delta > 0 ? 'is-naik' : 'is-turun'}`}
+        aria-label={delta > 0 ? `Bertambah ${delta} poin` : `Berkurang ${Math.abs(delta)} poin`}
+      >
+        {delta > 0 ? `+${delta}` : delta}
+      </span>
+    )}
   </div>
 );
 

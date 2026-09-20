@@ -884,9 +884,28 @@ const DigitalAttendancePage = () => {
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
           let newPoints = user.points || 0;
-          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
-            await rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
-            newPoints += 1;
+          // Tepat waktu menambah satu poin, terlambat menguranginya satu. pointDelta
+          // hanya terisi kalau poinnya benar-benar berubah, karena nilainya dipakai
+          // untuk menampilkan badge dan badge yang muncul tanpa perubahan itu bohong.
+          let pointDelta = 0;
+          if (userRole === 'santri' && !isAdult && !shouldRestoreAbsentAttendance) {
+            const delta = attendanceStatusText === 'Hadir'
+              ? 1
+              : (attendanceStatusText === 'Terlambat' ? -1 : 0);
+            // RPC menolak hasil di bawah nol dengan melempar galat, dan galat itu akan
+            // menggagalkan tampilan absensi yang sudah terlanjur tercatat. Jadi
+            // pengurangan dilewati saja ketika poinnya memang sudah habis.
+            const akanMinus = delta < 0 && newPoints + delta < 0;
+            if (delta !== 0 && !akanMinus) {
+              const { error: pointError } = await rpc('increment_santri_points', {
+                p_santri_id: user.id,
+                p_amount: delta,
+              });
+              if (!pointError) {
+                newPoints += delta;
+                pointDelta = delta;
+              }
+            }
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
           const [monthlyStats, learningHighlights] = userRole === 'santri'
@@ -937,6 +956,7 @@ const DigitalAttendancePage = () => {
             time: newAttendance.check_in_time,
             status: newAttendance.status,
             points: newPoints,
+            pointDelta,
             levelInfo,
             monthlyStats,
             ...learningHighlights,
@@ -1231,6 +1251,7 @@ const DigitalAttendancePage = () => {
             time={scan.time}
             jilid={scan.jilid}
             points={scan.points}
+            pointDelta={scan.pointDelta}
             levelInfo={scan.levelInfo}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}

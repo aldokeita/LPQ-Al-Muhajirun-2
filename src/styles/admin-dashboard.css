@@ -3009,6 +3009,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .attendance-profile-card__detail-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3020,6 +3021,64 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   transition: background-color 0.2s ease;
   width: 100%;
   text-align: center;
+}
+
+/* Badge perubahan poin pada kartu Poin.
+   Gradien dan cahayanya diambil dari variabel tema kartu yang sama dengan nama
+   santri, sehingga warnanya ikut berpindah mengikuti level. Naik dan turun
+   dibedakan oleh tanda dan arah munculnya, bukan oleh warna, supaya tetap senada. */
+.attendance-profile-card__detail-badge {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.35rem;
+  z-index: 1;
+  min-width: 1.6rem;
+  padding: 0.05rem 0.34rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--attendance-profile-gradient-start, #087443),
+    var(--attendance-profile-gradient-end, #4ade80)
+  );
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.34),
+    0 2px 6px var(--attendance-profile-accent-glow, rgba(22, 155, 98, 0.26));
+  animation: attendance-point-badge-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both;
+}
+
+.attendance-profile-card__detail-badge.is-turun {
+  /* Turun datang dari arah berlawanan; tandanya yang menjelaskan artinya. */
+  animation-name: attendance-point-badge-in-turun;
+}
+
+@keyframes attendance-point-badge-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.7); }
+  60%  { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.08); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes attendance-point-badge-in-turun {
+  from { opacity: 0; transform: translate3d(0, -6px, 0) scale(0.7); }
+  60%  { opacity: 1; transform: translate3d(0, 2px, 0) scale(1.08); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendance-profile-card__detail-badge {
+    animation: none;
+  }
+}
+
+.dark .attendance-profile-card__detail-badge {
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.34);
 }
 
 .attendance-profile-card__detail-icon {
