@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query, queryOne, upsert } from '@/lib/dataClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -87,11 +87,15 @@ const RandomNamePage = () => {
             setIsLoadingData(true);
             try {
                 // 1. Fetch Santri
-                const { data: santriData, error: santriError } = await supabase
-                    .from('santri')
-                    .select('id, nama_lengkap, foto_url, avatar_path, points, jilid, jenis_kelamin')
-                    .eq('status', 'Aktif')
-                    .eq('kategori', 'Anak');
+                const { data: santriData, error: santriError } = await query({
+                    table: 'santri',
+                    columns: ['id', 'nama_lengkap', 'foto_url', 'avatar_path', 'points', 'jilid', 'jenis_kelamin'],
+                    filters: [
+                        { column: 'status', op: 'eq', value: 'Aktif' },
+                        { column: 'kategori', op: 'eq', value: 'Anak' },
+                    ],
+                    limit: 1000,
+                });
                 
                 if (santriError) throw santriError;
                 const resolvedSantri = await resolveAvatarRecords(santriData || [], {
@@ -100,11 +104,11 @@ const RandomNamePage = () => {
                 setSantriList(resolvedSantri);
 
                 // 2. Fetch Settings using website_content instead of hallucinated table
-                const { data: settingsData, error: settingsError } = await supabase
-                    .from('website_content')
-                    .select('id, content')
-                    .eq('key', 'random_name_settings')
-                    .maybeSingle();
+                const { data: settingsData, error: settingsError } = await queryOne({
+                    table: 'website_content',
+                    columns: ['id', 'content'],
+                    filters: [{ column: 'key', op: 'eq', value: 'random_name_settings' }],
+                });
 
                 if (!settingsError && settingsData?.content) {
                     setPointSettings({
@@ -153,23 +157,13 @@ const RandomNamePage = () => {
                 deduction_buttons: pointSettings.deductions
             };
 
-            if (!pointSettings.id) {
-                const { error } = await supabase.from('website_content').insert({
-                    key: 'random_name_settings',
-                    content: contentPayload
-                });
-                if (error) throw error;
-            } else {
-                // Update
-                const { error } = await supabase
-                    .from('website_content')
-                    .update({
-                        content: contentPayload,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', pointSettings.id);
-                if (error) throw error;
-            }
+            // Upsert berdasarkan key: menambah bila belum ada, memperbarui bila sudah.
+            // updated_at diisi server, jadi tidak perlu dikirim dari sini.
+            const { error } = await upsert('website_content', {
+                key: 'random_name_settings',
+                content: contentPayload
+            }, 'key');
+            if (error) throw error;
             toast({ title: "Berhasil", description: "Pengaturan poin disimpan." });
             setSettingsOpen(false);
         } catch (error) {

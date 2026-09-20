@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query, queryOne, rpc, update } from '@/lib/dataClient';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Gamepad2, Star, Sparkles, Crown, UserCheck, Gift, RefreshCw, CheckCircle2, Monitor, Smartphone, Sun, Moon, MessageCircle } from 'lucide-react';
@@ -38,7 +38,7 @@ const GatchaGamePage = () => {
     const loadConfig = async () => {
       const {
         data
-      } = await supabase.from('website_content').select('content').eq('key', 'gatcha_config').maybeSingle();
+      } = await queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'gatcha_config' }] });
       if (data?.content) {
         setConfig(data.content);
       } else {
@@ -60,10 +60,12 @@ const GatchaGamePage = () => {
     };
     const loadRoster = async () => {
       setIsRosterLoading(true);
-      const { data, error } = await supabase
-        .from('santri')
-        .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
-        .order('nama_lengkap', { ascending: true });
+      const { data, error } = await query({
+        table: 'santri',
+        columns: ['id', 'nama_lengkap', 'nama_panggilan', 'foto_url', 'avatar_path', 'jilid', 'points', 'status'],
+        order: [{ column: 'nama_lengkap', ascending: true }],
+        limit: 1000,
+      });
 
       if (!error) {
         setSantriList((data || []).filter((santri) => santri.status !== 'inactive'));
@@ -145,13 +147,13 @@ const GatchaGamePage = () => {
       if (reward.type === 'points' && currentPlayer) {
         const amount = Number.parseInt(reward.value, 10) || 0;
         const nextPoints = (Number(currentPlayer.points) || 0) + amount;
-        const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+        const { error: rpcError } = await rpc('increment_santri_points', {
           p_santri_id: currentPlayer.id,
           p_amount: amount
         });
 
         if (rpcError) {
-          await supabase.from('santri').update({ points: nextPoints }).eq('id', currentPlayer.id);
+          await update('santri', currentPlayer.id, { points: nextPoints });
         }
 
         setCurrentPlayer(prev => ({

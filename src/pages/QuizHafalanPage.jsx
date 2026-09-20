@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query, queryOne, rpc, update } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -60,15 +60,19 @@ const QuizHafalanPage = () => {
   useEffect(() => {
     const loadConfig = async () => {
       const [{ data: configData, error: configError }, { data: itemsData, error: itemsError }] = await Promise.all([
-        supabase.from('website_content').select('content').eq('key', 'quiz_hafalan_config').maybeSingle(),
-        supabase
-          .from('hafalan_items')
-          .select('id,program_scope,category,jilid,item_name,item_order,is_active')
-          .eq('program_scope', 'TPQ')
-          .eq('is_active', true)
-          .in('category', ['Doa', 'Sholat', 'Surat'])
-          .in('jilid', ['1', '2', '3', '4', '5', '6'])
-          .order('item_order', { ascending: true }),
+        queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'quiz_hafalan_config' }] }),
+        query({
+          table: 'hafalan_items',
+          columns: ['id', 'program_scope', 'category', 'jilid', 'item_name', 'item_order', 'is_active'],
+          filters: [
+            { column: 'program_scope', op: 'eq', value: 'TPQ' },
+            { column: 'is_active', op: 'eq', value: 1 },
+            { column: 'category', op: 'in', value: ['Doa', 'Sholat', 'Surat'] },
+            { column: 'jilid', op: 'in', value: ['1', '2', '3', '4', '5', '6'] },
+          ],
+          order: [{ column: 'item_order', ascending: true }],
+          limit: 1000,
+        }),
       ]);
 
       if (configError) {
@@ -110,10 +114,12 @@ const QuizHafalanPage = () => {
       ));
       setFlattenedItems(allItems);
 
-      const { data: santriData, error: santriError } = await supabase
-        .from('santri')
-        .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
-        .order('nama_lengkap', { ascending: true });
+      const { data: santriData, error: santriError } = await query({
+        table: 'santri',
+        columns: ['id', 'nama_lengkap', 'nama_panggilan', 'foto_url', 'avatar_path', 'jilid', 'points', 'status'],
+        order: [{ column: 'nama_lengkap', ascending: true }],
+        limit: 1000,
+      });
 
       if (!santriError) {
         setSantriList((santriData || []).filter((santri) => santri.status !== 'inactive'));
@@ -294,16 +300,13 @@ const QuizHafalanPage = () => {
     setGameState('result');
 
     const newPoints = (Number(currentSantri.points) || 0) + 1;
-    const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+    const { error: rpcError } = await rpc('increment_santri_points', {
       p_santri_id: currentSantri.id,
       p_amount: 1
     });
 
     if (rpcError) {
-      const { error: fallbackError } = await supabase
-        .from('santri')
-        .update({ points: newPoints })
-        .eq('id', currentSantri.id);
+      const { error: fallbackError } = await update('santri', currentSantri.id, { points: newPoints });
 
       if (fallbackError) {
         toast({ title: "Gagal Update Poin", description: fallbackError.message, variant: "destructive" });

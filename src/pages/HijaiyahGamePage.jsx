@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query, queryOne, rpc, update } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -125,8 +125,8 @@ const HijaiyahGamePage = () => {
 
   const loadConfig = useCallback(async () => {
     const [configRes, bgRes] = await Promise.all([
-      supabase.from('website_content').select('content').eq('key', HIJAIYAH_CONFIG_KEY).maybeSingle(),
-      supabase.from('website_content').select('content').eq('key', 'hijaiyahFindingBackgroundUrl').maybeSingle(),
+      queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: HIJAIYAH_CONFIG_KEY }] }),
+      queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'hijaiyahFindingBackgroundUrl' }] }),
     ]);
     if (configRes.data?.content) setConfig(configRes.data.content);
     if (bgRes.data?.content) setConfig((prev) => ({ ...prev, backgroundUrl: bgRes.data.content }));
@@ -136,10 +136,12 @@ const HijaiyahGamePage = () => {
     const load = async () => {
       setIsRosterLoading(true);
       await loadConfig();
-      const { data: santriData, error } = await supabase
-        .from('santri')
-        .select('id, nama_lengkap, nama_panggilan, foto_url, avatar_path, jilid, points, status')
-        .order('nama_lengkap', { ascending: true });
+      const { data: santriData, error } = await query({
+        table: 'santri',
+        columns: ['id', 'nama_lengkap', 'nama_panggilan', 'foto_url', 'avatar_path', 'jilid', 'points', 'status'],
+        order: [{ column: 'nama_lengkap', ascending: true }],
+        limit: 1000,
+      });
       if (!error) {
         const active = (santriData || []).filter((s) => s.status !== 'inactive');
         const resolved = await Promise.all(active.map(async (s) => ({
@@ -260,15 +262,12 @@ const HijaiyahGamePage = () => {
     if (!currentSantri) return;
     setIsAwarding(true);
     const newPoints = (Number(currentSantri.points) || 0) + amount;
-    const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+    const { error: rpcError } = await rpc('increment_santri_points', {
       p_santri_id: currentSantri.id,
       p_amount: amount,
     });
     if (rpcError) {
-      const { error: fallbackError } = await supabase
-        .from('santri')
-        .update({ points: newPoints })
-        .eq('id', currentSantri.id);
+      const { error: fallbackError } = await update('santri', currentSantri.id, { points: newPoints });
       if (fallbackError) {
         toast({ title: 'Gagal Update Poin', description: fallbackError.message, variant: 'destructive' });
         setIsAwarding(false);

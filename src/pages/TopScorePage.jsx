@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { insert, query, queryOne } from '@/lib/dataClient';
+
+// Pemindaian RFID memuat baris santri lengkap, sama seperti sebelumnya.
+const SANTRI_FULL_COLUMNS = [
+  'id', 'nomor_induk_qiroati', 'nama_lengkap', 'nama_panggilan', 'nama_ayah', 'nama_ibu',
+  'no_kk', 'no_nik', 'kategori', 'jenis_kelamin', 'tanggal_lahir', 'tempat_lahir',
+  'tanggal_pendaftaran', 'alamat', 'no_hp_ortu', 'foto_url', 'avatar_path', 'email',
+  'rfid_tag', 'current_class_id', 'sesi_mengaji', 'jilid', 'status', 'points',
+  'order_in_class', 'link_qiroati', 'default_spp_amount', 'juz_hafalan', 'berkas_foto',
+  'berkas_akta', 'berkas_kk', 'berkas_form', 'created_at', 'updated_at', 'deleted_at',
+  'created_by', 'updated_by',
+];
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -38,11 +49,12 @@ const TopScorePage = () => {
     useEffect(() => {
         const fetchTopScores = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('santri')
-                    .select('id, nama_lengkap, points, foto_url, sesi_mengaji, jilid')
-                    .order('points', { ascending: false })
-                    .limit(10);
+                const { data, error } = await query({
+                    table: 'santri',
+                    columns: ['id', 'nama_lengkap', 'points', 'foto_url', 'sesi_mengaji', 'jilid'],
+                    order: [{ column: 'points', ascending: false }],
+                    limit: 10,
+                });
 
                 if (error) throw error;
                 setStudents(data || []);
@@ -66,10 +78,11 @@ const TopScorePage = () => {
 
         try {
             // Find student by RFID
-            const { data: student, error: studentError } = await supabase
-                .from('santri').select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ayah, nama_ibu, no_kk, no_nik, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, tanggal_pendaftaran, alamat, no_hp_ortu, foto_url, avatar_path, email, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, link_qiroati, default_spp_amount, juz_hafalan, berkas_foto, berkas_akta, berkas_kk, berkas_form, created_at, updated_at, deleted_at, created_by, updated_by')
-                .eq('rfid_tag', cleanTag)
-                .single();
+            const { data: student, error: studentError } = await queryOne({
+                    table: 'santri',
+                    columns: SANTRI_FULL_COLUMNS,
+                    filters: [{ column: 'rfid_tag', op: 'eq', value: cleanTag }],
+                });
 
             if (studentError || !student) {
                 toast({
@@ -83,12 +96,14 @@ const TopScorePage = () => {
             const today = new Date().toISOString().split('T')[0];
 
             // Check if already present today
-            const { data: existingAttendance } = await supabase
-                .from('attendance')
-                .select('id')
-                .eq('user_id', student.id)
-                .eq('attendance_date', today)
-                .maybeSingle();
+            const { data: existingAttendance } = await queryOne({
+                    table: 'attendance',
+                    columns: ['id'],
+                    filters: [
+                        { column: 'user_id', op: 'eq', value: student.id },
+                        { column: 'attendance_date', op: 'eq', value: today },
+                    ],
+                });
 
             if (existingAttendance) {
                 toast({
@@ -100,7 +115,7 @@ const TopScorePage = () => {
             }
 
             // Insert attendance
-            const { error: insertError } = await supabase.from('attendance').insert({
+            const { error: insertError } = await insert('attendance', {
                 user_id: student.id,
                 role: 'santri',
                 attendance_date: today,
