@@ -13,11 +13,16 @@
 
 export const TABLE_POLICIES = {
   // --- Data santri dan turunannya -----------------------------------------------------
+  // Hampir seluruh tabel di bawah punya cabang "baris ini milik saya" di policy aslinya —
+  // santri_id = auth.uid() atau yang setara. Terjemahan pertama melewatkannya di banyak
+  // tempat, sehingga santri tidak bisa melihat datanya sendiri. Semuanya dipulihkan.
   santri: {
     scopeColumn: 'id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
+  // santri_notes memang tanpa cabang kepemilikan: catatan guru tentang seorang santri
+  // tidak terbaca oleh santri itu sendiri.
   santri_notes: {
     scopeColumn: 'santri_id',
     select: ['admin', 'guruSantri', 'pentashihSantri'],
@@ -25,24 +30,25 @@ export const TABLE_POLICIES = {
   },
   santri_character_scores: {
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin', 'guruSantri'], update: ['admin', 'guruSantri'], delete: ['admin'],
   },
   santri_character_strengths: {
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin', 'guruSantri'], update: ['admin', 'guruSantri'], delete: ['admin', 'guruSantri'],
   },
   santri_juz_scores: {
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin', 'guruSantri'], update: ['admin', 'guruSantri'], delete: ['admin'],
   },
   santri_surah_scores: {
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin', 'guruSantri'], update: ['admin', 'guruSantri'], delete: ['admin'],
   },
+  // Catatan perilaku juga tanpa cabang kepemilikan, sama seperti santri_notes.
   santri_behavior_records: {
     scopeColumn: 'santri_id',
     select: ['admin', 'guruSantri'],
@@ -50,12 +56,15 @@ export const TABLE_POLICIES = {
   },
   hafalan_progress: {
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin', 'guruSantri'], update: ['admin', 'guruSantri'], delete: ['admin'],
   },
+  // Terlihat oleh santri pengirimnya lewat santri_id sekaligus guru tujuannya lewat
+  // target_guru_id — dua kolom berbeda pada baris yang sama.
   murojaah_submissions: {
+    scopeColumns: { owner: 'santri_id', recipient: 'target_guru_id' },
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'recipient', 'guruSantri', 'pentashihSantri'],
     insert: ['admin', 'guruSantri'], update: ['admin', 'guruSantri'], delete: ['admin'],
   },
   // Santri boleh melihat riwayat jilidnya sendiri.
@@ -66,24 +75,38 @@ export const TABLE_POLICIES = {
   },
   class_mutations: {
     scopeColumn: 'santri_id',
-    select: ['admin', 'guruSantri', 'pentashihSantri'],
+    select: ['admin', 'owner', 'guruSantri', 'pentashihSantri'],
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
 
   // --- Kelas dan kehadiran -------------------------------------------------------------
+  // Policy aslinya punya empat cabang, dan terjemahan pertama hanya memuat dua:
+  //
+  //   is_admin()
+  //   OR id_guru = auth.uid()                 <- guru pengampu kelas itu
+  //   OR pentashih_has_class_access(id)
+  //   OR EXISTS (class_memberships aktif milik auth.uid() di kelas itu)   <- santrinya
+  //
+  // Akibat dua cabang yang hilang, guru melihat nol kelas di TV display dan rekap
+  // absensi, dan santri tidak bisa melihat kelasnya sendiri. Keempatnya kini ada.
   classes: {
+    scopeColumns: { classOwner: 'id_guru', pentashihClass: 'id', santriClass: 'id' },
     scopeColumn: 'id',
-    select: ['admin', 'pentashihClass'],
+    select: ['admin', 'classOwner', 'pentashihClass', 'santriClass'],
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
   class_memberships: {
+    scopeColumns: { owner: 'santri_id' },
     scopeColumn: 'class_id',
-    select: ['admin', 'guruClass', 'pentashihClass'],
+    select: ['admin', 'owner', 'guruClass', 'pentashihClass'],
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
+  // Kehadiran seseorang selalu terlihat oleh orang itu sendiri lewat user_id — cabang
+  // yang hilang inilah sebabnya rekap absensi santri tidak menampilkan apa pun.
   attendance: {
+    scopeColumns: { owner: 'user_id' },
     scopeColumn: 'class_id',
-    select: ['admin', 'guruClass', 'pentashihClass'],
+    select: ['admin', 'owner', 'guruClass', 'pentashihClass'],
     insert: ['admin', 'guruClass'], update: ['admin', 'guruClass'], delete: ['admin'],
   },
 
@@ -94,8 +117,9 @@ export const TABLE_POLICIES = {
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
   mmq_attendance: {
+    scopeColumns: { owner: 'guru_id' },
     scopeColumn: 'schedule_id',
-    select: ['admin', 'pentashihMmq'],
+    select: ['admin', 'owner', 'pentashihMmq'],
     insert: ['admin', 'pentashihMmq'], update: ['admin'], delete: ['admin'],
   },
   mmq_notulensi: {
@@ -104,20 +128,62 @@ export const TABLE_POLICIES = {
     insert: ['admin', 'pentashihMmq'], update: ['admin'], delete: ['admin'],
   },
   pentashih_class_assignments: {
-    select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'],
+    scopeColumns: { owner: 'pentashih_id' },
+    select: ['admin', 'owner'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+
+  // --- Milik sendiri, selain admin -----------------------------------------------------
+  // Guru terlihat oleh dirinya sendiri, oleh santri yang diajarnya, dan oleh pentashih
+  // yang memegang salah satu kelasnya. Terjemahan pertama hanya menyebut pentashih, dan
+  // bahkan itu pun tidak berfungsi karena kolom scope-nya tidak pernah ditentukan.
+  guru: {
+    scopeColumns: { owner: 'id', guruTeachesCaller: 'id', pentashihOfGuru: 'id' },
+    select: ['admin', 'owner', 'guruTeachesCaller', 'pentashihOfGuru'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  user_profiles: {
+    scopeColumns: { owner: 'id' },
+    select: ['admin', 'owner'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  // Santri melihat pembayarannya sendiri. Tanpa cabang ini, riwayat pembayaran di
+  // dashboard santri selalu kosong.
+  payments: {
+    scopeColumns: { owner: 'santri_id' },
+    select: ['admin', 'owner'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  notifications: {
+    scopeColumns: { owner: 'recipient_id' },
+    select: ['admin', 'owner'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  media_player_settings: {
+    scopeColumns: { owner: 'user_id' },
+    select: ['admin', 'owner'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  // Terbaca siapa pun yang sudah login selama item-nya aktif; admin melihat semuanya.
+  hafalan_items: {
+    select: ['admin'],
+    authenticatedFilter: '"is_active" = 1',
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  // Policy aslinya berbunyi USING (true) untuk authenticated: daftar acuan penilaian
+  // terbuka bagi seluruh peran.
+  character_assessment_items: {
+    select: ['admin', 'guru', 'santri', 'pentashih'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
+  },
+  character_strength_items: {
+    select: ['admin', 'guru', 'santri', 'pentashih'],
+    insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
 
   // --- Hanya admin ---------------------------------------------------------------------
-  guru: { select: ['admin', 'pentashihClass'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  user_profiles: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  payments: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
   expenses: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
   login_logs: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  notifications: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  hafalan_items: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  character_assessment_items: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  character_strength_items: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
-  media_player_settings: { select: ['admin'], insert: ['admin'], update: ['admin'], delete: ['admin'] },
 
   // --- Konten publik -------------------------------------------------------------------
   academic_calendar: {

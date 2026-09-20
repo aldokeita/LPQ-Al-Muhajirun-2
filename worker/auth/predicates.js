@@ -66,6 +66,64 @@ export const guruHasClassAccess = async (ctx, classId) => {
     ));
 };
 
+// Guru pengampu kelas itu sendiri: classes.id_guru = auth.uid().
+//
+// Berbeda dari guruHasClassAccess, yang menerima id kelas lalu mencarinya di tabel
+// classes. Yang ini menerima nilai kolom id_guru pada baris yang sedang diperiksa, jadi
+// tidak perlu membaca apa pun — dan itu memang bunyi cabang policy aslinya, tanpa syarat
+// tambahan apa pun.
+export const isClassOwner = async (ctx, idGuru) =>
+  Boolean(ctx.userId) && ctx.userId === idGuru;
+
+// Baris yang ditujukan kepada pemanggil, ketika kolomnya berbeda dari kolom kepemilikan
+// utama — misalnya murojaah_submissions, yang terlihat oleh santri pengirim lewat
+// santri_id sekaligus oleh guru tujuan lewat target_guru_id.
+export const isRecipient = async (ctx, recipientId) =>
+  Boolean(ctx.userId) && ctx.userId === recipientId;
+
+// Guru yang mengajar pemanggil: ada kelas milik guru ini yang memuat pemanggil sebagai
+// santri aktif. Cabang ketiga policy guru.
+export const teachesCaller = async (ctx, guruId) => {
+  if (!ctx.userId || !guruId) return false;
+  return cached(ctx, `guru:mengajar:${guruId}`, () =>
+    exists(
+      ctx,
+      `select 1 from "classes" c
+         join "class_memberships" cm on cm."class_id" = c."id" and cm."status" = 'active'
+        where c."id_guru" = ? and cm."santri_id" = ? limit 1`,
+      [guruId, ctx.userId],
+    ));
+};
+
+// Pentashih yang memegang salah satu kelas guru ini. Cabang keempat policy guru.
+export const pentashihOfGuru = async (ctx, guruId) => {
+  if (!ctx.userId || !guruId) return false;
+  return cached(ctx, `pentashih:guru:${guruId}`, () =>
+    exists(
+      ctx,
+      `select 1 from "classes" c
+         join "pentashih_class_assignments" pca on pca."class_id" = c."id"
+        where c."id_guru" = ? and pca."pentashih_id" = ? and pca."is_active" = 1
+          and pca."scope" in ('class', 'both')
+          and (pca."starts_at" is null or pca."starts_at" <= ?)
+          and (pca."ends_at" is null or pca."ends_at" >= ?)
+        limit 1`,
+      [guruId, ctx.userId, today(), today()],
+    ));
+};
+
+// Santri yang terdaftar aktif di kelas itu. Cabang keempat policy classes.
+export const santriBelongsToClass = async (ctx, classId) => {
+  if (!ctx.userId || !classId) return false;
+  return cached(ctx, `santri:class:${classId}`, () =>
+    exists(
+      ctx,
+      `select 1 from "class_memberships"
+        where "class_id" = ? and "santri_id" = ? and "status" = 'active' limit 1`,
+      [classId, ctx.userId],
+    ));
+};
+
 export const guruHasSantriAccess = async (ctx, santriId) => {
   if (!ctx.userId || !santriId) return false;
   return cached(ctx, `guru:santri:${santriId}`, () =>
@@ -148,6 +206,11 @@ export const PREDICATES = {
   pentashih: isPentashih,
   santri: isSantri,
   owner: userOwnsSantriRecord,
+  recipient: isRecipient,
+  classOwner: isClassOwner,
+  santriClass: santriBelongsToClass,
+  guruTeachesCaller: teachesCaller,
+  pentashihOfGuru,
   guruClass: guruHasClassAccess,
   guruSantri: guruHasSantriAccess,
   pentashihClass: pentashihHasClassAccess,
@@ -157,5 +220,6 @@ export const PREDICATES = {
 
 // Predikat yang butuh nilai kolom baris, bukan sekadar peran pengguna.
 export const SCOPED_PREDICATES = new Set([
-  'owner', 'guruClass', 'guruSantri', 'pentashihClass', 'pentashihSantri', 'pentashihMmq',
+  'owner', 'recipient', 'classOwner', 'santriClass', 'guruTeachesCaller', 'pentashihOfGuru',
+  'guruClass', 'guruSantri', 'pentashihClass', 'pentashihSantri', 'pentashihMmq',
 ]);

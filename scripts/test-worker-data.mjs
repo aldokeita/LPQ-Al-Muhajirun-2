@@ -94,14 +94,22 @@ const run = async () => {
   // Inti pengujian ini: batas diterapkan setelah otorisasi, bukan sebelumnya.
   const limited = await query(guru.guru_id, { table: 'santri', columns: ['id'], limit: 3 });
   check('limit 3 memulangkan tepat 3 baris', limited.rows.length, Math.min(3, guruSantriCount));
-  await expectRejected('ditolak membaca payments', guru.guru_id, { table: 'payments', columns: ['id'] });
+  // Policy payments berbunyi admin OR santri_id = auth.uid(). Bagi guru itu berarti
+  // himpunan kosong, bukan penolakan — persis seperti RLS, yang menyaring baris alih-alih
+  // menolak query. Pemeriksaan ini dulu menuntut penolakan, dan itu keliru.
+  const bayarMenurutGuru = await query(guru.guru_id, { table: 'payments', columns: ['id'], limit: 100 });
+  check('tidak melihat satu pun pembayaran', bayarMenurutGuru.rows.length, 0);
   console.log('');
 
   console.log('santri:');
   // RLS dulu memulangkan himpunan kosong, bukan galat, dan sifat itu dipertahankan.
-  // Yang wajib dibuktikan adalah jumlah barisnya nol, bukan adanya pesan penolakan.
+  //
+  // Tetapi kosongnya bukan nol mutlak: policy santri berbunyi id = auth.uid() OR ...,
+  // jadi seorang santri melihat tepat satu baris, yaitu dirinya sendiri. Pemeriksaan ini
+  // dulu menuntut nol, yang mengunci cabang kepemilikan yang hilang.
   const santriSeesSantri = await query(santriUser.id, { table: 'santri', columns: ['id', 'nama_lengkap'], limit: 1000 });
-  check('tidak melihat satu pun baris tabel santri', santriSeesSantri.rows.length, 0);
+  check('hanya melihat dirinya sendiri di tabel santri', santriSeesSantri.rows.length, 1);
+  check('baris itu benar dirinya', santriSeesSantri.rows[0].id, santriUser.id);
   const ownHistory = await query(santriUser.id, { table: 'jilid_history', columns: ['id', 'santri_id'], limit: 50 });
   check('riwayat jilid yang terbaca hanya miliknya', ownHistory.rows.every((r) => r.santri_id === santriUser.id), true);
   console.log('');
@@ -196,6 +204,89 @@ const run = async () => {
   check('NULL bisa ditempatkan di awal', nullsFirst.rows[0]?.order_in_class, null);
   await expectRejected('kolom urut tak dikenal di dalam array ditolak', admin.id,
     { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
+  console.log('');
+
+  console.log('setiap orang melihat datanya sendiri:');
+  // Policy Postgres hampir selalu punya cabang "baris ini milik saya" — santri_id =
+  // auth.uid(), user_id = auth.uid(), dan seterusnya. Terjemahan pertama melewatkannya di
+  // banyak tabel, sehingga santri tidak bisa melihat apa pun miliknya sendiri. Tiap
+  // pemeriksaan di bawah dibandingkan dengan SQL setara, bukan dengan adapternya sendiri.
+  const santriId = santriUser.id;
+  const punyaSendiri = [
+    ['pembayaran', 'payments', 'santri_id'],
+    ['kehadiran', 'attendance', 'user_id'],
+    ['keanggotaan kelas', 'class_memberships', 'santri_id'],
+    ['nilai juz', 'santri_juz_scores', 'santri_id'],
+    ['nilai surah', 'santri_surah_scores', 'santri_id'],
+    ['progres hafalan', 'hafalan_progress', 'santri_id'],
+    ['mutasi kelas', 'class_mutations', 'santri_id'],
+  ];
+  for (const [sebutan, tabel, kolom] of punyaSendiri) {
+    const hasil = await query(santriId, { table: tabel, columns: ['id', kolom], limit: 1000 });
+    const seharusnya = sqlite.prepare(`select count(*) c from "${tabel}" where "${kolom}" = ?`).get(santriId).c;
+    check(`santri melihat ${sebutan} miliknya`, hasil.rows.length, seharusnya);
+    check(`${sebutan} hanya miliknya`, hasil.rows.every((r) => r[kolom] === santriId), true);
+  }
+
+  // Profil sendiri juga, yang dulu saya kira hanya boleh dibaca admin.
+  const profilSendiri = await query(santriId, { table: 'user_profiles', columns: ['id'], limit: 10 });
+  check('santri melihat profilnya sendiri', profilSendiri.rows.length, 1);
+  check('profilnya benar miliknya', profilSendiri.rows[0].id, santriId);
+
+  // Barisnya sendiri di tabel santri.
+  const dirinya = await query(santriId, { table: 'santri', columns: ['id'], limit: 10 });
+  check('santri melihat barisnya sendiri', dirinya.rows.some((r) => r.id === santriId), true);
+
+  // Kelasnya sendiri lewat keanggotaan aktif.
+  const kelasSantri = await query(santriId, { table: 'classes', columns: ['id'], limit: 100 });
+  const kelasSeharusnya = sqlite.prepare(
+    "select count(distinct class_id) c from class_memberships where santri_id = ? and status = 'active'").get(santriId).c;
+  check('santri melihat kelasnya sendiri', kelasSantri.rows.length, kelasSeharusnya);
+  console.log('');
+
+  console.log('guru melihat kelas yang diampunya:');
+  const kelasGuru = await query(guru.guru_id, { table: 'classes', columns: ['id', 'id_guru'], limit: 1000 });
+  const kelasGuruSql = sqlite.prepare('select count(*) c from classes where id_guru = ?').get(guru.guru_id).c;
+  check('jumlahnya sama dengan SQL setara', kelasGuru.rows.length, kelasGuruSql);
+  check('lebih dari nol', kelasGuru.rows.length > 0, true);
+  check('semuanya benar diampunya', kelasGuru.rows.every((r) => r.id_guru === guru.guru_id), true);
+
+  // Guru melihat dirinya sendiri di tabel guru, dan santrinya melihat gurunya.
+  const guruSendiri = await query(guru.guru_id, { table: 'guru', columns: ['id'], limit: 100 });
+  check('guru melihat barisnya sendiri', guruSendiri.rows.some((r) => r.id === guru.guru_id), true);
+  const guruMenurutSantri = await query(santriId, { table: 'guru', columns: ['id'], limit: 100 });
+  const guruSeharusnya = sqlite.prepare(`
+    select count(distinct c.id_guru) c from classes c
+      join class_memberships cm on cm.class_id = c.id and cm.status = 'active'
+     where cm.santri_id = ? and c.id_guru is not null`).get(santriId).c;
+  check('santri melihat guru yang mengajarnya', guruMenurutSantri.rows.length, guruSeharusnya);
+  console.log('');
+
+  console.log('acuan penilaian terbuka untuk semua peran:');
+  for (const [sebutan, id] of [['santri', santriId], ['guru', guru.guru_id]]) {
+    const acuan = await query(id, { table: 'character_assessment_items', columns: ['id'], limit: 1000 });
+    check(`${sebutan} melihat acuan karakter`, acuan.rows.length,
+      sqlite.prepare('select count(*) c from character_assessment_items').get().c);
+  }
+  // hafalan_items terbuka selama aktif; admin melihat semuanya.
+  const hafalanSantri = await query(santriId, { table: 'hafalan_items', columns: ['id', 'is_active'], limit: 1000 });
+  check('santri hanya melihat item aktif', hafalanSantri.rows.every((r) => r.is_active === 1), true);
+  check('jumlahnya sama dengan yang aktif', hafalanSantri.rows.length,
+    sqlite.prepare('select count(*) c from hafalan_items where is_active = 1').get().c);
+  const hafalanAdmin = await query(admin.id, { table: 'hafalan_items', columns: ['id'], limit: 1000 });
+  check('admin melihat seluruh item', hafalanAdmin.rows.length,
+    sqlite.prepare('select count(*) c from hafalan_items').get().c);
+  console.log('');
+
+  console.log('yang tertutup tetap tertutup:');
+  await expectRejected('santri ditolak membaca expenses', santriId, { table: 'expenses', columns: ['id'] });
+  await expectRejected('santri ditolak membaca login_logs', santriId, { table: 'login_logs', columns: ['id'] });
+  const catatanSantri = await query(santriId, { table: 'santri_notes', columns: ['id'], limit: 100 });
+  // Catatan guru tentang santri memang tidak terbaca oleh santri itu sendiri.
+  check('santri tidak melihat catatan tentang dirinya', catatanSantri.rows.length, 0);
+  const bayarOrangLain = await query(santriId, { table: 'payments', columns: ['santri_id'], limit: 1000 });
+  check('tidak ada pembayaran orang lain yang bocor',
+    bayarOrangLain.rows.every((r) => r.santri_id === santriId), true);
   console.log('');
 
   console.log('penyaring pada kolom uang:');

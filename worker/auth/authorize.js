@@ -58,6 +58,12 @@ export const createAuthorizer = (db, userId) => {
       // Kolom scope bisa berbeda per predikat; scopeColumns menimpa scopeColumn.
       const columnFor = (rule) => policy.scopeColumns?.[rule] ?? policy.scopeColumn ?? null;
 
+      // Satu tabel bisa punya beberapa kolom scope sekaligus — attendance terlihat lewat
+      // user_id bagi pemiliknya dan lewat class_id bagi gurunya. Sebuah baris wajar saja
+      // tidak memuat semuanya, jadi predikat yang kolomnya tidak ada dilewati, bukan
+      // dianggap gagal total.
+      const dilewati = [];
+
       for (const rule of rules) {
         const predicate = PREDICATES[rule];
         if (!predicate) throw new Error(`Predikat "${rule}" tidak dikenal.`);
@@ -70,15 +76,23 @@ export const createAuthorizer = (db, userId) => {
         const column = columnFor(rule);
         if (!column || !row) continue;
 
-        // Baris tanpa nilai scope tidak bisa diperiksa; menolak adalah satu-satunya
-        // jawaban yang aman.
         if (row[column] === undefined) {
-          throw new AuthorizationError(
-            `Baris "${table}" tidak memuat kolom "${column}" yang dibutuhkan pemeriksaan.`,
-            { table, command, status: 500 },
-          );
+          // Tanpa sesi, predikat berbasis kepemilikan tidak mungkin lolos berapa pun
+          // nilainya, jadi kolom yang hilang tidak menyamarkan apa pun.
+          if (ctx.userId) dilewati.push(column);
+          continue;
         }
         if (await predicate(ctx, row[column])) return true;
+      }
+
+      // Tidak ada satu pun yang lolos, sementara ada predikat yang tidak sempat diperiksa
+      // karena kolomnya tidak ikut dibaca. Penolakan seperti ini belum tentu benar, dan
+      // membiarkannya diam-diam akan menyamarkan pemanggil yang lupa mengambil kolomnya.
+      if (dilewati.length > 0) {
+        throw new AuthorizationError(
+          `Baris "${table}" tidak memuat kolom ${dilewati.map((c) => `"${c}"`).join(', ')} yang dibutuhkan pemeriksaan.`,
+          { table, command, status: 500 },
+        );
       }
       return false;
     },

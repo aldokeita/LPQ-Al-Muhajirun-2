@@ -44,6 +44,30 @@ const quote = (identifier) => `"${identifier}"`;
 // sebelum LIMIT diterapkan.
 const SCOPE_SQL = {
   owner: (column) => ({ sql: `${column} = ?`, params: (userId) => [userId] }),
+  // classes.id_guru = auth.uid(): kolomnya ada di baris itu sendiri, jadi tidak perlu
+  // membaca tabel lain.
+  classOwner: (column) => ({ sql: `${column} = ?`, params: (userId) => [userId] }),
+  recipient: (column) => ({ sql: `${column} = ?`, params: (userId) => [userId] }),
+  guruTeachesCaller: (column) => ({
+    sql: `exists (select 1 from "classes" c
+                    join "class_memberships" cm on cm."class_id" = c."id" and cm."status" = 'active'
+                   where c."id_guru" = ${column} and cm."santri_id" = ?)`,
+    params: (userId) => [userId],
+  }),
+  pentashihOfGuru: (column) => ({
+    sql: `exists (select 1 from "classes" c
+                    join "pentashih_class_assignments" pca on pca."class_id" = c."id"
+                   where c."id_guru" = ${column} and pca."pentashih_id" = ? and pca."is_active" = 1
+                     and pca."scope" in ('class', 'both')
+                     and (pca."starts_at" is null or pca."starts_at" <= ?)
+                     and (pca."ends_at" is null or pca."ends_at" >= ?))`,
+    params: (userId, today) => [userId, today, today],
+  }),
+  santriClass: (column) => ({
+    sql: `exists (select 1 from "class_memberships" cm
+                   where cm."class_id" = ${column} and cm."santri_id" = ? and cm."status" = 'active')`,
+    params: (userId) => [userId],
+  }),
   guruClass: (column) => ({
     sql: `exists (select 1 from "classes" c where c."id" = ${column} and c."id_guru" = ? and c."deleted_at" is null)`,
     params: (userId) => [userId],
@@ -143,21 +167,26 @@ const buildReadClause = async (ctx, table, policy) => {
     return publicRead;
   }
 
+  // Sebagian tabel punya syarat baris yang berlaku untuk siapa pun yang sudah login tetapi
+  // tidak untuk pengunjung — hafalan_items, misalnya, terbaca oleh semua peran selama
+  // is_active. Ini berbeda dari publicFilter, yang juga berlaku tanpa sesi.
+  const open = policy.authenticatedFilter ? { sql: `(${policy.authenticatedFilter})`, params: [] } : null;
+  const gabung = (a, b) => (a && b
+    ? { sql: `(${a.sql} or ${b.sql})`, params: [...a.params, ...b.params] }
+    : (a ?? b));
+  const tambahan = gabung(publicRead, open);
+
   let scoped;
   try {
     scoped = await buildAuthorizationClause(ctx, table, policy);
   } catch (error) {
-    // Peran pemanggil tidak memberi hak apa pun, tetapi barisnya mungkin publik.
-    if (publicRead && error instanceof QueryError && error.status === 403) return publicRead;
+    // Peran pemanggil tidak memberi hak apa pun, tetapi barisnya mungkin tetap terbuka.
+    if (tambahan && error instanceof QueryError && error.status === 403) return tambahan;
     throw error;
   }
 
   if (scoped === null) return null;
-  if (!publicRead) return scoped;
-  return {
-    sql: `(${scoped.sql} or ${publicRead.sql})`,
-    params: [...scoped.params, ...publicRead.params],
-  };
+  return gabung(scoped, tambahan);
 };
 
 const validateColumns = (table, requested) => {

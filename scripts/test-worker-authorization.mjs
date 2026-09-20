@@ -99,7 +99,9 @@ const run = async () => {
     await check('baca santri di kelasnya', await auth.can('santri', 'select', { id: santriInClass.santri_id }), true);
     await check('catat nilai santri di kelasnya', await auth.can('santri_juz_scores', 'insert', { santri_id: santriInClass.santri_id }), true);
     await check('baca absensi kelasnya', await auth.can('attendance', 'select', { class_id: guruRow.class_id }), true);
-    await check('baca payments', await auth.can('payments', 'select', {}), false);
+    // Pembayaran hanya terbaca admin atau santri pemiliknya; guru tidak termasuk, bahkan
+    // untuk santri di kelasnya sendiri.
+    await check('baca pembayaran santri di kelasnya', await auth.can('payments', 'select', { santri_id: santriInClass.santri_id }), false);
     await check('hapus santri', await auth.can('santri', 'delete', { id: santriInClass.santri_id }), false);
     if (santriElsewhere) {
       await check('baca santri kelas lain', await auth.can('santri', 'select', { id: santriElsewhere.santri_id }), false);
@@ -116,7 +118,14 @@ const run = async () => {
       await check('baca riwayat jilid orang lain', await auth.can('jilid_history', 'select', { santri_id: santriElsewhere.santri_id }), false);
       await check('baca data santri lain', await auth.can('santri', 'select', { id: santriElsewhere.santri_id }), false);
     }
-    await check('baca payments', await auth.can('payments', 'select', {}), false);
+    // Cabang kepemilikan yang dulu hilang: santri melihat pembayarannya sendiri, dan
+    // hanya itu.
+    await check('baca pembayaran sendiri', await auth.can('payments', 'select', { santri_id: santriUser.id }), true);
+    if (santriElsewhere && santriElsewhere.santri_id !== santriUser.id) {
+      await check('baca pembayaran orang lain', await auth.can('payments', 'select', { santri_id: santriElsewhere.santri_id }), false);
+    }
+    await check('baca absensi sendiri', await auth.can('attendance', 'select', { user_id: santriUser.id, class_id: null }), true);
+    await check('baca profil sendiri', await auth.can('user_profiles', 'select', { id: santriUser.id }), true);
     await check('baca kalender akademik', await auth.can('academic_calendar', 'select', {}), true);
     console.log('');
   }
