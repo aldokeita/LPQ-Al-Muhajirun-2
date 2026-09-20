@@ -146,6 +146,30 @@ export const attachRelated = async (rows, { foreignKey, table, columns, as, keyC
   return rows.map((row) => ({ ...row, [as]: byKey.get(row[foreignKey]) ?? null }));
 };
 
+// Menjahit relasi satu-ke-banyak, yang dulu ditulis sebagai embed terbalik seperti
+// classes.select('*, santri(...)'). Anak-anaknya ditarik sekali lalu dikelompokkan,
+// bukan satu query per induk.
+export const attachChildren = async (rows, { parentKey = 'id', table, columns, foreignKey, as }) => {
+  const ids = [...new Set(rows.map((row) => row[parentKey]).filter(Boolean))];
+  if (ids.length === 0) return rows.map((row) => ({ ...row, [as]: [] }));
+
+  const { data, error } = await queryIn({ table, columns, column: foreignKey, values: ids });
+  // Relasi yang tidak boleh dibaca menjadi daftar kosong, sama seperti embed di bawah RLS.
+  if (error) {
+    if (error.code === 'forbidden') return rows.map((row) => ({ ...row, [as]: [] }));
+    throw error;
+  }
+
+  const grouped = new Map();
+  for (const item of data ?? []) {
+    const key = item[foreignKey];
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(item);
+  }
+
+  return rows.map((row) => ({ ...row, [as]: grouped.get(row[parentKey]) ?? [] }));
+};
+
 // Nama RPC sama dengan nama function lama, jadi pemanggilan lama bisa dipetakan langsung.
 export const rpc = (name, params = {}) => request(`/api/rpc/${name}`, params);
 

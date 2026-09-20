@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import {
+  attachChildren, attachRelated, count, insert, query, queryIn, queryOne, rpc, update,
+} from '@/lib/dataClient';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -127,18 +129,26 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
     const endInclusive = new Date(selectedYear, selectedMonth, lastDay).toLocaleDateString('en-CA');
 
     const [attendanceResult, holidayResult] = await Promise.all([
-      supabase
-        .from('attendance')
-        .select('attendance_date, status')
-        .eq('user_id', santriId)
-        .gte('attendance_date', start)
-        .lt('attendance_date', end),
-      supabase
-        .from('academic_calendar')
-        .select('date')
-        .eq('is_holiday', true)
-        .gte('date', start)
-        .lte('date', endInclusive),
+      query({
+        table: 'attendance',
+        columns: ['attendance_date', 'status'],
+        filters: [
+          { column: 'user_id', op: 'eq', value: santriId },
+          { column: 'attendance_date', op: 'gte', value: start },
+          { column: 'attendance_date', op: 'lt', value: end },
+        ],
+        limit: 1000,
+      }),
+      query({
+        table: 'academic_calendar',
+        columns: ['date'],
+        filters: [
+          { column: 'is_holiday', op: 'eq', value: 1 },
+          { column: 'date', op: 'gte', value: start },
+          { column: 'date', op: 'lte', value: endInclusive },
+        ],
+        limit: 1000,
+      }),
     ]);
 
     if (attendanceResult.error || holidayResult.error) {
@@ -187,23 +197,107 @@ const getSantriMonthlyAttendanceStats = async (santriId) => {
     return { present, late, absent };
 };
 
+// Kolom yang dibaca saat kartu dipindai dan saat menarik jadwal MMQ.
+const GURU_SCAN_COLUMNS = [
+    'id', 'nama', 'email', 'no_hp', 'alamat', 'foto_url', 'avatar_path', 'rfid_tag', 'jabatan',
+    'roles', 'is_notulen', 'jenis_kelamin', 'tanggal_lahir', 'status_guru', 'status',
+    'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by',
+];
+
+const SANTRI_SCAN_COLUMNS = [
+    'id', 'nama_lengkap', 'nama_panggilan', 'kategori', 'status', 'foto_url', 'avatar_path',
+    'rfid_tag', 'current_class_id', 'sesi_mengaji', 'jilid', 'points', 'jenis_kelamin',
+];
+
+const MMQ_SCHEDULE_COLUMNS = [
+    'id', 'day_of_week', 'start_time', 'end_time', 'location', 'is_active',
+];
+
+const ATTENDANCE_COLUMNS = [
+    'id', 'user_id', 'role', 'attendance_date', 'check_in_time', 'check_in_timestamp',
+    'class_id', 'sesi', 'status', 'source', 'correction_reason', 'corrected_by',
+    'created_at', 'updated_at', 'created_by', 'updated_by',
+];
+
+// Kelas beserta daftar santrinya. Dulu ditulis sebagai embed terbalik
+// classes.select('*, santri(...)'); kini santri ditarik sekali lalu dikelompokkan.
+const loadClassesWithSantri = async (filters) => {
+    const { data: classes, error } = await query({
+        table: 'classes',
+        columns: ['id', 'nama_kelas', 'sesi', 'kategori', 'sort_order', 'is_active', 'id_guru'],
+        filters,
+        order: [{ column: 'sesi', ascending: true }],
+        limit: 1000,
+    });
+    if (error || !classes?.length) return [];
+
+    return attachChildren(classes, {
+        table: 'santri',
+        columns: ['id', 'nama_lengkap', 'jilid', 'foto_url', 'current_class_id'],
+        foreignKey: 'current_class_id',
+        as: 'santri',
+    });
+};
+
+// Riwayat mutasi kelas untuk tampilan pentashih. Kelas asal dan tujuan sama-sama
+// membawa nama gurunya, jadi keduanya dijahit dari tabel classes lalu guru.
+const loadMutationHistory = async () => {
+    const { data: rows, error } = await query({
+        table: 'class_mutations',
+        columns: ['id', 'santri_id', 'from_class_id', 'to_class_id', 'mutation_date', 'reason', 'created_at'],
+        order: [{ column: 'mutation_date', ascending: false }],
+        limit: 6,
+    });
+    if (error || !rows?.length) return [];
+
+    const withSantri = await attachRelated(rows, {
+        foreignKey: 'santri_id',
+        table: 'santri',
+        columns: ['id', 'nama_lengkap', 'foto_url', 'jilid'],
+        as: 'santri',
+    });
+
+    const classColumns = ['id', 'nama_kelas', 'id_guru'];
+    const withFrom = await attachRelated(withSantri, {
+        foreignKey: 'from_class_id', table: 'classes', columns: classColumns, as: 'from_class',
+    });
+    const withTo = await attachRelated(withFrom, {
+        foreignKey: 'to_class_id', table: 'classes', columns: classColumns, as: 'to_class',
+    });
+
+    // Nama guru dipasang ke kedua kelas sekaligus agar tabel guru cukup dibaca sekali.
+    const teacherIds = withTo.flatMap((row) => [row.from_class?.id_guru, row.to_class?.id_guru]);
+    const { data: teachers } = await queryIn({
+        table: 'guru', columns: ['id', 'nama'], column: 'id', values: teacherIds,
+    });
+    const byId = new Map((teachers ?? []).map((item) => [item.id, item]));
+
+    const withTeacher = (kelas) => (kelas ? { ...kelas, guru: byId.get(kelas.id_guru) ?? null } : null);
+    return withTo.map((row) => ({
+        ...row,
+        from_class: withTeacher(row.from_class),
+        to_class: withTeacher(row.to_class),
+    }));
+};
+
 const getSantriLearningHighlights = async (santriId) => {
     if (!santriId) {
         return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null };
     }
 
     const [progressResult, strengthResult] = await Promise.all([
-        supabase
-            .from('hafalan_progress')
-            .select('category,status,score,nilai')
-            .eq('santri_id', santriId),
-        supabase
-            .from('santri_character_strengths')
-            .select('strength_key')
-            .eq('santri_id', santriId)
-            .order('selected_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+        query({
+            table: 'hafalan_progress',
+            columns: ['category', 'status', 'score', 'nilai'],
+            filters: [{ column: 'santri_id', op: 'eq', value: santriId }],
+            limit: 1000,
+        }),
+        queryOne({
+            table: 'santri_character_strengths',
+            columns: ['strength_key'],
+            filters: [{ column: 'santri_id', op: 'eq', value: santriId }],
+            order: [{ column: 'selected_at', ascending: false }],
+        }),
     ]);
 
     const rows = progressResult.error ? [] : (progressResult.data || []);
@@ -293,25 +387,13 @@ const DigitalAttendancePage = () => {
 
   useEffect(() => {
       const fetchConfig = async () => {
-          const { data } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
+          const { data } = await queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'level_config' }] });
           if (data?.content) setLevelConfig(data.content);
       };
+      // Subscription realtime ke level_config dilepas: backend baru belum punya
+      // padanannya. Konfigurasi ini juga jarang berubah, dan halaman absensi dibuka
+      // ulang setiap sesi mengaji.
       fetchConfig();
-
-      const levelConfigChannel = supabase
-        .channel('digital-attendance-level-config')
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'website_content', filter: 'key=eq.level_config' },
-          (payload) => {
-            if (payload.new?.content) setLevelConfig(payload.new.content);
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(levelConfigChannel);
-      };
   }, []);
 
   const getLevelInfo = (points = 0, gender) => {
@@ -366,7 +448,10 @@ const DigitalAttendancePage = () => {
       // Pentashih handling
       if (lastScan?.type === 'success' && lastScan.isPentashih && lastScan.rfid === tag) {
           setIsLoading(true);
-          const { data: history } = await supabase.from('class_mutations').select(`*, santri(nama_lengkap, foto_url, jilid), from_class:from_class_id(nama_kelas, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, guru:id_guru(nama))`).order('mutation_date', { ascending: false }).limit(6);
+          // Dulu satu query dengan embed tiga tingkat. Endpoint data tidak melayani join,
+      // jadi relasinya dijahit bertahap: santri, lalu kelas asal dan tujuan, lalu nama
+      // guru pada masing-masing kelas.
+      const history = await loadMutationHistory();
           setLastScan({ ...lastScan, type: 'pentashih_history', historyData: history || [] });
           setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return;
       }
@@ -375,9 +460,9 @@ const DigitalAttendancePage = () => {
       if ((lastScan?.type === 'guru_info' || lastScan?.type === 'warning' || lastScan?.type === 'success') && lastScan.rfid === tag && lastScan.role === 'guru' && !lastScan.isPentashih) {
           if(!lastScan.classesData) {
              setIsLoading(true);
-             const { data: guruData } = await supabase.from('guru').select('id').eq('rfid_tag', tag).single();
+             const { data: guruData } = await queryOne({ table: 'guru', columns: ['id'], filters: [{ column: 'rfid_tag', op: 'eq', value: tag }] });
              if(guruData) {
-                 const { data: classes } = await supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', guruData.id).order('sesi');
+                 const classes = await loadClassesWithSantri([{ column: 'id_guru', op: 'eq', value: guruData.id }]);
                  setLastScan({ ...lastScan, type: 'guru_schedule_detail', classesData: classes || [] });
              }
              setIsLoading(false);
@@ -395,7 +480,7 @@ const DigitalAttendancePage = () => {
             const timestamp = now.toISOString();
 
             if (lastScan.isMMQ) {
-                 const { error: updErr } = await supabase.from('mmq_attendance').update({ check_in_timestamp: timestamp }).eq('id', lastScan.attendanceId);
+                 const { error: updErr } = await update('mmq_attendance', lastScan.attendanceId, { check_in_timestamp: timestamp });
                  if (updErr) throw updErr;
                  setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, message: 'Absensi MMQ diperbarui!', quote: lastScan.pendingQuote }));
             } else {
@@ -416,7 +501,7 @@ const DigitalAttendancePage = () => {
         const todayStr = getLocalDateString(todayDate);
 
         let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [];
-        let { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('rfid_tag', tag).maybeSingle();
+        let { data: guruData } = await queryOne({ table: 'guru', columns: GURU_SCAN_COLUMNS, filters: [{ column: 'rfid_tag', op: 'eq', value: tag }] });
 
         // Check MMQ Schedule if it's a Guru
         if (guruData) {
@@ -427,11 +512,14 @@ const DigitalAttendancePage = () => {
             });
             user = { ...guruData, foto_url }; userRole = 'guru';
             const todayDay = todayDate.getDay();
-            const { data: mmqSchedule } = await supabase.from('mmq_schedule')
-                .select('*')
-                .eq('day_of_week', todayDay)
-                .eq('is_active', true)
-                .maybeSingle();
+            const { data: mmqSchedule } = await queryOne({
+            table: 'mmq_schedule',
+            columns: MMQ_SCHEDULE_COLUMNS,
+            filters: [
+              { column: 'day_of_week', op: 'eq', value: todayDay },
+              { column: 'is_active', op: 'eq', value: 1 },
+            ],
+          });
 
             if (mmqSchedule) {
                 try {
@@ -457,7 +545,7 @@ const DigitalAttendancePage = () => {
                     }
 
                     if (!mmqSchedule.id) {
-                        const { data: fallbackSchedule } = await supabase.from('mmq_schedule').select('id').eq('is_active', true).limit(1).maybeSingle();
+                        const { data: fallbackSchedule } = await queryOne({ table: 'mmq_schedule', columns: ['id'], filters: [{ column: 'is_active', op: 'eq', value: 1 }] });
                         if (fallbackSchedule?.id) {
                             mmqSchedule.id = fallbackSchedule.id;
                         } else {
@@ -473,12 +561,15 @@ const DigitalAttendancePage = () => {
                         throw new Error("Gagal: Format ID Guru tidak valid.");
                     }
 
-                    const { data: existingMMQ, error: checkError } = await supabase.from('mmq_attendance')
-                        .select('id')
-                        .eq('schedule_id', mmqSchedule.id)
-                        .eq('guru_id', user.id)
-                        .eq('attendance_date', todayStr)
-                        .maybeSingle();
+                    const { data: existingMMQ, error: checkError } = await queryOne({
+            table: 'mmq_attendance',
+            columns: ['id'],
+            filters: [
+              { column: 'schedule_id', op: 'eq', value: mmqSchedule.id },
+              { column: 'guru_id', op: 'eq', value: user.id },
+              { column: 'attendance_date', op: 'eq', value: todayStr },
+            ],
+          });
 
                     if (checkError) {
                         throw new Error("Gagal memeriksa status absensi sebelumnya.");
@@ -509,7 +600,7 @@ const DigitalAttendancePage = () => {
                         status: validStatus
                     };
 
-                    const { error: mmqError } = await supabase.from('mmq_attendance').insert(insertPayload);
+                    const { error: mmqError } = await insert('mmq_attendance', insertPayload);
 
                     if (mmqError) {
                         let friendlyMessage = "Gagal menyimpan absensi MMQ ke database.";
@@ -545,11 +636,10 @@ const DigitalAttendancePage = () => {
             }
 
             // Normal Guru Attendance Session Assignment
-            const { data: assignedClasses } = await supabase
-              .from('classes')
-              .select('*, santri(id, nama_lengkap, jilid, foto_url)')
-              .eq('id_guru', user.id)
-              .eq('is_active', true);
+            const { data: assignedClasses } = await loadClassesWithSantri([
+            { column: 'id_guru', op: 'eq', value: user.id },
+            { column: 'is_active', op: 'eq', value: 1 },
+          ]);
             guruClasses = assignedClasses || [];
             const assignedSessions = [...new Set(guruClasses.map(item => normalizeAttendanceSessionName(item.sesi)).filter(Boolean))];
             const matchingSessions = assignedSessions
@@ -559,15 +649,18 @@ const DigitalAttendancePage = () => {
             sesiUser = matchingSessions[0]?.sesi || '';
 
             if (!sesiUser && assignedSessions.length > 0) {
-              const { data: previousAttendance } = await supabase
-                .from('attendance')
-                .select('id, check_in_time, status, sesi')
-                .eq('user_id', user.id)
-                .eq('attendance_date', todayStr)
-                .in('sesi', assignedSessions)
-                .order('check_in_timestamp', { ascending: false })
-                .limit(1)
-                .maybeSingle();
+              // queryOne, bukan query: pemanggil di bawah memperlakukan hasilnya sebagai
+              // satu baris, dan array kosong akan selalu dianggap bernilai benar.
+              const { data: previousAttendance } = await queryOne({
+                table: 'attendance',
+                columns: ['id', 'check_in_time', 'status', 'sesi'],
+                filters: [
+                  { column: 'user_id', op: 'eq', value: user.id },
+                  { column: 'attendance_date', op: 'eq', value: todayStr },
+                  { column: 'sesi', op: 'in', value: assignedSessions },
+                ],
+                order: [{ column: 'check_in_timestamp', ascending: false }],
+              });
 
               if (previousAttendance) {
                 setLastScan({
@@ -585,11 +678,20 @@ const DigitalAttendancePage = () => {
               }
             }
         } else {
-          let { data: santriData } = await supabase
-            .from('santri')
-            .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
-            .eq('rfid_tag', tag)
-            .maybeSingle();
+          const { data: scannedSantri } = await queryOne({
+            table: 'santri',
+            columns: SANTRI_SCAN_COLUMNS,
+            filters: [{ column: 'rfid_tag', op: 'eq', value: tag }],
+          });
+          // Kelas dulu ikut lewat embed class:current_class_id(...).
+          let [santriData] = scannedSantri
+            ? await attachRelated([scannedSantri], {
+                foreignKey: 'current_class_id',
+                table: 'classes',
+                columns: ['id', 'nama_kelas', 'sesi', 'id_guru', 'is_active'],
+                as: 'class',
+              })
+            : [null];
           if (santriData) {
               const foto_url = await resolveAvatarUrl({
                   ownerType: 'santri',
@@ -611,17 +713,31 @@ const DigitalAttendancePage = () => {
 
         const isPentashih = userRole === 'guru' && ((user.roles && user.roles.includes('Pentashih')) || (user.jabatan && user.jabatan.toLowerCase().includes('pentashih')));
         if (userRole === 'guru' && !sesiUser && !isPentashih) {
+              // loadClassesWithSantri memulangkan array langsung, jadi cabang lainnya
+              // pun memulangkan array agar bentuknya seragam.
               const [classesResult, attendanceCountResult, historyResult] = await Promise.all([
                   guruClasses.length > 0
-                    ? Promise.resolve({ data: guruClasses })
-                    : supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', user.id).order('sesi'),
-                  supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
-                  supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30)
+                    ? Promise.resolve(guruClasses)
+                    : loadClassesWithSantri([{ column: 'id_guru', op: 'eq', value: user.id }]),
+                  count({
+                    table: 'attendance',
+                    filters: [
+                      { column: 'user_id', op: 'eq', value: user.id },
+                      { column: 'attendance_date', op: 'gte', value: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString() },
+                    ],
+                  }),
+                  query({
+                    table: 'attendance',
+                    columns: ['attendance_date'],
+                    filters: [{ column: 'user_id', op: 'eq', value: user.id }],
+                    order: [{ column: 'attendance_date', ascending: false }],
+                    limit: 30,
+                  })
               ]);
-              const guruClasses = classesResult.data;
+              const guruClasses = classesResult;
               const uniqueSessions = [...new Set((guruClasses || []).map(c => c.sesi))];
               const scheduledSessionsCount = uniqueSessions.length;
-              const totalMonthAttendance = attendanceCountResult.count || 0;
+              const totalMonthAttendance = attendanceCountResult.data || 0;
               const hoursTaught = (totalMonthAttendance * 1.25).toFixed(2);
               const uniqueDates = [...new Set(historyResult.data?.map(h => h.attendance_date) || [])];
               let streak = 0;
@@ -631,7 +747,7 @@ const DigitalAttendancePage = () => {
                   if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
                   else { const day = checkDate.getDay(); if (day === 0 || day === 6) { checkDate.setDate(checkDate.getDate() - 1); continue; } break; }
               }
-              if ((attendanceCountResult.count || 0) > 0) streak++;
+              if ((attendanceCountResult.data || 0) > 0) streak++;
               const timeMap = { 'Pagi': 8, 'Siang': 14, 'Sore': 16, 'Malam': 18 };
               const sortedSessions = uniqueSessions.sort((a, b) => (timeMap[a] || 0) - (timeMap[b] || 0));
               const currentHour = new Date().getHours();
@@ -644,10 +760,26 @@ const DigitalAttendancePage = () => {
 
         let existingAttendance = null;
         if (userRole === 'guru') {
-             const { data } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
+             const { data } = await queryOne({
+        table: 'attendance',
+        columns: ATTENDANCE_COLUMNS,
+        filters: [
+          { column: 'user_id', op: 'eq', value: user.id },
+          { column: 'attendance_date', op: 'eq', value: todayStr },
+          { column: 'sesi', op: 'eq', value: sesiUser },
+        ],
+      });
              existingAttendance = data;
         } else {
-             const { data } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
+             const { data } = await queryOne({
+        table: 'attendance',
+        columns: ATTENDANCE_COLUMNS,
+        filters: [
+          { column: 'user_id', op: 'eq', value: user.id },
+          { column: 'attendance_date', op: 'eq', value: todayStr },
+          { column: 'sesi', op: 'eq', value: sesiUser },
+        ],
+      });
              existingAttendance = data;
         }
 
@@ -716,25 +848,22 @@ const DigitalAttendancePage = () => {
               source: 'rfid',
           };
         const attendanceMutation = shouldRestoreAbsentAttendance
-          ? supabase
-              .from('attendance')
-              .update({
-                check_in_time: newAttendance.check_in_time,
-                check_in_timestamp: newAttendance.check_in_timestamp,
-                class_id: newAttendance.class_id,
-                attended_session: newAttendance.attended_session,
-                status: newAttendance.status,
-                source: 'rfid',
-              })
-              .eq('id', existingAttendance.id)
-          : supabase.from('attendance').insert(newAttendance);
+          ? update('attendance', existingAttendance.id, {
+              check_in_time: newAttendance.check_in_time,
+              check_in_timestamp: newAttendance.check_in_timestamp,
+              class_id: newAttendance.class_id,
+              attended_session: newAttendance.attended_session,
+              status: newAttendance.status,
+              source: 'rfid',
+            })
+          : insert('attendance', newAttendance);
         const { error: insertError } = await attendanceMutation;
 
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
           let newPoints = user.points || 0;
           if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
-            await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
+            await rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
             newPoints += 1;
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
@@ -746,14 +875,27 @@ const DigitalAttendancePage = () => {
             : [undefined, {}];
           let adultStats = null;
           if (isAdult) {
-              const { count: daysCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+              const { data: daysCount } = await count({ table: 'attendance', filters: [{ column: 'user_id', op: 'eq', value: user.id }] });
               adultStats = { daysStudied: daysCount || 1, timesStudied: daysCount || 1 };
           }
           let guruStats = null;
           if (userRole === 'guru' && !isPentashih) {
-             const { count: totalMonthAttendance } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+             const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+             const { data: totalMonthAttendance } = await count({
+               table: 'attendance',
+               filters: [
+                 { column: 'user_id', op: 'eq', value: user.id },
+                 { column: 'attendance_date', op: 'gte', value: monthStart },
+               ],
+             });
              const hoursTaught = ((totalMonthAttendance || 1) * 1.25).toFixed(2);
-             const { data: historyResult } = await supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30);
+             const { data: historyResult } = await query({
+        table: 'attendance',
+        columns: ['attendance_date'],
+        filters: [{ column: 'user_id', op: 'eq', value: user.id }],
+        order: [{ column: 'attendance_date', ascending: false }],
+        limit: 30,
+      });
              const uniqueDates = [...new Set(historyResult?.map(h => h.attendance_date) || [])];
               let streak = 0;
               const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1);
