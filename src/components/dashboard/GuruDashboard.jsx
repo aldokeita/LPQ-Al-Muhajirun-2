@@ -70,7 +70,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
-      setFormData({ ...guruData, password: '' });
+      setFormData({ ...guruData, password: '', current_password: '' });
       setShowPassword(false);
     }, [guruData, isOpen]);
     const handleInputChange = (e) => { const { id, value } = e.target; setFormData(prev => ({...prev, [id]: value })); };
@@ -108,15 +108,15 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
     const triggerPhotoUpload = () => photoInputRef.current?.click();
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const { id, password, ...updateData } = formData;
+        const { id, password, current_password: currentPassword, ...updateData } = formData;
         if (updateData.avatar_path) updateData.foto_url = null;
-        let passwordUpdated = true;
         if (password) {
             const passwordError = validatePassword(password);
             if (passwordError) { toast({ title: "Validasi Password Gagal", description: passwordError, variant: "destructive" }); return; }
-            passwordUpdated = await updateUserPassword(password);
+            if (!currentPassword) { toast({ title: "Password Saat Ini Diperlukan", description: "Masukkan password Anda sekarang untuk menggantinya.", variant: "destructive" }); return; }
+            const { ok, error: passwordChangeError } = await updateUserPassword(password, currentPassword);
+            if (!ok) { toast({ title: "Gagal Ganti Password", description: passwordChangeError?.message, variant: "destructive"}); return; }
         }
-        if(!passwordUpdated) { toast({ title: "Gagal Ganti Password", variant: "destructive"}); return; }
         const { error } = await updateGuru(id, updateData);
         if (error) { toast({ title: "Gagal Memperbarui Profil", description: error.message, variant: "destructive"}); }
         else { toast({ title: "Berhasil!", description: "Profil Anda telah diperbarui."}); onProfileUpdate(); onOpenChange(false); }
@@ -144,10 +144,16 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="email">Username (Email)</label><Input id="email" type="text" value={formData.email || ''} onChange={handleInputChange} required /></div>
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="no_hp">No. HP</label><Input id="no_hp" type="tel" value={formData.no_hp || ''} onChange={handleInputChange} required /></div>
                         <div className="space-y-1.5"><label className="text-sm font-medium text-muted-foreground" htmlFor="tanggal_lahir">Tanggal Lahir</label><Input id="tanggal_lahir" type="date" value={formData.tanggal_lahir || ''} onChange={handleInputChange} /></div>
+                        {formData.password ? (
+                          <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground" htmlFor="current_password">Password Saat Ini</label>
+                            <Input id="current_password" type="password" value={formData.current_password || ''} placeholder="Diperlukan untuk mengganti password" onChange={handleInputChange} autoComplete="current-password" />
+                          </div>
+                        ) : null}
                         <div className="space-y-1.5">
                           <label className="text-sm font-medium text-muted-foreground" htmlFor="password">Password Baru</label>
                           <div className="relative">
-                            <Input id="password" type={showPassword ? 'text' : 'password'} value={formData.password || ''} placeholder="Isi jika ingin ganti" onChange={handleInputChange} className="pr-11" />
+                            <Input id="password" type={showPassword ? 'text' : 'password'} value={formData.password || ''} placeholder="Isi jika ingin ganti" onChange={handleInputChange} className="pr-11" autoComplete="new-password" />
                             <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={showPassword ? 'Sembunyikan password baru' : 'Tampilkan password baru'}>
                               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>

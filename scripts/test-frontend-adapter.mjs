@@ -809,6 +809,67 @@ const run = async () => {
   check('larik kosong tidak memanggil server', larikKosong.error, null);
   console.log('');
 
+  console.log('ganti password sendiri:');
+  {
+  const auth = await import('../src/lib/authClient.js');
+  const PASSWORD_LAMA = 'UjiAdmin#2026';
+  const PASSWORD_BARU = 'UjiAdmin#2026-Baru';
+
+  // Pembatas percobaan berlaku juga di sini; hitungannya dibersihkan supaya suite tetap
+  // bisa dijalankan berulang kali.
+  sqlite.prepare("delete from auth_rate_limits where purpose = 'change_password'").run();
+
+  let tolakPendek = null;
+  try { await auth.changePassword({ currentPassword: PASSWORD_LAMA, newPassword: 'pendek' }); }
+  catch (error) { tolakPendek = error; }
+  check('password baru terlalu pendek ditolak', tolakPendek?.code, 'weak_password');
+
+  let tolakSalah = null;
+  try { await auth.changePassword({ currentPassword: 'bukan-password-saya', newPassword: PASSWORD_BARU }); }
+  catch (error) { tolakSalah = error; }
+  // Cookie sesi saja tidak cukup: password lama harus benar.
+  check('password lama salah ditolak', tolakSalah?.status, 401);
+
+  const diganti = await auth.changePassword({ currentPassword: PASSWORD_LAMA, newPassword: PASSWORD_BARU });
+  check('penggantian berhasil', diganti?.ok, true);
+
+  // Tersimpan sebagai PBKDF2, bukan bcrypt, dan bukan teks polos.
+  const tersimpan = sqlite.prepare('select encrypted_password, password_algorithm from users where lower(email) = ?')
+    .get('admin.uji@contoh.test');
+  check('algoritmanya pbkdf2', tersimpan.password_algorithm, 'pbkdf2');
+  check('password tidak tersimpan apa adanya', tersimpan.encrypted_password.includes(PASSWORD_BARU), false);
+
+  const loginLama = await realFetch(`${baseUrl}/api/auth/login/staff`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'admin.uji@contoh.test', password: PASSWORD_LAMA }),
+  });
+  check('password lama tidak berlaku lagi', loginLama.status, 401);
+
+  const loginBaru = await realFetch(`${baseUrl}/api/auth/login/staff`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'admin.uji@contoh.test', password: PASSWORD_BARU }),
+  });
+  check('password baru berlaku', loginBaru.status, 200);
+
+  // Dikembalikan supaya suite ini tetap bisa dijalankan lagi dari keadaan semula.
+  sessionCookie = (loginBaru.headers.get('set-cookie') ?? '').split(';')[0];
+  await auth.changePassword({ currentPassword: PASSWORD_BARU, newPassword: PASSWORD_LAMA });
+  const loginPulih = await realFetch(`${baseUrl}/api/auth/login/staff`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'admin.uji@contoh.test', password: PASSWORD_LAMA }),
+  });
+  check('password dikembalikan seperti semula', loginPulih.status, 200);
+  sessionCookie = (loginPulih.headers.get('set-cookie') ?? '').split(';')[0];
+
+  // Tanpa sesi, endpoint-nya menolak sama sekali.
+  const tanpaSesi = await realFetch(`${baseUrl}/api/auth/change-password`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ current_password: PASSWORD_LAMA, new_password: PASSWORD_BARU }),
+  });
+  check('tanpa sesi ditolak', tanpaSesi.status, 401);
+  }
+  console.log('');
+
   console.log('galat RPC diteruskan apa adanya:');
   const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
   check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');

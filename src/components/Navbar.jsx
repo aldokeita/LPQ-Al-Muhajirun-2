@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
+import { fetchWebsiteContentValue } from '@/lib/publicContentAdapters';
 import GlassSurface from '@/components/reactbits/GlassSurface/GlassSurface';
 import CmsLogo from '@/components/public/CmsLogo';
 import '@/styles/navbar.css';
@@ -94,12 +94,11 @@ const Navbar = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
     let mounted = true;
     const fetchLogo = async () => {
-      const { data } = await supabase.from('website_content').select('content').eq('key', 'logoUrl').maybeSingle();
-      if (mounted && data?.content) {
-        setLogoUrl(data.content);
+      const { data } = await fetchWebsiteContentValue('logoUrl');
+      if (mounted && data) {
+        setLogoUrl(data);
       }
     };
     fetchLogo();

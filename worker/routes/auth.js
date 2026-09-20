@@ -8,6 +8,7 @@ import { consumeRateLimit, loginSantri, loginStaff, recordLoginAttempt, sha256He
 import {
   clearedSessionCookie, issueSession, readSessionCookie, sessionCookie, verifySession,
 } from '../auth/session.js';
+import { rehashToPbkdf2, verifyPassword } from '../auth/password.js';
 
 const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), {
@@ -30,12 +31,12 @@ const clientIp = (request) => request.headers.get('cf-connecting-ip') ?? request
 
 // Percobaan dihitung per kombinasi IP dan identitas, sehingga satu santri yang salah ketik
 // tidak memblokir seluruh jaringan sekolah yang memakai satu IP publik.
-const guardRateLimit = async (env, request, identifier) => {
+const guardRateLimit = async (env, request, identifier, purpose = 'login') => {
   const [ipHash, aliasHash] = await Promise.all([
     sha256Hex(clientIp(request)),
     sha256Hex(String(identifier ?? '').toLowerCase()),
   ]);
-  return consumeRateLimit(env.DB, { purpose: 'login', ipHash, aliasHash });
+  return consumeRateLimit(env.DB, { purpose, ipHash, aliasHash });
 };
 
 const tooManyAttempts = (limit) =>
@@ -88,6 +89,45 @@ export const handleAuth = async (request, env, url) => {
     return succeed(env, request, {
       userId: result.userId, role: result.role, usernameAttempt: email, device: body?.device,
     });
+  }
+
+  // Mengganti password sendiri. Berbeda dari /api/reset-user-password, yang hanya boleh
+  // dipakai admin terhadap akun orang lain: yang ini hanya bisa mengubah akun pemanggil,
+  // dan menuntut password lama.
+  //
+  // Password lama diminta karena cookie sesi saja bukan bukti yang cukup untuk mengganti
+  // kredensial. Tanpa itu, satu sesi yang bocor cukup untuk mengambil alih akun secara
+  // permanen; dengan itu, penyerang tetap harus tahu password aslinya.
+  if (url.pathname === '/api/auth/change-password' && request.method === 'POST') {
+    const payload = await verifySession(env.SESSION_SECRET, readSessionCookie(request));
+    if (!payload) return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
+
+    const body = await readJson(request);
+    const currentPassword = typeof body?.current_password === 'string' ? body.current_password : '';
+    const newPassword = typeof body?.new_password === 'string' ? body.new_password : '';
+
+    if (newPassword.length < 8) {
+      return json({ error: 'weak_password', message: 'Password baru minimal 8 karakter.' }, 400);
+    }
+
+    // Dibatasi seperti login. Tanpa ini endpoint-nya bisa dipakai menebak password lama
+    // berulang kali dari satu sesi yang sudah dipegang.
+    const limit = await guardRateLimit(env, request, payload.sub, 'change_password');
+    if (!limit.allowed) return tooManyAttempts(limit);
+
+    const account = await env.DB
+      .prepare('select "id", "encrypted_password", "password_algorithm" from "users" where "id" = ? and "deleted_at" is null limit 1')
+      .bind(payload.sub)
+      .first();
+    if (!account) return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
+
+    const verified = await verifyPassword(currentPassword, account.encrypted_password, account.password_algorithm);
+    if (!verified.valid) {
+      return json({ error: 'invalid_password', message: 'Password saat ini salah.' }, 401);
+    }
+
+    await rehashToPbkdf2(env.DB, account.id, newPassword);
+    return json({ ok: true });
   }
 
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {

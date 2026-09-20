@@ -4,9 +4,8 @@
 // disimpan JavaScript. Karena itu setiap permintaan memakai credentials: 'include'
 // dan tidak ada yang perlu dititipkan di localStorage.
 //
-// Belum dipasang menggantikan SupabaseAuthContext: 203 pemanggilan data di aplikasi
-// masih bergantung pada sesi Supabase untuk RLS, sehingga menukar autentikasi lebih
-// dulu akan membuat seluruh query kehilangan sesi. Lihat docs/51-d1-schema-mapping.md.
+// Inilah satu-satunya jalur autentikasi aplikasi sekarang. Pembacaan dan penulisan data
+// sudah memakai cookie yang sama, jadi sesi Supabase tidak lagi dibutuhkan siapa pun.
 
 const request = async (path, { method = 'GET', body = null } = {}) => {
   const response = await fetch(path, {
@@ -51,6 +50,14 @@ export const loginStaff = ({ email, password }) =>
   request('/api/auth/login/staff', { method: 'POST', body: { email, password, device: deviceHint() } });
 
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
+
+// Mengganti password sendiri. Password lama ikut dikirim: cookie sesi saja bukan bukti
+// yang cukup untuk mengganti kredensial.
+export const changePassword = ({ currentPassword, newPassword }) =>
+  request('/api/auth/change-password', {
+    method: 'POST',
+    body: { current_password: currentPassword, new_password: newPassword },
+  });
 
 // Memulangkan { user: null } dan bukan melempar galat saat belum login, karena
 // "belum login" adalah keadaan biasa, bukan kegagalan.

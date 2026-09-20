@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
+import { fetchWebsiteContentValue } from '@/lib/publicContentAdapters';
 import TextType from '@/components/reactbits/TextType/TextType';
 import CmsLogo from '@/components/public/CmsLogo';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -54,10 +54,13 @@ const mapErrorMessage = (error) => {
   if (!error) return null;
   const msg = error.message?.toLowerCase() || '';
 
-  if (msg.includes('supabase belum dikonfigurasi')) {
+  // Pembatas percobaan memulangkan pesannya sendiri berikut waktu blokir, dan itu satu-
+  // satunya kegagalan yang berguna disampaikan apa adanya: pengguna perlu tahu ia harus
+  // menunggu, bukan mengira password-nya salah.
+  if (error.code === 'too_many_attempts') {
     return error.message;
   }
-  if (msg.includes('fetch') || msg.includes('network')) {
+  if (msg.includes('fetch') || msg.includes('network') || msg.includes('menghubungi server')) {
     return 'Koneksi ke server gagal. Periksa koneksi internet Anda.';
   }
   if (
@@ -121,29 +124,18 @@ const LoginPage = () => {
   }, [user, role, loading, profileLoading, navigate]);
 
   /* --- Fetch dynamic logo --- */
+  // Logonya dulu juga berlangganan perubahan realtime, supaya admin yang menggantinya
+  // langsung terlihat di halaman login yang sedang terbuka. D1 tidak punya padanan untuk
+  // itu, dan logo yang berubah beberapa detik lebih lambat bukan sesuatu yang perlu
+  // dijaga dengan polling, jadi sekarang dibaca sekali saat halaman dibuka.
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
-
+    let active = true;
     const fetchLogo = async () => {
-      const { data } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'logoUrl')
-        .maybeSingle();
-      if (data?.content) setLogoUrl(data.content);
+      const { data } = await fetchWebsiteContentValue('logoUrl');
+      if (active && data) setLogoUrl(data);
     };
     fetchLogo();
-
-    const channel = supabase
-      .channel('website_content_login_logo')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'website_content', filter: 'key=eq.logoUrl' },
-        (payload) => setLogoUrl(typeof payload.new?.content === 'string' ? payload.new.content.trim() : ''),
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+    return () => { active = false; };
   }, []);
 
   /* --- Form Validation --- */
