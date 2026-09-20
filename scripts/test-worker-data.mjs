@@ -198,6 +198,28 @@ const run = async () => {
     { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
   console.log('');
 
+  console.log('menghitung baris:');
+  const { runCount } = await import('../worker/data/query.js');
+  const hitung = async (userId, body) => {
+    const authorizer = createAuthorizer(db, userId);
+    return runCount(db, authorizer.ctx, authorizer, body);
+  };
+
+  const totalAdmin = await hitung(admin.id, { table: 'santri' });
+  check('admin menghitung seluruh santri', totalAdmin.count, totalSantri);
+  const totalGuru = await hitung(guru.guru_id, { table: 'santri' });
+  // Hitungan wajib mengikuti otorisasi. Kalau tidak, ia membocorkan berapa banyak santri
+  // yang sebenarnya tidak boleh dilihat guru itu.
+  check('guru hanya menghitung santri kelasnya', totalGuru.count, guruSantriCount);
+  check('hitungan guru lebih kecil dari total', totalGuru.count < totalAdmin.count, true);
+  const totalAnon = await hitung(null, { table: 'santri' });
+  check('pengunjung menghitung nol santri', totalAnon.count, 0);
+  const berfilter = await hitung(admin.id, {
+    table: 'santri', filters: [{ column: 'status', op: 'eq', value: 'Aktif' }],
+  });
+  check('filter ikut diterapkan pada hitungan', berfilter.count < totalSantri, true);
+  console.log('');
+
   console.log('batas parameter terikat D1:');
   const ids = sqlite.prepare('select id from santri limit 80').all().map((r) => r.id);
   const inMax = await query(admin.id, {

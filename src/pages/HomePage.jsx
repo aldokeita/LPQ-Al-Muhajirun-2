@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { toast } from '@/components/ui/use-toast';
-import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
+import { count, query } from '@/lib/dataClient';
 import {
   fetchPublishedAnnouncements,
   fetchPublishedNews,
@@ -46,15 +46,18 @@ const HomePage = () => {
       setLoading(true);
       setContentError('');
       try {
-        if (!isSupabaseConfigured) {
-          setContent(defaultContent);
-          return;
-        }
-
+        // Halaman ini dibuka pengunjung tanpa login. Tabel santri dan guru tidak punya
+        // kebijakan publik, jadi hitungannya nol untuk mereka — sama seperti sebelumnya
+        // di bawah RLS.
         const [santriResult, guruResult, contentResult, newsResult, announcementResult] = await Promise.all([
-          supabase.from('santri').select('id', { count: 'exact', head: true }).eq('status', 'Aktif'),
-          supabase.from('guru').select('id', { count: 'exact', head: true }),
-          supabase.from('website_content').select('key, content').eq('is_public', true),
+          count({ table: 'santri', filters: [{ column: 'status', op: 'eq', value: 'Aktif' }] }),
+          count({ table: 'guru' }),
+          query({
+            table: 'website_content',
+            columns: ['key', 'content'],
+            filters: [{ column: 'is_public', op: 'eq', value: 1 }],
+            limit: 1000,
+          }),
           fetchPublishedNews({ limit: 4 }),
           fetchPublishedAnnouncements({ limit: 4 }),
         ]);
@@ -67,7 +70,7 @@ const HomePage = () => {
           return acc;
         }, {});
 
-        setStats({ santri: santriResult.count || 0, guru: guruResult.count || 0 });
+        setStats({ santri: santriResult.data || 0, guru: guruResult.data || 0 });
         setContent({ ...defaultContent, ...contentMap });
         setNews(newsResult);
         setAnnouncements(announcementResult);
@@ -80,21 +83,13 @@ const HomePage = () => {
 
     fetchHomepageData();
 
-    let channel;
-    if (isSupabaseConfigured) {
-      channel = supabase
-        .channel('website_content_homepage_reactbits')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'website_content', filter: 'key=eq.homepage_reactbits' }, (payload) => {
-          if (payload.new?.key && payload.new.is_public !== false) {
-            setContent((previous) => ({ ...previous, [payload.new.key]: payload.new.content }));
-          }
-        })
-        .subscribe();
-    }
-
+    // Dulu ada subscription realtime yang memperbarui konten tanpa memuat ulang halaman.
+    // Backend baru belum punya padanannya, dan subscription itu sendiri tidak pernah
+    // benar-benar bekerja di produksi: tabel publik tidak terdaftar di publication
+    // supabase_realtime sampai 2026-09-20. Jadi menghapusnya mengembalikan perilaku yang
+    // memang dialami pengguna selama ini — konten menyegar saat halaman dimuat.
     return () => {
       mounted = false;
-      if (channel) supabase.removeChannel(channel);
     };
   }, []);
 

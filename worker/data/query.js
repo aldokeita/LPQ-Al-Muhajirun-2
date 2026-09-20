@@ -176,6 +176,45 @@ const buildFilters = (table, filters, depth = 0) => {
   return { sql, params };
 };
 
+// Menghitung baris, memakai klausa otorisasi yang sama persis dengan pembacaan.
+// Tanpa itu, hitungan akan membocorkan berapa banyak baris yang sebenarnya tidak boleh
+// dilihat pemanggil — jumlah santri, jumlah pembayaran, dan seterusnya.
+export const runCount = async (db, ctx, authorizer, body) => {
+  const { table, where, params } = await buildSelection(db, ctx, authorizer, body);
+  if (where === null) return { count: 0 };
+
+  const whereSql = where.length > 0 ? ` where ${where.join(' and ')}` : '';
+  const row = await db.prepare(`select count(*) as n from ${quote(table)}${whereSql}`).bind(...params).first();
+  return { count: row?.n ?? 0 };
+};
+
+// Bagian yang sama antara membaca dan menghitung: validasi tabel, filter, dan otorisasi.
+// where bernilai null berarti pemanggil tidak berhak melihat baris apa pun.
+const buildSelection = async (db, ctx, authorizer, body) => {
+  const table = body?.table;
+  if (typeof table !== 'string' || !tableExists(table)) throw new QueryError(`Tabel "${table}" tidak dikenal.`);
+
+  const policy = getPolicy(table);
+  if (!policy) throw new QueryError(`Tabel "${table}" tidak punya kebijakan.`, 500);
+  if (policy.internal) throw new QueryError('Tabel ini hanya boleh disentuh kode internal.', 403);
+
+  const { sql: filterSql, params: filterParams } = buildFilters(table, body?.filters);
+  const where = [...filterSql];
+  const params = [...filterParams];
+
+  if (ctx.userId) {
+    const clause = await buildAuthorizationClause(ctx, table, policy);
+    if (clause) { where.push(clause.sql); params.push(...clause.params); }
+  } else {
+    const publicRead = authorizer.publicRead(table);
+    if (!publicRead) return { table, policy, where: null, params: [] };
+    where.push(`(${publicRead.where})`);
+    params.push(...publicRead.params);
+  }
+
+  return { table, policy, where, params };
+};
+
 export const runQuery = async (db, ctx, authorizer, body) => {
   const table = body?.table;
   if (typeof table !== 'string' || !tableExists(table)) throw new QueryError(`Tabel "${table}" tidak dikenal.`);

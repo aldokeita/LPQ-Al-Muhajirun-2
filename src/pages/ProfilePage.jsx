@@ -20,7 +20,7 @@ import {
   Award,
   GraduationCap,
 } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query } from '@/lib/dataClient';
 import { fetchWebsiteContentMap } from '@/lib/publicContentAdapters';
 import '@/styles/public-profile.css';
 
@@ -100,11 +100,13 @@ const ProfilePage = () => {
     const fetchData = async () => {
       try {
         const fetchActiveGuru = async () => {
-          const result = await supabase
-            .from('guru')
-            .select('id, nama, jabatan, foto_url, roles, jenis_kelamin, status')
-            .eq('status', 'active')
-            .order('nama');
+          const result = await query({
+      table: 'guru',
+      columns: ['id', 'nama', 'jabatan', 'foto_url', 'roles', 'jenis_kelamin', 'status'],
+      filters: [{ column: 'status', op: 'eq', value: 'active' }],
+      order: [{ column: 'nama', ascending: true }],
+      limit: 1000,
+    });
 
           return result.error ? { data: null, error: result.error } : result;
         };

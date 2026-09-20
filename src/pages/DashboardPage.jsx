@@ -9,7 +9,7 @@ import GuruDashboard from '@/components/dashboard/GuruDashboard';
 import SantriDashboard from '@/components/dashboard/SantriDashboard';
 import PentashihDashboard from '@/components/dashboard/PentashihDashboard';
 import SideRays from '@/components/reactbits/SideRays/SideRays';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import '@/styles/admin-dashboard.css';
 
 const DashboardPage = () => {
@@ -29,7 +29,11 @@ const DashboardPage = () => {
           setIsLoadingProfile(true);
           try {
             if (role === 'santri' && user) {
-                const { data, error } = await supabase.from('santri').select('kategori').eq('id', user.id).single();
+                const { data, error } = await queryOne({
+          table: 'santri',
+          columns: ['kategori'],
+          filters: [{ column: 'id', op: 'eq', value: user.id }],
+        });
                 if (error) throw error;
                 setSantriProfile(data);
             } else {

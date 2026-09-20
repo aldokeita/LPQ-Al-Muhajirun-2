@@ -5,7 +5,7 @@
 // terdaftar, dan selalu dibatasi jumlah barisnya.
 
 import { AuthorizationError, createAuthorizer } from '../auth/authorize.js';
-import { QueryError, runQuery } from '../data/query.js';
+import { QueryError, runCount, runQuery } from '../data/query.js';
 import { deleteRow, insertRow, updateRow, upsertRow } from '../data/mutate.js';
 import { readSessionCookie, verifySession } from '../auth/session.js';
 
@@ -17,6 +17,7 @@ const json = (data, status = 200) =>
 
 const ROUTES = {
   '/api/data/query': (db, authorizer, body) => runQuery(db, authorizer.ctx, authorizer, body),
+  '/api/data/count': (db, authorizer, body) => runCount(db, authorizer.ctx, authorizer, body),
   '/api/data/insert': (db, authorizer, body) => insertRow(db, authorizer, body),
   '/api/data/update': (db, authorizer, body) => updateRow(db, authorizer, body),
   '/api/data/upsert': (db, authorizer, body) => upsertRow(db, authorizer, body),
@@ -41,7 +42,10 @@ export const handleData = async (request, env, url) => {
   // Penulisan menuntut sesi, kecuali tabel yang memang membuka penambahan untuk umum.
   // Hanya feedbacks yang begitu, dan itu memang perilaku lamanya: siapa pun boleh
   // mengirim masukan, hanya admin yang boleh membacanya.
-  if (!payload && url.pathname !== '/api/data/query') {
+  // Membaca dan menghitung boleh tanpa sesi; kebijakan per tabel yang menentukan
+  // baris mana yang terlihat, dan hitungannya memakai klausa yang sama.
+  const READ_ROUTES = new Set(['/api/data/query', '/api/data/count']);
+  if (!payload && !READ_ROUTES.has(url.pathname)) {
     const publicInsert = url.pathname === '/api/data/insert' && authorizer.allowsPublicInsert(body?.table);
     if (!publicInsert) return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
   }
@@ -51,6 +55,7 @@ export const handleData = async (request, env, url) => {
     if (url.pathname === '/api/data/query') {
       return json({ data: result.rows, limit: result.limit, offset: result.offset });
     }
+    if (url.pathname === '/api/data/count') return json({ data: result.count });
     return json({ data: result });
   } catch (error) {
     if (error instanceof QueryError) {

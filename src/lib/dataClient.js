@@ -60,6 +60,13 @@ export const query = async ({ table, columns = null, filters = null, order = nul
   return { data: error ? null : (data ?? []), error };
 };
 
+// Menghitung baris tanpa menariknya. Hitungannya melewati otorisasi yang sama dengan
+// pembacaan, jadi angka yang dipulangkan hanya mencakup baris yang boleh dilihat.
+export const count = async ({ table, filters = null }) => {
+  const { data, error } = await request('/api/data/count', { table, filters: buildFilters(filters) });
+  return { data: error ? null : (data ?? 0), error };
+};
+
 // Pembacaan satu baris: server tetap membatasi jumlahnya, di sini hanya diambil yang pertama.
 export const queryOne = async (options) => {
   const { data, error } = await query({ ...options, limit: 1 });
