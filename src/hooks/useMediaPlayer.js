@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { insert, queryAll, queryOne, update } from '@/lib/dataClient';
+import { getSession } from '@/lib/authClient';
 
 export const useMediaPlayer = () => {
     const [playlist, setPlaylist] = useState([]);
@@ -18,11 +19,12 @@ export const useMediaPlayer = () => {
 
     // Fetch Playlist
     const fetchPlaylist = useCallback(async () => {
-        const { data, error } = await supabase
-            .from('music_files')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
+        const { data, error } = await queryAll({
+            table: 'music_files',
+            // is_active bertipe boolean dan tersimpan sebagai 1/0 di D1.
+            filters: [{ column: 'is_active', op: 'eq', value: 1 }],
+            order: [{ column: 'created_at', ascending: false }],
+        });
         if (error) {
             setPlaylist([]);
             setCurrentTrackIndex(-1);
@@ -38,14 +40,13 @@ export const useMediaPlayer = () => {
         
         // Fetch saved settings from Supabase
         const fetchSettings = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { user } = await getSession();
             if (!user) return;
 
-            const { data, error } = await supabase
-                .from('media_player_settings')
-                .select('*')
-                .eq('user_id', user.id)
-                .maybeSingle();
+            const { data, error } = await queryOne({
+                table: 'media_player_settings',
+                filters: [{ column: 'user_id', op: 'eq', value: user.id }],
+            });
 
             if (data) {
                 setSettingsId(data.id);
@@ -58,12 +59,11 @@ export const useMediaPlayer = () => {
                 }
             } else if (!error) {
                 // Initialize default settings for user
-                const { data: newSettings } = await supabase
-                    .from('media_player_settings')
-                    .insert([{ user_id: user.id, playback_position: 0 }])
-                    .select()
-                    .single();
-                
+                const { data: newSettings } = await insert('media_player_settings', {
+                    user_id: user.id,
+                    playback_position: 0,
+                });
+
                 if (newSettings) setSettingsId(newSettings.id);
             }
         };
@@ -97,14 +97,12 @@ export const useMediaPlayer = () => {
     useEffect(() => {
         const syncInterval = setInterval(async () => {
             if (settingsId && isPlaying) {
-                await supabase
-                    .from('media_player_settings')
-                    .update({ 
-                        playback_position: Math.floor(progress), // Used corrected column name
-                        is_playing: isPlaying,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', settingsId);
+                // updated_at ditetapkan server dan diabaikan kalau dikirim klien, jadi
+                // tidak perlu disertakan.
+                await update('media_player_settings', settingsId, {
+                    playback_position: Math.floor(progress),
+                    is_playing: isPlaying,
+                });
             }
         }, 10000); // Sync every 10 seconds
 
@@ -153,9 +151,7 @@ export const useMediaPlayer = () => {
         
         // Immediate sync on explicit seek
         if (settingsId) {
-            supabase.from('media_player_settings')
-                .update({ playback_position: Math.floor(time) })
-                .eq('id', settingsId);
+            update('media_player_settings', settingsId, { playback_position: Math.floor(time) });
         }
     };
 
@@ -226,7 +222,7 @@ export const useMediaPlayer = () => {
         setIsShuffle(newVal);
         localStorage.setItem('mp_shuffle', newVal);
         if (settingsId) {
-            supabase.from('media_player_settings').update({ shuffle_enabled: newVal }).eq('id', settingsId);
+            update('media_player_settings', settingsId, { shuffle_enabled: newVal });
         }
     };
 

@@ -1,55 +1,23 @@
-import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/customSupabaseClient';
-import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
+// Berkas disimpan di R2 dan dilayani Worker lewat /api/files/<awalan>/<path>.
+//
+// Tidak ada lagi signed URL. Dulu tiap avatar diakses lewat URL bertanda tangan yang
+// dirotasi berkala, dan tiap rotasi mengubah URL-nya sehingga cache peramban meleset dan
+// seluruh avatar terunduh ulang — salah satu dari dua sebab kuota egress Supabase jebol.
+// Sekarang alamatnya tetap, hak aksesnya diperiksa per permintaan dari cookie sesi, dan
+// peramban boleh menyimpannya lama.
+//
+// Karena alamatnya tetap, seluruh mesin cache URL yang dulu ada di berkas ini — beserta
+// penyimpanannya di localStorage — ikut hilang. Tidak ada lagi yang perlu di-cache: URL-nya
+// bisa dihitung langsung dari path-nya.
 
 const AVATAR_BUCKET = 'avatars';
 const WEBSITE_ASSETS_BUCKET = 'website-assets';
+export const MUSIC_BUCKET = 'music-files';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_AVATAR_SOURCE_SIZE = 12 * 1024 * 1024;
 const MAX_AVATAR_DIMENSION = 400;
 const MAX_WEBSITE_ASSET_SIZE = 20 * 1024 * 1024;
 const MAX_WEBSITE_IMAGE_DIMENSION = 2400;
-// Setiap kali signed URL dirotasi, URL-nya berubah dan cache browser meleset sehingga
-// seluruh avatar terunduh ulang. Masa berlakunya dipanjangkan agar URL stabil berhari-hari;
-// cache di-refresh sehari sebelum signed URL benar-benar kedaluwarsa.
-const AVATAR_URL_TTL_SECONDS = 7 * 24 * 60 * 60;
-const AVATAR_URL_CACHE_TTL = 6 * 24 * 60 * 60 * 1000;
-const AVATAR_URL_CACHE_STORAGE_KEY = 'lpq:avatar-url-cache:v1';
-const avatarUrlCache = new Map();
-let avatarUrlCacheHydrated = false;
-
-// Cache dipertahankan antar muat halaman supaya layar yang di-reload tidak menandatangani
-// ulang seluruh avatar dan memaksa pengunduhan ulang.
-const hydrateAvatarUrlCache = () => {
-  if (avatarUrlCacheHydrated) return;
-  avatarUrlCacheHydrated = true;
-  if (typeof localStorage === 'undefined') return;
-  try {
-    const raw = localStorage.getItem(AVATAR_URL_CACHE_STORAGE_KEY);
-    if (!raw) return;
-    const now = Date.now();
-    for (const [key, entry] of Object.entries(JSON.parse(raw) || {})) {
-      if (entry?.url && entry.expiresAt > now) avatarUrlCache.set(key, entry);
-    }
-  } catch {
-    // Penyimpanan browser bisa tidak tersedia atau isinya rusak; cache bukan syarat wajib.
-  }
-};
-
-// Penulisan ditunda: satu halaman bisa meresolusi ratusan avatar sekaligus, dan menulis
-// ulang seluruh cache pada tiap avatar membuat biayanya tumbuh kuadratik.
-let persistTimer = null;
-const persistAvatarUrlCache = () => {
-  if (typeof localStorage === 'undefined') return;
-  if (persistTimer) return;
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    try {
-      localStorage.setItem(AVATAR_URL_CACHE_STORAGE_KEY, JSON.stringify(Object.fromEntries(avatarUrlCache)));
-    } catch {
-      // Kuota penuh atau mode privat: abaikan, cache memori tetap bekerja.
-    }
-  }, 1000);
-};
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const WEBSITE_ASSET_TYPES = new Set([...IMAGE_TYPES, 'application/pdf']);
 
@@ -228,143 +196,54 @@ const parseSafeResponseBody = async (response) => {
   }
 };
 
-const formatRemoteError = (body, fallback) => {
-  const error = body?.error || body;
-  const parts = [
-    error?.message,
-    error?.details,
-    error?.hint,
-  ].filter(Boolean);
-  return parts.join(' ') || fallback;
-};
+// Alamat berkas. Tetap dan bisa dihitung, jadi tidak ada yang perlu diminta ke server
+// hanya untuk tahu di mana sebuah gambar berada.
+export const fileUrl = (bucket, path) => (path ? `/api/files/${bucket}/${path}` : '');
 
-const invokeSignedUploadFunction = async (body) => {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase belum dikonfigurasi untuk upload Storage.');
-  }
-
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw new Error('Gagal membaca sesi login untuk upload avatar.');
-
-  const accessToken = sessionData?.session?.access_token;
-  if (!accessToken) {
-    throw new Error('Sesi login tidak tersedia. Silakan login ulang sebelum upload avatar.');
-  }
-
-  const endpoint = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/generate-signed-upload-url`;
-  let response;
-
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (error) {
-    throw new Error(`Gagal menghubungi Edge Function upload: ${error?.message || 'network error'}`);
-  }
-
-  const responseBody = await parseSafeResponseBody(response);
-  if (!response.ok) {
-    throw new Error(`Edge Function generate-signed-upload-url gagal (${response.status}): ${formatRemoteError(responseBody, 'request ditolak')}`);
-  }
-
-  return responseBody?.data || responseBody;
-};
-
-const uploadViaSignedUrl = async ({ bucket, path, file, purpose }) => {
-  if (!enableEdgeFunctions) throw new Error(edgeFunctionDisabledMessage);
-
-  const signedUpload = await invokeSignedUploadFunction({
-    bucket,
-    path,
-    content_type: file.type,
-    size: file.size,
-    purpose,
-  });
-
-  const signedUrl = signedUpload?.signed_url || signedUpload?.signedUrl;
-  if (!signedUrl) throw new Error('Signed URL upload tidak tersedia dari Edge Function.');
-
-  const response = await fetch(normalizeLocalSignedUrl(signedUrl), {
+const putFile = async ({ bucket, path, file }) => {
+  const response = await fetch(`/api/files/${bucket}/${path}`, {
     method: 'PUT',
-    headers: { 'Content-Type': file.type },
+    credentials: 'include',
+    headers: { 'content-type': file.type },
     body: file,
   });
-
   if (!response.ok) {
-    const responseBody = await parseSafeResponseBody(response);
-    throw new Error(`Upload file ke Storage gagal (${response.status}): ${formatRemoteError(responseBody, 'request ditolak')}`);
+    const body = await parseSafeResponseBody(response);
+    throw new Error(body?.message || `Unggah berkas gagal (${response.status}).`);
   }
-  return signedUpload.path || path;
-};
-
-const uploadDirectlyToStorage = async ({ bucket, path, file }) => {
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: true,
-      contentType: file.type,
-    });
-  if (error) throw error;
   return path;
 };
 
-const normalizeLocalSignedUrl = (signedUrl) => {
-  try {
-    const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
-    const targetUrl = new URL(signedUrl);
-    if (configuredUrl && targetUrl.hostname === 'kong') {
-      const publicBaseUrl = new URL(configuredUrl);
-      targetUrl.protocol = publicBaseUrl.protocol;
-      targetUrl.hostname = publicBaseUrl.hostname;
-      targetUrl.port = publicBaseUrl.port;
-    }
-    return targetUrl.toString();
-  } catch {
-    return signedUrl;
+const deleteFile = async ({ bucket, path }) => {
+  const response = await fetch(`/api/files/${bucket}/${path}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const body = await parseSafeResponseBody(response);
+    throw new Error(body?.message || `Hapus berkas gagal (${response.status}).`);
   }
+  return path;
 };
 
-export const createSignedAvatarUrl = async (path, expiresIn = AVATAR_URL_TTL_SECONDS) => {
-  if (!path) return null;
-  const { data, error } = await supabase.storage.from(AVATAR_BUCKET).createSignedUrl(path, expiresIn);
-  if (error) return null;
-  return data?.signedUrl || null;
+// Berkas audio tidak dikompres maupun diubah: yang diunggah admin adalah yang disimpan.
+export const uploadMusicFile = async ({ path, file }) => {
+  await putFile({ bucket: MUSIC_BUCKET, path, file });
+  return { path, publicUrl: fileUrl(MUSIC_BUCKET, path) };
 };
 
 export const uploadAvatar = async ({ ownerType, ownerId, file }) => {
   const webpFile = await compressAvatarToWebp(file);
   const path = getAvatarPath({ ownerType, ownerId });
-  let storedPath;
-  try {
-    storedPath = await uploadDirectlyToStorage({ bucket: AVATAR_BUCKET, path, file: webpFile });
-  } catch (directError) {
-    if (!enableEdgeFunctions) throw directError;
-    try {
-      storedPath = await uploadViaSignedUrl({
-        bucket: AVATAR_BUCKET,
-        path,
-        file: webpFile,
-        purpose: `${ownerType}-avatar`,
-      });
-    } catch (edgeError) {
-      throw new Error(`${getStorageErrorMessage(directError)} Edge Function upload juga gagal: ${getStorageErrorMessage(edgeError)}`);
-    }
-  }
-  const signedUrl = await createSignedAvatarUrl(storedPath);
-  return { path: storedPath, signedUrl };
+  await putFile({ bucket: AVATAR_BUCKET, path, file: webpFile });
+  // Namanya tetap signedUrl agar pemanggil tidak perlu diubah, tetapi isinya sekarang
+  // alamat tetap, bukan URL bertanda tangan.
+  return { path, signedUrl: fileUrl(AVATAR_BUCKET, path) };
 };
 
 export const deleteAvatar = async ({ ownerType, ownerId }) => {
   const path = getAvatarPath({ ownerType, ownerId });
-  const { error } = await supabase.storage.from(AVATAR_BUCKET).remove([path]);
-  if (error) throw error;
+  await deleteFile({ bucket: AVATAR_BUCKET, path });
   return { path };
 };
 
@@ -377,30 +256,15 @@ export const preloadAvatarUrl = (url) => {
   return url;
 };
 
+// Dulu ini memanggil server untuk menandatangani URL, jadi meresolusi satu halaman penuh
+// avatar berarti ratusan permintaan. Sekarang alamatnya dihitung saja, tanpa permintaan
+// apa pun — fungsinya tetap async supaya seluruh pemanggil tidak perlu diubah.
+//
+// avatar_path yang kosong berarti pemiliknya belum pernah mengunggah foto, dan foto_url
+// lama dipakai sebagai cadangan seperti sebelumnya.
 export const resolveAvatarUrl = async ({ ownerType, ownerId, avatarPath, fallbackUrl }) => {
-  hydrateAvatarUrlCache();
-  const path = avatarPath || (ownerId ? getAvatarPath({ ownerType, ownerId }) : null);
-  const cacheKey = path ? `${AVATAR_BUCKET}:${path}` : null;
-  const cached = cacheKey ? avatarUrlCache.get(cacheKey) : null;
-
-  // URL yang sudah ada di cache tidak di-preload ulang: gambarnya sudah dipegang browser,
-  // dan membuat objek Image baru tiap pemanggilan sia-sia pada layar yang menyegarkan terus.
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.url;
-  }
-
-  const signedUrl = await createSignedAvatarUrl(path);
-  const resolvedUrl = signedUrl || fallbackUrl || '';
-
-  if (cacheKey && signedUrl) {
-    avatarUrlCache.set(cacheKey, {
-      url: signedUrl,
-      expiresAt: Date.now() + AVATAR_URL_CACHE_TTL,
-    });
-    persistAvatarUrlCache();
-  }
-
-  return preloadAvatarUrl(resolvedUrl);
+  if (!avatarPath) return fallbackUrl || '';
+  return preloadAvatarUrl(fileUrl(AVATAR_BUCKET, avatarPath));
 };
 
 export const resolveAvatarRecord = async (
@@ -448,37 +312,37 @@ export const uploadWebsiteAsset = async ({ folder, key, file, convertToWebp = fa
     : file;
   validateWebsiteAssetFile(preparedFile);
   const path = getWebsiteAssetPath({ folder, key, file: preparedFile });
-  const { error } = await supabase.storage
-    .from(WEBSITE_ASSETS_BUCKET)
-    .upload(path, preparedFile, {
-      cacheControl: '3600',
-      upsert: Boolean(key),
-      contentType: preparedFile.type,
-    });
-  if (error) throw error;
-
-  const { data } = supabase.storage.from(WEBSITE_ASSETS_BUCKET).getPublicUrl(path);
-  return { path, publicUrl: data.publicUrl };
+  await putFile({ bucket: WEBSITE_ASSETS_BUCKET, path, file: preparedFile });
+  return { path, publicUrl: fileUrl(WEBSITE_ASSETS_BUCKET, path) };
 };
 
+// Mengenali berkas milik sendiri dari URL yang tersimpan di basis data.
+//
+// Isi website_content masih menyimpan URL Supabase lama dari sebelum pemindahan, jadi
+// keduanya dikenali: alamat baru /api/files/website-assets/<path>, dan alamat Supabase
+// lama .../storage/v1/object/<visibilitas>/website-assets/<path>. Yang lama tetap dikenali
+// supaya penghapusan aset lama tidak diam-diam gagal.
 export const getWebsiteAssetPathFromUrl = (assetUrl) => {
-  if (!assetUrl || !supabaseUrl) return null;
+  if (!assetUrl) return null;
 
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(assetUrl, supabaseUrl);
-    const configuredOrigin = new URL(supabaseUrl).origin;
-    if (parsedUrl.origin !== configuredOrigin) return null;
-  } catch {
-    return null;
+  const modern = `/api/files/${WEBSITE_ASSETS_BUCKET}/`;
+  const modernIndex = String(assetUrl).indexOf(modern);
+  if (modernIndex >= 0) {
+    const path = String(assetUrl).slice(modernIndex + modern.length).split('?')[0];
+    try {
+      return decodeURIComponent(path) || null;
+    } catch {
+      return path || null;
+    }
   }
 
   const marker = '/storage/v1/object/';
-  const markerIndex = parsedUrl.pathname.indexOf(marker);
+  const markerIndex = String(assetUrl).indexOf(marker);
   if (markerIndex < 0) return null;
 
-  const segments = parsedUrl.pathname
+  const segments = String(assetUrl)
     .slice(markerIndex + marker.length)
+    .split('?')[0]
     .split('/')
     .filter(Boolean);
   if (segments.length < 3) return null;
@@ -498,8 +362,6 @@ export const getWebsiteAssetPathFromUrl = (assetUrl) => {
 export const deleteWebsiteAssetByUrl = async (assetUrl) => {
   const path = getWebsiteAssetPathFromUrl(assetUrl);
   if (!path) return { deleted: false, path: null };
-
-  const { error } = await supabase.storage.from(WEBSITE_ASSETS_BUCKET).remove([path]);
-  if (error) throw error;
+  await deleteFile({ bucket: WEBSITE_ASSETS_BUCKET, path });
   return { deleted: true, path };
 };

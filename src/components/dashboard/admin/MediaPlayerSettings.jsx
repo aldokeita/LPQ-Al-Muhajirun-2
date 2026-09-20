@@ -7,9 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trash2, Upload, Music, Settings as SettingsIcon } from 'lucide-react';
-// Berkas musiknya sendiri masih di Supabase Storage sampai R2 disiapkan; barisnya di
-// database sudah lewat lapisan data yang baru.
-import { supabase } from '@/lib/customSupabaseClient';
+import { MUSIC_BUCKET, fileUrl, uploadMusicFile } from '@/lib/storageAdapters';
 import { insert, queryAll, update } from '@/lib/dataClient';
 import { toast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -90,12 +88,11 @@ const MediaPlayerSettings = ({
             const fileName = `${crypto.randomUUID()}.${fileExt}`;
             const filePath = `playlist/${fileName}`;
 
-            // 1. Upload to Storage
-            const { error: uploadError } = await supabase.storage.from('music-files').upload(filePath, selectedFile);
-            if (uploadError) throw uploadError;
+            // 1. Unggah ke R2 lewat Worker
+            await uploadMusicFile({ path: filePath, file: selectedFile });
 
-            // 2. Get Public URL
-            const { data: { publicUrl } } = supabase.storage.from('music-files').getPublicUrl(filePath);
+            // 2. Alamatnya tetap dan bisa dihitung dari path-nya
+            const publicUrl = fileUrl(MUSIC_BUCKET, filePath);
 
             // 3. Save to DB
             const { error: dbError } = await insert('music_files', {

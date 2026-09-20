@@ -22,6 +22,16 @@
     }
   ],
 
+  // Satu bucket untuk seluruh berkas, dipisahkan awalan yang menggantikan tiga bucket
+  // Supabase: avatars/, website-assets/, dan music-files/. Aturan aksesnya berbeda per
+  // awalan dan ditegakkan worker/routes/files.js, bukan oleh bucket-nya.
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "lpq-al-muhajirun-files"
+    }
+  ],
+
   "observability": {
     "enabled": true
   }

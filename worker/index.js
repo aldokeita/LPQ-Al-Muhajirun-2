@@ -11,6 +11,7 @@ import { handleAuth } from './routes/auth.js';
 import { handleData } from './routes/data.js';
 import { handleRpc } from './routes/rpc.js';
 import { handleManageUser, handleResetPassword } from './routes/manage-user.js';
+import { handleFiles } from './routes/files.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -56,6 +57,11 @@ const handleApi = async (request, env, url) => {
     const response = await handleAuth(request, env, url);
     if (response) return response;
     return json({ error: 'method_not_allowed', path: url.pathname }, 405);
+  }
+
+  if (url.pathname.startsWith('/api/files')) {
+    const response = await handleFiles(request, env, url);
+    if (response) return response;
   }
 
   if (url.pathname.startsWith('/api/data/')) {
