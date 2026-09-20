@@ -6,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { supabase } from '@/lib/customSupabaseClient';
-import { Database, Download, Upload, FileJson, FileSpreadsheet, FileText, AlertTriangle, Loader2, Save, Lock, Eye, EyeOff } from 'lucide-react';
+import { query, upsert } from '@/lib/dataClient';
+import { verifyPassword } from '@/lib/authClient';
+import { Database, Download, Upload, FileJson, FileSpreadsheet, FileText, AlertTriangle, CheckCircle, Loader2, Save, Lock, Eye, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -119,11 +120,11 @@ const BackupRestoreManagement = () => {
 
         while (true) {
             const from = page * BACKUP_PAGE_SIZE;
-            const to = from + BACKUP_PAGE_SIZE - 1;
-            const { data, error } = await supabase
-                .from(tableName)
-                .select('*')
-                .range(from, to);
+            const { data, error } = await query({
+                table: tableName,
+                limit: BACKUP_PAGE_SIZE,
+                offset: from,
+            });
 
             if (error) throw new Error(`${tableName}: ${error.message}`);
             rows.push(...(data || []));
@@ -199,17 +200,27 @@ const BackupRestoreManagement = () => {
         let rows = inputRows.map((row) => ({ ...row }));
 
         for (let attempt = 0; attempt < 32; attempt += 1) {
-            const { error } = await supabase
-                .from(tableName)
-                .upsert(rows, { onConflict: 'id' });
+            // Endpoint upsert menangani satu baris, jadi sekumpulan baris dikirim
+            // berurutan. Kegagalan pertama menghentikan kiriman dan ditangani di bawah,
+            // persis seperti kegagalan upsert massal sebelumnya.
+            let error = null;
+            let written = 0;
+            for (const row of rows) {
+                const result = await upsert(tableName, row, 'id');
+                if (result.error) { error = result.error; break; }
+                written += 1;
+            }
 
             if (!error) {
                 report.restoredRows += rows.length;
                 return;
             }
+            report.restoredRows += written;
 
+            // Kolom yang tidak dikenal dulu dikenali dari pesan cache skema PostgREST.
+            // Lapisan data yang baru menyebutnya dengan kalimatnya sendiri.
             const missingColumnMatch = String(error.message || '').match(
-                /Could not find the '([^']+)' column of '([^']+)' in the schema cache/i
+                /Kolom "([^"]+)" tidak dikenal pada tabel "([^"]+)"/i
             );
             const missingColumn = missingColumnMatch?.[1];
             const errorTable = missingColumnMatch?.[2];
@@ -351,20 +362,11 @@ const BackupRestoreManagement = () => {
         
         setIsVerifying(true);
         try {
-            console.log("Verifying admin password via Supabase Auth...");
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: user.email,
-                password: passwordInput
-            });
-
-            if (error) {
-                console.error("Password verification error:", error.message);
-                throw new Error("Password salah atau verifikasi gagal.");
-            }
-            if (!data?.user) {
-                console.error("Password Verification Failed: Empty data returned");
-                throw new Error("Password salah atau akun tidak ditemukan.");
-            }
+            // Dulu ini login ulang memakai email admin, yang berarti menerbitkan sesi baru
+            // dan mencatat satu baris login setiap kali tombol backup ditekan. Endpoint
+            // verifikasi hanya memeriksa password akun pemilik sesi dan tidak mengubah apa
+            // pun — sekaligus tidak lagi membutuhkan email, yang memang tidak dibawa sesi.
+            await verifyPassword(passwordInput);
 
             // If verified
             toast({ title: "Verifikasi Berhasil", description: "Password benar. Melanjutkan proses...", className: "bg-green-50 text-green-800 border-green-200" });
@@ -388,19 +390,11 @@ const BackupRestoreManagement = () => {
         setIsLoading(true);
         setProgress('Mengambil data dari server...');
         try {
-            let data = null;
-
-            if (enableEdgeFunctions) {
-                try {
-                    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('backup-database');
-                    if (edgeError || edgeData?.error) throw new Error(edgeError?.message || edgeData?.error);
-                    data = edgeData;
-                } catch (edgeError) {
-                    console.warn('Edge Function backup tidak tersedia, memakai jalur admin langsung:', edgeError);
-                }
-            }
-
-            if (!data) data = await createDirectBackup();
+            // Dulu ada percobaan memanggil Edge Function backup-database lebih dulu, dengan
+            // jalur langsung sebagai cadangan. Fungsi itu tidak pernah ada di repositori
+            // ini, jadi percobaannya selalu gagal dan cadangannya yang selalu dipakai.
+            // Sekarang jalur langsung dipanggil saja.
+            const data = await createDirectBackup();
             setProgress('Memproses file...');
 
             if (format === 'json') {
@@ -541,21 +535,9 @@ const BackupRestoreManagement = () => {
         setProgress('Preflight: memeriksa file, schema, dan relasi database...');
 
         try {
-            let restoreResult = null;
-
-            if (enableEdgeFunctions) {
-                try {
-                    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('restore-database', {
-                        body: { data: restoreData },
-                    });
-                    if (edgeError || edgeData?.error) throw new Error(edgeError?.message || edgeData?.error);
-                    restoreResult = edgeData || { restoredRows: 0 };
-                } catch (edgeError) {
-                    console.warn('Edge Function restore tidak tersedia, memakai jalur admin langsung:', edgeError);
-                }
-            }
-
-            if (!restoreResult) restoreResult = await restoreDirectly(restoreData);
+            // Seperti pada backup, Edge Function restore-database tidak pernah ada, jadi
+            // jalur langsung yang selalu dipakai.
+            const restoreResult = await restoreDirectly(restoreData);
 
             setLastRestoreReport(restoreResult);
             const skippedCount = restoreResult.skippedRows?.length || 0;

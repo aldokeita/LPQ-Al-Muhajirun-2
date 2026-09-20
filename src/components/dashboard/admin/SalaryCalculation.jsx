@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchAttendance, fetchHolidayDates } from '@/lib/attendanceAdapters';
+import { GURU_BACKUP_COLUMNS, fetchClassesForRecap, fetchGuru } from '@/lib/guruAdapters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -59,20 +60,28 @@ const SalaryCalculation = () => {
 
     const fetchAllData = async () => {
         setIsLoading(true);
-        const { data: guruList } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').order('nama');
-        const { data: classList } = await supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori');
+        const { data: guruList } = await fetchGuru({ columns: GURU_BACKUP_COLUMNS });
+        const { data: classList } = await fetchClassesForRecap({
+            columns: ['id', 'nama_kelas', 'sesi', 'id_guru', 'kategori'],
+        });
 
         const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
         const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
-        
-        const { data: calendarData } = await supabase.from('academic_calendar').select('date').gte('date', startDate).lte('date', endDate).eq('is_holiday', true);
-        const { data: att } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('role', 'guru').gte('attendance_date', startDate).lte('attendance_date', endDate);
+
+        const { data: holidayDates } = await fetchHolidayDates(startDate, endDate);
+        const { data: att } = await fetchAttendance({
+            filters: [
+                { column: 'role', op: 'eq', value: 'guru' },
+                { column: 'attendance_date', op: 'gte', value: startDate },
+                { column: 'attendance_date', op: 'lte', value: endDate },
+            ],
+        });
 
         if (guruList && classList && att) {
             setGurus(guruList);
             setClasses(classList);
             setAttendanceData(att);
-            setHolidays(new Set((calendarData || []).map(c => c.date)));
+            setHolidays(holidayDates);
             
             // Initialize default states based on guru roles if needed
             // For now, we rely on manual toggles in this UI, or persistent storage if we added it to DB

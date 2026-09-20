@@ -51,6 +51,10 @@ export const loginStaff = ({ email, password }) =>
 
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
 
+// Memastikan pemanggil tahu password akunnya sendiri, tanpa menerbitkan sesi baru.
+export const verifyPassword = (password) =>
+  request('/api/auth/verify-password', { method: 'POST', body: { password } });
+
 // Mengganti password sendiri. Password lama ikut dikirim: cookie sesi saja bukan bukti
 // yang cukup untuk mengganti kredensial.
 export const changePassword = ({ currentPassword, newPassword }) =>

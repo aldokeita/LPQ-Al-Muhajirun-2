@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchWebsiteContentValue, saveWebsiteContentValue } from '@/lib/publicContentAdapters';
 import { DEFAULT_SESSION_TIMES } from '@/utils/AttendanceStatusLogic';
 
 export const ATTENDANCE_CONFIGURATION_KEY = 'attendance_session_config';
@@ -78,26 +78,16 @@ export const getAttendanceSessionTimes = (value) => {
 };
 
 export const fetchAttendanceConfiguration = async () => {
-  const { data, error } = await supabase
-    .from('website_content')
-    .select('content')
-    .eq('key', ATTENDANCE_CONFIGURATION_KEY)
-    .maybeSingle();
+  const { data, error } = await fetchWebsiteContentValue(ATTENDANCE_CONFIGURATION_KEY);
   if (error) throw error;
-  return normalizeAttendanceConfiguration(data?.content);
+  return normalizeAttendanceConfiguration(data);
 };
 
+// Endpoint upsert memulangkan id, bukan barisnya. Nilai yang dipulangkan di sini adalah
+// konfigurasi yang baru saja divalidasi dan dikirim, yang isinya sama dengan yang tersimpan.
 export const saveAttendanceConfiguration = async (value) => {
   const configuration = validateAttendanceConfiguration(value);
-  const { data, error } = await supabase
-    .from('website_content')
-    .upsert({
-      key: ATTENDANCE_CONFIGURATION_KEY,
-      content: configuration,
-      is_public: true,
-    }, { onConflict: 'key' })
-    .select('content')
-    .single();
+  const { error } = await saveWebsiteContentValue(ATTENDANCE_CONFIGURATION_KEY, configuration);
   if (error) throw error;
-  return normalizeAttendanceConfiguration(data.content);
+  return normalizeAttendanceConfiguration(configuration);
 };

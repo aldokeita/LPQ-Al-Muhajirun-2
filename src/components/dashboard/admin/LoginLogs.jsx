@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query as queryData, remove } from '@/lib/dataClient';
 import { toast } from '@/components/ui/use-toast';
 import { CheckCircle, XCircle, User, MapPin, Smartphone, Clock, Trash2, LogIn, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,18 +20,24 @@ const LoginLogs = () => {
         const targetPage = reset ? 0 : (overridePage ?? page);
 
         try {
-            let query = supabase
-                .from('login_logs')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .range(targetPage * ITEMS_PER_PAGE, (targetPage + 1) * ITEMS_PER_PAGE - 1);
-            
+            const filters = [];
             if (searchTerm) {
-                query = query.or(`username_attempt.ilike.%${searchTerm}%,ip_address.ilike.%${searchTerm}%`);
+                filters.push({
+                    or: [
+                        { column: 'username_attempt', op: 'ilike', value: `%${searchTerm}%` },
+                        { column: 'ip_address', op: 'ilike', value: `%${searchTerm}%` },
+                    ],
+                });
             }
 
-            const { data, error } = await query;
-            
+            const { data, error } = await queryData({
+                table: 'login_logs',
+                filters,
+                order: [{ column: 'created_at', ascending: false }],
+                limit: ITEMS_PER_PAGE,
+                offset: targetPage * ITEMS_PER_PAGE,
+            });
+
             if (error) throw error;
             
             setLogs(prev => {
@@ -71,7 +77,7 @@ const LoginLogs = () => {
             title: 'Hapus Log Login',
             description: 'Apakah Anda yakin ingin menghapus catatan log ini? Tindakan ini tidak dapat dibatalkan.',
             onConfirm: async () => {
-                const { error } = await supabase.from('login_logs').delete().eq('id', logId);
+                const { error } = await remove('login_logs', logId);
                 if (error) {
                     toast({ title: 'Gagal Hapus Log', description: error.message, variant: 'destructive'});
                 } else {

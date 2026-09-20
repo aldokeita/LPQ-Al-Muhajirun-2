@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Sector } from 'recharts';
 import { CheckCircle, XCircle, Search, Calendar, TrendingUp, PieChart as PieChartIcon, ListChecks, DollarSign, CalendarDays } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, queryAll } from '@/lib/dataClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
@@ -77,16 +77,27 @@ const PaymentRecap = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: paymentData, error: paymentError } = await supabase
-          .from('payments')
-          .select('id, santri_id, jumlah, tanggal_pembayaran, catatan, bulan, tahun, status, metode_pembayaran, transaction_id, created_at, deleted_at')
-          .eq('status', 'paid')
-          .is('deleted_at', null)
-          .order('tanggal_pembayaran', { ascending: false });
-        
-        const { data: santriData, error: santriError } = await supabase
-          .from('santri')
-          .select('id, nama_lengkap, nomor_induk_qiroati, status, sesi_mengaji, foto_url, avatar_path, rfid_tag, current_class:classes!santri_current_class_id_fkey(nama_kelas)');
+        const { data: paymentData, error: paymentError } = await queryAll({
+          table: 'payments',
+          columns: ['id', 'santri_id', 'jumlah', 'tanggal_pembayaran', 'catatan', 'bulan', 'tahun', 'status', 'metode_pembayaran', 'transaction_id', 'created_at', 'deleted_at'],
+          filters: [
+            { column: 'status', op: 'eq', value: 'paid' },
+            { column: 'deleted_at', op: 'is_null' },
+          ],
+          order: [{ column: 'tanggal_pembayaran', ascending: false }],
+        });
+
+        const { data: santriRows, error: santriError } = await queryAll({
+          table: 'santri',
+          columns: ['id', 'nama_lengkap', 'nomor_induk_qiroati', 'status', 'sesi_mengaji', 'foto_url', 'avatar_path', 'rfid_tag', 'current_class_id'],
+        });
+        // current_class:classes!...(nama_kelas) dulu ikut lewat join bersarang.
+        const santriData = santriError ? null : await attachRelated(santriRows, {
+          foreignKey: 'current_class_id',
+          table: 'classes',
+          columns: ['id', 'nama_kelas'],
+          as: 'current_class',
+        });
 
         if (paymentError || santriError) {
           toast({ title: "Error", description: "Gagal memuat data.", variant: "destructive" });

@@ -817,7 +817,21 @@ const run = async () => {
 
   // Pembatas percobaan berlaku juga di sini; hitungannya dibersihkan supaya suite tetap
   // bisa dijalankan berulang kali.
-  sqlite.prepare("delete from auth_rate_limits where purpose = 'change_password'").run();
+  sqlite.prepare("delete from auth_rate_limits where purpose in ('change_password', 'verify_password')").run();
+
+  // Verifikasi password tidak boleh menerbitkan sesi atau mengubah apa pun; ia hanya
+  // menjawab benar atau salah. Dipakai sebagai pagar sebelum backup dan restore.
+  check('password benar diverifikasi', (await auth.verifyPassword(PASSWORD_LAMA))?.ok, true);
+  let tolakVerifikasi = null;
+  try { await auth.verifyPassword('bukan-password-saya'); }
+  catch (error) { tolakVerifikasi = error; }
+  check('password salah ditolak saat verifikasi', tolakVerifikasi?.status, 401);
+  const sesudahVerifikasi = await realFetch(`${baseUrl}/api/auth/login/staff`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'admin.uji@contoh.test', password: PASSWORD_LAMA }),
+  });
+  check('verifikasi tidak mengubah password', sesudahVerifikasi.status, 200);
+
 
   let tolakPendek = null;
   try { await auth.changePassword({ currentPassword: PASSWORD_LAMA, newPassword: 'pendek' }); }

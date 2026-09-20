@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, queryAll, queryOne } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { 
@@ -57,20 +57,41 @@ const PaymentStatusPage = () => {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const { data: payment, error } = await supabase
-          .from('payments')
-          .select('*, santri:santri_id(*, class:classes!santri_current_class_id_fkey(nama_kelas, id_guru, guru:id_guru(nama)))')
-          .eq('id', paymentId)
-          .single();
+        // Dulu satu join bersarang tiga tingkat: pembayaran, santrinya, kelas santri itu,
+        // dan guru kelasnya. Dijahit bertahap di sini dengan bentuk yang sama.
+        const { data: paymentRow, error } = await queryOne({
+          table: 'payments',
+          filters: [{ column: 'id', op: 'eq', value: paymentId }],
+        });
 
         if (error) throw error;
+        if (!paymentRow) throw new Error('Data pembayaran tidak ditemukan.');
+
+        const [withSantri] = await attachRelated([paymentRow], {
+          foreignKey: 'santri_id', table: 'santri', as: 'santri',
+          columns: ['id', 'nama_lengkap', 'nama_panggilan', 'nomor_induk_qiroati', 'kategori', 'jilid', 'foto_url', 'avatar_path', 'no_hp_ortu', 'points', 'current_class_id'],
+        });
+        if (withSantri.santri) {
+          const [santriWithClass] = await attachRelated([withSantri.santri], {
+            foreignKey: 'current_class_id', table: 'classes', as: 'class',
+            columns: ['id', 'nama_kelas', 'id_guru'],
+          });
+          if (santriWithClass.class) {
+            const [classWithGuru] = await attachRelated([santriWithClass.class], {
+              foreignKey: 'id_guru', table: 'guru', columns: ['id', 'nama'], as: 'guru',
+            });
+            santriWithClass.class = classWithGuru;
+          }
+          withSantri.santri = santriWithClass;
+        }
+        const payment = withSantri;
         setPaymentData(payment);
 
         if (payment.transaction_id) {
-          const { data: siblings, error: sibError } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('transaction_id', payment.transaction_id);
+          const { data: siblings, error: sibError } = await queryAll({
+            table: 'payments',
+            filters: [{ column: 'transaction_id', op: 'eq', value: payment.transaction_id }],
+          });
           if (!sibError && siblings) setRelatedPayments(siblings);
           else setRelatedPayments([payment]);
         } else {

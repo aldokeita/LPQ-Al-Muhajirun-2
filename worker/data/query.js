@@ -190,9 +190,26 @@ const buildFilters = (table, filters, depth = 0) => {
       continue;
     }
 
-    const { column, op, value } = filter ?? {};
+    const { column, op, value: rawValue } = filter ?? {};
     if (!columnExists(table, column)) throw new QueryError(`Kolom "${column}" tidak dikenal pada tabel "${table}".`);
     const qualified = `${quote(table)}.${quote(column)}`;
+
+    // Uang dikirim pemanggil dalam rupiah desimal dan disimpan sebagai sen bulat, sama
+    // seperti pada penulisan. Tanpa konversi di sini, menyaring jumlah = 50000 akan
+    // dibandingkan dengan 5000000 dan tidak pernah menemukan apa pun — gagal diam-diam,
+    // bukan dengan galat.
+    //
+    // Hanya operator pembanding yang dikonversi. Pencocokan teks seperti like dibiarkan
+    // apa adanya, karena mencocokkan potongan angka tidak punya arti dalam sen.
+    const COMPARISONS = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in']);
+    const toCents = (amount) => {
+      const number = Number(amount);
+      if (!Number.isFinite(number)) throw new QueryError(`Nilai kolom "${column}" bukan angka.`);
+      return Math.round(number * 100);
+    };
+    const value = isMoneyColumn(table, column) && COMPARISONS.has(op) && rawValue !== null && rawValue !== undefined
+      ? (Array.isArray(rawValue) ? rawValue.map(toCents) : toCents(rawValue))
+      : rawValue;
 
     if (op === 'is_null') { sql.push(`${qualified} is null`); continue; }
     if (op === 'not_null') { sql.push(`${qualified} is not null`); continue; }

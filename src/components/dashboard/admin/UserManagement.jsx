@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Edit, Trash2, Search, Key } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryAll, update } from '@/lib/dataClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const UserManagement = () => {
@@ -25,9 +25,26 @@ const UserManagement = () => {
       setAdminUser({ id: authUser.id, name: 'Admin', username: 'admin', role: 'admin', email: authUser.email });
     }
 
-    const { data: guruData, error: guruError } = await supabase.from('guru').select('id, nama, email, password');
-    const { data: santriData, error: santriError } = await supabase.from('santri').select('id, nama_lengkap, nama_panggilan, password, kategori');
-    
+    // Kedua kueri ini dulu juga meminta kolom "password", yang tidak ada di tabel guru
+    // maupun santri. Postgres menjawab 42703 dan panel ini selalu berakhir dengan
+    // "Gagal memuat pengguna" — rusak sejak sebelum pemindahan ini. Kolomnya dihapus dari
+    // permintaan supaya sisanya bisa bekerja.
+    //
+    // Password memang tidak pernah ada di sini: yang tersimpan adalah hash di tabel users,
+    // dan tidak bisa ditampilkan kembali. Penggantian password dilakukan lewat pengelolaan
+    // akun, bukan lewat panel ini.
+    const { data: guruData, error: guruError } = await queryAll({
+      table: 'guru',
+      columns: ['id', 'nama', 'email'],
+      filters: [{ column: 'deleted_at', op: 'is_null' }],
+    });
+    const { data: santriData, error: santriError } = await queryAll({
+      table: 'santri',
+      columns: ['id', 'nama_lengkap', 'nama_panggilan', 'kategori'],
+      filters: [{ column: 'deleted_at', op: 'is_null' }],
+    });
+
+
     if (guruError || santriError) {
       toast({ title: 'Gagal memuat pengguna', variant: 'destructive' });
       return;
@@ -47,7 +64,9 @@ const UserManagement = () => {
     const resetField = table === 'santri' ? 'nama_panggilan' : 'email';
 
     if(window.confirm(`Anda yakin ingin mereset login untuk pengguna ini? Username & Password akan dikosongkan.`)){
-        const { error } = await supabase.from(table).update({ [resetField]: null, password: null }).eq('id', id);
+        // Hanya kolom identitas login yang dikosongkan. "password" ikut dikirim dulu, dan
+        // kolom itu tidak pernah ada.
+        const { error } = await update(table, id, { [resetField]: null });
         if (error) {
             toast({ title: "Gagal", description: error.message, variant: "destructive" });
         } else {
@@ -71,17 +90,23 @@ const UserManagement = () => {
         payload.email = formData.username;
     }
 
+    // Isian password di dialog ini tidak pernah bisa disimpan: tabel guru dan santri tidak
+    // punya kolom password, dan kredensial aslinya berupa hash di tabel users. Kirimannya
+    // dihentikan di sini alih-alih dibiarkan menghasilkan galat kolom tak dikenal.
     if (formData.password) {
-      payload.password = formData.password;
+      toast({
+        title: "Password tidak diubah dari sini",
+        description: "Gunakan menu Data Guru atau Data Santri untuk mengatur ulang password akun.",
+      });
     }
-    
+
     if (formData.table === 'admin') {
         toast({ title: "Info", description: "Pengelolaan login admin dan guru kini dilakukan di tab masing-masing.", variant: "default" });
         setIsDialogOpen(false);
         return;
     }
 
-    const { error } = await supabase.from(formData.table).update(payload).eq('id', editingUser.id);
+    const { error } = await update(formData.table, editingUser.id, payload);
     if (error) {
       toast({ title: "Gagal!", description: error.message, variant: "destructive" });
     } else {

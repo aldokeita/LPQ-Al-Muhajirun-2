@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, queryAll, queryOne } from '@/lib/dataClient';
+import { fetchSantriAttendanceHistory } from '@/lib/attendanceAdapters';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Percent, Calendar as CalendarIcon, Clock, Sparkles } from 'lucide-react';
@@ -54,18 +55,36 @@ const SantriAbsensiRecap = () => {
         setIsLoading(true);
 
         try {
-            const [attendanceRes, calendarRes, santriRes] = await Promise.all([
-                supabase.from('attendance')
-                    .select('id, user_id, attendance_date, check_in_timestamp, check_in_time, status, role, class_id, sesi, attended_session')
-                    .eq('user_id', user.id)
-                    .order('attendance_date', { ascending: true }),
-                supabase.from('academic_calendar').select('date').eq('is_holiday', true),
-                supabase
-                    .from('santri')
-                    .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, kategori, status, class:current_class_id(sesi, nama_kelas)')
-                    .eq('id', user.id)
-                    .single()
+            const [attendanceRes, calendarRes, santriRow] = await Promise.all([
+                fetchSantriAttendanceHistory(user.id, {
+                    columns: ['id', 'user_id', 'attendance_date', 'check_in_timestamp', 'check_in_time', 'status', 'role', 'class_id', 'sesi', 'attended_session'],
+                    order: [{ column: 'attendance_date', ascending: true }],
+                }),
+                queryAll({
+                    table: 'academic_calendar',
+                    columns: ['date'],
+                    // is_holiday bertipe boolean dan tersimpan sebagai 1/0 di D1.
+                    filters: [{ column: 'is_holiday', op: 'eq', value: 1 }],
+                }),
+                queryOne({
+                    table: 'santri',
+                    columns: ['id', 'nama_lengkap', 'sesi_mengaji', 'current_class_id', 'foto_url', 'kategori', 'status'],
+                    filters: [{ column: 'id', op: 'eq', value: user.id }],
+                }),
             ]);
+
+            // class:current_class_id(...) dulu ikut lewat join bersarang.
+            const santriRes = santriRow.data
+                ? {
+                    data: (await attachRelated([santriRow.data], {
+                        foreignKey: 'current_class_id',
+                        table: 'classes',
+                        columns: ['id', 'sesi', 'nama_kelas'],
+                        as: 'class',
+                    }))[0],
+                    error: null,
+                }
+                : santriRow;
 
             if (attendanceRes.error) {
                 console.error("[DEBUG] Error fetching attendance:", attendanceRes.error);

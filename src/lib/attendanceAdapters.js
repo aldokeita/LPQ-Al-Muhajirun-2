@@ -15,10 +15,11 @@ export const ATTENDANCE_COLUMNS = [
 // Seluruh riwayat kehadiran satu orang. Dulu ini tidak dibatasi jumlahnya sehingga
 // terpotong diam-diam di 1000 baris; queryAll menyusuri halamannya sampai habis, yang
 // penting karena satu santri bisa punya ratusan baris per tahun.
-export const fetchSantriAttendanceHistory = (userId, { extraFilters = [] } = {}) => queryAll({
+export const fetchSantriAttendanceHistory = (userId, { extraFilters = [], columns = ATTENDANCE_COLUMNS, order = null } = {}) => queryAll({
     table: 'attendance',
-    columns: ATTENDANCE_COLUMNS,
+    columns,
     filters: [{ column: 'user_id', op: 'eq', value: userId }, ...extraFilters],
+    order,
 });
 
 export const fetchAttendance = ({ filters = [], columns = ATTENDANCE_COLUMNS, order = null } = {}) => queryAll({

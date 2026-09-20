@@ -91,6 +91,35 @@ export const handleAuth = async (request, env, url) => {
     });
   }
 
+  // Memastikan pemanggil benar-benar tahu password akunnya sendiri, dipakai sebagai
+  // pagar sebelum tindakan berisiko seperti backup dan restore.
+  //
+  // Tidak menerbitkan sesi apa pun dan tidak menyentuh akun. Dulu pemeriksaan ini
+  // dilakukan dengan mencoba login ulang, yang berarti menerbitkan sesi baru dan mencatat
+  // satu baris login setiap kali admin menekan tombol backup.
+  if (url.pathname === '/api/auth/verify-password' && request.method === 'POST') {
+    const payload = await verifySession(env.SESSION_SECRET, readSessionCookie(request));
+    if (!payload) return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
+
+    const limit = await guardRateLimit(env, request, payload.sub, 'verify_password');
+    if (!limit.allowed) return tooManyAttempts(limit);
+
+    const body = await readJson(request);
+    const account = await env.DB
+      .prepare('select "encrypted_password", "password_algorithm" from "users" where "id" = ? and "deleted_at" is null limit 1')
+      .bind(payload.sub)
+      .first();
+    if (!account) return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
+
+    const verified = await verifyPassword(
+      typeof body?.password === 'string' ? body.password : '',
+      account.encrypted_password,
+      account.password_algorithm,
+    );
+    if (!verified.valid) return json({ error: 'invalid_password', message: 'Password salah.' }, 401);
+    return json({ ok: true });
+  }
+
   // Mengganti password sendiri. Berbeda dari /api/reset-user-password, yang hanya boleh
   // dipakai admin terhadap akun orang lain: yang ini hanya bisa mengubah akun pemanggil,
   // dan menuntut password lama.

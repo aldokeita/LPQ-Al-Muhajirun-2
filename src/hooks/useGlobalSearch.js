@@ -1,9 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
-import { buildOrQuery, escapeSearchValue } from '@/utils/supabaseQueryBuilder';
+import { attachRelated, query, queryIn } from '@/lib/dataClient';
 import { resolveAvatarRecords } from '@/lib/storageAdapters';
 
-export const useGlobalSearch = (query, delay = 300) => {
+// Pencarian global di seluruh dashboard admin.
+//
+// Dulu pembayaran dicari lewat join dalam: payments dengan santri!inner(...) lalu disaring
+// pada santri.nama_lengkap. Endpoint data tidak menyaring berdasarkan tabel yang
+// direlasikan, jadi urutannya dibalik — santri yang cocok dicari lebih dulu, lalu
+// pembayaran miliknya diambil. Hasilnya sama, dan tidak ada lagi pembayaran yang tersaring
+// oleh kolom yang tidak ikut terbaca.
+//
+// Nilai pencarian dibungkus % di sini dan bukan lagi oleh utilitas PostgREST: tidak ada
+// pohon logika yang perlu dirakit menjadi teks, jadi tidak ada pula yang bisa rusak karena
+// koma atau tanda kutip di dalam kata kunci.
+const wildcard = (value) => `%${String(value ?? '').replace(/"/g, '').trim()}%`;
+
+const SANTRI_COLUMNS = ['id', 'nama_lengkap', 'nomor_induk_qiroati', 'foto_url', 'avatar_path', 'status', 'jilid'];
+const PAYMENT_COLUMNS = ['id', 'santri_id', 'jumlah', 'bulan', 'tahun', 'metode_pembayaran', 'tanggal_pembayaran'];
+
+export const useGlobalSearch = (query_, delay = 300) => {
   const [results, setResults] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,77 +35,91 @@ export const useGlobalSearch = (query, delay = 300) => {
     setError(null);
 
     const rawTerm = searchQuery.trim();
-    const escapedTerm = escapeSearchValue(rawTerm);
-    const isNumeric = !isNaN(parseInt(rawTerm));
-    const numValue = isNumeric ? parseInt(rawTerm) : 0;
+    const term = wildcard(rawTerm);
+    const isNumeric = !Number.isNaN(parseInt(rawTerm, 10));
+    const numValue = isNumeric ? parseInt(rawTerm, 10) : 0;
 
     try {
-      const santriOr = buildOrQuery([
-        { field: 'nama_lengkap', operator: 'ilike', value: escapedTerm },
-        { field: 'nomor_induk_qiroati', operator: 'ilike', value: escapedTerm }
-      ]);
-
-      // Build local payment OR query
-      let paymentLocalOr = `bulan.ilike.${escapedTerm},metode_pembayaran.ilike.${escapedTerm}`;
-      if (isNumeric) {
-         paymentLocalOr += `,tahun.eq.${numValue},jumlah.eq.${numValue}`;
-      }
-
-      // Helper to cleanly await a builder and catch errors, avoiding .catch() on a non-Promise builder object
-      const safeQuery = async (queryBuilder) => {
+      // Satu pencarian yang gagal tidak boleh mengosongkan seluruh hasil, sama seperti
+      // sebelumnya: yang berhasil tetap ditampilkan.
+      const safe = async (promise) => {
         try {
-          const res = await queryBuilder;
-          return res;
+          return await promise;
         } catch (err) {
-          console.error("Query builder caught error:", err);
+          console.error('Global search partial failure:', err);
           return { data: [], error: err };
         }
       };
 
-      // Run queries in parallel with individual error catching
-      const [santriRes, guruRes, classesRes, paySantriRes, payLocalRes] = await Promise.all([
-        safeQuery(
-          supabase.from('santri')
-            .select('id, nama_lengkap, nomor_induk_qiroati, foto_url, avatar_path, status, jilid')
-            .or(santriOr)
-            .limit(5)
-        ),
-        safeQuery(
-          supabase.from('guru')
-            .select('id, nama, jabatan, foto_url, status_guru')
-            .ilike('nama', escapedTerm)
-            .limit(5)
-        ),
-        safeQuery(
-          supabase.from('classes')
-            .select('id, nama_kelas, sesi, guru:id_guru(nama)')
-            .ilike('nama_kelas', escapedTerm)
-            .limit(5)
-        ),
-        // Search payments by santri name via inner join
-        safeQuery(
-          supabase.from('payments')
-            .select('id, jumlah, bulan, tahun, metode_pembayaran, tanggal_pembayaran, santri!inner(id, nama_lengkap)')
-            .ilike('santri.nama_lengkap', escapedTerm)
-            .limit(10)
-        ),
-        // Search payments by local fields (bulan, tahun, jumlah, metode_pembayaran)
-        safeQuery(
-          supabase.from('payments')
-            .select('id, jumlah, bulan, tahun, metode_pembayaran, tanggal_pembayaran, santri(id, nama_lengkap)')
-            .or(paymentLocalOr)
-            .limit(10)
-        )
+      const [santriRes, guruRes, classesRes, payLocalRes] = await Promise.all([
+        safe(query({
+          table: 'santri',
+          columns: SANTRI_COLUMNS,
+          filters: [
+            { column: 'deleted_at', op: 'is_null' },
+            { or: [
+              { column: 'nama_lengkap', op: 'ilike', value: term },
+              { column: 'nomor_induk_qiroati', op: 'ilike', value: term },
+            ] },
+          ],
+          limit: 5,
+        })),
+        safe(query({
+          table: 'guru',
+          columns: ['id', 'nama', 'jabatan', 'foto_url', 'status_guru'],
+          filters: [
+            { column: 'deleted_at', op: 'is_null' },
+            { column: 'nama', op: 'ilike', value: term },
+          ],
+          limit: 5,
+        })),
+        safe(query({
+          table: 'classes',
+          columns: ['id', 'nama_kelas', 'sesi', 'id_guru'],
+          filters: [
+            { column: 'deleted_at', op: 'is_null' },
+            { column: 'nama_kelas', op: 'ilike', value: term },
+          ],
+          limit: 5,
+        })),
+        safe(query({
+          table: 'payments',
+          columns: PAYMENT_COLUMNS,
+          filters: [
+            { column: 'deleted_at', op: 'is_null' },
+            { or: [
+              { column: 'metode_pembayaran', op: 'ilike', value: term },
+              // bulan, tahun, dan jumlah bertipe angka, jadi hanya dicocokkan ketika kata
+              // kuncinya memang angka. Nilai jumlah dikirim dalam rupiah; lapisan data
+              // yang mengubahnya ke sen.
+              ...(isNumeric ? [
+                { column: 'bulan', op: 'eq', value: numValue },
+                { column: 'tahun', op: 'eq', value: numValue },
+                { column: 'jumlah', op: 'eq', value: numValue },
+              ] : []),
+            ] },
+          ],
+          limit: 10,
+        })),
       ]);
 
-      // Collect any errors for logging, but don't fail the whole search if partial data exists
+      // Pembayaran milik santri yang namanya cocok, menggantikan join dalam yang lama.
+      const matchedSantriIds = (santriRes.data ?? []).map((item) => item.id);
+      const paySantriRes = matchedSantriIds.length > 0
+        ? await safe(queryIn({
+          table: 'payments',
+          columns: PAYMENT_COLUMNS,
+          column: 'santri_id',
+          values: matchedSantriIds,
+          extraFilters: [{ column: 'deleted_at', op: 'is_null' }],
+        }))
+        : { data: [], error: null };
+
       const activeErrors = [santriRes.error, guruRes.error, classesRes.error, paySantriRes.error, payLocalRes.error].filter(Boolean);
-      
       if (activeErrors.length > 0) {
-        console.warn("Global search encountered partial errors:", activeErrors);
-        // Only throw if ALL queries failed (assuming if santriRes is null/error and others too)
+        console.warn('Global search encountered partial errors:', activeErrors);
         if (!santriRes.data && !guruRes.data && !classesRes.data && !paySantriRes.data && !payLocalRes.data) {
-           throw new Error("Terjadi kesalahan pada server saat mencari data. Silakan coba lagi.");
+          throw new Error('Terjadi kesalahan pada server saat mencari data. Silakan coba lagi.');
         }
       }
 
@@ -98,24 +127,32 @@ export const useGlobalSearch = (query, delay = 300) => {
         ownerType: 'santri',
       });
       const newResults = {};
-      
+
       if (resolvedSantriResults.length > 0) newResults.santri = resolvedSantriResults;
       if (guruRes.data?.length > 0) newResults.guru = guruRes.data;
-      if (classesRes.data?.length > 0) newResults.kelas = classesRes.data;
-      
-      // Merge and deduplicate payments
+      if (classesRes.data?.length > 0) {
+        // guru:id_guru(nama) dulu ikut lewat join bersarang.
+        newResults.kelas = await attachRelated(classesRes.data, {
+          foreignKey: 'id_guru', table: 'guru', columns: ['id', 'nama'], as: 'guru',
+        });
+      }
+
       const allPayments = [...(paySantriRes.data || []), ...(payLocalRes.data || [])];
-      const uniquePayments = Array.from(new Map(allPayments.map(item => [item.id, item])).values());
-      
-      const validPayments = uniquePayments.filter(p => p.santri && p.santri.nama_lengkap);
+      const uniquePayments = Array.from(new Map(allPayments.map((item) => [item.id, item])).values());
+      // Nama santri dulu ikut dalam hasil join; sekarang dijahit supaya tampilannya sama.
+      const paymentsWithSantri = await attachRelated(uniquePayments, {
+        foreignKey: 'santri_id', table: 'santri', columns: ['id', 'nama_lengkap'], as: 'santri',
+      });
+
+      const validPayments = paymentsWithSantri.filter((p) => p.santri && p.santri.nama_lengkap);
       if (validPayments.length > 0) {
-        newResults.pembayaran = validPayments.slice(0, 5); 
+        newResults.pembayaran = validPayments.slice(0, 5);
       }
 
       setResults(newResults);
     } catch (err) {
-      console.error("Global search exception:", err);
-      setError("Gagal mengambil data pencarian. " + err.message);
+      console.error('Global search exception:', err);
+      setError('Gagal mengambil data pencarian. ' + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -123,11 +160,11 @@ export const useGlobalSearch = (query, delay = 300) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      performSearch(query);
+      performSearch(query_);
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [query, performSearch, delay]);
+  }, [query_, performSearch, delay]);
 
   return { results, isLoading, error, performSearch };
 };

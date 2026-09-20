@@ -198,6 +198,36 @@ const run = async () => {
     { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
   console.log('');
 
+  console.log('penyaring pada kolom uang:');
+  // Nilai uang disimpan sebagai sen. Pemanggil bekerja dalam rupiah, jadi penyaringnya
+  // harus dikonversi seperti halnya penulisan — kalau tidak, hasilnya kosong tanpa galat.
+  const contohBayar = sqlite.prepare(
+    'select id, jumlah from payments where deleted_at is null and jumlah > 0 limit 1').get();
+  const rupiah = contohBayar.jumlah / 100;
+
+  const cocok = await query(admin.id, {
+    table: 'payments', columns: ['id', 'jumlah'],
+    filters: [{ column: 'jumlah', op: 'eq', value: rupiah }], limit: 1000,
+  });
+  check('menyaring dengan nilai rupiah menemukan barisnya',
+    cocok.rows.some((r) => r.id === contohBayar.id), true);
+  check('nilai yang dipulangkan tetap rupiah', cocok.rows[0].jumlah, rupiah);
+
+  // Tanpa konversi, angka sen mentah justru tidak boleh cocok.
+  const salahSatuan = await query(admin.id, {
+    table: 'payments', columns: ['id'],
+    filters: [{ column: 'jumlah', op: 'eq', value: contohBayar.jumlah }], limit: 1000,
+  });
+  check('angka sen mentah tidak dianggap rupiah',
+    salahSatuan.rows.some((r) => r.id === contohBayar.id), false);
+
+  const rentang = await query(admin.id, {
+    table: 'payments', columns: ['id', 'jumlah'],
+    filters: [{ column: 'jumlah', op: 'gte', value: rupiah }], limit: 1000,
+  });
+  check('pembanding rentang ikut dikonversi', rentang.rows.every((r) => r.jumlah >= rupiah), true);
+  console.log('');
+
   console.log('konten publik untuk pengguna yang sudah login:');
   // Policy Postgres-nya berpasangan, dan yang kedua berlaku untuk "authenticated" juga:
   //   FOR SELECT TO "anon"          USING ("is_public")
