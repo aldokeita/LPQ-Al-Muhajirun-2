@@ -7,7 +7,21 @@ import { Plus, Edit, Trash2, Search, History, UserPlus, Users, Check, BarChart2,
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/lib/customSupabaseClient';
+import { rpc } from '@/lib/dataClient';
+import {
+  deleteClass,
+  deleteClassMutation,
+  fetchClassMutations,
+  fetchClassesWithGuru,
+  fetchGuruList,
+  fetchSantriList,
+  fetchSessionConfig,
+  fetchTodayAttendance,
+  saveClass,
+  saveClassOrder,
+  saveSantriOrder,
+  saveSessionConfig,
+} from '@/lib/classManagementAdapters';
 import { useDrag, useDrop } from 'react-dnd';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -350,7 +364,6 @@ const AdultClassManagement = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
 
   const fetchAllData = useCallback(async () => {
-    const today = new Date().toLocaleDateString('en-CA');
     const [
       { data: classData, error: classError },
       { data: guruData, error: guruError },
@@ -358,11 +371,17 @@ const AdultClassManagement = () => {
       { data: attendanceData, error: attendanceError },
       { data: configData }
     ] = await Promise.all([
-      supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').eq('kategori', 'Dewasa').order('sort_order', { ascending: true, nullsFirst: false }),
-      supabase.from('guru').select('id, nama, foto_url, no_hp'),
-      supabase.from('santri').select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ayah, nama_ibu, no_kk, no_nik, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, tanggal_pendaftaran, alamat, no_hp_ortu, foto_url, avatar_path, email, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, link_qiroati, default_spp_amount, juz_hafalan, berkas_foto, berkas_akta, berkas_kk, berkas_form, created_at, updated_at, deleted_at, created_by, updated_by').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
-      supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', today),
-      supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
+      fetchClassesWithGuru({ filters: [{ column: 'kategori', op: 'eq', value: 'Dewasa' }] }),
+      fetchGuruList(['id', 'nama', 'foto_url', 'no_hp']),
+      fetchSantriList({
+        columns: ['id', 'nomor_induk_qiroati', 'nama_lengkap', 'nama_panggilan', 'nama_ayah', 'nama_ibu', 'no_kk', 'no_nik', 'kategori', 'jenis_kelamin', 'tanggal_lahir', 'tempat_lahir', 'tanggal_pendaftaran', 'alamat', 'no_hp_ortu', 'foto_url', 'avatar_path', 'email', 'rfid_tag', 'current_class_id', 'sesi_mengaji', 'jilid', 'status', 'points', 'order_in_class', 'link_qiroati', 'default_spp_amount', 'juz_hafalan', 'berkas_foto', 'berkas_akta', 'berkas_kk', 'berkas_form', 'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by'],
+        filters: [
+          { column: 'status', op: 'eq', value: 'Aktif' },
+          { column: 'kategori', op: 'eq', value: 'Dewasa' },
+        ],
+      }),
+      fetchTodayAttendance(),
+      fetchSessionConfig('adultSessionConfig'),
     ]);
 
     if (classError || guruError || santriError || attendanceError) {
@@ -373,8 +392,9 @@ const AdultClassManagement = () => {
     setGuruList(guruData || []);
     setSantriList((santriData || []).map(mapSantriForLegacyUi));
     setDailyAttendance(attendanceData || []);
-    if (configData?.content) {
-         let parsed = configData.content;
+    // fetchSessionConfig sudah memulangkan isi kolom content, bukan barisnya.
+    if (configData) {
+         let parsed = configData;
          let times = {};
          let filters = [];
          if (Array.isArray(parsed)) {
@@ -405,19 +425,7 @@ const AdultClassManagement = () => {
 
   const handleSaveConfig = async (newLocalSessions) => {
       try {
-          const arrayConfig = newLocalSessions.map(s => ({ name: s.name, time: s.time }));
-          const { data: existingConfig, error: fetchError } = await supabase.from('website_content').select('id').eq('key', 'adultSessionConfig').maybeSingle();
-          if (fetchError) throw fetchError;
-
-          let saveError;
-          if (existingConfig) {
-              const { error } = await supabase.from('website_content').update({ content: arrayConfig }).eq('id', existingConfig.id);
-              saveError = error;
-          } else {
-              const { error } = await supabase.from('website_content').insert({ key: 'adultSessionConfig', content: arrayConfig });
-              saveError = error;
-          }
-
+          const { error: saveError } = await saveSessionConfig('adultSessionConfig', newLocalSessions);
           if (saveError) throw saveError;
 
           const newSessionTimes = {};
@@ -441,14 +449,9 @@ const AdultClassManagement = () => {
   const saveReorderedClasses = async (orderedClasses) => {
       setClasses(orderedClasses);
 
-      const updates = orderedClasses.map((cls, index) => ({
-          id: cls.id,
-          sort_order: index + 1,
-          nama_kelas: cls.nama_kelas,
-          kategori: 'Dewasa'
-      }));
-
-      const { error } = await supabase.from('classes').upsert(updates);
+      // Dulu ini upsert yang ikut mengirim nama_kelas dan kategori dengan nilai yang tidak
+      // berubah. Yang benar-benar disimpan hanya urutannya, jadi itu saja yang dikirim.
+      const { error } = await saveClassOrder(orderedClasses);
       if (error) {
           toast({ title: 'Gagal', description: error.message, variant: 'destructive' });
           fetchAllData();
@@ -466,8 +469,7 @@ const AdultClassManagement = () => {
     santriInClass.splice(hoverIndex, 0, draggedItem);
     const updatedSantriInClass = santriInClass.map((s, i) => ({ ...s, order_in_class: i + 1 }));
     setSantriList([...otherSantri, ...updatedSantriInClass]);
-    const updates = updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id));
-    await Promise.all(updates);
+    await saveSantriOrder(updatedSantriInClass);
   }, [santriList]);
 
   const handleDropSantri = async (item, toClassId) => {
@@ -485,7 +487,7 @@ const AdultClassManagement = () => {
       return;
     }
 
-    const { data, error } = await supabase.rpc('move_santri_to_class', {
+    const { data, error } = await rpc('move_santri_to_class', {
       p_santri_id: santriId,
       p_to_class_id: toClassId,
       p_reason: `Mutasi kelas dewasa: ${santri?.nama_lengkap || 'santri'} ke ${targetClass.nama_kelas}`
@@ -542,9 +544,7 @@ const AdultClassManagement = () => {
     if (!editingClass) {
       classData.sort_order = classes.reduce((max, item) => Math.max(max, item.sort_order || 0), 0) + 1;
     }
-    const { error } = editingClass
-      ? await supabase.from('classes').update(classData).eq('id', editingClass.id)
-      : await supabase.from('classes').insert(classData);
+    const { error } = await saveClass(editingClass?.id ?? null, classData);
     if (error) {
       toast({ title: 'Gagal membuat kelas', description: error.message, variant: 'destructive' });
     } else {
@@ -556,7 +556,7 @@ const AdultClassManagement = () => {
   };
 
   const showHistory = async () => {
-    const { data } = await supabase.from('class_mutations').select('*, santri:santri_id(nama_lengkap, foto_url), from_class:from_class_id(nama_kelas, sesi, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, sesi, guru:id_guru(nama))').order('mutation_date', { ascending: false });
+    const { data } = await fetchClassMutations();
     setMutationHistory(data || []); setFilteredHistory(data || []); setIsHistoryOpen(true);
   };
 
@@ -566,7 +566,7 @@ const AdultClassManagement = () => {
           title: 'Hapus Riwayat',
           description: 'Apakah Anda yakin ingin menghapus riwayat ini? Tindakan ini tidak dapat dibatalkan.',
           onConfirm: async () => {
-              await supabase.from('class_mutations').delete().eq('id', id);
+              await deleteClassMutation(id);
               setMutationHistory(prev => prev.filter(m => m.id !== id));
           }
       });
@@ -626,7 +626,7 @@ const AdultClassManagement = () => {
           title: 'Hapus Kelas',
           description: 'Apakah Anda yakin ingin menghapus kelas ini? Santri di dalamnya akan dikeluarkan dari kelas.',
           onConfirm: async () => {
-              await supabase.from('classes').delete().eq('id', id);
+              await deleteClass(id);
               fetchAllData();
           }
       });

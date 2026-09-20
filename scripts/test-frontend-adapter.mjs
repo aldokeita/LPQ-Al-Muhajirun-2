@@ -416,6 +416,74 @@ const run = async () => {
   sessionCookie = cookieHalaman;
   console.log('');
 
+  console.log('classManagementAdapters:');
+  // Diberi blok sendiri supaya nama-namanya tidak bertabrakan dengan bagian lain.
+  {
+  const kelasAdapter = await import('../src/lib/classManagementAdapters.js');
+
+  const daftarKelas = await kelasAdapter.fetchClassesWithGuru();
+  check('kelas terbaca', daftarKelas.error, null);
+  check('ada kelasnya', daftarKelas.data.length > 0, true);
+  // classes.guru:id_guru(...) dulu ikut lewat join bersarang; bentuknya harus tetap sama.
+  check('setiap kelas punya properti guru', daftarKelas.data.every((c) => 'guru' in c), true);
+  const kelasBerguru = daftarKelas.data.find((c) => c.id_guru);
+  if (kelasBerguru) check('guru terjahit sesuai id_guru', kelasBerguru.guru?.id, kelasBerguru.id_guru);
+  // Urutan sort_order menaik dengan NULL di belakang, seperti nullsFirst: false dulu.
+  const urutan = daftarKelas.data.map((c) => c.sort_order);
+  const awalNull = urutan.indexOf(null);
+  check('kelas tanpa urutan ada di belakang',
+    awalNull === -1 || urutan.slice(awalNull).every((v) => v === null), true);
+  check('yang bernomor urut menaik', urutan.filter((v) => v !== null)
+    .every((v, i, arr) => i === 0 || arr[i - 1] <= v), true);
+  // Kelas yang sudah dihapus tidak boleh muncul lagi, sama seperti ketika barisnya
+  // benar-benar dibuang dulu.
+  const kelasTerhapus = sqlite.prepare('select count(*) c from classes where deleted_at is not null').get().c;
+  const kelasHidup = sqlite.prepare('select count(*) c from classes where deleted_at is null').get().c;
+  check('jumlahnya sama dengan kelas yang belum dihapus', daftarKelas.data.length, kelasHidup);
+  if (kelasTerhapus > 0) check('kelas terhapus tidak ikut', daftarKelas.data.length < kelasHidup + kelasTerhapus, true);
+
+  const kelasDewasa = await kelasAdapter.fetchClassesWithGuru({
+    filters: [{ column: 'kategori', op: 'eq', value: 'Dewasa' }],
+  });
+  check('penyaringan kategori bekerja', kelasDewasa.data.every((c) => c.kategori === 'Dewasa'), true);
+
+  // Riwayat mutasi dulu dibaca dengan tiga tingkat sarang sekaligus. Yang diuji: seluruh
+  // tingkat itu sampai ke pemanggil dengan bentuk yang sama.
+  const riwayat = await kelasAdapter.fetchClassMutations();
+  check('riwayat mutasi terbaca', riwayat.error, null);
+  if (riwayat.data.length > 0) {
+    check('setiap baris punya santri, from_class, to_class',
+      riwayat.data.every((m) => 'santri' in m && 'from_class' in m && 'to_class' in m), true);
+    check('terurut dari yang terbaru', riwayat.data.every((m, i, arr) =>
+      i === 0 || String(arr[i - 1].mutation_date) >= String(m.mutation_date)), true);
+    const berkelas = riwayat.data.find((m) => m.to_class);
+    if (berkelas) {
+      check('kelas tujuan terjahit sesuai id', berkelas.to_class.id, berkelas.to_class_id);
+      check('nama kelas tujuan ikut', typeof berkelas.to_class.nama_kelas, 'string');
+      // Tingkat ketiga: guru di dalam kelas.
+      check('properti guru ada di kelas tujuan', 'guru' in berkelas.to_class, true);
+      if (berkelas.to_class.id_guru) {
+        check('guru kelas tujuan terisi', berkelas.to_class.guru?.id, berkelas.to_class.id_guru);
+      }
+    }
+    const bersantri = riwayat.data.find((m) => m.santri_id);
+    if (bersantri) check('santri terjahit sesuai santri_id', bersantri.santri?.id, bersantri.santri_id);
+  }
+
+  const konfigurasi = await kelasAdapter.fetchSessionConfig('anakSessionConfig');
+  check('konfigurasi sesi terbaca tanpa galat', konfigurasi.error, null);
+  // Kolom content bertipe JSON; lapisan data yang menguraikannya, jadi yang sampai ke
+  // pemanggil harus objek atau larik, bukan teks.
+  if (konfigurasi.data !== null) {
+    check('konfigurasi sudah terurai', typeof konfigurasi.data, 'object');
+  }
+
+  const jumlahAnggota = await kelasAdapter.countActiveMemberships(daftarKelas.data[0].id);
+  check('hitungan anggota kelas berhasil', jumlahAnggota.error, null);
+  check('hitungannya berupa angka', Number.isInteger(jumlahAnggota.data), true);
+  }
+  console.log('');
+
   console.log('penulisan banyak baris lewat adapter:');
   // Sistem pembayaran menulis seluruh keranjang sekaligus. Yang diuji di sini jalur
   // utuhnya: klien, rute, otorisasi, sampai D1.
@@ -426,9 +494,15 @@ const run = async () => {
   check('dua baris tersisip', banyak.error, null);
   check('id-nya dipulangkan', banyak.data?.ids.length, 2);
 
+  // Menyaring deleted_at supaya sisa baris dari jalannya uji sebelumnya, yang dihapus
+  // secara lunak, tidak ikut terhitung.
   const terbaca = await queryAll({
     table: 'payments', columns: ['id', 'jumlah', 'bulan'],
-    filters: [{ column: 'santri_id', op: 'eq', value: target.id }, { column: 'tahun', op: 'eq', value: 2032 }],
+    filters: [
+      { column: 'santri_id', op: 'eq', value: target.id },
+      { column: 'tahun', op: 'eq', value: 2032 },
+      { column: 'deleted_at', op: 'is_null' },
+    ],
   });
   check('terbaca kembali', terbaca.data.length, 2);
   // Uang disimpan sebagai sen dan dipulangkan sebagai rupiah; sisipan banyak baris
