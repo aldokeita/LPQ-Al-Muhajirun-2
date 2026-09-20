@@ -402,14 +402,32 @@ fs.writeFileSync(outputPath, `${out.join('\n')}`);
 // merangkainya ke SQL. Nama tabel dan kolom tidak bisa diparameterkan, jadi satu-satunya
 // pengaman adalah mencocokkannya dengan daftar yang dihasilkan dari skema ini.
 const manifest = {};
+// Kolom jsonb dan array Postgres disimpan sebagai TEXT berisi JSON di D1. Daftarnya ikut
+// dihasilkan agar lapisan data bisa membongkar dan merangkainya sendiri, dan tidak ada
+// modul yang perlu mengingat kolom mana yang perlu diperlakukan begitu.
+const jsonColumns = {};
 for (const name of ordered) {
-  manifest[name] = tables.get(name).columns.map((c) => c.name);
+  const table = tables.get(name);
+  manifest[name] = table.columns.map((c) => c.name);
+  const encoded = table.columns
+    .filter((c) => {
+      const type = normalizeType(c.pgType);
+      return type === 'jsonb' || type === 'json' || type.endsWith('[]');
+    })
+    .map((c) => c.name);
+  if (encoded.length > 0) jsonColumns[name] = encoded;
 }
 const manifestPath = outputPath.replace(/\.sql$/, '').replace(/[^/\\]+$/, '') + '../worker/data/schema-manifest.js';
 const manifestBody = `// Dihasilkan oleh scripts/generate-d1-schema.mjs. Jangan diedit langsung.
 // Daftar kolom sah per tabel, dipakai untuk memvalidasi query sebelum dirangkai ke SQL.
 
 export const SCHEMA_COLUMNS = ${JSON.stringify(manifest, null, 2)};
+
+// Kolom yang isinya JSON: dibongkar saat dibaca, dirangkai saat ditulis.
+export const JSON_COLUMNS = ${JSON.stringify(jsonColumns, null, 2)};
+
+export const isJsonColumn = (table, column) =>
+  Object.prototype.hasOwnProperty.call(JSON_COLUMNS, table) && JSON_COLUMNS[table].includes(column);
 
 export const tableExists = (table) => Object.prototype.hasOwnProperty.call(SCHEMA_COLUMNS, table);
 

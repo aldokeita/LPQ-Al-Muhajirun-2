@@ -13,7 +13,7 @@
 // 3. Pemeriksaan sebelum dan sesudah. Pada update, baris lama diperiksa lebih dulu;
 //    tanpa itu seseorang bisa mengubah baris yang sebenarnya tidak boleh ia sentuh.
 
-import { SCHEMA_COLUMNS, columnExists, tableExists } from './schema-manifest.js';
+import { SCHEMA_COLUMNS, columnExists, isJsonColumn, tableExists } from './schema-manifest.js';
 import { QueryError } from './query.js';
 import { getPolicy } from '../auth/policies.js';
 
@@ -42,6 +42,14 @@ const sanitizeValues = (table, values, { allowServerOwned = false } = {}) => {
   for (const [column, value] of Object.entries(values)) {
     if (!columnExists(table, column)) throw new QueryError(`Kolom "${column}" tidak dikenal pada tabel "${table}".`);
     if (!allowServerOwned && SERVER_OWNED.has(column)) continue;
+
+    // Kolom jsonb dan array dirangkai menjadi teks JSON di sini. Tanpa ini, sebuah objek
+    // akan tersimpan sebagai "[object Object]" tanpa memunculkan galat apa pun.
+    if (isJsonColumn(table, column)) {
+      clean[column] = value === null || value === undefined ? null : JSON.stringify(value);
+      continue;
+    }
+
     if (value !== null && typeof value === 'object') {
       throw new QueryError(`Nilai kolom "${column}" harus berupa nilai sederhana atau null.`);
     }
@@ -74,7 +82,11 @@ export const insertRow = async (db, authorizer, { table, values }) => {
   if (policy.scopeColumn && row[policy.scopeColumn] === undefined) {
     throw new QueryError(`Kolom "${policy.scopeColumn}" wajib diisi untuk tabel ini.`);
   }
-  await authorizer.assert(table, 'insert', row);
+
+  // Tabel yang membuka penambahan untuk umum melewati pemeriksaan peran hanya ketika
+  // pengirimnya memang belum login. Pengguna yang sudah login tetap diperiksa seperti biasa.
+  const anonymousPublicInsert = policy.publicInsert && !authorizer.ctx.userId;
+  if (!anonymousPublicInsert) await authorizer.assert(table, 'insert', row);
 
   const columns = Object.keys(row);
   const sql = `insert into ${quote(table)} (${columns.map(quote).join(', ')}) values (${columns.map(() => '?').join(', ')})`;
@@ -111,6 +123,34 @@ export const updateRow = async (db, authorizer, { table, id, values }) => {
   const sql = `update ${quote(table)} set ${columns.map((c) => `${quote(c)} = ?`).join(', ')} where "id" = ?`;
   await db.prepare(sql).bind(...columns.map((c) => clean[c]), id).run();
   return { id };
+};
+
+// Upsert dijalankan sebagai pencarian lalu insert atau update, bukan sebagai
+// INSERT ... ON CONFLICT. Alasannya otorisasi: kalau barisnya sudah ada, yang menentukan
+// hak adalah baris yang ada sekarang, dan itu hanya bisa diperiksa setelah dibaca.
+// Menyusunnya sebagai satu statement akan melewatkan pemeriksaan itu.
+export const upsertRow = async (db, authorizer, { table, values, conflictColumn = 'id' }) => {
+  requireWritableTable(table, 'insert');
+  requireWritableTable(table, 'update');
+  if (!columnExists(table, conflictColumn)) {
+    throw new QueryError(`Kolom konflik "${conflictColumn}" tidak dikenal pada tabel "${table}".`);
+  }
+
+  const clean = sanitizeValues(table, values);
+  // Kolom konflik yang kosong berarti baris baru: tidak ada yang bisa ditabrakkan.
+  // Ini juga perilaku upsert lama ketika id tidak disertakan.
+  const key = clean[conflictColumn] ?? values?.[conflictColumn] ?? null;
+  if (key === null || key === undefined) {
+    return { ...(await insertRow(db, authorizer, { table, values })), inserted: true };
+  }
+
+  const existing = await db
+    .prepare(`select "id" from ${quote(table)} where ${quote(conflictColumn)} = ? limit 1`)
+    .bind(key)
+    .first();
+
+  if (existing) return { ...(await updateRow(db, authorizer, { table, id: existing.id, values })), inserted: false };
+  return { ...(await insertRow(db, authorizer, { table, values })), inserted: true };
 };
 
 export const deleteRow = async (db, authorizer, { table, id }) => {

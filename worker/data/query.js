@@ -8,7 +8,7 @@
 // Nama tabel dan kolom tidak bisa diparameterkan, jadi semuanya dicocokkan dengan
 // manifest yang dihasilkan dari skema sebelum dirangkai. Nilai selalu diparameterkan.
 
-import { SCHEMA_COLUMNS, columnExists, tableExists } from './schema-manifest.js';
+import { SCHEMA_COLUMNS, columnExists, isJsonColumn, tableExists } from './schema-manifest.js';
 import { getPolicy } from '../auth/policies.js';
 import { currentUserRole } from '../auth/predicates.js';
 
@@ -220,5 +220,26 @@ export const runQuery = async (db, ctx, authorizer, body) => {
   const sql = `select ${selectList} from ${quote(table)}${whereSql}${orderSql} limit ? offset ?`;
 
   const result = await db.prepare(sql).bind(...params, limit, offset).all();
-  return { rows: result.results ?? [], limit, offset };
+  return { rows: decodeJsonColumns(table, result.results ?? []), limit, offset };
+};
+
+// Kolom jsonb dan array Postgres tersimpan sebagai teks JSON. Membongkarnya di sini
+// membuat pemanggil menerima objek dan array seperti dulu, tanpa perlu tahu bahwa
+// penyimpanannya berubah. Isi yang gagal diurai dipulangkan apa adanya agar data yang
+// terlanjur tidak berformat JSON tidak menggagalkan seluruh permintaan.
+export const decodeJsonColumns = (table, rows) => {
+  const encoded = SCHEMA_COLUMNS[table]?.filter((column) => isJsonColumn(table, column)) ?? [];
+  if (encoded.length === 0) return rows;
+  return rows.map((row) => {
+    const copy = { ...row };
+    for (const column of encoded) {
+      if (typeof copy[column] !== 'string') continue;
+      try {
+        copy[column] = JSON.parse(copy[column]);
+      } catch {
+        // Biarkan apa adanya.
+      }
+    }
+    return copy;
+  });
 };

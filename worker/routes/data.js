@@ -6,7 +6,7 @@
 
 import { AuthorizationError, createAuthorizer } from '../auth/authorize.js';
 import { QueryError, runQuery } from '../data/query.js';
-import { deleteRow, insertRow, updateRow } from '../data/mutate.js';
+import { deleteRow, insertRow, updateRow, upsertRow } from '../data/mutate.js';
 import { readSessionCookie, verifySession } from '../auth/session.js';
 
 const json = (data, status = 200) =>
@@ -19,6 +19,7 @@ const ROUTES = {
   '/api/data/query': (db, authorizer, body) => runQuery(db, authorizer.ctx, authorizer, body),
   '/api/data/insert': (db, authorizer, body) => insertRow(db, authorizer, body),
   '/api/data/update': (db, authorizer, body) => updateRow(db, authorizer, body),
+  '/api/data/upsert': (db, authorizer, body) => upsertRow(db, authorizer, body),
   '/api/data/delete': (db, authorizer, body) => deleteRow(db, authorizer, body),
 };
 
@@ -35,11 +36,15 @@ export const handleData = async (request, env, url) => {
   }
 
   const payload = await verifySession(env.SESSION_SECRET, readSessionCookie(request));
-  // Penulisan selalu menuntut sesi; pembacaan publik ditangani kebijakan per tabel.
-  if (!payload && url.pathname !== '/api/data/query') {
-    return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
-  }
   const authorizer = createAuthorizer(env.DB, payload?.sub ?? null);
+
+  // Penulisan menuntut sesi, kecuali tabel yang memang membuka penambahan untuk umum.
+  // Hanya feedbacks yang begitu, dan itu memang perilaku lamanya: siapa pun boleh
+  // mengirim masukan, hanya admin yang boleh membacanya.
+  if (!payload && url.pathname !== '/api/data/query') {
+    const publicInsert = url.pathname === '/api/data/insert' && authorizer.allowsPublicInsert(body?.table);
+    if (!publicInsert) return json({ error: 'unauthorized', message: 'Sesi diperlukan.' }, 401);
+  }
 
   try {
     const result = await handler(env.DB, authorizer, body);

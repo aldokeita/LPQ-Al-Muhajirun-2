@@ -73,6 +73,11 @@ export const update = (table, id, values) => request('/api/data/update', { table
 
 export const remove = (table, id) => request('/api/data/delete', { table, id });
 
+// conflictColumn menentukan baris mana yang dianggap sudah ada. website_content memakai
+// "key", sedangkan tabel konten lain memakai "id".
+export const upsert = (table, values, conflictColumn = 'id') =>
+  request('/api/data/upsert', { table, values, conflictColumn });
+
 // Nama RPC sama dengan nama function lama, jadi pemanggilan lama bisa dipetakan langsung.
 export const rpc = (name, params = {}) => request(`/api/rpc/${name}`, params);
 

@@ -1,5 +1,11 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { insert, query, remove, update, upsert } from '@/lib/dataClient';
 import { deleteWebsiteAssetByUrl } from '@/lib/storageAdapters';
+
+// Kolom content bertipe jsonb. Lapisan data yang membongkar dan merangkainya, jadi modul
+// ini tetap bekerja dengan objek seperti sebelumnya.
+const NEWS_COLUMNS = ['id', 'title', 'slug', 'excerpt', 'content', 'cover_image_url', 'status', 'published_at', 'created_at'];
+const ANNOUNCEMENT_COLUMNS = ['id', 'title', 'slug', 'excerpt', 'content', 'cover_image_url', 'status', 'priority', 'valid_until', 'published_at', 'created_at'];
+const todayText = () => new Date().toISOString().slice(0, 10);
 
 const toDateText = (value) => value ? new Date(value).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -51,10 +57,15 @@ export const normalizeAnnouncementRow = (row) => ({
 });
 
 export const fetchWebsiteContentMap = async ({ keys, publicOnly = true } = {}) => {
-  let query = supabase.from('website_content').select('key, content, is_public');
-  if (Array.isArray(keys) && keys.length > 0) query = query.in('key', keys);
-  if (publicOnly) query = query.eq('is_public', true);
-  const { data, error } = await query;
+  const filters = [];
+  if (Array.isArray(keys) && keys.length > 0) filters.push({ column: 'key', op: 'in', value: keys });
+  if (publicOnly) filters.push({ column: 'is_public', op: 'eq', value: 1 });
+  const { data, error } = await query({
+    table: 'website_content',
+    columns: ['key', 'content', 'is_public'],
+    filters,
+    limit: 1000,
+  });
   if (error) throw error;
   return (data || []).reduce((acc, item) => {
     acc[item.key] = item.content;
@@ -83,13 +94,9 @@ export const saveWebsiteContentItem = async ({ key, content, isPublic = true }) 
     content: normalizedContent,
     is_public: isPublic,
   };
-  const { data, error } = await supabase
-    .from('website_content')
-    .upsert(payload, { onConflict: 'key' })
-    .select('key, content, is_public')
-    .single();
+  const { error } = await upsert('website_content', payload, 'key');
   if (error) throw error;
-  return data;
+  return payload;
 };
 
 export const saveWebsiteContentItems = async (items) => {
@@ -101,12 +108,13 @@ export const saveWebsiteContentItems = async (items) => {
     }))
     .filter((item) => item.key);
   if (payload.length === 0) return [];
-  const { data, error } = await supabase
-    .from('website_content')
-    .upsert(payload, { onConflict: 'key' })
-    .select('key, content, is_public');
-  if (error) throw error;
-  return data || [];
+  // Endpoint upsert menangani satu baris, jadi penyimpanan massal dikirim berurutan.
+  // Satu kegagalan menghentikan sisanya, sama seperti upsert massal yang gagal sebagian.
+  for (const item of payload) {
+    const { error } = await upsert('website_content', item, 'key');
+    if (error) throw error;
+  }
+  return payload;
 };
 
 const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
@@ -151,74 +159,90 @@ export const waitForImagesToLoad = async (rootElement) => {
   }));
 };
 
+// Identitas bisa berupa slug atau UUID. Pola lamanya mencari keduanya sekaligus ketika
+// bentuknya menyerupai UUID, dan itu dipertahankan.
+const identityFilter = (slugOrId) => {
+  const value = String(slugOrId || '');
+  if (/^[0-9a-fA-F-]{36}$/.test(value)) {
+    return { or: [{ column: 'slug', op: 'eq', value }, { column: 'id', op: 'eq', value }] };
+  }
+  return { column: 'slug', op: 'eq', value };
+};
+
+const PUBLISHED_ORDER = [
+  { column: 'published_at', ascending: false, nullsFirst: false },
+  { column: 'created_at', ascending: false },
+];
+
 export const fetchPublishedNews = async ({ limit } = {}) => {
-  let query = supabase
-    .from('news')
-    .select('id,title,slug,excerpt,content,cover_image_url,status,published_at,created_at')
-    .eq('status', 'published')
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false });
-  if (limit) query = query.limit(limit);
-  const { data, error } = await query;
+  const { data, error } = await query({
+    table: 'news',
+    columns: NEWS_COLUMNS,
+    filters: [{ column: 'status', op: 'eq', value: 'published' }],
+    order: PUBLISHED_ORDER,
+    limit: limit || 1000,
+  });
   if (error) throw error;
   return (data || []).map(normalizeNewsRow);
 };
 
 export const fetchNewsDetail = async (slugOrId) => {
-  const uuidLike = /^[0-9a-fA-F-]{36}$/.test(String(slugOrId || ''));
-  let query = supabase
-    .from('news')
-    .select('id,title,slug,excerpt,content,cover_image_url,status,published_at,created_at')
-    .eq('status', 'published');
-  query = uuidLike ? query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`) : query.eq('slug', slugOrId);
-  query = query.maybeSingle();
-  const { data, error } = await query;
+  const { data, error } = await query({
+    table: 'news',
+    columns: NEWS_COLUMNS,
+    filters: [{ column: 'status', op: 'eq', value: 'published' }, identityFilter(slugOrId)],
+    limit: 1,
+  });
   if (error) throw error;
-  return data ? normalizeNewsRow(data) : null;
+  return data?.length > 0 ? normalizeNewsRow(data[0]) : null;
 };
 
 export const fetchPublishedAnnouncements = async ({ limit } = {}) => {
-  let query = supabase
-    .from('announcements')
-    .select('id,title,slug,excerpt,content,cover_image_url,status,priority,valid_until,published_at,created_at')
-    .eq('status', 'published')
-    .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString().slice(0, 10)}`)
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false });
-  if (limit) query = query.limit(limit);
-  const { data, error } = await query;
+  const { data, error } = await query({
+    table: 'announcements',
+    columns: ANNOUNCEMENT_COLUMNS,
+    filters: [
+      { column: 'status', op: 'eq', value: 'published' },
+      { or: [{ column: 'valid_until', op: 'is_null' }, { column: 'valid_until', op: 'gte', value: todayText() }] },
+    ],
+    order: PUBLISHED_ORDER,
+    limit: limit || 1000,
+  });
   if (error) throw error;
   return (data || []).map(normalizeAnnouncementRow);
 };
 
 export const fetchAnnouncementDetail = async (slugOrId) => {
-  const uuidLike = /^[0-9a-fA-F-]{36}$/.test(String(slugOrId || ''));
-  let query = supabase
-    .from('announcements')
-    .select('id,title,slug,excerpt,content,cover_image_url,status,priority,valid_until,published_at,created_at')
-    .eq('status', 'published');
-  query = uuidLike ? query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`) : query.eq('slug', slugOrId);
-  query = query.maybeSingle();
-  const { data, error } = await query;
+  const { data, error } = await query({
+    table: 'announcements',
+    columns: ANNOUNCEMENT_COLUMNS,
+    filters: [{ column: 'status', op: 'eq', value: 'published' }, identityFilter(slugOrId)],
+    limit: 1,
+  });
   if (error) throw error;
-  if (data?.valid_until && data.valid_until < new Date().toISOString().slice(0, 10)) return null;
-  return data ? normalizeAnnouncementRow(data) : null;
+  const row = data?.[0];
+  if (row?.valid_until && row.valid_until < todayText()) return null;
+  return row ? normalizeAnnouncementRow(row) : null;
 };
 
 export const fetchAdminNews = async () => {
-  const { data, error } = await supabase
-    .from('news')
-    .select('id,title,slug,excerpt,content,cover_image_url,status,published_at,created_at')
-    .order('created_at', { ascending: false });
+  const { data, error } = await query({
+    table: 'news',
+    columns: NEWS_COLUMNS,
+    order: [{ column: 'created_at', ascending: false }],
+    limit: 1000,
+  });
   if (error) throw error;
   return (data || []).map(normalizeNewsRow);
 };
 
 export const fetchAdminAnnouncements = async () => {
-  const { data, error } = await supabase
-    .from('announcements')
-    .select('id,title,slug,excerpt,content,cover_image_url,status,priority,valid_until,published_at,created_at')
-    .order('created_at', { ascending: false });
+  const { data, error } = await query({
+    table: 'announcements',
+    columns: ANNOUNCEMENT_COLUMNS,
+    order: [{ column: 'created_at', ascending: false }],
+    limit: 1000,
+  });
   if (error) throw error;
   return (data || []).map(normalizeAnnouncementRow);
 };
@@ -241,9 +265,9 @@ export const saveNews = async (item) => {
   };
   if (!payload.title) throw new Error('Judul berita wajib diisi.');
   if (item.id) payload.id = item.id;
-  const { data, error } = await supabase.from('news').upsert(payload).select().single();
+  const { data, error } = await upsert('news', payload);
   if (error) throw error;
-  return normalizeNewsRow(data);
+  return normalizeNewsRow({ ...payload, id: item.id ?? data?.id ?? null });
 };
 
 export const saveAnnouncement = async (item) => {
@@ -261,41 +285,38 @@ export const saveAnnouncement = async (item) => {
   };
   if (!payload.title) throw new Error('Judul pengumuman wajib diisi.');
   if (item.id) payload.id = item.id;
-  const { data, error } = await supabase.from('announcements').upsert(payload).select().single();
+  const { data, error } = await upsert('announcements', payload);
   if (error) throw error;
-  return normalizeAnnouncementRow(data);
+  return normalizeAnnouncementRow({ ...payload, id: item.id ?? data?.id ?? null });
 };
 
 export const archiveNews = async (id) => {
-  const { error } = await supabase.from('news').update({ status: 'archived' }).eq('id', id);
+  const { error } = await update('news', id, { status: 'archived' });
   if (error) throw error;
 };
 
 const deletePublicContentRecord = async ({ table, id }) => {
-  const { data: record, error: fetchError } = await supabase
-    .from(table)
-    .select('id,cover_image_url')
-    .eq('id', id)
-    .maybeSingle();
+  const { data: records, error: fetchError } = await query({
+    table,
+    columns: ['id', 'cover_image_url'],
+    filters: [{ column: 'id', op: 'eq', value: id }],
+    limit: 1,
+  });
   if (fetchError) throw fetchError;
+  const record = records?.[0];
   if (!record) throw new Error('Konten tidak ditemukan.');
 
   if (record.cover_image_url) {
     await deleteWebsiteAssetByUrl(record.cover_image_url);
   }
 
-  const { data: deleted, error: deleteError } = await supabase
-    .from(table)
-    .delete()
-    .eq('id', id)
-    .select('id')
-    .maybeSingle();
+  const { data: deleted, error: deleteError } = await remove(table, id);
   if (deleteError) throw deleteError;
   if (!deleted) throw new Error('Konten tidak dapat dihapus.');
   return deleted;
 };
 export const archiveAnnouncement = async (id) => {
-  const { error } = await supabase.from('announcements').update({ status: 'archived' }).eq('id', id);
+  const { error } = await update('announcements', id, { status: 'archived' });
   if (error) throw error;
 };
 export const deleteNews = async (id) => deletePublicContentRecord({ table: 'news', id });
@@ -310,20 +331,24 @@ export const submitPublicFeedback = async ({ nama, name, email, phone, no_hp, me
     message: String(message || pesan || '').trim(),
   };
   if (!payload.message) throw new Error('Pesan wajib diisi.');
-  const { error } = await supabase.from('feedbacks').insert(payload);
+  // Pengunjung tanpa login boleh mengirim masukan, sesuai kebijakan tabel feedbacks.
+  const { error } = await insert('feedbacks', payload);
   if (error) throw error;
 };
 
 export const fetchAdminFeedbacks = async () => {
-  const { data, error } = await supabase
-    .from('feedbacks')
-    .select('id,nama,email,phone,message,status,created_at')
-    .order('created_at', { ascending: false });
+  const { data, error } = await query({
+    table: 'feedbacks',
+    columns: ['id', 'nama', 'email', 'phone', 'message', 'status', 'created_at'],
+    order: [{ column: 'created_at', ascending: false }],
+    limit: 1000,
+  });
   if (error) throw error;
   return data || [];
 };
 
 export const deleteFeedback = async (id) => {
-  const { error } = await supabase.from('feedbacks').delete().eq('id', id);
+  const { error } = await remove('feedbacks', id);
   if (error) throw error;
 };
+

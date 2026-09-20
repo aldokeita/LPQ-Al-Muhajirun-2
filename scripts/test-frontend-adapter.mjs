@@ -46,7 +46,12 @@ const findLocalD1 = () => {
   return null;
 };
 
-const sqlite = new DatabaseSync(findLocalD1(), { readOnly: true });
+const sqlite = new DatabaseSync(findLocalD1());
+
+// Pembatas percobaan login memblokir setelah lima kegagalan per lima menit. Menjalankan
+// suite ini berulang kali akan memicunya, jadi hitungannya dibersihkan lebih dulu.
+// Ini membersihkan jejak pengujian, bukan melonggarkan pembatasnya.
+sqlite.prepare("delete from auth_rate_limits where purpose = 'login'").run();
 
 let passed = 0;
 let failed = 0;
@@ -225,6 +230,62 @@ const run = async () => {
   check('penghapusan lunak menandai deleted_at', typeof setelahHapus.deleted_at, 'string');
   const setelahnya = await fetchExpensesByPeriod({ year: 2026, month: 9 });
   check('baris terhapus tidak ikut terbaca', setelahnya.some((row) => row.id === dibuat.id), false);
+  console.log('');
+
+  console.log('publicContentAdapters:');
+  const konten = await import('../src/lib/publicContentAdapters.js');
+
+  // Kolom content bertipe jsonb: harus bulat pergi dan pulang sebagai objek, bukan teks.
+  const slug = `uji-${Date.now()}`;
+  const beritaBaru = await konten.saveNews({
+    title: 'Berita Uji Migrasi', slug, content: 'Isi berita uji.', status: 'published',
+  });
+  check('berita tersimpan', typeof beritaBaru.id, 'string');
+  const tersimpanMentah = sqlite.prepare('select content from news where id = ?').get(beritaBaru.id).content;
+  check('content tersimpan sebagai teks JSON', typeof tersimpanMentah, 'string');
+  check('teks JSON bukan [object Object]', tersimpanMentah.includes('[object Object]'), false);
+
+  const detail = await konten.fetchNewsDetail(slug);
+  check('berita terbaca lewat slug', detail?.id, beritaBaru.id);
+  check('content terbongkar kembali menjadi isi', detail?.content, 'Isi berita uji.');
+
+  const daftar = await konten.fetchPublishedNews({ limit: 50 });
+  check('berita muncul di daftar terbit', daftar.some((row) => row.id === beritaBaru.id), true);
+
+  // Upsert dengan id yang sama harus mengubah, bukan menambah baris baru.
+  const jumlahSebelum = sqlite.prepare('select count(*) c from news').get().c;
+  await konten.saveNews({ id: beritaBaru.id, title: 'Berita Uji Diubah', slug, content: 'Isi diubah.', status: 'published' });
+  check('upsert tidak menambah baris', sqlite.prepare('select count(*) c from news').get().c, jumlahSebelum);
+  check('judul berubah', sqlite.prepare('select title from news where id = ?').get(beritaBaru.id).title, 'Berita Uji Diubah');
+
+  const peta = await konten.fetchWebsiteContentMap({ keys: ['logoUrl'], publicOnly: true });
+  check('peta konten situs berupa objek', typeof peta, 'object');
+
+  await konten.deleteNews(beritaBaru.id);
+  check('berita terhapus', sqlite.prepare('select count(*) c from news where id = ?').get(beritaBaru.id).c, 0);
+  console.log('');
+
+  console.log('jalur publik tanpa login:');
+  const cookieTersimpan = sessionCookie;
+  sessionCookie = null;
+  const beritaPublik = await konten.fetchPublishedNews({ limit: 5 });
+  check('berita terbit terbaca tanpa login', Array.isArray(beritaPublik), true);
+  check('hanya yang berstatus published', beritaPublik.every((row) => row.status === 'published'), true);
+
+  // Pengunjung boleh mengirim masukan, tetapi tidak boleh membacanya.
+  const hitungMasukan = () => sqlite.prepare("select count(*) c from feedbacks where message = 'Pesan uji migrasi.'").get().c;
+  const sebelumKirim = hitungMasukan();
+  await konten.submitPublicFeedback({ nama: 'Pengunjung Uji', message: 'Pesan uji migrasi.' });
+  check('masukan tersimpan tanpa login', hitungMasukan(), sebelumKirim + 1);
+  let bacaFeedbackGagal = false;
+  try { await konten.fetchAdminFeedbacks(); } catch { bacaFeedbackGagal = true; }
+  check('membaca masukan ditolak tanpa login', bacaFeedbackGagal, true);
+  // Pembersihan lewat API, karena handle SQLite di sini hanya untuk membaca.
+  sessionCookie = cookieTersimpan;
+  const masukan = (await konten.fetchAdminFeedbacks()).filter((row) => row.message === 'Pesan uji migrasi.');
+  for (const row of masukan) await konten.deleteFeedback(row.id);
+  check('masukan uji dibersihkan',
+    sqlite.prepare("select count(*) c from feedbacks where message = 'Pesan uji migrasi.'").get().c, 0);
   console.log('');
 
   console.log('galat RPC diteruskan apa adanya:');

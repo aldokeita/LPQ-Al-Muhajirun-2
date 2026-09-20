@@ -485,6 +485,28 @@ export const SCHEMA_COLUMNS = {
   ]
 };
 
+// Kolom yang isinya JSON: dibongkar saat dibaca, dirangkai saat ditulis.
+export const JSON_COLUMNS = {
+  "announcements": [
+    "content"
+  ],
+  "guru": [
+    "roles"
+  ],
+  "santri": [
+    "juz_hafalan"
+  ],
+  "news": [
+    "content"
+  ],
+  "website_content": [
+    "content"
+  ]
+};
+
+export const isJsonColumn = (table, column) =>
+  Object.prototype.hasOwnProperty.call(JSON_COLUMNS, table) && JSON_COLUMNS[table].includes(column);
+
 export const tableExists = (table) => Object.prototype.hasOwnProperty.call(SCHEMA_COLUMNS, table);
 
 export const columnExists = (table, column) =>
