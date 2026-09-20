@@ -115,7 +115,7 @@ const DigitalAttendance = () => {
         const today = timestamp;
         const dayOfWeek = today.getDay();
         if (role === 'guru' && (dayOfWeek === 0 || dayOfWeek === 6)) {
-            return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' };
+            return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu. MMQ tetap tercatat pada jadwalnya.' };
         }
 
         const windowState = evaluateAttendanceWindow({ timestamp, sesi, sessionTimes });

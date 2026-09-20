@@ -347,7 +347,7 @@ const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date(),
     const today = timestamp;
     const dayOfWeek = today.getDay();
     if (userRole === 'guru' && (dayOfWeek === 0 || dayOfWeek === 6)) {
-      return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu.' };
+      return { can: false, message: 'Absensi libur pada hari Sabtu dan Minggu. MMQ tetap tercatat pada jadwalnya.' };
     }
 
     const windowState = evaluateAttendanceWindow({ timestamp, sesi, sessionTimes });
@@ -500,7 +500,10 @@ const DigitalAttendancePage = () => {
         const todayDate = new Date();
         const todayStr = getLocalDateString(todayDate);
 
-        let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [];
+        // guruAssignedSessions dipakai lagi di luar blok pencarian guru, untuk
+        // menjelaskan kenapa absensinya tidak dicatat: belum punya kelas, atau
+        // punya kelas tetapi sedang di luar jam sesinya.
+        let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [], guruAssignedSessions = [];
         let { data: guruData } = await queryOne({ table: 'guru', columns: GURU_SCAN_COLUMNS, filters: [{ column: 'rfid_tag', op: 'eq', value: tag }] });
 
         // Check MMQ Schedule if it's a Guru
@@ -645,6 +648,7 @@ const DigitalAttendancePage = () => {
           ]);
             guruClasses = assignedClasses || [];
             const assignedSessions = [...new Set(guruClasses.map(item => normalizeAttendanceSessionName(item.sesi)).filter(Boolean))];
+            guruAssignedSessions = assignedSessions;
             const matchingSessions = assignedSessions
               .map(sesi => ({ sesi, window: evaluateAttendanceWindow({ timestamp: todayDate, dateStr: todayStr, sesi, sessionTimes }) }))
               .filter(item => item.window.canRecord)
@@ -762,7 +766,17 @@ const DigitalAttendancePage = () => {
               let nextSession = sortedSessions.find(s => (timeMap[s] || 0) > currentHour);
               if (!nextSession && sortedSessions.length > 0) { nextSession = `${sortedSessions[0]} (Besok)`; } else if (!nextSession) { nextSession = "-"; } else { const startTime = sessionTimes[nextSession]?.start || ''; nextSession = `${nextSession} (${startTime})`; }
               const quote = guruQuotes[Math.floor(Math.random() * guruQuotes.length)];
-              setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: guruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
+              // Panel ini muncul justru ketika absensi tidak jadi dicatat, dan dulu tidak
+              // mengatakan apa-apa soal itu — guru hanya melihat daftar kelasnya dan
+              // mengira pindaiannya berhasil. Alasannya disampaikan terpisah di bawah
+              // kartu profil, bukan di dalamnya.
+              const hariLibur = todayDate.getDay() === 0 || todayDate.getDay() === 6;
+              const notice = guruAssignedSessions.length === 0
+                ? 'Belum ada kelas aktif atas nama Anda, jadi absensi tidak dicatat. Hubungi admin bila seharusnya ada.'
+                : (hariLibur
+                    ? 'Hari libur. Absensi tidak dicatat, kecuali MMQ pada jadwalnya.'
+                    : 'Di luar jam sesi mengajar Anda, jadi absensi tidak dicatat.');
+              setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, notice, classesData: guruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
               return;
         }
 
@@ -1151,6 +1165,18 @@ const DigitalAttendancePage = () => {
             showSuccessBadge={scan.type === 'success'}
             isPentashih={isPentashih}
           />
+          {/* Keterangan kenapa absensi tidak dicatat. Sengaja di luar kartu profil
+              supaya tidak terbaca sebagai bagian dari data guru yang bersangkutan. */}
+          {scan.type === 'guru_info' && scan.notice && (
+            <div
+              className="w-full mt-4 p-4 rounded-xl flex items-start gap-3 text-left"
+              role="note"
+              style={{ backgroundColor: 'hsl(var(--att-amber-bg))', border: '1px solid hsl(var(--att-amber))' }}
+            >
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'hsl(var(--att-amber))' }} />
+              <p className="text-sm font-medium" style={{ color: 'hsl(var(--att-text-primary))' }}>{scan.notice}</p>
+            </div>
+          )}
           {/* Pentashih success: extra info grid */}
           {scan.type === 'success' && isPentashih && scan.name && (
             <div className="attendance-stats-row mt-4">
