@@ -153,6 +153,15 @@ export const TABLE_POLICIES = {
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
 
+  // --- View ------------------------------------------------------------------------------
+  // Di Postgres, otorisasi view ini menyatu di klausa WHERE-nya sendiri. Di D1, view-nya
+  // dibuat tanpa klausa itu dan pemeriksaannya dipindah ke sini. Dua predikatnya memakai
+  // kolom berbeda: kepemilikan lewat santri_id, akses guru lewat class_id.
+  payment_status_summary: {
+    scopeColumns: { owner: 'santri_id', guruClass: 'class_id' },
+    select: ['admin', 'owner', 'guruClass'],
+  },
+
   // --- Tabel internal ------------------------------------------------------------------
   // auth_login_aliases dan auth_rate_limits tidak punya policy di Postgres: keduanya
   // hanya disentuh function SECURITY DEFINER. Di sini keduanya tidak boleh diakses lewat

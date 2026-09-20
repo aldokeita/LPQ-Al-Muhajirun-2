@@ -482,6 +482,13 @@ export const SCHEMA_COLUMNS = {
     "updated_at",
     "created_by",
     "updated_by"
+  ],
+  "payment_status_summary": [
+    "santri_id",
+    "class_id",
+    "bulan",
+    "tahun",
+    "status"
   ]
 };
 

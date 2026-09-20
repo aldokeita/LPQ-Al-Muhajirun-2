@@ -54,17 +54,33 @@ export const createAuthorizer = (db, userId) => {
     async can(table, command, row = null) {
       const policy = requirePolicy(table, command);
       const rules = policy[command] ?? [];
-      const scopeValue = policy.scopeColumn && row ? row[policy.scopeColumn] : null;
 
-      // Baris tanpa nilai scope tidak bisa diperiksa; menolak adalah satu-satunya
-      // jawaban yang aman.
-      if (policy.scopeColumn && row && scopeValue === undefined) {
-        throw new AuthorizationError(
-          `Baris "${table}" tidak memuat kolom "${policy.scopeColumn}" yang dibutuhkan pemeriksaan.`,
-          { table, command, status: 500 },
-        );
+      // Kolom scope bisa berbeda per predikat; scopeColumns menimpa scopeColumn.
+      const columnFor = (rule) => policy.scopeColumns?.[rule] ?? policy.scopeColumn ?? null;
+
+      for (const rule of rules) {
+        const predicate = PREDICATES[rule];
+        if (!predicate) throw new Error(`Predikat "${rule}" tidak dikenal.`);
+
+        if (!SCOPED_PREDICATES.has(rule)) {
+          if (await predicate(ctx)) return true;
+          continue;
+        }
+
+        const column = columnFor(rule);
+        if (!column || !row) continue;
+
+        // Baris tanpa nilai scope tidak bisa diperiksa; menolak adalah satu-satunya
+        // jawaban yang aman.
+        if (row[column] === undefined) {
+          throw new AuthorizationError(
+            `Baris "${table}" tidak memuat kolom "${column}" yang dibutuhkan pemeriksaan.`,
+            { table, command, status: 500 },
+          );
+        }
+        if (await predicate(ctx, row[column])) return true;
       }
-      return anyPredicatePasses(ctx, rules, scopeValue);
+      return false;
     },
 
     async assert(table, command, row = null) {

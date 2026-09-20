@@ -96,16 +96,18 @@ const buildAuthorizationClause = async (ctx, table, policy) => {
   // Predikat berbasis peran berlaku untuk seluruh baris sekaligus.
   if (rules.some((rule) => ROLE_RULES[rule] && ROLE_RULES[rule] === role)) return null;
 
-  const scoped = rules.filter((rule) => SCOPE_SQL[rule]);
-  if (scoped.length === 0 || !policy.scopeColumn || !ctx.userId) {
-    throw new QueryError('Akses ditolak.', 403);
-  }
+  // Sebagian tabel memakai kolom scope berbeda untuk predikat berbeda. View
+  // payment_status_summary, misalnya, memeriksa kepemilikan lewat santri_id sekaligus
+  // akses guru lewat class_id.
+  const columnFor = (rule) => policy.scopeColumns?.[rule] ?? policy.scopeColumn ?? null;
 
-  const column = `${quote(table)}.${quote(policy.scopeColumn)}`;
+  const scoped = rules.filter((rule) => SCOPE_SQL[rule] && columnFor(rule));
+  if (scoped.length === 0 || !ctx.userId) throw new QueryError('Akses ditolak.', 403);
+
   const fragments = [];
   const params = [];
   for (const rule of scoped) {
-    const built = SCOPE_SQL[rule](column);
+    const built = SCOPE_SQL[rule](`${quote(table)}.${quote(columnFor(rule))}`);
     fragments.push(`(${built.sql})`);
     params.push(...built.params(ctx.userId, todayWib()));
   }

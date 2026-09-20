@@ -383,6 +383,41 @@ if (tables.has('hafalan_progress')) {
   }
 }
 
+// View.
+//
+// Di Postgres, view payment_status_summary membawa otorisasinya sendiri di klausa WHERE,
+// memanggil is_admin(), user_owns_santri_record(), dan guru_has_class_access(). Fungsi
+// itu tidak ada di D1, jadi view dibuat tanpa klausa tersebut dan pemeriksaannya pindah
+// ke worker/auth/policies.js. Membiarkan view menyaring sendiri bukan pilihan; membiarkan
+// tanpa pengganti berarti tabel pembayaran terbuka.
+if (/CREATE OR REPLACE VIEW "public"\."payment_status_summary"/.test(sql)) {
+  out.push('-- View');
+  out.push('--');
+  out.push('-- Otorisasi view ini dipindahkan ke lapisan kebijakan Worker; lihat');
+  out.push('-- payment_status_summary di worker/auth/policies.js.');
+  out.push('');
+  out.push(`CREATE VIEW "payment_status_summary" AS
+SELECT
+  s."id" AS "santri_id",
+  cm."class_id" AS "class_id",
+  p."bulan" AS "bulan",
+  p."tahun" AS "tahun",
+  CASE WHEN EXISTS (
+    SELECT 1 FROM "payments" p2
+     WHERE p2."santri_id" = s."id"
+       AND p2."bulan" IS p."bulan"
+       AND p2."tahun" IS p."tahun"
+       AND p2."status" = 'paid'
+       AND p2."deleted_at" IS NULL
+  ) THEN 'Lunas' ELSE 'Belum Lunas' END AS "status"
+FROM "santri" s
+JOIN "class_memberships" cm ON cm."santri_id" = s."id" AND cm."status" = 'active'
+LEFT JOIN "payments" p ON p."santri_id" = s."id" AND p."deleted_at" IS NULL;`);
+  out.push('');
+} else {
+  warnings.push('View payment_status_summary tidak ditemukan di dump — periksa apakah masih ada.');
+}
+
 out.push('-- Index');
 out.push('');
 for (const idx of indexes.sort((a, b) => a.table.localeCompare(b.table) || a.name.localeCompare(b.name))) {
@@ -402,6 +437,11 @@ fs.writeFileSync(outputPath, `${out.join('\n')}`);
 // merangkainya ke SQL. Nama tabel dan kolom tidak bisa diparameterkan, jadi satu-satunya
 // pengaman adalah mencocokkannya dengan daftar yang dihasilkan dari skema ini.
 const manifest = {};
+// View ikut didaftarkan agar lapisan data mengenali kolomnya; tanpa ini setiap query ke
+// view akan ditolak sebagai tabel tak dikenal.
+const VIEW_COLUMNS = {
+  payment_status_summary: ['santri_id', 'class_id', 'bulan', 'tahun', 'status'],
+};
 // Kolom jsonb dan array Postgres disimpan sebagai TEXT berisi JSON di D1. Daftarnya ikut
 // dihasilkan agar lapisan data bisa membongkar dan merangkainya sendiri, dan tidak ada
 // modul yang perlu mengingat kolom mana yang perlu diperlakukan begitu.
@@ -421,6 +461,8 @@ for (const name of ordered) {
     .map((c) => c.name);
   if (encoded.length > 0) jsonColumns[name] = encoded;
 }
+Object.assign(manifest, VIEW_COLUMNS);
+
 const manifestPath = outputPath.replace(/\.sql$/, '').replace(/[^/\\]+$/, '') + '../worker/data/schema-manifest.js';
 const manifestBody = `// Dihasilkan oleh scripts/generate-d1-schema.mjs. Jangan diedit langsung.
 // Daftar kolom sah per tabel, dipakai untuk memvalidasi query sebelum dirangkai ke SQL.

@@ -948,6 +948,29 @@ BEGIN
   UPDATE "hafalan_progress" SET "status" = CASE WHEN NEW."score" = 4 THEN 'lulus' ELSE 'proses' END WHERE "id" = NEW."id";
 END;
 
+-- View
+--
+-- Otorisasi view ini dipindahkan ke lapisan kebijakan Worker; lihat
+-- payment_status_summary di worker/auth/policies.js.
+
+CREATE VIEW "payment_status_summary" AS
+SELECT
+  s."id" AS "santri_id",
+  cm."class_id" AS "class_id",
+  p."bulan" AS "bulan",
+  p."tahun" AS "tahun",
+  CASE WHEN EXISTS (
+    SELECT 1 FROM "payments" p2
+     WHERE p2."santri_id" = s."id"
+       AND p2."bulan" IS p."bulan"
+       AND p2."tahun" IS p."tahun"
+       AND p2."status" = 'paid'
+       AND p2."deleted_at" IS NULL
+  ) THEN 'Lunas' ELSE 'Belum Lunas' END AS "status"
+FROM "santri" s
+JOIN "class_memberships" cm ON cm."santri_id" = s."id" AND cm."status" = 'active'
+LEFT JOIN "payments" p ON p."santri_id" = s."id" AND p."deleted_at" IS NULL;
+
 -- Index
 
 CREATE INDEX "academic_calendar_event_type_idx" ON "academic_calendar" ("event_type");
