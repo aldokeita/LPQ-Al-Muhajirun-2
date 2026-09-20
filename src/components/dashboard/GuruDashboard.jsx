@@ -19,7 +19,8 @@ import StudentTransferModal from '@/components/dashboard/guru/StudentTransferMod
 import { fetchClassAttendanceForDate, fetchGuruProfile } from '@/lib/dashboardAdapters';
 import { ATTENDANCE_COLUMNS } from '@/lib/attendanceAdapters';
 import { updateGuru } from '@/lib/guruAdapters';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, BookOpen, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, BookOpen, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft, Trophy } from 'lucide-react';
+import SantriLeaderboardDialog from '@/components/dashboard/shared/SantriLeaderboardDialog';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
@@ -197,6 +198,7 @@ const GuruDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isJilidModalOpen, setIsJilidModalOpen] = useState(false);
   const [jilidChangeData, setJilidChangeData] = useState(null);
 
@@ -541,6 +543,7 @@ const GuruDashboard = () => {
                 <Button onClick={() => navigate('/quiz-hafalan')} className="border-0 bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20 transition-all hover:-translate-y-0.5 hover:from-cyan-500 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/30"><PlayCircle className="w-4 h-4 mr-2"/> Play Quiz</Button>
                 <Button onClick={() => navigate('/random-name')} className="border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-400 hover:to-orange-500 hover:shadow-lg hover:shadow-amber-500/30"><Shuffle className="w-4 h-4 mr-2"/> Acak Nama</Button>
                 <Button onClick={() => navigate('/hijaiyah-game')} className="border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/30"><BookOpen className="w-4 h-4 mr-2"/> Play Hijaiyah</Button>
+                <Button onClick={() => setIsLeaderboardOpen(true)} className="border-0 bg-gradient-to-r from-amber-600 to-yellow-500 text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-500 hover:to-yellow-400 hover:shadow-lg hover:shadow-amber-500/30"><Trophy className="w-4 h-4 mr-2"/> Peringkat Poin</Button>
             </div>
         </div>
         {guruData && (
@@ -938,6 +941,7 @@ const GuruDashboard = () => {
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={allMySantri} />
       <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} variant={confirmDialog.variant || "destructive"} confirmText={confirmDialog.confirmText || "Ya, Lanjutkan"} />
       <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Anak" />
+      <SantriLeaderboardDialog open={isLeaderboardOpen} onOpenChange={setIsLeaderboardOpen} />
     </>
   );
 };

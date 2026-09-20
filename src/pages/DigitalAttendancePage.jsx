@@ -28,7 +28,10 @@ import {
   Trophy,
   Library,
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import SantriLeaderboardDialog from '@/components/dashboard/shared/SantriLeaderboardDialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
@@ -383,7 +386,26 @@ const DigitalAttendancePage = () => {
   const [lastScan, setLastScan] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [levelConfig, setLevelConfig] = useState(null);
+  const [papanPeringkatTerbuka, setPapanPeringkatTerbuka] = useState(false);
+  // Kios dibuka terus di perangkat yang sama, jadi pilihan lipat pintasannya
+  // diingat. localStorage bisa melempar di mode privat, dan nilai awalnya cukup
+  // "terbuka" kalau tidak terbaca.
+  const [pintasanTerbuka, setPintasanTerbuka] = useState(() => {
+    try {
+      return localStorage.getItem('lpq_pintasan_kios') !== 'tertutup';
+    } catch {
+      return true;
+    }
+  });
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lpq_pintasan_kios', pintasanTerbuka ? 'terbuka' : 'tertutup');
+    } catch {
+      // Tidak bisa disimpan bukan alasan untuk merusak halaman.
+    }
+  }, [pintasanTerbuka]);
 
   useEffect(() => {
       const fetchConfig = async () => {
@@ -1290,6 +1312,25 @@ const DigitalAttendancePage = () => {
             </button>
           </div>
           <div className="attendance-header__right">
+            {/* Tombol pintasan dilipat ke balik satu tombol supaya header kios tidak
+                ramai. Pilihannya diingat per peramban, karena kios biasanya dibuka
+                terus di perangkat yang sama dan tidak perlu dilipat ulang tiap kali. */}
+            <button
+              className="attendance-header__icon-btn"
+              onClick={() => setPintasanTerbuka((v) => !v)}
+              title={pintasanTerbuka ? 'Sembunyikan pintasan' : 'Tampilkan pintasan'}
+              aria-label={pintasanTerbuka ? 'Sembunyikan pintasan' : 'Tampilkan pintasan'}
+              aria-expanded={pintasanTerbuka}
+              aria-controls="attendance-header-shortcuts"
+            >
+              {pintasanTerbuka ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+
+            <div
+              id="attendance-header-shortcuts"
+              className={`attendance-header__shortcuts ${pintasanTerbuka ? 'is-terbuka' : 'is-tertutup'}`}
+              hidden={!pintasanTerbuka}
+            >
             {enableGameFeatures && (
               <>
                 <button
@@ -1339,6 +1380,16 @@ const DigitalAttendancePage = () => {
               <Tv className="w-4 h-4" />
               <span>TV Display</span>
             </button>
+            <button
+              className="attendance-header__action-btn attendance-header__action-btn--leaderboard"
+              onClick={() => setPapanPeringkatTerbuka(true)}
+              title="Papan Peringkat Poin"
+              aria-label="Papan Peringkat Poin"
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Peringkat</span>
+            </button>
+            </div>
             <button className="attendance-header__icon-btn" onClick={toggleTheme} title={isDark ? 'Mode Terang' : 'Mode Gelap'} aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}>
               {isDark ? <Sun className="w-4 h-4" style={{ color: 'hsl(var(--att-amber))' }} /> : <Moon className="w-4 h-4" />}
             </button>
@@ -1390,6 +1441,8 @@ const DigitalAttendancePage = () => {
           <p className="attendance-footer__text">LPQ AL-MUHAJIRUN &bull; DIGITAL ATTENDANCE SYSTEM v5.0</p>
         </footer>
       </div>
+
+      <SantriLeaderboardDialog open={papanPeringkatTerbuka} onOpenChange={setPapanPeringkatTerbuka} />
     </>
   );
 };

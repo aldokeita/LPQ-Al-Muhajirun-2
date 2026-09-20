@@ -2293,6 +2293,37 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background: linear-gradient(135deg, #4338ca, #6366f1 52%, #8b5cf6);
 }
 
+.attendance-header__action-btn--leaderboard {
+  --attendance-action-shadow: rgba(217, 119, 6, 0.3);
+  background: linear-gradient(135deg, #b45309, #f59e0b 52%, #fbbf24);
+}
+
+/* Kelompok pintasan yang bisa dilipat. Dipakai `hidden` pada elemennya supaya saat
+   tertutup ia benar-benar lepas dari urutan fokus dan dari pembaca layar, bukan
+   sekadar tak terlihat. */
+.attendance-header__shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.attendance-header__shortcuts.is-terbuka {
+  animation: attendance-shortcuts-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes attendance-shortcuts-in {
+  from { opacity: 0; transform: translate3d(0.75rem, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendance-header__shortcuts.is-terbuka {
+    animation: none;
+  }
+}
+
 .attendance-header__action-btn--gatcha {
   --attendance-action-shadow: rgba(192, 38, 211, 0.3);
   background: linear-gradient(135deg, #a21caf, #d946ef 48%, #7c3aed);
@@ -2314,7 +2345,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     padding-inline: 0.75rem;
   }
 
-  .attendance-header__right {
+  .attendance-header__right,
+  .attendance-header__shortcuts {
     gap: 0.36rem;
   }
 
@@ -4923,6 +4955,14 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   --attendance-action-glass-hover: rgb(79 70 229 / 0.9);
   --attendance-action-border: rgb(165 180 252 / 0.48);
   --attendance-action-shadow: rgb(79 70 229 / 0.3);
+  background: var(--attendance-action-glass);
+}
+
+.attendance-header__action-btn--leaderboard {
+  --attendance-action-glass: rgb(217 119 6 / 0.82);
+  --attendance-action-glass-hover: rgb(217 119 6 / 0.92);
+  --attendance-action-border: rgb(253 230 138 / 0.5);
+  --attendance-action-shadow: rgb(217 119 6 / 0.3);
   background: var(--attendance-action-glass);
 }
 

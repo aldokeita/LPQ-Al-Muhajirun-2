@@ -86,23 +86,21 @@ const run = async () => {
   // Pemeriksaan ini menjaga agar jumlah iterasi tidak dinaikkan tanpa sengaja sampai
   // login berhenti bekerja di paket gratis.
   //
-  // Diambil yang tercepat dari beberapa kali jalan, bukan sekali ukur. Yang ingin diketahui
-  // adalah biaya perhitungannya, dan sekali ukur pada mesin yang sedang sibuk mengukur
-  // beban mesin itu, bukan biaya kodenya — itu membuat pemeriksaannya kadang gagal tanpa
-  // ada yang berubah.
-  // Lima kali ternyata masih kurang: saat suite dijalankan berbarengan dengan build
-  // atau peramban, kelima-limanya bisa kena jadwal yang sibuk dan pemeriksaan gagal
-  // tanpa ada yang berubah. Sampelnya diperbanyak, anggarannya tetap — 30.000 iterasi
-  // memakan sekitar 4 ms, sedangkan 100.000 akan memakan belasan milidetik, jadi
-  // kenaikan iterasi yang tidak disengaja tetap tertangkap.
-  const ANGGARAN_MS = 6;
-  let tercepat = Infinity;
-  for (let i = 0; i < 15; i += 1) {
-    const mulai = performance.now();
-    await verifyPassword(PASSWORD, modernHash);
-    tercepat = Math.min(tercepat, performance.now() - mulai);
-  }
-  check(`verifikasi muat anggaran CPU (${tercepat.toFixed(1)} ms < ${ANGGARAN_MS} ms)`, tercepat < ANGGARAN_MS);
+  // Yang dijaga adalah jumlah iterasinya, bukan waktu yang terukur. Mengukur waktu
+  // membuat pemeriksaan ini bergantung pada kesibukan mesin: dua kali ia gagal hanya
+  // karena suite kebetulan berjalan berbarengan dengan build, padahal kodenya tidak
+  // berubah sama sekali. Mengambil yang tercepat dari lima lalu lima belas kali pun
+  // tidak menyembuhkannya, karena yang salah bentuk asersinya.
+  //
+  // Batasnya diturunkan dari anggaran: 30.000 iterasi memakan sekitar 4 ms, jadi
+  // sekitar 45.000 adalah titik ketika verifikasi mulai memakan lebih dari 6 ms dan
+  // menyisakan terlalu sedikit dari 10 ms untuk membaca akun, menandatangani sesi,
+  // dan menyusun cookie. Pemeriksaannya kini pasti: naikkan iterasinya melewati batas
+  // itu dan tes gagal, di mesin mana pun, sesibuk apa pun.
+  const ITERASI_MAKS = 45000;
+  check(`jumlah iterasi muat anggaran CPU (${PBKDF2_ITERATIONS} <= ${ITERASI_MAKS})`,
+    PBKDF2_ITERATIONS <= ITERASI_MAKS);
+  check('iterasi cukup tinggi untuk aman', PBKDF2_ITERATIONS >= 20000);
 
   // Hash dengan iterasi lebih tinggi dari anggaran harus diturunkan, bukan dibiarkan,
   // karena ia memakan CPU berlebih pada setiap login, bukan sekali saja.

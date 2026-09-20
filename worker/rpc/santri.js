@@ -60,6 +60,60 @@ const loadActiveSantri = async (db, santriId) => {
 
 const INT32_MAX = 2147483647;
 
+// Papan peringkat memang lintas kelas, sementara kebijakan tabel santri sengaja
+// mengunci guru pada santri kelasnya sendiri. Melonggarkan kebijakan itu akan ikut
+// membuka nomor HP wali, alamat, NIK, dan KK kepada seluruh guru — padahal yang
+// dibutuhkan papan peringkat cuma nama, poin, dan jilid. Jadi dibuatkan jalur
+// tersendiri yang hanya memulangkan kolom-kolom itu.
+//
+// Fotonya ikut karena santri yang sama beserta poinnya sudah tampil di layar TV
+// aula untuk siapa pun yang ada di ruangan, jadi tidak ada yang baru terbuka.
+const LEADERBOARD_MAX_PAGE_SIZE = 50;
+const LEADERBOARD_ROLES = new Set(['admin', 'guru', 'pentashih']);
+
+export const getSantriLeaderboard = async (db, ctx, { page, pageSize }) => {
+  requireActor(ctx, 'melihat papan peringkat');
+  const role = await currentUserRole(ctx);
+  if (!LEADERBOARD_ROLES.has(role)) {
+    throw new RpcError('Anda tidak memiliki izin untuk melihat papan peringkat.', 403);
+  }
+
+  const ukuran = Math.min(
+    Math.max(Number.isInteger(pageSize) ? pageSize : 10, 1),
+    LEADERBOARD_MAX_PAGE_SIZE,
+  );
+  const halaman = Math.max(Number.isInteger(page) ? page : 1, 1);
+  const offset = (halaman - 1) * ukuran;
+
+  const where = 'where "deleted_at" is null and lower(trim("status")) in (\'aktif\', \'active\')';
+
+  const total = await db.prepare(`select count(*) as n from "santri" ${where}`).first();
+
+  // Nama dipakai sebagai pemecah seri supaya urutannya tidak berubah-ubah antar
+  // permintaan ketika poinnya sama — tanpa itu, paginasi bisa melewatkan atau
+  // menggandakan baris di perbatasan halaman.
+  const { results } = await db
+    .prepare(
+      `select "id", "nama_lengkap", "nama_panggilan", "points", "jilid",
+              "foto_url", "avatar_path", "jenis_kelamin"
+         from "santri" ${where}
+        order by "points" desc, "nama_lengkap" asc
+        limit ? offset ?`,
+    )
+    .bind(ukuran, offset)
+    .all();
+
+  const jumlah = Number(total?.n ?? 0);
+  return {
+    rows: results ?? [],
+    total: jumlah,
+    page: halaman,
+    pageSize: ukuran,
+    totalPages: Math.max(1, Math.ceil(jumlah / ukuran)),
+    startRank: offset + 1,
+  };
+};
+
 export const incrementSantriPoints = async (db, ctx, { santriId, amount }) => {
   requireActor(ctx, 'mengubah poin santri');
   if (!santriId) throw new RpcError('Santri wajib dipilih.');

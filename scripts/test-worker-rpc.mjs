@@ -10,7 +10,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import { createAuthContext } from '../worker/auth/predicates.js';
-import { RpcError, changeSantriJilid, incrementSantriPoints } from '../worker/rpc/santri.js';
+import { RpcError, changeSantriJilid, getSantriLeaderboard, incrementSantriPoints } from '../worker/rpc/santri.js';
 
 const [, , schemaPath, dataPath] = process.argv;
 if (!schemaPath || !dataPath) {
@@ -114,6 +114,53 @@ const run = async () => {
   await expectMessage('poin tidak boleh melampaui batas',
     incrementSantriPoints(db, adminCtx, { santriId: ownSantri.id, amount: 2147483647 }),
     'Poin santri melebihi batas yang didukung.');
+  console.log('');
+
+  console.log('get_santri_leaderboard:');
+  {
+    const aktif = sqlite.prepare(
+      "select count(*) n from santri where deleted_at is null and lower(trim(status)) in ('aktif','active')",
+    ).get().n;
+
+    const hal1 = await getSantriLeaderboard(db, adminCtx, { page: 1, pageSize: 10 });
+    check('sepuluh baris per halaman', hal1.rows.length, Math.min(10, aktif));
+    check('total sesuai jumlah santri aktif', hal1.total, aktif);
+    check('jumlah halaman dibulatkan ke atas', hal1.totalPages, Math.max(1, Math.ceil(aktif / 10)));
+    check('peringkat mulai dari satu', hal1.startRank, 1);
+    check('terurut dari poin terbanyak',
+      hal1.rows.every((r, i) => i === 0 || (r.points ?? 0) <= (hal1.rows[i - 1].points ?? 0)), true);
+
+    const hal2 = await getSantriLeaderboard(db, adminCtx, { page: 2, pageSize: 10 });
+    check('peringkat berlanjut di halaman dua', hal2.startRank, 11);
+    check('halaman dua berisi santri berbeda',
+      hal2.rows.every((r) => !hal1.rows.some((a) => a.id === r.id)), true);
+    check('poin halaman dua tidak melebihi halaman satu',
+      (hal2.rows[0]?.points ?? 0) <= (hal1.rows[hal1.rows.length - 1]?.points ?? 0), true);
+
+    // Inti fiturnya: guru melihat peringkat seluruh sekolah, bukan hanya kelasnya.
+    // Membaca lewat tabel santri akan terpotong kebijakan, jadi ini yang dijaga.
+    const guruLihat = await getSantriLeaderboard(db, guruCtx, { page: 1, pageSize: 10 });
+    check('guru melihat total yang sama dengan admin', guruLihat.total, hal1.total);
+    check('guru melihat baris yang sama dengan admin',
+      guruLihat.rows.map((r) => r.id).join(','), hal1.rows.map((r) => r.id).join(','));
+    check('santri kelas lain ikut terlihat oleh guru',
+      guruLihat.rows.some((r) => r.id === otherSantri.id) || guruLihat.total > 10, true);
+
+    // Hanya kolom peringkat yang boleh keluar. Kolom pribadi tetap tertutup.
+    const kolom = Object.keys(guruLihat.rows[0] || {});
+    for (const rahasia of ['no_hp_ortu', 'alamat', 'no_nik', 'no_kk', 'nama_ayah', 'nama_ibu', 'rfid_tag']) {
+      check(`kolom ${rahasia} tidak ikut terkirim`, kolom.includes(rahasia), false);
+    }
+
+    check('ukuran halaman dibatasi',
+      (await getSantriLeaderboard(db, adminCtx, { page: 1, pageSize: 9999 })).pageSize, 50);
+    check('halaman nol dinaikkan ke satu',
+      (await getSantriLeaderboard(db, adminCtx, { page: 0, pageSize: 10 })).page, 1);
+
+    await expectMessage('tanpa login ditolak',
+      getSantriLeaderboard(db, anonCtx, { page: 1, pageSize: 10 }),
+      'Login diperlukan untuk melihat papan peringkat.');
+  }
   console.log('');
 
   console.log('change_santri_jilid:');

@@ -4,7 +4,7 @@
 // yang memanggil supabase.rpc('nama') bisa ditelusuri satu lawan satu.
 
 import { createAuthContext } from '../auth/predicates.js';
-import { RpcError, changeSantriJilid, incrementSantriPoints } from '../rpc/santri.js';
+import { RpcError, changeSantriJilid, getSantriLeaderboard, incrementSantriPoints } from '../rpc/santri.js';
 import {
   changeSantriCategory, getGuruTransferClassOptions, moveSantriToClass, transferSantriToClassByGuru,
 } from '../rpc/class-transfer.js';
@@ -17,6 +17,8 @@ const json = (data, status = 200) =>
   });
 
 const HANDLERS = {
+  get_santri_leaderboard: (db, ctx, body) =>
+    getSantriLeaderboard(db, ctx, { page: body?.p_page, pageSize: body?.p_page_size }),
   increment_santri_points: (db, ctx, body) =>
     incrementSantriPoints(db, ctx, { santriId: body?.p_santri_id, amount: body?.p_amount }),
   change_santri_jilid: (db, ctx, body) =>
