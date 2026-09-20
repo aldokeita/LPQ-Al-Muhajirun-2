@@ -65,7 +65,12 @@ const sanitizeValues = (table, values, { allowServerOwned = false } = {}) => {
     if (value !== null && typeof value === 'object') {
       throw new QueryError(`Nilai kolom "${column}" harus berupa nilai sederhana atau null.`);
     }
-    clean[column] = value;
+
+    // SQLite tidak punya tipe boolean dan menolak nilai boolean yang diikat langsung.
+    // Postgres menerimanya, jadi kode pemanggil di seluruh aplikasi mengirim true/false
+    // apa adanya — is_public, is_active, is_holiday, berkas_foto, dan seterusnya.
+    // Tanpa konversi di sini, penyimpanannya gagal saat dijalankan, bukan saat ditulis.
+    clean[column] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
   }
   if (Object.keys(clean).length === 0) throw new QueryError('Tidak ada kolom yang bisa ditulis.');
   return clean;

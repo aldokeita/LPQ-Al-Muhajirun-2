@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryAll } from '@/lib/dataClient';
+import { fetchWebsiteContentValue, saveWebsiteContentValue } from '@/lib/publicContentAdapters';
 import { Tv, Save, Layout, Users, Trophy, Star, BookCopy, User, Calendar, Smartphone, Globe, Clock, Timer, MessageSquare, MonitorPlay, Monitor, Settings2, UserMinus } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
@@ -30,23 +31,31 @@ const TvDisplaySettings = () => {
     useEffect(() => { fetchSettings(); fetchSantri(); }, []);
 
     const fetchSantri = async () => {
-        const { data } = await supabase.from('santri').select('id, nama_lengkap').eq('status', 'Aktif').order('nama_lengkap');
+        const { data } = await queryAll({
+            table: 'santri',
+            columns: ['id', 'nama_lengkap'],
+            filters: [
+                { column: 'status', op: 'eq', value: 'Aktif' },
+                { column: 'deleted_at', op: 'is_null' },
+            ],
+            order: [{ column: 'nama_lengkap', ascending: true }],
+        });
         if (data) setSantriList(data);
     };
 
     const fetchSettings = async () => {
         setIsLoading(true);
         try {
-            const { data: configData } = await supabase.from('website_content').select('content').eq('key', 'tv_config').maybeSingle();
-            if (configData?.content) {
-                setConfig(prev => ({ ...prev, ...configData.content, sessionSettings: { ...prev.sessionSettings, ...configData.content.sessionSettings }, sessionQuotas: { ...prev.sessionQuotas, ...configData.content.sessionQuotas }, registration: { ...prev.registration, ...configData.content.registration }, leaderboard: { ...prev.leaderboard, ...configData.content.leaderboard }, durations: { ...prev.durations, ...configData.content.durations }, showAdults: configData.content.showAdults !== undefined ? configData.content.showAdults : true }));
+            const { data: tvConfig } = await fetchWebsiteContentValue('tv_config');
+            if (tvConfig) {
+                setConfig(prev => ({ ...prev, ...tvConfig, sessionSettings: { ...prev.sessionSettings, ...tvConfig.sessionSettings }, sessionQuotas: { ...prev.sessionQuotas, ...tvConfig.sessionQuotas }, registration: { ...prev.registration, ...tvConfig.registration }, leaderboard: { ...prev.leaderboard, ...tvConfig.leaderboard }, durations: { ...prev.durations, ...tvConfig.durations }, showAdults: tvConfig.showAdults !== undefined ? tvConfig.showAdults : true }));
             }
         } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
 
     const saveConfig = async () => {
         setIsLoading(true);
-        const { error } = await supabase.from('website_content').upsert({ key: 'tv_config', content: config }, { onConflict: 'key' });
+        const { error } = await saveWebsiteContentValue('tv_config', config);
         if (error) toast({ title: "Gagal Simpan Konfigurasi", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Konfigurasi TV disimpan dan akan segera aktif." });
         setIsLoading(false);

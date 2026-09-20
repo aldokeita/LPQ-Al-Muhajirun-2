@@ -160,6 +160,23 @@ const run = async () => {
   await expectRejected('baris tak dikenal ditolak', deleteRow(db, adminAuth, { table: 'santri_notes', id: 'tidak-ada' }));
   console.log('');
 
+  console.log('nilai boolean:');
+  // Postgres menerima true/false; SQLite menolaknya saat diikat. Pemanggil di seluruh
+  // aplikasi tetap mengirim boolean, jadi lapisan ini yang harus mengubahnya.
+  const kontenBaru = await insertRow(db, adminAuth, {
+    table: 'website_content',
+    values: { key: `uji_boolean_${Date.now()}`, content: { a: 1 }, is_public: true },
+  });
+  check('true tersimpan sebagai 1',
+    sqlite.prepare('select is_public from website_content where id = ?').get(kontenBaru.id).is_public, 1);
+
+  await updateRow(db, adminAuth, {
+    table: 'website_content', id: kontenBaru.id, values: { is_public: false },
+  });
+  check('false tersimpan sebagai 0',
+    sqlite.prepare('select is_public from website_content where id = ?').get(kontenBaru.id).is_public, 0);
+  console.log('');
+
   console.log('baris tanpa kolom scope:');
   // Kehadiran guru tidak terikat kelas mana pun, jadi barisnya memang tidak memuat
   // class_id. Admin boleh menyisipnya, sama seperti di bawah RLS.

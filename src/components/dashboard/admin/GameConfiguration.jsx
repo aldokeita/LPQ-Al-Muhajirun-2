@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
 import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare, Eye } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
@@ -15,7 +14,7 @@ import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
 import ClassAttendanceLiveEditor from './ClassAttendanceLiveEditor';
 import { enableGameFeatures } from '@/lib/featureFlags';
-import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
+import { fetchWebsiteContentValue, saveWebsiteContentItem, saveWebsiteContentValue } from '@/lib/publicContentAdapters';
 import { createDefaultSantriLevelConfig, normalizeLevelConfigShape } from '@/lib/santriLevel';
 import {
     QUIZ_HAFALAN_JILIDS,
@@ -142,12 +141,12 @@ const GatchaSettings = () => {
     const fetchSettings = async () => {
         setIsLoading(true);
         try {
-            const { data } = await supabase.from('website_content').select('content').eq('key', 'gatcha_config').maybeSingle();
-            if (data?.content) {
-                if (!data.content.challenges || data.content.challenges.length === 0) {
-                    setConfig({ ...data.content, challenges: populateDefaultChallenges() });
+            const { data } = await fetchWebsiteContentValue('gatcha_config');
+            if (data) {
+                if (!data.challenges || data.challenges.length === 0) {
+                    setConfig({ ...data, challenges: populateDefaultChallenges() });
                 } else {
-                    setConfig(data.content);
+                    setConfig(data);
                 }
             } else {
                 setConfig({
@@ -164,7 +163,7 @@ const GatchaSettings = () => {
 
     const saveConfig = async () => {
         setIsLoading(true);
-        const { error } = await supabase.from('website_content').upsert({ key: 'gatcha_config', content: config }, { onConflict: 'key' });
+        const { error } = await saveWebsiteContentValue('gatcha_config', config);
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Pengaturan Gatcha disimpan." });
         setIsLoading(false);
@@ -250,24 +249,18 @@ const QuizSettings = () => {
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
-            const { data, error } = await supabase
-                .from('website_content')
-                .select('content')
-                .eq('key', 'quiz_hafalan_config')
-                .maybeSingle();
+            const { data, error } = await fetchWebsiteContentValue('quiz_hafalan_config');
 
             if (error) {
                 toast({ title: 'Gagal memuat konfigurasi quiz', description: error.message, variant: 'destructive' });
             } else {
-                const normalizedConfig = normalizeQuizHafalanConfig(data?.content);
+                const normalizedConfig = normalizeQuizHafalanConfig(data);
                 setQuizConfig(normalizedConfig.categories);
 
                 // One-time cleanup keeps old custom categories and legacy jilid shapes
                 // from returning after the admin next opens this configuration.
-                if (data?.content && JSON.stringify(data.content) !== JSON.stringify(normalizedConfig)) {
-                    const { error: normalizeError } = await supabase
-                        .from('website_content')
-                        .upsert({ key: 'quiz_hafalan_config', content: normalizedConfig }, { onConflict: 'key' });
+                if (data && JSON.stringify(data) !== JSON.stringify(normalizedConfig)) {
+                    const { error: normalizeError } = await saveWebsiteContentValue('quiz_hafalan_config', normalizedConfig);
                     if (normalizeError) {
                         toast({ title: 'Konfigurasi quiz belum dinormalisasi', description: normalizeError.message, variant: 'destructive' });
                     }
@@ -281,9 +274,7 @@ const QuizSettings = () => {
     const saveQuizConfig = async () => {
         setIsLoading(true);
         const payload = normalizeQuizHafalanConfig({ categories: quizConfig });
-        const { error } = await supabase
-            .from('website_content')
-            .upsert({ key: 'quiz_hafalan_config', content: payload }, { onConflict: 'key' });
+        const { error } = await saveWebsiteContentValue('quiz_hafalan_config', payload);
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Konfigurasi Quiz disimpan." });
         setIsLoading(false);
@@ -405,10 +396,10 @@ const LevelSettings = () => {
         const load = async () => {
             setIsLoading(true);
             try {
-                const { data, error } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
+                const { data, error } = await fetchWebsiteContentValue('level_config');
                 if (error) throw error;
-                if (data?.content) {
-                    setLevelConfig(normalizeEditableLevelConfig(data.content));
+                if (data) {
+                    setLevelConfig(normalizeEditableLevelConfig(data));
                 }
             } catch (error) {
                 toast({ title: 'Gagal Memuat Konfigurasi Level', description: error.message || 'Konfigurasi default tetap dapat diedit dan disimpan.', variant: 'destructive' });

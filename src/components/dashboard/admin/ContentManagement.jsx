@@ -4,7 +4,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2, Gamepad2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart, Save } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryAll } from '@/lib/dataClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -201,14 +201,29 @@ const ContentManagement = () => {
   }
 
   const fetchSantriAndGuru = async () => {
-    const { data: santriData } = await supabase.from('santri').select('id, nama_lengkap, foto_url').eq('status', 'Aktif').order('nama_lengkap', { ascending: true });
-    const { data: guruData } = await supabase.from('guru').select('id, nama, foto_url').order('nama', { ascending: true });
+    const { data: santriData } = await queryAll({
+      table: 'santri',
+      columns: ['id', 'nama_lengkap', 'foto_url'],
+      filters: [
+        { column: 'status', op: 'eq', value: 'Aktif' },
+        { column: 'deleted_at', op: 'is_null' },
+      ],
+      order: [{ column: 'nama_lengkap', ascending: true }],
+    });
+    const { data: guruData } = await queryAll({
+      table: 'guru',
+      columns: ['id', 'nama', 'foto_url'],
+      filters: [{ column: 'deleted_at', op: 'is_null' }],
+      order: [{ column: 'nama', ascending: true }],
+    });
     setSantriList(santriData || []);
     setGuruList(guruData || []);
   };
 
   const fetchContent = async () => {
-    const { data, error } = await supabase.from('website_content').select('key, content');
+    // Panel ini memang membaca seluruh konten situs, termasuk yang tidak publik, karena
+    // hanya admin yang membukanya.
+    const { data, error } = await queryAll({ table: 'website_content', columns: ['key', 'content'] });
     if (error) return;
     const newContent = data.reduce((acc, item) => { acc[item.key] = item.content; return acc; }, {});
     const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'testimonials', 'schedules', 'faqs'];

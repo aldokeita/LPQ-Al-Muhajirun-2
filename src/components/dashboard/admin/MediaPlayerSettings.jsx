@@ -7,7 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trash2, Upload, Music, Settings as SettingsIcon } from 'lucide-react';
+// Berkas musiknya sendiri masih di Supabase Storage sampai R2 disiapkan; barisnya di
+// database sudah lewat lapisan data yang baru.
 import { supabase } from '@/lib/customSupabaseClient';
+import { insert, queryAll, update } from '@/lib/dataClient';
 import { toast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
@@ -52,11 +55,12 @@ const MediaPlayerSettings = ({
     }, [isOpen]);
 
     const fetchPlaylist = async () => {
-        const { data, error } = await supabase
-            .from('music_files')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
+        const { data, error } = await queryAll({
+            table: 'music_files',
+            // is_active bertipe boolean dan tersimpan sebagai 1/0 di D1.
+            filters: [{ column: 'is_active', op: 'eq', value: 1 }],
+            order: [{ column: 'created_at', ascending: false }],
+        });
         if (error) {
             setPlaylist([]);
             return;
@@ -94,7 +98,7 @@ const MediaPlayerSettings = ({
             const { data: { publicUrl } } = supabase.storage.from('music-files').getPublicUrl(filePath);
 
             // 3. Save to DB
-            const { error: dbError } = await supabase.from('music_files').insert({
+            const { error: dbError } = await insert('music_files', {
                 title,
                 artist: artist || 'Unknown Artist',
                 filename: selectedFile.name,
@@ -130,7 +134,7 @@ const MediaPlayerSettings = ({
         if (!trackId) return;
 
         try {
-            const { error } = await supabase.from('music_files').update({ is_active: false }).eq('id', trackId);
+            const { error } = await update('music_files', trackId, { is_active: false });
             if (error) throw error;
             
             toast({ title: "Terhapus", description: "Lagu dihapus dari playlist." });

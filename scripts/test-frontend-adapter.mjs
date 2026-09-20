@@ -731,6 +731,40 @@ const run = async () => {
   }
   console.log('');
 
+  console.log('konfigurasi situs bernilai tunggal:');
+  {
+  const konten = await import('../src/lib/publicContentAdapters.js');
+  const kunci = `uji_panel_${Date.now()}`;
+
+  const belumAda = await konten.fetchWebsiteContentValue(kunci);
+  check('kunci yang belum ada memulangkan null', belumAda.data, null);
+  check('bukan galat', belumAda.error, null);
+
+  // is_public dikirim sebagai boolean JavaScript, seperti yang dilakukan seluruh panel.
+  // SQLite menolak boolean yang diikat langsung, jadi lapisan tulis harus mengubahnya.
+  const disimpan = await konten.saveWebsiteContentValue(kunci, { a: 1, b: ['x', 'y'] });
+  check('tersimpan tanpa galat', disimpan.error, null);
+  check('is_public boolean tersimpan sebagai 1',
+    sqlite.prepare('select is_public from website_content where key = ?').get(kunci).is_public, 1);
+
+  const dibaca = await konten.fetchWebsiteContentValue(kunci);
+  check('terbaca kembali sebagai objek', typeof dibaca.data, 'object');
+  check('isinya utuh', JSON.stringify(dibaca.data), JSON.stringify({ a: 1, b: ['x', 'y'] }));
+
+  // Menyimpan kunci yang sama harus menimpa, bukan menambah baris.
+  await konten.saveWebsiteContentValue(kunci, { a: 2 });
+  check('hanya satu baris untuk satu kunci',
+    sqlite.prepare('select count(*) c from website_content where key = ?').get(kunci).c, 1);
+  const sesudah = await konten.fetchWebsiteContentValue(kunci);
+  check('nilainya diperbarui', sesudah.data.a, 2);
+
+  const takPublik = `${kunci}_privat`;
+  await konten.saveWebsiteContentValue(takPublik, { rahasia: true }, { isPublic: false });
+  check('is_public false tersimpan sebagai 0',
+    sqlite.prepare('select is_public from website_content where key = ?').get(takPublik).is_public, 0);
+  }
+  console.log('');
+
   console.log('penulisan banyak baris lewat adapter:');
   // Sistem pembayaran menulis seluruh keranjang sekaligus. Yang diuji di sini jalur
   // utuhnya: klien, rute, otorisasi, sampai D1.

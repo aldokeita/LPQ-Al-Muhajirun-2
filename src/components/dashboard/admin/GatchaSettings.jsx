@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchWebsiteContentValue, saveWebsiteContentValue } from '@/lib/publicContentAdapters';
 import { Save, Plus, Trash2, Gift, ScrollText, Percent } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -31,9 +31,9 @@ const GatchaSettings = () => {
     const fetchSettings = async () => {
         setIsLoading(true);
         try {
-            const { data } = await supabase.from('website_content').select('content').eq('key', 'gatcha_config').maybeSingle();
-            if (data?.content) {
-                setConfig(data.content);
+            const { data } = await fetchWebsiteContentValue('gatcha_config');
+            if (data) {
+                setConfig(data);
             }
         } catch (error) {
             console.error(error);
@@ -44,7 +44,7 @@ const GatchaSettings = () => {
 
     const saveConfig = async () => {
         setIsLoading(true);
-        const { error } = await supabase.from('website_content').upsert({ key: 'gatcha_config', content: config }, { onConflict: 'key' });
+        const { error } = await saveWebsiteContentValue('gatcha_config', config);
         if (error) toast({ title: "Gagal Simpan", description: error.message, variant: "destructive" });
         else toast({ title: "Berhasil", description: "Pengaturan Gatcha disimpan." });
         setIsLoading(false);

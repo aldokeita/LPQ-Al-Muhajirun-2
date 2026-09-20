@@ -85,6 +85,30 @@ export const assertNonEmptyWebsiteContentString = (key, value) => {
   return normalized;
 };
 
+// Satu nilai konfigurasi situs berdasarkan key. Panel pengaturan memakai bentuk yang sama
+// berulang kali: baca satu baris, simpan kembali satu baris. Kolom content bertipe JSON
+// dan lapisan data yang mengurai serta merangkainya, jadi pemanggil menerima dan mengirim
+// nilai biasa.
+//
+// Memulangkan { data, error } seperti adapter lain, bukan melempar, karena panel-panel itu
+// memeriksa error alih-alih membungkus pemanggilannya dengan try.
+export const fetchWebsiteContentValue = async (key) => {
+  const { data, error } = await query({
+    table: 'website_content',
+    columns: ['id', 'key', 'content'],
+    filters: [{ column: 'key', op: 'eq', value: key }],
+    limit: 1,
+  });
+  if (error) return { data: null, error };
+  return { data: data.length > 0 ? data[0].content : null, error: null };
+};
+
+export const saveWebsiteContentValue = (key, content, { isPublic = true } = {}) => upsert(
+  'website_content',
+  { key, content: normalizeWebsiteContentValue(content), is_public: isPublic },
+  'key',
+);
+
 export const saveWebsiteContentItem = async ({ key, content, isPublic = true }) => {
   const normalizedKey = String(key || '').trim();
   if (!normalizedKey) throw new Error('Key konten wajib diisi.');

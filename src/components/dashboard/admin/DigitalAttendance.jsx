@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, queryOne, query } from '@/lib/dataClient';
+import { GURU_BACKUP_COLUMNS } from '@/lib/guruAdapters';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Fingerprint, Search, CheckCircle, XCircle, AlertTriangle, Clock, HelpCircle, Smartphone } from 'lucide-react';
@@ -16,6 +17,7 @@ import {
     isActiveSantri,
     isExplicitAbsentAttendance,
     normalizeRfidTag,
+    saveAttendanceRecord,
 } from '@/lib/attendanceAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import {
@@ -157,16 +159,26 @@ const DigitalAttendance = () => {
             const today = getLocalDateString();
 
             let user = null, userRole = '', sesiUser = '';
-            let { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('rfid_tag', tag).maybeSingle();
+            const { data: guruData } = await queryOne({
+                table: 'guru',
+                columns: GURU_BACKUP_COLUMNS,
+                filters: [{ column: 'rfid_tag', op: 'eq', value: tag }],
+            });
 
             if (guruData) {
                 user = guruData; userRole = 'guru';
                 const now = new Date();
-                const { data: assignedClasses } = await supabase
-                    .from('classes')
-                    .select('sesi')
-                    .eq('id_guru', user.id)
-                    .eq('is_active', true);
+                const { data: assignedClasses } = await query({
+                    table: 'classes',
+                    columns: ['sesi'],
+                    filters: [
+                        { column: 'id_guru', op: 'eq', value: user.id },
+                        // is_active bertipe boolean dan tersimpan sebagai 1/0 di D1.
+                        { column: 'is_active', op: 'eq', value: 1 },
+                        { column: 'deleted_at', op: 'is_null' },
+                    ],
+                    limit: 1000,
+                });
                 const assignedSessions = [...new Set((assignedClasses || []).map(item => normalizeAttendanceSessionName(item.sesi)).filter(Boolean))];
                 const matchingSessions = assignedSessions
                     .map(sesi => ({ sesi, window: evaluateAttendanceWindow({ timestamp: now, dateStr: today, sesi, sessionTimes }) }))
@@ -176,15 +188,16 @@ const DigitalAttendance = () => {
 
                 if (!sesiUser) {
                      const { data: previousAttendance } = assignedSessions.length > 0
-                         ? await supabase
-                             .from('attendance')
-                             .select('check_in_time, status, sesi')
-                             .eq('user_id', user.id)
-                             .eq('attendance_date', today)
-                             .in('sesi', assignedSessions)
-                             .order('check_in_timestamp', { ascending: false })
-                             .limit(1)
-                             .maybeSingle()
+                         ? await queryOne({
+                             table: 'attendance',
+                             columns: ['check_in_time', 'status', 'sesi'],
+                             filters: [
+                                 { column: 'user_id', op: 'eq', value: user.id },
+                                 { column: 'attendance_date', op: 'eq', value: today },
+                                 { column: 'sesi', op: 'in', value: assignedSessions },
+                             ],
+                             order: [{ column: 'check_in_timestamp', ascending: false }],
+                         })
                          : { data: null };
 
                      if (previousAttendance) {
@@ -202,11 +215,20 @@ const DigitalAttendance = () => {
                      return;
                 }
             } else {
-                let { data: santriData } = await supabase
-                    .from('santri')
-                    .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
-                    .eq('rfid_tag', tag)
-                    .maybeSingle();
+                const { data: santriRow } = await queryOne({
+                    table: 'santri',
+                    columns: ['id', 'nama_lengkap', 'nama_panggilan', 'kategori', 'status', 'foto_url', 'avatar_path', 'rfid_tag', 'current_class_id', 'sesi_mengaji', 'jilid', 'points', 'jenis_kelamin'],
+                    filters: [{ column: 'rfid_tag', op: 'eq', value: tag }],
+                });
+                // class:current_class_id(...) dulu ikut lewat join bersarang.
+                let santriData = santriRow
+                    ? (await attachRelated([santriRow], {
+                        foreignKey: 'current_class_id',
+                        table: 'classes',
+                        columns: ['id', 'nama_kelas', 'sesi', 'id_guru', 'is_active'],
+                        as: 'class',
+                    }))[0]
+                    : null;
                 if (santriData) {
                     const foto_url = await resolveAvatarUrl({
                         ownerType: 'santri',
@@ -227,13 +249,15 @@ const DigitalAttendance = () => {
 
             if (!user) { setLastScan({ type: 'error', message: 'RFID tidak dikenal. Tidak ada absensi yang dibuat.', name: 'Tidak Dikenal' }); return; }
 
-            const { data: existingAttendance } = await supabase
-                .from('attendance')
-                .select('id, check_in_time, check_in_timestamp, status')
-                .eq('user_id', user.id)
-                .eq('attendance_date', today)
-                .eq('sesi', sesiUser)
-                .maybeSingle();
+            const { data: existingAttendance } = await queryOne({
+                table: 'attendance',
+                columns: ['id', 'check_in_time', 'check_in_timestamp', 'status'],
+                filters: [
+                    { column: 'user_id', op: 'eq', value: user.id },
+                    { column: 'attendance_date', op: 'eq', value: today },
+                    { column: 'sesi', op: 'eq', value: sesiUser },
+                ],
+            });
 
             const shouldRestoreAbsentAttendance = userRole === 'santri'
                 && existingAttendance
@@ -281,20 +305,19 @@ const DigitalAttendance = () => {
                     status: checkInStatus.status || 'Hadir',
                     source: 'rfid',
                 };
-            const attendanceMutation = shouldRestoreAbsentAttendance
-                ? supabase
-                    .from('attendance')
-                    .update({
+            const { error: insertError } = await saveAttendanceRecord({
+                id: shouldRestoreAbsentAttendance ? existingAttendance.id : null,
+                values: shouldRestoreAbsentAttendance
+                    ? {
                         check_in_time: newAttendance.check_in_time,
                         check_in_timestamp: newAttendance.check_in_timestamp,
                         class_id: newAttendance.class_id,
                         attended_session: newAttendance.attended_session,
                         status: newAttendance.status,
                         source: 'rfid',
-                    })
-                    .eq('id', existingAttendance.id)
-                : supabase.from('attendance').insert(newAttendance);
-            const { error: insertError } = await attendanceMutation;
+                    }
+                    : newAttendance,
+            });
 
             if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url });
             } else {
