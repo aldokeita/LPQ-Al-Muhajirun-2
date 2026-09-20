@@ -674,6 +674,63 @@ const run = async () => {
   }
   console.log('');
 
+  console.log('dashboardAdapters:');
+  {
+  const dash = await import('../src/lib/dashboardAdapters.js');
+
+  // santri -> classes -> guru dulu satu join bersarang dua tingkat. Bentuknya harus sama.
+  const santriBerkelas = sqlite.prepare(
+    'select id from santri where current_class_id is not null and deleted_at is null limit 1').get().id;
+  const lengkap = await dash.fetchSantriWithClass(santriBerkelas);
+  check('santri terbaca', lengkap.error, null);
+  check('kelasnya ikut', lengkap.data.class?.id, lengkap.data.current_class_id);
+  check('nama kelas ada', typeof lengkap.data.class?.nama_kelas, 'string');
+  check('properti guru ada di kelas', 'guru' in lengkap.data.class, true);
+  if (lengkap.data.class.id_guru) {
+    check('guru kelas terjahit benar', lengkap.data.class.guru?.id, lengkap.data.class.id_guru);
+  }
+
+  // Santri tanpa kelas tidak boleh membuat pembacaannya gagal.
+  const santriTanpaKelas = sqlite.prepare(
+    'select id from santri where current_class_id is null and deleted_at is null limit 1').get()?.id;
+  if (santriTanpaKelas) {
+    const tanpaKelas = await dash.fetchSantriWithClass(santriTanpaKelas);
+    check('santri tanpa kelas tetap terbaca', tanpaKelas.error, null);
+    check('kelasnya null, bukan galat', tanpaKelas.data.class, null);
+  }
+
+  const jumlahAktif = await dash.countActiveSantri();
+  check('hitungan santri aktif berhasil', jumlahAktif.error, null);
+  check('sama dengan SQL setara', jumlahAktif.data, sqlite.prepare(`
+    select count(*) c from santri
+     where status in ('Aktif','active') and deleted_at is null`).get().c);
+
+  const kelasAktifDash = await dash.fetchActiveClassesWithGuru();
+  check('kelas aktif terbaca', kelasAktifDash.error, null);
+  check('semuanya aktif dan belum dihapus', kelasAktifDash.data.length, sqlite.prepare(
+    'select count(*) c from classes where is_active = 1 and deleted_at is null').get().c);
+  check('setiap kelas punya properti guru', kelasAktifDash.data.every((c) => 'guru' in c), true);
+
+  const keanggotaan = await dash.fetchActiveMemberships();
+  check('keanggotaan aktif terbaca', keanggotaan.data.length, sqlite.prepare(
+    "select count(*) c from class_memberships where status = 'active'").get().c);
+
+  const kelasContoh = sqlite.prepare(
+    "select class_id from class_memberships where status = 'active' limit 1").get().class_id;
+  const temanSekelas = await dash.fetchClassmates(kelasContoh);
+  check('teman sekelas terbaca', temanSekelas.error, null);
+  check('setiap baris membawa santri', temanSekelas.data.every((m) => 'santri' in m), true);
+  check('jumlahnya sama dengan SQL setara', temanSekelas.data.length, sqlite.prepare(
+    "select count(*) c from class_memberships where class_id = ? and status = 'active'").get(kelasContoh).c);
+
+  // Dua konfigurasi situs dalam satu permintaan, dan santri yang sudah login harus
+  // benar-benar menerimanya — inilah yang dulu kosong sebelum hak baca publik diperbaiki.
+  const { fetchWebsiteContentMap } = await import('../src/lib/publicContentAdapters.js');
+  const peta = await fetchWebsiteContentMap({ keys: ['hafalanVideos', 'level_config'], publicOnly: false });
+  check('peta konten berupa objek', typeof peta, 'object');
+  }
+  console.log('');
+
   console.log('penulisan banyak baris lewat adapter:');
   // Sistem pembayaran menulis seluruh keranjang sekaligus. Yang diuji di sini jalur
   // utuhnya: klien, rute, otorisasi, sampai D1.

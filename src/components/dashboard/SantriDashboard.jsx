@@ -3,7 +3,10 @@ import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart3, BookOpen, CheckCircle as CheckCircleFull, ChevronDown, Edit, Mic, PlayCircle, Send, Star, Upload, Users, Video } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryAll, update } from '@/lib/dataClient';
+import { ATTENDANCE_COLUMNS } from '@/lib/attendanceAdapters';
+import { fetchClassmates, fetchSantriWithClass } from '@/lib/dashboardAdapters';
+import { fetchWebsiteContentMap } from '@/lib/publicContentAdapters';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -439,7 +442,7 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
     const handleSave = async () => {
         setIsSaving(true);
         const { nama_panggilan, password, points, jilid, sesi_mengaji, nomor_induk_qiroati, class: classObj, id_kelas, ...allowedData } = formData;
-        const { error } = await supabase.from('santri').update(allowedData).eq('id', santri.id);
+        const { error } = await update('santri', santri.id, allowedData);
         setIsSaving(false);
         if (error) toast({ title: "Gagal", description: error.message, variant: "destructive" });
         else { toast({ title: "Berhasil", description: "Profil berhasil diperbarui." }); onUpdate(); onOpenChange(false); }
@@ -500,11 +503,11 @@ const SantriDashboard = ({ isAdult = false }) => {
   const initializeData = useCallback(async () => {
     if (!user) return;
 
-    const [santriResult, itemsResult, videosResult, levelConfigResult] = await Promise.all([
-        supabase.from('santri').select('*, class:current_class_id(*, guru:id_guru(nama))').eq('id', user.id).single(),
+    // Dua konfigurasi situs dulu dibaca dengan dua permintaan terpisah; sekarang satu.
+    const [santriResult, itemsResult, contentMap] = await Promise.all([
+        fetchSantriWithClass(user.id),
         fetchHafalanItems(),
-        supabase.from('website_content').select('content').eq('key', 'hafalanVideos').maybeSingle(),
-        supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle()
+        fetchWebsiteContentMap({ keys: ['hafalanVideos', 'level_config'], publicOnly: false }),
     ]);
 
         if (santriResult.data) {
@@ -520,9 +523,24 @@ const SantriDashboard = ({ isAdult = false }) => {
         const todayStr = new Date().toLocaleDateString('en-CA');
 
         const [hafalanData, submissionsData, attendanceData, juzScoreData, surahScoreData] = await Promise.all([
-            supabase.from('hafalan_progress').select('*').eq('santri_id', santri.id),
-            supabase.from('murojaah_submissions').select('id,santri_id,type,content,recording_path,status,feedback,submitted_at,reviewed_at,created_at').eq('santri_id', santri.id).order('created_at', { ascending: false }),
-            supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', todayStr).eq('user_id', santri.id),
+            queryAll({
+                table: 'hafalan_progress',
+                filters: [{ column: 'santri_id', op: 'eq', value: santri.id }],
+            }),
+            queryAll({
+                table: 'murojaah_submissions',
+                columns: ['id', 'santri_id', 'type', 'content', 'recording_path', 'status', 'feedback', 'submitted_at', 'reviewed_at', 'created_at'],
+                filters: [{ column: 'santri_id', op: 'eq', value: santri.id }],
+                order: [{ column: 'created_at', ascending: false }],
+            }),
+            queryAll({
+                table: 'attendance',
+                columns: ATTENDANCE_COLUMNS,
+                filters: [
+                    { column: 'attendance_date', op: 'eq', value: todayStr },
+                    { column: 'user_id', op: 'eq', value: santri.id },
+                ],
+            }),
             fetchSantriJuzScores([santri.id]),
             fetchSantriSurahScores([santri.id])
         ]);
@@ -541,12 +559,15 @@ const SantriDashboard = ({ isAdult = false }) => {
         }
 
         if (santri.current_class_id) {
-            const { data: classMemberships } = await supabase
-                .from('class_memberships')
-                .select('santri:santri_id(id,nama_lengkap,foto_url,avatar_path,jilid)')
-                .eq('class_id', santri.current_class_id)
-                .eq('status', 'active');
-            const { data: friendsAttendance } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('attendance_date', todayStr).eq('class_id', santri.current_class_id);
+            const { data: classMemberships } = await fetchClassmates(santri.current_class_id);
+            const { data: friendsAttendance } = await queryAll({
+                table: 'attendance',
+                columns: ATTENDANCE_COLUMNS,
+                filters: [
+                    { column: 'attendance_date', op: 'eq', value: todayStr },
+                    { column: 'class_id', op: 'eq', value: santri.current_class_id },
+                ],
+            });
             if (classMemberships) {
                 const classmatesWithAvatars = await Promise.all(classMemberships.map(async (item) => {
                     if (!item.santri) return null;
@@ -567,9 +588,9 @@ const SantriDashboard = ({ isAdult = false }) => {
       const programScope = getHafalanProgramScope(santriResult.data);
       setHafalanItems(itemsResult.filter((item) => item.program_scope === programScope));
     }
-    if (videosResult.data?.content) setVideos(videosResult.data.content);
+    if (contentMap.hafalanVideos) setVideos(contentMap.hafalanVideos);
     else setVideos([{ id: 1, title: 'Hafalan Jilid 1', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', jilid: 'Jilid 1' }]);
-    setLevelConfig(levelConfigResult.data?.content || null);
+    setLevelConfig(contentMap.level_config || null);
   }, [user]);
 
   useEffect(() => { initializeData(); }, [initializeData]);

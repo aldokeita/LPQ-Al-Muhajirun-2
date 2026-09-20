@@ -85,8 +85,19 @@ const run = async () => {
   // D1, menandatangani sesi, dan menyusun cookie. Ambang 6 ms menyisakan ruang untuk itu.
   // Pemeriksaan ini menjaga agar jumlah iterasi tidak dinaikkan tanpa sengaja sampai
   // login berhenti bekerja di paket gratis.
+  //
+  // Diambil yang tercepat dari beberapa kali jalan, bukan sekali ukur. Yang ingin diketahui
+  // adalah biaya perhitungannya, dan sekali ukur pada mesin yang sedang sibuk mengukur
+  // beban mesin itu, bukan biaya kodenya — itu membuat pemeriksaannya kadang gagal tanpa
+  // ada yang berubah.
   const ANGGARAN_MS = 6;
-  check(`verifikasi muat anggaran CPU (${verifyMs} ms < ${ANGGARAN_MS} ms)`, verifyMs < ANGGARAN_MS);
+  let tercepat = Infinity;
+  for (let i = 0; i < 5; i += 1) {
+    const mulai = performance.now();
+    await verifyPassword(PASSWORD, modernHash);
+    tercepat = Math.min(tercepat, performance.now() - mulai);
+  }
+  check(`verifikasi muat anggaran CPU (${tercepat.toFixed(1)} ms < ${ANGGARAN_MS} ms)`, tercepat < ANGGARAN_MS);
 
   // Hash dengan iterasi lebih tinggi dari anggaran harus diturunkan, bukan dibiarkan,
   // karena ia memakan CPU berlebih pada setiap login, bukan sekali saja.

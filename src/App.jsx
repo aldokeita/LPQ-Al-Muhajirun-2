@@ -38,9 +38,6 @@ import HijaiyahGamePage from '@/pages/HijaiyahGamePage';
 import TopScorePage from '@/pages/TopScorePage';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { verifyDatabaseSchema } from '@/utils/verifyDatabaseSchema';
-import { AlertTriangle, X } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import { enableDeferredFeatures, enableGameFeatures } from '@/lib/featureFlags';
 
 const RouteLogger = () => {
@@ -49,46 +46,6 @@ const RouteLogger = () => {
     console.log(`App Routing to: ${location.pathname}${location.search}`);
   }, [location]);
   return null;
-};
-
-const DatabaseHealthCheck = () => {
-  const { role } = useAuth();
-  const [dbErrors, setDbErrors] = useState([]);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const checkDb = async () => {
-      if (role === 'admin' && isSupabaseConfigured) {
-        const report = await verifyDatabaseSchema();
-        console.log('Database Health Report:', report);
-        if (report.status === 'error') {
-          setDbErrors(report.errors);
-        }
-      }
-    };
-    checkDb();
-  }, [role]);
-
-  if (!isVisible || dbErrors.length === 0 || role !== 'admin') return null;
-
-  return (
-    <div className="bg-red-500 text-white p-4 fixed top-0 left-0 w-full z-[999] flex justify-between items-start shadow-md">
-      <div>
-        <div className="flex items-center gap-2 font-bold mb-1">
-          <AlertTriangle className="w-5 h-5" />
-          Database Schema / RLS Issues Detected
-        </div>
-        <ul className="list-disc list-inside text-sm ml-6">
-          {dbErrors.map((err, i) => (
-            <li key={i}>{err}</li>
-          ))}
-        </ul>
-      </div>
-      <button onClick={() => setIsVisible(false)} className="p-1 hover:bg-red-600 rounded">
-        <X className="w-5 h-5" />
-      </button>
-    </div>
-  );
 };
 
 const DeferredFeaturePage = () => (
@@ -133,7 +90,6 @@ function App() {
       <AuthProvider>
         <DndProvider backend={HTML5Backend}>
           <Router>
-            <DatabaseHealthCheck />
             <RouteLogger />
             <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
               <Routes>

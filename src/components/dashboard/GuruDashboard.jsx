@@ -16,7 +16,9 @@ import GuruAttendanceRecap from '@/components/dashboard/admin/GuruAttendanceReca
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchClassAttendanceForDate, fetchGuruProfile } from '@/lib/dashboardAdapters';
+import { ATTENDANCE_COLUMNS } from '@/lib/attendanceAdapters';
+import { updateGuru } from '@/lib/guruAdapters';
 import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, BookOpen, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
@@ -81,10 +83,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
         try {
           const { path, signedUrl } = await uploadAvatar({ ownerType: 'guru', ownerId: formData.id, file });
           const finalUrl = signedUrl || formData.foto_url || '';
-          const { error: profileError } = await supabase
-            .from('guru')
-            .update({ avatar_path: path, foto_url: null })
-            .eq('id', formData.id);
+          const { error: profileError } = await updateGuru(formData.id, { avatar_path: path, foto_url: null });
           if (profileError) throw profileError;
           setFormData(prev => ({...prev, foto_url: finalUrl, avatar_path: path }));
           toast({ title: "Foto Berhasil Diupload", description: "Foto profil tersimpan di Storage dan tetap tampil setelah refresh." });
@@ -95,10 +94,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
         setIsUploading(true);
         try {
           await deleteAvatar({ ownerType: 'guru', ownerId: formData.id });
-          const { error: profileError } = await supabase
-            .from('guru')
-            .update({ avatar_path: null, foto_url: null })
-            .eq('id', formData.id);
+          const { error: profileError } = await updateGuru(formData.id, { avatar_path: null, foto_url: null });
           if (profileError) throw profileError;
           setFormData(prev => ({ ...prev, foto_url: '', avatar_path: null }));
           toast({ title: "Foto Dihapus", description: "Foto profil Anda telah dihapus dari Storage." });
@@ -121,7 +117,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
             passwordUpdated = await updateUserPassword(password);
         }
         if(!passwordUpdated) { toast({ title: "Gagal Ganti Password", variant: "destructive"}); return; }
-        const { error } = await supabase.from('guru').update(updateData).eq('id', id);
+        const { error } = await updateGuru(id, updateData);
         if (error) { toast({ title: "Gagal Memperbarui Profil", description: error.message, variant: "destructive"}); }
         else { toast({ title: "Berhasil!", description: "Profil Anda telah diperbarui."}); onProfileUpdate(); onOpenChange(false); }
     };
@@ -210,7 +206,11 @@ const GuruDashboard = () => {
   const fetchGuruData = useCallback(async () => {
     if (user?.id) {
         setIsLoading(true);
-        const { data: guru } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('id', user.id).single();
+        const { data: guru } = await fetchGuruProfile(user.id, [
+            'id', 'nama', 'email', 'no_hp', 'alamat', 'foto_url', 'avatar_path', 'rfid_tag',
+            'jabatan', 'roles', 'is_notulen', 'jenis_kelamin', 'tanggal_lahir', 'status_guru',
+            'status', 'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by',
+        ]);
         if(guru) {
             const foto_url = await resolveAvatarUrl({
                 ownerType: 'guru',
@@ -252,9 +252,11 @@ const GuruDashboard = () => {
             if (classList.length > 0) {
                 const classIds = classList.map(c => c.id);
                 // Fetch attendance records specifically for the guru's classes
-                const { data: attendanceRes } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
-                    .in('class_id', classIds)
-                    .eq('attendance_date', todayStr);
+                const { data: attendanceRes } = await fetchClassAttendanceForDate({
+                    classIds,
+                    date: todayStr,
+                    columns: ATTENDANCE_COLUMNS,
+                });
 
                 if (attendanceRes) {
                     setDailyAttendance(attendanceRes);
