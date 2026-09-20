@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryIn } from '@/lib/dataClient';
+import { fetchAttendance, fetchAttendanceForClasses, fetchHolidayDates } from '@/lib/attendanceAdapters';
+import { fetchClassesForRecap, fetchGuru } from '@/lib/guruAdapters';
+import { progressStatusToComplete } from '@/lib/academicAdapters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
@@ -73,7 +76,7 @@ const GuruPerformanceSummary = () => {
   useEffect(() => {
     const fetchGurus = async () => {
       try {
-        const { data, error } = await supabase.from('guru').select('id, nama').order('nama', { ascending: true });
+        const { data, error } = await fetchGuru({ columns: ['id', 'nama'] });
         if (error) throw error;
         setGurus(data || []);
       } catch (err) {
@@ -97,9 +100,10 @@ const GuruPerformanceSummary = () => {
       setIsLoading(true);
       try {
         // 1. Get Classes assigned to Guru
-        const { data: classes, error: classesError } = await supabase.from('classes')
-          .select('id, nama_kelas, sesi')
-          .eq('id_guru', selectedGuru);
+        const { data: classes, error: classesError } = await fetchClassesForRecap({
+          columns: ['id', 'nama_kelas', 'sesi'],
+          filters: [{ column: 'id_guru', op: 'eq', value: selectedGuru }],
+        });
         if (classesError) throw classesError;
         
         const classIds = classes?.map(c => c.id) || [];
@@ -116,13 +120,7 @@ const GuruPerformanceSummary = () => {
         const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${lastDay}`;
 
         // Fetch Holidays to exclude from expected sessions
-        const { data: calendarData } = await supabase
-            .from('academic_calendar')
-            .select('date')
-            .gte('date', startDate)
-            .lte('date', endDate)
-            .eq('is_holiday', true);
-        const holidaySet = new Set(calendarData?.map(c => c.date) || []);
+        const { data: holidaySet } = await fetchHolidayDates(startDate, endDate);
 
         // Calculate past active session days in the selected month
         let pastSessionDays = 0;
@@ -140,13 +138,16 @@ const GuruPerformanceSummary = () => {
         }
 
         // 2. Fetch Guru Attendance (Sesi Terlaksana)
-        const { data: guruAtt, error: guruAttError } = await supabase.from('attendance')
-          .select('id, attendance_date, sesi, status, class_id')
-          .eq('user_id', selectedGuru)
-          .eq('role', 'guru')
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .like('status', 'Hadir%');
+        const { data: guruAtt, error: guruAttError } = await fetchAttendance({
+          columns: ['id', 'attendance_date', 'sesi', 'status', 'class_id'],
+          filters: [
+            { column: 'user_id', op: 'eq', value: selectedGuru },
+            { column: 'role', op: 'eq', value: 'guru' },
+            { column: 'attendance_date', op: 'gte', value: startDate },
+            { column: 'attendance_date', op: 'lte', value: endDate },
+            { column: 'status', op: 'like', value: 'Hadir%' },
+          ],
+        });
         if (guruAttError) throw guruAttError;
 
         let totalSessions = 0;
@@ -168,11 +169,15 @@ const GuruPerformanceSummary = () => {
         let avgAttendance = 0;
         if (classIds.length > 0) {
           // Get total active santri per class to calculate total expected sessions
-          const { data: santriList } = await supabase.from('santri')
-            .select('id, current_class_id')
-            .in('current_class_id', classIds)
-            .eq('status', 'Aktif');
-            
+          const { data: santriList } = await queryIn({
+            table: 'santri',
+            columns: ['id', 'current_class_id'],
+            column: 'current_class_id',
+            values: classIds,
+            extraFilters: [{ column: 'status', op: 'eq', value: 'Aktif' }],
+          });
+
+
           const classSantriCount = {};
           santriList?.forEach(s => {
               classSantriCount[s.current_class_id] = (classSantriCount[s.current_class_id] || 0) + 1;
@@ -182,12 +187,15 @@ const GuruPerformanceSummary = () => {
           const todayStr = new Date().toISOString().split('T')[0];
           const queryEndDate = endDate < todayStr ? endDate : todayStr;
 
-          const { data: santriAtt, error: santriAttError } = await supabase.from('attendance')
-            .select('id, attendance_date, status, class_id')
-            .eq('role', 'santri')
-            .in('class_id', classIds)
-            .gte('attendance_date', startDate)
-            .lte('attendance_date', queryEndDate);
+          const { data: santriAtt, error: santriAttError } = await fetchAttendanceForClasses({
+            classIds,
+            columns: ['id', 'attendance_date', 'status', 'class_id'],
+            extraFilters: [
+              { column: 'role', op: 'eq', value: 'santri' },
+              { column: 'attendance_date', op: 'gte', value: startDate },
+              { column: 'attendance_date', op: 'lte', value: queryEndDate },
+            ],
+          });
           if (santriAttError) throw santriAttError;
 
           const classAttData = {};
@@ -231,10 +239,13 @@ const GuruPerformanceSummary = () => {
         let progressByStudent = [];
         let avgProgress = 0;
         if (classIds.length > 0) {
-          const { data: santriList, error: santriError } = await supabase.from('santri')
-            .select('id, nama_lengkap, current_class_id')
-            .in('current_class_id', classIds)
-            .eq('status', 'Aktif');
+          const { data: santriList, error: santriError } = await queryIn({
+            table: 'santri',
+            columns: ['id', 'nama_lengkap', 'current_class_id'],
+            column: 'current_class_id',
+            values: classIds,
+            extraFilters: [{ column: 'status', op: 'eq', value: 'Aktif' }],
+          });
           if (santriError) throw santriError;
           
           const santriIds = santriList?.map(s => s.id) || [];
@@ -242,22 +253,31 @@ const GuruPerformanceSummary = () => {
           santriList?.forEach(s => santriMap[s.id] = { name: s.nama_lengkap, className: classMap[s.current_class_id] });
           
           if (santriIds.length > 0) {
-            const { data: progressData, error: progError } = await supabase.from('hafalan_progress')
-              .select('id, santri_id, hafal')
-              .in('santri_id', santriIds);
+            // Kueri ini dulu meminta kolom "hafal", yang tidak pernah ada di tabel
+            // hafalan_progress. Postgres memulangkan galat 42703, galatnya dilempar, dan
+            // seluruh panel kinerja gagal dimuat setiap kali gurunya punya santri. Yang
+            // dimaksud adalah status hafalan, yang berisi "lulus" atau "proses", jadi
+            // itulah yang dibaca sekarang — memakai penerjemah yang sama dengan modul
+            // akademik supaya artinya tidak bercabang.
+            const { data: progressData, error: progError } = await queryIn({
+              table: 'hafalan_progress',
+              columns: ['id', 'santri_id', 'status'],
+              column: 'santri_id',
+              values: santriIds,
+            });
             if (progError) throw progError;
-            
+
             const santriProgMap = {};
             let totalHafalGlobal = 0;
             let totalProgGlobal = 0;
-            
+
             progressData?.forEach(p => {
               const sId = p.santri_id;
               if (!santriProgMap[sId]) santriProgMap[sId] = { hafal: 0, total: 0 };
-              
+
               santriProgMap[sId].total++;
               totalProgGlobal++;
-              if (p.hafal) {
+              if (progressStatusToComplete(p.status)) {
                 santriProgMap[sId].hafal++;
                 totalHafalGlobal++;
               }

@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import {
+    fetchAttendance,
+    fetchHolidayDates,
+    saveAttendanceRecord,
+    saveGuruSessionOverrides,
+} from '@/lib/attendanceAdapters';
+import { fetchClassesForRecap, fetchGuru } from '@/lib/guruAdapters';
+import { fetchSessionConfig } from '@/lib/classManagementAdapters';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
@@ -65,24 +72,26 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
     const fetchData = async () => {
         setIsLoading(true);
 
-        let attQuery = supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('role', 'guru');
-        let guruQuery = supabase.from('guru').select('id, nama, foto_url, no_hp');
-        const classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, kategori');
-        const overridesQuery = supabase.from('website_content').select('content').eq('key', 'guru_session_overrides').maybeSingle();
+        // Seorang guru hanya melihat dirinya sendiri; admin melihat semuanya.
+        const ownFilter = role === 'guru' && user ? [{ column: 'user_id', op: 'eq', value: user.id }] : [];
+        const guruFilter = role === 'guru' && user ? [{ column: 'id', op: 'eq', value: user.id }] : [];
 
-        if (role === 'guru' && user) {
-             attQuery = attQuery.eq('user_id', user.id);
-             guruQuery = guruQuery.eq('id', user.id);
-        }
-
-        const { data: att } = await attQuery;
-        const { data: guruList } = await guruQuery;
-        const { data: classList } = await classQuery;
-        const { data: overrides } = await overridesQuery;
+        const { data: att } = await fetchAttendance({
+            filters: [{ column: 'role', op: 'eq', value: 'guru' }, ...ownFilter],
+        });
+        const { data: guruList } = await fetchGuru({
+            columns: ['id', 'nama', 'foto_url', 'avatar_path', 'no_hp'],
+            filters: guruFilter,
+            order: null,
+        });
+        const { data: classList } = await fetchClassesForRecap({
+            columns: ['id', 'nama_kelas', 'sesi', 'id_guru', 'kategori'],
+        });
+        const { data: overrides } = await fetchSessionConfig('guru_session_overrides');
 
         const startDate = `${selectedYear}-01-01`;
         const endDate = `${selectedYear}-12-31`;
-        const { data: calendarData } = await supabase.from('academic_calendar').select('date').gte('date', startDate).lte('date', endDate).eq('is_holiday', true);
+        const { data: holidayDates } = await fetchHolidayDates(startDate, endDate);
 
         if (att && guruList && classList) {
             const resolvedGuruList = await resolveAvatarRecords(guruList, { ownerType: 'guru' });
@@ -90,8 +99,9 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             setGurus(resolvedGuruList);
             setClasses(classList);
 
-            if (overrides?.content) {
-                setOverriddenSessions(overrides.content);
+            // fetchSessionConfig sudah memulangkan isi kolom content, bukan barisnya.
+            if (overrides) {
+                setOverriddenSessions(overrides);
             }
 
             const years = [...new Set(att.map(a => new Date(a.attendance_date).getFullYear()))].sort((a,b) => b-a);
@@ -99,9 +109,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
             if (!years.includes(currentYear)) years.unshift(currentYear);
             setAvailableYears(years);
 
-            if (calendarData) {
-                setHolidays(new Set(calendarData.map(c => c.date)));
-            }
+            setHolidays(holidayDates);
         }
         setIsLoading(false);
     };
@@ -127,24 +135,25 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
 
         try {
             // Save to attendance table
-            let mutation;
-            if (record?.id) {
-                mutation = await supabase.from('attendance').update({
-                    check_in_time: attendanceTime || null,
-                    check_in_timestamp: checkInTs,
-                    status: newStatus
-                }).eq('id', record.id).select('id').single();
-            } else {
-                mutation = await supabase.from('attendance').insert({
-                    user_id: guruId,
-                    role: 'guru',
-                    attendance_date: dateStr,
-                    check_in_time: attendanceTime || null,
-                    check_in_timestamp: checkInTs,
-                    sesi: normalizedSession,
-                    status: newStatus
-                }).select('id').single();
-            }
+            // Kehadiran guru tidak terikat kelas, jadi barisnya memang tanpa class_id.
+            const mutation = await saveAttendanceRecord({
+                id: record?.id ?? null,
+                values: record?.id
+                    ? {
+                        check_in_time: attendanceTime || null,
+                        check_in_timestamp: checkInTs,
+                        status: newStatus,
+                    }
+                    : {
+                        user_id: guruId,
+                        role: 'guru',
+                        attendance_date: dateStr,
+                        check_in_time: attendanceTime || null,
+                        check_in_timestamp: checkInTs,
+                        sesi: normalizedSession,
+                        status: newStatus,
+                    },
+            });
 
             if (mutation.error) throw mutation.error;
 
@@ -178,10 +187,7 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         if (!sessionEditGuru) return;
         const newOverrides = { ...overriddenSessions, [sessionEditGuru.id]: tempSessions };
 
-        const { error } = await supabase.from('website_content').upsert(
-            { key: 'guru_session_overrides', content: newOverrides },
-            { onConflict: 'key' }
-        );
+        const { error } = await saveGuruSessionOverrides(newOverrides);
 
         if (error) {
             toast({ title: "Gagal Menyimpan", description: error.message, variant: "destructive" });

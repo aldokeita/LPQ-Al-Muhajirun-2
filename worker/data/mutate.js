@@ -123,8 +123,16 @@ const prepareInsert = async (db, authorizer, table, values) => {
   }
 
   // Baris diperiksa dalam bentuk akhirnya, termasuk kolom scope yang dikirim klien.
-  if (policy.scopeColumn && row[policy.scopeColumn] === undefined) {
-    throw new QueryError(`Kolom "${policy.scopeColumn}" wajib diisi untuk tabel ini.`);
+  //
+  // Kolom scope yang tidak disertakan diisi null, bukan ditolak. Postgres pun begitu:
+  // policy-nya berbunyi is_admin() OR guru_has_class_access(class_id), sehingga admin
+  // tetap boleh menyisip baris tanpa kelas — misalnya kehadiran guru, yang memang tidak
+  // terikat kelas mana pun. Menolaknya di sini akan menutup jalur yang dulu terbuka.
+  //
+  // Bagi yang bukan admin ini tidak melonggarkan apa pun: predikat berbasis kelas
+  // memulangkan false untuk null, jadi barisnya tetap ditolak.
+  if (policy.scopeColumn && row[policy.scopeColumn] === undefined && columnExists(table, policy.scopeColumn)) {
+    row[policy.scopeColumn] = null;
   }
 
   // Tabel yang membuka penambahan untuk umum melewati pemeriksaan peran hanya ketika

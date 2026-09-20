@@ -146,6 +146,13 @@ export const queryAll = async (options) => {
 };
 
 // Membaca dengan filter "in" berisi daftar panjang; hasil tiap potongan disatukan kembali.
+//
+// Tiap potongan juga diambil berhalaman. Satu potongan berisi delapan puluh id bisa
+// memulangkan jauh lebih dari seribu baris — delapan puluh santri dengan riwayat absensi
+// setahun, misalnya — dan tanpa penghalaman sisanya hilang tanpa pemberitahuan.
+//
+// Urutan hanya terjamin di dalam satu potongan. Pemanggil yang benar-benar butuh urutan
+// menyeluruh harus mengurutkan lagi setelah hasilnya disatukan.
 export const queryIn = async ({ table, columns, column, values, extraFilters = [], order = null }) => {
   const unique = [...new Set((values || []).filter(Boolean))];
   if (unique.length === 0) return { data: [], error: null };
@@ -153,15 +160,14 @@ export const queryIn = async ({ table, columns, column, values, extraFilters = [
   const collected = [];
   for (let index = 0; index < unique.length; index += IN_CHUNK) {
     const chunk = unique.slice(index, index + IN_CHUNK);
-    const { data, error } = await query({
+    const { data, error } = await queryAll({
       table,
       columns,
       filters: [...extraFilters, { column, op: 'in', value: chunk }],
       order,
-      limit: MAX_ROWS,
     });
     if (error) return { data: null, error };
-    collected.push(...(data ?? []));
+    collected.push(...data);
   }
   return { data: collected, error: null };
 };

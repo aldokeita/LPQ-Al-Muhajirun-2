@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, queryAll, queryIn } from '@/lib/dataClient';
+import { fetchAttendance, fetchAttendanceForUsers, fetchHolidayDates } from '@/lib/attendanceAdapters';
 import { Users, TrendingUp, Activity, History, Clock, ArrowUpCircle, CalendarDays, Check, X, Search, FileText } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -53,11 +54,14 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
     const fetchClassStats = async () => {
         try {
             // 1. Fetch Active Santri
-            const { data: santriList, error: santriError } = await supabase
-                .from('santri')
-                .select('id, nama_lengkap, jilid, foto_url, avatar_path, created_at')
-                .eq('current_class_id', classItem.id)
-                .eq('status', 'Aktif');
+            const { data: santriList, error: santriError } = await queryAll({
+                table: 'santri',
+                columns: ['id', 'nama_lengkap', 'jilid', 'foto_url', 'avatar_path', 'created_at'],
+                filters: [
+                    { column: 'current_class_id', op: 'eq', value: classItem.id },
+                    { column: 'status', op: 'eq', value: 'Aktif' },
+                ],
+            });
 
             if (santriError) throw santriError;
             const resolvedSantriList = await resolveAvatarRecords(santriList, { ownerType: 'santri' });
@@ -72,13 +76,28 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
                 setJilidData(Object.keys(counts).map(key => ({ name: key, value: counts[key] })));
 
                 // 2. Fetch Jilid History for these santri
-                const { data: history, error: historyError } = await supabase
-                    .from('jilid_history')
-                    .select('*, santri:santri_id(id, nama_lengkap, foto_url, avatar_path)')
-                    .in('santri_id', santriIds)
-                    .order('changed_at', { ascending: false });
-                
+                const { data: rawHistory, error: historyError } = await queryIn({
+                    table: 'jilid_history',
+                    columns: ['id', 'santri_id', 'from_jilid', 'to_jilid', 'changed_at', 'changed_by'],
+                    column: 'santri_id',
+                    values: santriIds,
+                    order: [{ column: 'changed_at', ascending: false }],
+                });
+
                 if (historyError) throw historyError;
+
+                // Daftar id yang panjang dibaca sepotong-sepotong, jadi urutannya hanya
+                // terjamin di dalam tiap potongan. Setelah disatukan, diurutkan lagi.
+                rawHistory.sort((a, b) => String(b.changed_at).localeCompare(String(a.changed_at)));
+
+                // santri:santri_id(...) dulu ikut lewat join bersarang; sekarang dijahit
+                // setelah baca dengan bentuk yang sama.
+                const history = await attachRelated(rawHistory, {
+                    foreignKey: 'santri_id',
+                    table: 'santri',
+                    columns: ['id', 'nama_lengkap', 'foto_url', 'avatar_path'],
+                    as: 'santri',
+                });
 
                 const resolvedHistory = await Promise.all((history || []).map(async (entry) => ({
                     ...entry,
@@ -110,11 +129,11 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             }
 
             // 4. Fetch Attendance
-            const { data: attendanceList, error: attError } = await supabase
-                .from('attendance')
-                .select('attendance_date, status')
-                .eq('class_id', classItem.id)
-                .order('attendance_date', { ascending: true });
+            const { data: attendanceList, error: attError } = await fetchAttendance({
+                columns: ['attendance_date', 'status'],
+                filters: [{ column: 'class_id', op: 'eq', value: classItem.id }],
+                order: [{ column: 'attendance_date', ascending: true }],
+            });
 
             if (attError) throw attError;
 
@@ -149,10 +168,11 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
         setIsDetailedLoading(true);
         try {
             // First get santri IDs for this class
-            const { data: santriList, error: santriError } = await supabase
-                .from('santri')
-                .select('id, nama_lengkap, foto_url, avatar_path')
-                .eq('current_class_id', classItem.id);
+            const { data: santriList, error: santriError } = await queryAll({
+                table: 'santri',
+                columns: ['id', 'nama_lengkap', 'foto_url', 'avatar_path'],
+                filters: [{ column: 'current_class_id', op: 'eq', value: classItem.id }],
+            });
 
             if (santriError) throw santriError;
             const resolvedSantriList = await resolveAvatarRecords(santriList, { ownerType: 'santri' });
@@ -167,10 +187,7 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             resolvedSantriList.forEach(s => { santriMap[s.id] = s; });
             const santriIds = resolvedSantriList.map(s => s.id);
 
-            let query = supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
-                .in('user_id', santriIds);
-            
-            const { data: attData, error: attError } = await query;
+            const { data: attData, error: attError } = await fetchAttendanceForUsers({ userIds: santriIds });
             if (attError) throw attError;
 
             const mappedData = (attData || []).map(record => ({
@@ -197,16 +214,11 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
 
         try {
             // 1. Fetch Calendar Data for Holidays only
-            const { data: calendarData, error: calError } = await supabase
-                .from('academic_calendar')
-                .select('date')
-                .gte('date', startDate)
-                .lte('date', endDate)
-                .eq('is_holiday', true);
+            const { data: holidayDates, error: calError } = await fetchHolidayDates(startDate, endDate);
 
             if (calError) throw calError;
 
-            const holidaySet = new Set((calendarData || []).map(c => c.date));
+            const holidaySet = holidayDates;
 
             // 2. Filter active days (Mon-Fri and not holiday)
             const activeDays = [];
@@ -222,23 +234,28 @@ const ClassPerformanceModal = ({ isOpen, onClose, classItem }) => {
             const uniqueActiveDays = activeDays;
 
             // 3. Get Santri in this class
-            const { data: santriList, error: santriError } = await supabase
-                .from('santri')
-                .select('id, nama_lengkap, foto_url, avatar_path')
-                .eq('current_class_id', classItem.id)
-                .eq('status', 'Aktif')
-                .order('nama_lengkap');
-            
+            const { data: santriList, error: santriError } = await queryAll({
+                table: 'santri',
+                columns: ['id', 'nama_lengkap', 'foto_url', 'avatar_path'],
+                filters: [
+                    { column: 'current_class_id', op: 'eq', value: classItem.id },
+                    { column: 'status', op: 'eq', value: 'Aktif' },
+                ],
+                order: [{ column: 'nama_lengkap', ascending: true }],
+            });
+
             if (santriError) throw santriError;
             const resolvedSantriList = await resolveAvatarRecords(santriList, { ownerType: 'santri' });
 
             // 4. Get Attendance data
-            const { data: attendance, error: attError } = await supabase
-                .from('attendance')
-                .select('user_id, attendance_date, status')
-                .eq('class_id', classItem.id)
-                .gte('attendance_date', startDate)
-                .lte('attendance_date', endDate);
+            const { data: attendance, error: attError } = await fetchAttendance({
+                columns: ['user_id', 'attendance_date', 'status'],
+                filters: [
+                    { column: 'class_id', op: 'eq', value: classItem.id },
+                    { column: 'attendance_date', op: 'gte', value: startDate },
+                    { column: 'attendance_date', op: 'lte', value: endDate },
+                ],
+            });
 
             if (attError) throw attError;
 

@@ -589,6 +589,91 @@ const run = async () => {
   }
   console.log('');
 
+  console.log('guruAdapters dan attendanceAdapters:');
+  {
+  const guruAdapter = await import('../src/lib/guruAdapters.js');
+  const absensi = await import('../src/lib/attendanceAdapters.js');
+
+  const daftarGuru = await guruAdapter.fetchGuru();
+  check('daftar guru terbaca', daftarGuru.error, null);
+  check('jumlahnya sama dengan guru yang belum dihapus', daftarGuru.data.length,
+    sqlite.prepare('select count(*) c from guru where deleted_at is null').get().c);
+  check('terurut menurut nama', daftarGuru.data.every((g, i, arr) =>
+    i === 0 || String(arr[i - 1].nama ?? '') <= String(g.nama ?? '')), true);
+
+  // Kehadiran seorang guru, disaring peran dan pemakainya seperti panel rekap.
+  const guruBerabsen = sqlite.prepare(
+    "select user_id from attendance where role = 'guru' limit 1").get()?.user_id;
+  if (guruBerabsen) {
+    const absensiGuru = await absensi.fetchAttendance({
+      filters: [
+        { column: 'role', op: 'eq', value: 'guru' },
+        { column: 'user_id', op: 'eq', value: guruBerabsen },
+      ],
+    });
+    check('kehadiran guru terbaca', absensiGuru.error, null);
+    check('hanya baris guru itu',
+      absensiGuru.data.every((r) => r.role === 'guru' && r.user_id === guruBerabsen), true);
+    check('jumlahnya sama dengan SQL setara', absensiGuru.data.length, sqlite.prepare(
+      "select count(*) c from attendance where role = 'guru' and user_id = ?").get(guruBerabsen).c);
+  }
+
+  // Daftar id panjang dipecah karena batas parameter D1; hasilnya harus tetap utuh.
+  const banyakSantri = sqlite.prepare(
+    'select id from santri where deleted_at is null limit 200').all().map((r) => r.id);
+  const absensiBanyak = await absensi.fetchAttendanceForUsers({
+    userIds: banyakSantri, columns: ['id', 'user_id'],
+  });
+  check('kehadiran banyak santri terbaca', absensiBanyak.error, null);
+  const idSet = new Set(banyakSantri);
+  check('tidak ada baris milik orang lain',
+    absensiBanyak.data.every((r) => idSet.has(r.user_id)), true);
+  const jumlahSql = sqlite.prepare(`
+    select count(*) c from attendance
+     where user_id in (${banyakSantri.map(() => '?').join(',')})`).get(...banyakSantri).c;
+  check('dua ratus id terbaca utuh meski dipecah', absensiBanyak.data.length, jumlahSql);
+
+  // Tanggal libur dipulangkan sebagai Set, bukan larik baris.
+  const libur = await absensi.fetchHolidayDates('2020-01-01', '2030-12-31');
+  check('tanggal libur berupa Set', libur.data instanceof Set, true);
+  check('jumlahnya sama dengan SQL setara', libur.data.size, sqlite.prepare(`
+    select count(distinct date) c from academic_calendar
+     where date >= '2020-01-01' and date <= '2030-12-31' and is_holiday = 1`).get().c);
+
+  // Satu halaman rekap berikut hitungannya, memakai penyaring yang sama.
+  const penyaringRekap = [
+    { column: 'deleted_at', op: 'is_null' },
+    { or: [
+      { column: 'kategori', op: 'is_null' },
+      { column: 'kategori', op: 'neq', value: 'Dewasa' },
+    ] },
+  ];
+  const halamanRekap = await absensi.fetchRecapSantriPage({
+    filters: penyaringRekap, page: 1, pageSize: 10,
+  });
+  check('halaman rekap terbaca', halamanRekap.error, null);
+  check('hitungannya sama dengan SQL setara', halamanRekap.count, sqlite.prepare(`
+    select count(*) c from santri
+     where deleted_at is null and (kategori is null or kategori <> 'Dewasa')`).get().c);
+  check('tidak ada santri dewasa di tab anak',
+    halamanRekap.data.every((s) => s.kategori !== 'Dewasa'), true);
+
+  // Kelas untuk rekap: kelas terhapus tidak ikut, is_active disaring sebagai 1.
+  const kelasAktif = await guruAdapter.fetchClassesForRecap({
+    filters: [{ column: 'is_active', op: 'eq', value: 1 }],
+  });
+  check('kelas aktif terbaca', kelasAktif.error, null);
+  check('semuanya aktif', kelasAktif.data.every((c) => c.is_active === 1), true);
+  check('jumlahnya sama dengan SQL setara', kelasAktif.data.length, sqlite.prepare(
+    'select count(*) c from classes where is_active = 1 and deleted_at is null').get().c);
+
+  // hafalan_progress tidak punya kolom "hafal"; statusnya yang menentukan selesai.
+  const { progressStatusToComplete } = await import('../src/lib/academicAdapters.js');
+  check('status lulus berarti selesai', progressStatusToComplete('lulus'), true);
+  check('status proses belum selesai', progressStatusToComplete('proses'), false);
+  }
+  console.log('');
+
   console.log('penulisan banyak baris lewat adapter:');
   // Sistem pembayaran menulis seluruh keranjang sekaligus. Yang diuji di sini jalur
   // utuhnya: klien, rute, otorisasi, sampai D1.

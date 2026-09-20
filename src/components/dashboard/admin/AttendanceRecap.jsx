@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import {
+    fetchAttendance,
+    fetchAttendanceForUsers,
+    fetchHolidayDates,
+    fetchRecapSantriPage,
+} from '@/lib/attendanceAdapters';
+import { fetchClassesForRecap } from '@/lib/guruAdapters';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -34,7 +40,11 @@ const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
         if (!santri) return;
         const fetchDetail = async () => {
             try {
-                const { data, error } = await supabase.from('attendance').select('attendance_date').eq('user_id', santri.id).order('attendance_date');
+                const { data, error } = await fetchAttendance({
+                    columns: ['attendance_date'],
+                    filters: [{ column: 'user_id', op: 'eq', value: santri.id }],
+                    order: [{ column: 'attendance_date', ascending: true }],
+                });
                 if (error) throw error;
 
                 setAttendance(data || []);
@@ -140,36 +150,49 @@ const AttendanceRecap = () => {
         const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
         try {
-            let classQuery = supabase.from('classes').select('id, nama_kelas, sesi, id_guru, is_active').eq('is_active', true);
-            if (role === 'guru') {
-                classQuery = classQuery.eq('id_guru', user?.id);
-            }
+            // is_active bertipe boolean dan tersimpan sebagai 1/0 di D1.
+            const classFilters = [{ column: 'is_active', op: 'eq', value: 1 }];
+            if (role === 'guru') classFilters.push({ column: 'id_guru', op: 'eq', value: user?.id });
 
             const calendarStartDate = `${selectedYear}-01-01`;
             const calendarEndDate = `${selectedYear}-12-31`;
             const [classResult, calendarResult] = await Promise.all([
-                classQuery,
-                supabase.from('academic_calendar').select('date, is_holiday').gte('date', calendarStartDate).lte('date', calendarEndDate).eq('is_holiday', true),
+                fetchClassesForRecap({
+                    columns: ['id', 'nama_kelas', 'sesi', 'id_guru', 'is_active'],
+                    filters: classFilters,
+                }),
+                fetchHolidayDates(calendarStartDate, calendarEndDate),
             ]);
             const { data: classData, error: classError } = classResult;
-            const { data: calendarData, error: calError } = calendarResult;
+            const { data: holidayDates, error: calError } = calendarResult;
 
             if (classError || calError) throw new Error('Gagal mengambil konfigurasi rekap absensi');
 
-            const from = (currentPage - 1) * PAGE_SIZE;
-            const to = from + PAGE_SIZE - 1;
             const normalizedSearch = debouncedSearch.replace(/[%_,().]/g, ' ').trim();
-            let santriQuery = supabase
-                .from('santri')
-                .select('id, nama_lengkap, sesi_mengaji, current_class_id, foto_url, avatar_path, kategori, status', { count: 'exact' })
-                .is('deleted_at', null)
-                .or('status.is.null,status.ilike.aktif,status.ilike.active');
+            const santriFilters = [
+                { column: 'deleted_at', op: 'is_null' },
+                {
+                    or: [
+                        { column: 'status', op: 'is_null' },
+                        { column: 'status', op: 'ilike', value: 'aktif' },
+                        { column: 'status', op: 'ilike', value: 'active' },
+                    ],
+                },
+            ];
 
-            if (activeTab === 'dewasa') santriQuery = santriQuery.ilike('kategori', 'Dewasa');
-            else santriQuery = santriQuery.or('kategori.is.null,kategori.neq.Dewasa');
+            if (activeTab === 'dewasa') {
+                santriFilters.push({ column: 'kategori', op: 'ilike', value: 'Dewasa' });
+            } else {
+                santriFilters.push({
+                    or: [
+                        { column: 'kategori', op: 'is_null' },
+                        { column: 'kategori', op: 'neq', value: 'Dewasa' },
+                    ],
+                });
+            }
 
             if (selectedClass !== 'all') {
-                santriQuery = santriQuery.eq('current_class_id', selectedClass);
+                santriFilters.push({ column: 'current_class_id', op: 'eq', value: selectedClass });
             } else if (role === 'guru') {
                 const classIds = (classData || []).map((item) => item.id);
                 if (classIds.length === 0) {
@@ -177,31 +200,39 @@ const AttendanceRecap = () => {
                     setAllUsers([]);
                     setTotalUsers(0);
                     setClasses(classData || []);
-                    setHolidays(new Set((calendarData || []).map(c => c.date)));
+                    setHolidays(holidayDates);
                     return;
                 }
-                santriQuery = santriQuery.in('current_class_id', classIds);
+                santriFilters.push({ column: 'current_class_id', op: 'in', value: classIds });
             }
 
             if (selectedSession !== 'all') {
-                santriQuery = santriQuery.in('sesi_mengaji', [
-                    String(getSessionNumber(selectedSession)),
-                    selectedSession,
-                ]);
+                santriFilters.push({
+                    column: 'sesi_mengaji',
+                    op: 'in',
+                    value: [String(getSessionNumber(selectedSession)), selectedSession],
+                });
             }
 
-            if (normalizedSearch) santriQuery = santriQuery.ilike('nama_lengkap', `%${normalizedSearch}%`);
-            santriQuery = santriQuery.order('nama_lengkap', { ascending: true }).range(from, to);
+            if (normalizedSearch) {
+                santriFilters.push({ column: 'nama_lengkap', op: 'ilike', value: `%${normalizedSearch}%` });
+            }
 
-            const { data: santri, error: sanError, count } = await santriQuery;
+            const { data: santri, error: sanError, count } = await fetchRecapSantriPage({
+                filters: santriFilters,
+                page: currentPage,
+                pageSize: PAGE_SIZE,
+            });
+
             const santriIds = (santri || []).map((item) => item.id);
             const attendanceResult = santriIds.length > 0
-                ? await supabase
-                    .from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
-                    .in('user_id', santriIds)
-                    .gte('attendance_date', startDate)
-                    .lte('attendance_date', endDate)
-                    .range(0, 4999)
+                ? await fetchAttendanceForUsers({
+                    userIds: santriIds,
+                    extraFilters: [
+                        { column: 'attendance_date', op: 'gte', value: startDate },
+                        { column: 'attendance_date', op: 'lte', value: endDate },
+                    ],
+                })
                 : { data: [], error: null };
             const { data: attendance, error: attError } = attendanceResult;
 
@@ -224,7 +255,7 @@ const AttendanceRecap = () => {
                 setSelectedClass(classData[0].id);
             }
 
-            const holidaySet = new Set((calendarData || []).map(c => c.date));
+            const holidaySet = holidayDates;
             setHolidays(holidaySet);
 
             const years = [selectedYear, new Date().getFullYear()];

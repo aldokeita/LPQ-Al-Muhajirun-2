@@ -7,7 +7,14 @@ import { Plus, Edit, Trash2, Search, Upload, Eye, EyeOff, UserCheck, Filter, Mai
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/lib/customSupabaseClient';
+import { manageUser } from '@/lib/dataClient';
+import {
+  GURU_BACKUP_COLUMNS,
+  deactivateGuruProfile,
+  fetchGuru,
+  updateGuru,
+  upsertGuru,
+} from '@/lib/guruAdapters';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,10 +48,7 @@ const GuruManagement = () => {
   const fetchGuru = useCallback(async () => {
     try {
         console.log("Fetching guru data from database...");
-        const { data, error } = await supabase
-          .from('guru')
-          .select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at')
-          .order('nama');
+        const { data, error } = await fetchGuru();
         if (error) {
             console.error("Database Error fetching guru:", error);
             throw new Error(error.message);
@@ -106,15 +110,15 @@ const GuruManagement = () => {
     if (window.confirm(`Yakin ingin menonaktifkan ${guruToDelete.nama}? Akun login akan dinonaktifkan tanpa hard delete.`)) {
       try {
           const operationalRole = (guruToDelete.roles || []).includes('Pentashih') ? 'pentashih' : 'guru';
-          const { data, error: edgeError } = await supabase.functions.invoke('manage-user', {
-            body: { action: 'deactivate', role: operationalRole, target_user_id: guruToDelete.id }
+          const { data, error: edgeError } = await manageUser({
+            action: 'deactivate', role: operationalRole, target_user_id: guruToDelete.id,
           });
           if (edgeError || !data?.ok) {
             toast({ title: "Gagal Hapus User Login", description: edgeError?.message || data?.error?.message || 'Akun gagal dinonaktifkan.', variant: "destructive" });
             return;
           }
 
-          const { error: profileError } = await supabase.from('guru').update({ status: 'inactive' }).eq('id', guruToDelete.id);
+          const { error: profileError } = await deactivateGuruProfile(guruToDelete.id);
           if (profileError) {
               console.error("Database Delete Error:", profileError);
               throw new Error(profileError.message);
@@ -134,7 +138,7 @@ const GuruManagement = () => {
         toast({ title: "Memproses Backup", description: "Sedang menyiapkan data untuk diekspor..." });
         console.log("Starting Backup to Excel for Guru...");
 
-        const { data: allGuru, error } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').order('nama');
+        const { data: allGuru, error } = await fetchGuru({ columns: GURU_BACKUP_COLUMNS });
         if (error) {
             console.error("Backup DB Fetch Error:", error);
             throw new Error(error.message);
@@ -213,10 +217,7 @@ const GuruManagement = () => {
           setPreviewImage(finalUrl);
 
           if (editingGuru) {
-              const { error: updateError } = await supabase
-                .from('guru')
-                .update({ avatar_path: path })
-                .eq('id', editingGuru.id);
+              const { error: updateError } = await updateGuru(editingGuru.id, { avatar_path: path });
               if (updateError) {
                   throw new Error("Gagal menyimpan referensi foto ke database.");
               }
@@ -275,13 +276,11 @@ const GuruManagement = () => {
 
     try {
         if (!editingGuru) {
-          const { data, error } = await supabase.functions.invoke('manage-user', {
-            body: {
-              action: 'create',
-              role: operationalRole,
-              profile: pickGuruProfileFields(formData, operationalRole),
-              initial_password: formData.password,
-            },
+          const { data, error } = await manageUser({
+            action: 'create',
+            role: operationalRole,
+            profile: pickGuruProfileFields(formData, operationalRole),
+            initial_password: formData.password,
           });
           if (error) throw error;
           if (!data?.ok || !data?.data?.user_id) {
@@ -306,7 +305,7 @@ const GuruManagement = () => {
 
         const dataToSubmit = { ...pickGuruProfileFields(formData, operationalRole), id: userId };
 
-        const { error: profileError } = await supabase.from('guru').upsert(dataToSubmit);
+        const { error: profileError } = await upsertGuru(dataToSubmit);
 
         if (profileError) {
             console.error("Database Upsert Error:", profileError);

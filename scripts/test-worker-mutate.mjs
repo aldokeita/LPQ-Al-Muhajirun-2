@@ -160,6 +160,30 @@ const run = async () => {
   await expectRejected('baris tak dikenal ditolak', deleteRow(db, adminAuth, { table: 'santri_notes', id: 'tidak-ada' }));
   console.log('');
 
+  console.log('baris tanpa kolom scope:');
+  // Kehadiran guru tidak terikat kelas mana pun, jadi barisnya memang tidak memuat
+  // class_id. Admin boleh menyisipnya, sama seperti di bawah RLS.
+  const tanpaKelas = await insertRow(db, adminAuth, {
+    table: 'attendance',
+    values: {
+      user_id: guru.guru_id, role: 'guru', attendance_date: '2031-03-02',
+      check_in_time: '07:00', sesi: 'Pagi', status: 'Hadir',
+    },
+  });
+  check('admin boleh menyisip tanpa class_id', typeof tanpaKelas.id, 'string');
+  check('class_id tersimpan sebagai null',
+    sqlite.prepare('select class_id from attendance where id = ?').get(tanpaKelas.id).class_id, null);
+
+  // Yang bukan admin tetap ditolak: predikat berbasis kelas tidak pernah lolos untuk null.
+  await expectRejected('guru ditolak menyisip tanpa class_id', insertRow(db, guruAuth, {
+    table: 'attendance',
+    values: {
+      user_id: guru.guru_id, role: 'guru', attendance_date: '2031-03-03',
+      check_in_time: '07:00', sesi: 'Pagi', status: 'Hadir',
+    },
+  }));
+  console.log('');
+
   console.log('penulisan banyak baris:');
   // Sistem pembayaran dulu mengirim seluruh baris dalam satu perintah insert, jadi
   // kegagalan tidak pernah menyisakan sebagian baris tersimpan. Sifat itu yang diuji.
