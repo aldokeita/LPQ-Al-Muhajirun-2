@@ -14,6 +14,20 @@
     "run_worker_first": ["/api/*"]
   },
 
+  // Menambahkan "routes" membuat wrangler mematikan workers.dev secara diam-diam,
+  // jadi nilainya ditulis tegas di sini dan jangan dihapus.
+  "workers_dev": true,
+
+  // Domain publik dipasang sebagai route, bukan custom_domain. custom_domain menuntut
+  // menulis catatan DNS-nya sendiri dan ditolak selama catatan lama peninggalan Vercel
+  // masih ada (kode 100117). Route justru menumpang catatan terproksi yang sudah ada:
+  // permintaan ke kedua nama ini dicegat Worker sebelum sampai ke asal lama, tanpa
+  // menyentuh DNS sama sekali. Menghapus blok ini mengembalikan lalu lintas ke Vercel.
+  "routes": [
+    { "pattern": "lpqalmuhajirun.id/*", "zone_name": "lpqalmuhajirun.id" },
+    { "pattern": "www.lpqalmuhajirun.id/*", "zone_name": "lpqalmuhajirun.id" }
+  ],
+
   "d1_databases": [
     {
       "binding": "DB",
