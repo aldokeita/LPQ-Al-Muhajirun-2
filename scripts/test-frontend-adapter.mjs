@@ -193,6 +193,40 @@ const run = async () => {
     sumber.classes.filter((c) => !c.guru?.nama).every((c) => c.warnings.includes('Guru belum ditentukan')), true);
   console.log('');
 
+  console.log('financeAdapters (konversi sen):');
+  const { createExpense, fetchExpensesByPeriod, fetchCashflowSummary, softDeleteExpense } =
+    await import('../src/lib/financeAdapters.js');
+
+  const NOMINAL = 125000.5;
+  const dibuat = await createExpense({
+    tanggal_pengeluaran: '2026-09-20',
+    kategori: 'Operasional',
+    deskripsi: 'Uji konversi sen',
+    jumlah: NOMINAL,
+  }, null);
+  check('pengeluaran tersimpan', typeof dibuat.id, 'string');
+
+  // Inti pengujian ini: nilai di database harus sen, bukan rupiah. Salah arah konversi
+  // membuat angka seratus kali lipat atau seperseratusnya, dan tidak memunculkan galat.
+  const tersimpan = sqlite.prepare('select jumlah from expenses where id = ?').get(dibuat.id).jumlah;
+  check('disimpan sebagai sen bulat', tersimpan, Math.round(NOMINAL * 100));
+  check('bukan tersimpan sebagai rupiah', tersimpan === NOMINAL, false);
+
+  const dibaca = await fetchExpensesByPeriod({ year: 2026, month: 9 });
+  const baris = dibaca.find((row) => row.id === dibuat.id);
+  check('dibaca kembali sebagai rupiah', baris.jumlah, NOMINAL);
+
+  const ringkasan = await fetchCashflowSummary({ year: 2026, month: 9 });
+  check('total pengeluaran dalam rupiah', ringkasan.totalPengeluaran >= NOMINAL, true);
+  check('total pemasukan masuk akal', ringkasan.totalPemasukan >= 0, true);
+
+  await softDeleteExpense(dibuat.id);
+  const setelahHapus = sqlite.prepare('select deleted_at from expenses where id = ?').get(dibuat.id);
+  check('penghapusan lunak menandai deleted_at', typeof setelahHapus.deleted_at, 'string');
+  const setelahnya = await fetchExpensesByPeriod({ year: 2026, month: 9 });
+  check('baris terhapus tidak ikut terbaca', setelahnya.some((row) => row.id === dibuat.id), false);
+  console.log('');
+
   console.log('galat RPC diteruskan apa adanya:');
   const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
   check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');

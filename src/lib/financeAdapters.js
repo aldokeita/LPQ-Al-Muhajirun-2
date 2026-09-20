@@ -1,4 +1,16 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { insert, query, remove, update } from '@/lib/dataClient';
+
+// D1 menyimpan uang sebagai INTEGER dalam satuan sen, sedangkan seluruh modul ini dan
+// antarmukanya bekerja dengan rupiah desimal. Konversinya dilakukan di batas modul agar
+// sisa berkas dan komponen yang memakainya tidak perlu berubah.
+//
+// Ini bukan detail kosmetik: membaca nilai sen sebagai rupiah akan menampilkan angka
+// seratus kali lipat, dan menulis rupiah sebagai sen akan mencatat seperseratusnya.
+const centsToRupiah = (cents) => Number(cents ?? 0) / 100;
+const rupiahToCents = (rupiah) => Math.round(Number(rupiah || 0) * 100);
+const withRupiah = (rows) => rows.map((row) => (
+  Object.prototype.hasOwnProperty.call(row, 'jumlah') ? { ...row, jumlah: centsToRupiah(row.jumlah) } : row
+));
 
 export const expenseCategories = [
     'Operasional',
@@ -100,44 +112,51 @@ export const normalizeExpensePayload = (formData, userId) => {
 };
 
 export const fetchExpensesByPeriod = async ({ year, month = 'all', date = null }) => {
-    let query = supabase
-        .from('expenses')
-        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,bukti_url,created_at,updated_at,deleted_at')
-        .is('deleted_at', null);
+    const filters = [{ column: 'deleted_at', op: 'is_null' }];
 
     if (date) {
-        query = query.eq('tanggal_pengeluaran', date);
+        filters.push({ column: 'tanggal_pengeluaran', op: 'eq', value: date });
     } else {
         const { startDate, endDate } = getPeriodDateRange({ year, month });
-        query = query
-            .gte('tanggal_pengeluaran', startDate)
-            .lte('tanggal_pengeluaran', endDate);
+        filters.push({ column: 'tanggal_pengeluaran', op: 'gte', value: startDate });
+        filters.push({ column: 'tanggal_pengeluaran', op: 'lte', value: endDate });
     }
 
-    const { data, error } = await query
-        .order('tanggal_pengeluaran', { ascending: false })
-        .order('created_at', { ascending: false });
+    const { data, error } = await query({
+        table: 'expenses',
+        columns: ['id', 'tanggal_pengeluaran', 'kategori', 'deskripsi', 'jumlah', 'bukti_url', 'created_at', 'updated_at', 'deleted_at'],
+        filters,
+        order: [
+            { column: 'tanggal_pengeluaran', ascending: false },
+            { column: 'created_at', ascending: false },
+        ],
+        limit: 1000,
+    });
 
     if (error) throw error;
-    return data || [];
+    return withRupiah(data || []);
 };
 
 export const fetchDailyExpenseSummary = async ({ year, month = 'all' }) => {
     const { startDate, endDate } = getPeriodDateRange({ year, month });
-    const { data, error } = await supabase
-        .from('expenses')
-        .select('tanggal_pengeluaran,jumlah')
-        .is('deleted_at', null)
-        .gte('tanggal_pengeluaran', startDate)
-        .lte('tanggal_pengeluaran', endDate);
+    const { data, error } = await query({
+        table: 'expenses',
+        columns: ['tanggal_pengeluaran', 'jumlah'],
+        filters: [
+            { column: 'deleted_at', op: 'is_null' },
+            { column: 'tanggal_pengeluaran', op: 'gte', value: startDate },
+            { column: 'tanggal_pengeluaran', op: 'lte', value: endDate },
+        ],
+        limit: 1000,
+    });
 
     if (error) throw error;
 
+    // Penjumlahan tetap dilakukan dalam sen agar tidak ada pembulatan yang menumpuk.
     const totals = {};
     (data || []).forEach((row) => {
         const day = row.tanggal_pengeluaran;
-        const cents = Math.round(Number(row.jumlah || 0) * 100);
-        totals[day] = (totals[day] || 0) + cents;
+        totals[day] = (totals[day] || 0) + Number(row.jumlah ?? 0);
     });
 
     return Object.keys(totals)
@@ -154,40 +173,31 @@ export const createExpense = async (formData, userId) => {
         created_by: userId || null
     };
 
-    const { data, error } = await supabase
-        .from('expenses')
-        .insert(payload)
-        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,bukti_url')
-        .single();
+    // created_by dan updated_by ditetapkan server; nilai dari sini akan diabaikan.
+    const { data, error } = await insert('expenses', {
+        ...payload,
+        jumlah: rupiahToCents(payload.jumlah),
+    });
 
     if (error) throw error;
-    return data;
+    return { ...payload, id: data?.id ?? null };
 };
 
 export const updateExpense = async (id, formData, userId) => {
     const payload = normalizeExpensePayload(formData, userId);
-    const { data, error } = await supabase
-        .from('expenses')
-        .update(payload)
-        .eq('id', id)
-        .is('deleted_at', null)
-        .select('id,tanggal_pengeluaran,kategori,deskripsi,jumlah,bukti_url')
-        .single();
+    const { error } = await update('expenses', id, {
+        ...payload,
+        jumlah: rupiahToCents(payload.jumlah),
+    });
 
     if (error) throw error;
-    return data;
+    return { ...payload, id };
 };
 
-export const softDeleteExpense = async (id, userId) => {
-    const { error } = await supabase
-        .from('expenses')
-        .update({
-            deleted_at: new Date().toISOString(),
-            updated_by: userId || null
-        })
-        .eq('id', id)
-        .is('deleted_at', null);
-
+export const softDeleteExpense = async (id) => {
+    // Tabel expenses punya kolom deleted_at, jadi endpoint hapus melakukan penghapusan
+    // lunak dan sekaligus mengisi updated_by dengan identitas pemanggil.
+    const { error } = await remove('expenses', id);
     if (error) throw error;
 };
 
@@ -201,22 +211,24 @@ export const fetchCashflowSummary = async ({ year, month = 'all' }) => {
     const selectedMonth = month === 'all' ? 'all' : Number(month);
     const { startDate, endDate } = getPeriodDateRange({ year: selectedYear, month: selectedMonth });
 
-    const paymentsQuery = supabase
-        .from('payments')
-        .select('jumlah,tanggal_pembayaran,status,deleted_at')
-        .eq('status', 'paid')
-        .is('deleted_at', null)
-        .gte('tanggal_pembayaran', startDate)
-        .lte('tanggal_pembayaran', endDate);
-
     const [paymentsResult, expenses] = await Promise.all([
-        paymentsQuery,
+        query({
+            table: 'payments',
+            columns: ['jumlah', 'tanggal_pembayaran', 'status', 'deleted_at'],
+            filters: [
+                { column: 'status', op: 'eq', value: 'paid' },
+                { column: 'deleted_at', op: 'is_null' },
+                { column: 'tanggal_pembayaran', op: 'gte', value: startDate },
+                { column: 'tanggal_pembayaran', op: 'lte', value: endDate },
+            ],
+            limit: 1000,
+        }),
         fetchExpensesByPeriod({ year: selectedYear, month: selectedMonth })
     ]);
 
     if (paymentsResult.error) throw paymentsResult.error;
 
-    const totalPemasukan = sumAmounts(paymentsResult.data || []);
+    const totalPemasukan = sumAmounts(withRupiah(paymentsResult.data || []));
     const totalPengeluaran = sumAmounts(expenses);
 
     return {
