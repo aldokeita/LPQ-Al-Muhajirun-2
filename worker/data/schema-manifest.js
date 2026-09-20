@@ -504,6 +504,25 @@ export const JSON_COLUMNS = {
   ]
 };
 
+// Kolom uang disimpan sebagai INTEGER dalam satuan sen, sementara seluruh aplikasi
+// bekerja dengan rupiah desimal. Konversinya dilakukan lapisan data agar tidak ada
+// pemanggil yang perlu mengingatnya — salah arah sekali saja menghasilkan angka seratus
+// kali lipat atau seperseratusnya, tanpa galat apa pun.
+export const MONEY_COLUMNS = {
+  "santri": [
+    "default_spp_amount"
+  ],
+  "expenses": [
+    "jumlah"
+  ],
+  "payments": [
+    "jumlah"
+  ]
+};
+
+export const isMoneyColumn = (table, column) =>
+  Object.prototype.hasOwnProperty.call(MONEY_COLUMNS, table) && MONEY_COLUMNS[table].includes(column);
+
 export const isJsonColumn = (table, column) =>
   Object.prototype.hasOwnProperty.call(JSON_COLUMNS, table) && JSON_COLUMNS[table].includes(column);
 

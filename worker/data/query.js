@@ -8,7 +8,7 @@
 // Nama tabel dan kolom tidak bisa diparameterkan, jadi semuanya dicocokkan dengan
 // manifest yang dihasilkan dari skema sebelum dirangkai. Nilai selalu diparameterkan.
 
-import { SCHEMA_COLUMNS, columnExists, isJsonColumn, tableExists } from './schema-manifest.js';
+import { SCHEMA_COLUMNS, columnExists, isJsonColumn, isMoneyColumn, tableExists } from './schema-manifest.js';
 import { getPolicy } from '../auth/policies.js';
 import { currentUserRole } from '../auth/predicates.js';
 
@@ -228,7 +228,24 @@ export const runQuery = async (db, ctx, authorizer, body) => {
   const sql = `select ${selectList} from ${quote(table)}${whereSql}${orderSql} limit ? offset ?`;
 
   const result = await db.prepare(sql).bind(...params, limit, offset).all();
-  return { rows: decodeJsonColumns(table, result.results ?? []), limit, offset };
+  return { rows: decodeColumns(table, result.results ?? []), limit, offset };
+};
+
+// Nilai uang tersimpan dalam sen; pemanggil menerima rupiah desimal seperti dulu.
+const centsToRupiah = (cents) => (cents === null || cents === undefined ? cents : Number(cents) / 100);
+
+export const decodeColumns = (table, rows) => decodeMoneyColumns(table, decodeJsonColumns(table, rows));
+
+const decodeMoneyColumns = (table, rows) => {
+  const money = SCHEMA_COLUMNS[table]?.filter((column) => isMoneyColumn(table, column)) ?? [];
+  if (money.length === 0) return rows;
+  return rows.map((row) => {
+    const copy = { ...row };
+    for (const column of money) {
+      if (Object.prototype.hasOwnProperty.call(copy, column)) copy[column] = centsToRupiah(copy[column]);
+    }
+    return copy;
+  });
 };
 
 // Kolom jsonb dan array Postgres tersimpan sebagai teks JSON. Membongkarnya di sini

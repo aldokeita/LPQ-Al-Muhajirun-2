@@ -13,7 +13,7 @@
 // 3. Pemeriksaan sebelum dan sesudah. Pada update, baris lama diperiksa lebih dulu;
 //    tanpa itu seseorang bisa mengubah baris yang sebenarnya tidak boleh ia sentuh.
 
-import { SCHEMA_COLUMNS, columnExists, isJsonColumn, tableExists } from './schema-manifest.js';
+import { SCHEMA_COLUMNS, columnExists, isJsonColumn, isMoneyColumn, tableExists } from './schema-manifest.js';
 import { QueryError } from './query.js';
 import { getPolicy } from '../auth/policies.js';
 
@@ -47,6 +47,18 @@ const sanitizeValues = (table, values, { allowServerOwned = false } = {}) => {
     // akan tersimpan sebagai "[object Object]" tanpa memunculkan galat apa pun.
     if (isJsonColumn(table, column)) {
       clean[column] = value === null || value === undefined ? null : JSON.stringify(value);
+      continue;
+    }
+
+    // Uang dikirim dalam rupiah desimal dan disimpan sebagai sen bulat.
+    if (isMoneyColumn(table, column)) {
+      if (value === null || value === undefined || value === '') {
+        clean[column] = null;
+        continue;
+      }
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) throw new QueryError(`Nilai kolom "${column}" bukan angka.`);
+      clean[column] = Math.round(amount * 100);
       continue;
     }
 

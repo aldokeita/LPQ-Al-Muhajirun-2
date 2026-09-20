@@ -245,7 +245,33 @@ dicocokkan terhadap keenam karakter spasi putih yang dicakup Postgres.
 Hasil konversi data ditulis ke `_private_reference/` karena memuat 602 akun beserta hash
 password dan data pribadi santri.
 
-## 10. Risiko yang perlu diawasi
+## 10. Audit satuan uang
+
+Tiga kolom menyimpan uang: `payments.jumlah`, `expenses.jumlah`, dan
+`santri.default_spp_amount`. D1 menyimpannya sebagai `INTEGER` dalam satuan sen,
+sementara seluruh aplikasi dan antarmukanya bekerja dengan rupiah desimal.
+
+Penelusuran menemukan **26 berkas** yang menyentuh nilai uang. Menyerahkan konversinya
+kepada masing-masing berkas berarti dua puluh enam kesempatan untuk lupa, dan lupa di sini
+tidak memunculkan galat apa pun — hanya angka seratus kali lipat atau seperseratusnya yang
+baru ketahuan saat ada yang menyadari rekap keuangannya janggal.
+
+Karena itu konversinya dipindahkan ke lapisan data, memakai daftar kolom yang dihasilkan
+dari skema:
+
+- Dibaca: sen diubah menjadi rupiah desimal sebelum dipulangkan.
+- Ditulis: rupiah desimal dibulatkan menjadi sen bulat.
+- Nilai kosong tetap kosong, bukan menjadi nol rupiah.
+- Nilai yang bukan angka ditolak dengan pesan yang jelas.
+
+Konsekuensinya: **tidak ada modul yang boleh melakukan konversi sendiri.** Konversi manual
+yang sempat ada di `financeAdapters` sudah dicabut, karena membiarkannya akan membuat
+nilainya terkonversi dua kali.
+
+Berkas yang menjumlahkan banyak nilai sebaiknya tetap menjumlahkan dalam sen lalu
+membaginya sekali di akhir, agar pembulatan tidak menumpuk.
+
+## 11. Risiko yang perlu diawasi
 
 **Hilangnya jaring pengaman database.** RLS menjaga data walaupun ada bug di frontend. Setelah
 pindah, satu query yang lupa melewati lapisan otorisasi langsung membocorkan data santri.

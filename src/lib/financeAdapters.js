@@ -1,16 +1,8 @@
 import { insert, query, remove, update } from '@/lib/dataClient';
 
-// D1 menyimpan uang sebagai INTEGER dalam satuan sen, sedangkan seluruh modul ini dan
-// antarmukanya bekerja dengan rupiah desimal. Konversinya dilakukan di batas modul agar
-// sisa berkas dan komponen yang memakainya tidak perlu berubah.
-//
-// Ini bukan detail kosmetik: membaca nilai sen sebagai rupiah akan menampilkan angka
-// seratus kali lipat, dan menulis rupiah sebagai sen akan mencatat seperseratusnya.
-const centsToRupiah = (cents) => Number(cents ?? 0) / 100;
-const rupiahToCents = (rupiah) => Math.round(Number(rupiah || 0) * 100);
-const withRupiah = (rows) => rows.map((row) => (
-  Object.prototype.hasOwnProperty.call(row, 'jumlah') ? { ...row, jumlah: centsToRupiah(row.jumlah) } : row
-));
+// Konversi sen ke rupiah dilakukan lapisan data, bukan di sini. Modul ini menerima dan
+// mengirim rupiah desimal seperti sebelumnya. Menambahkan konversi lagi di sini akan
+// membuat nilainya terkonversi dua kali.
 
 export const expenseCategories = [
     'Operasional',
@@ -134,7 +126,7 @@ export const fetchExpensesByPeriod = async ({ year, month = 'all', date = null }
     });
 
     if (error) throw error;
-    return withRupiah(data || []);
+    return data || [];
 };
 
 export const fetchDailyExpenseSummary = async ({ year, month = 'all' }) => {
@@ -152,11 +144,12 @@ export const fetchDailyExpenseSummary = async ({ year, month = 'all' }) => {
 
     if (error) throw error;
 
-    // Penjumlahan tetap dilakukan dalam sen agar tidak ada pembulatan yang menumpuk.
+    // Nilai yang diterima sudah rupiah desimal. Penjumlahan dilakukan dalam sen supaya
+    // pembulatan tidak menumpuk, lalu dikembalikan ke rupiah di akhir.
     const totals = {};
     (data || []).forEach((row) => {
         const day = row.tanggal_pengeluaran;
-        totals[day] = (totals[day] || 0) + Number(row.jumlah ?? 0);
+        totals[day] = (totals[day] || 0) + Math.round(Number(row.jumlah || 0) * 100);
     });
 
     return Object.keys(totals)
@@ -174,10 +167,7 @@ export const createExpense = async (formData, userId) => {
     };
 
     // created_by dan updated_by ditetapkan server; nilai dari sini akan diabaikan.
-    const { data, error } = await insert('expenses', {
-        ...payload,
-        jumlah: rupiahToCents(payload.jumlah),
-    });
+    const { data, error } = await insert('expenses', payload);
 
     if (error) throw error;
     return { ...payload, id: data?.id ?? null };
@@ -185,10 +175,7 @@ export const createExpense = async (formData, userId) => {
 
 export const updateExpense = async (id, formData, userId) => {
     const payload = normalizeExpensePayload(formData, userId);
-    const { error } = await update('expenses', id, {
-        ...payload,
-        jumlah: rupiahToCents(payload.jumlah),
-    });
+    const { error } = await update('expenses', id, payload);
 
     if (error) throw error;
     return { ...payload, id };
@@ -228,7 +215,7 @@ export const fetchCashflowSummary = async ({ year, month = 'all' }) => {
 
     if (paymentsResult.error) throw paymentsResult.error;
 
-    const totalPemasukan = sumAmounts(withRupiah(paymentsResult.data || []));
+    const totalPemasukan = sumAmounts(paymentsResult.data || []);
     const totalPengeluaran = sumAmounts(expenses);
 
     return {

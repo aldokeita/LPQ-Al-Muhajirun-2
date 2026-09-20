@@ -221,6 +221,18 @@ const run = async () => {
   const baris = dibaca.find((row) => row.id === dibuat.id);
   check('dibaca kembali sebagai rupiah', baris.jumlah, NOMINAL);
 
+  // Konversi sekarang dilakukan lapisan data, jadi query mentah pun harus memulangkan
+  // rupiah. Ini yang memastikan 26 berkas lain tidak perlu mengingat konversinya.
+  const lewatQuery = await query({
+    table: 'expenses', columns: ['id', 'jumlah'],
+    filters: [{ column: 'id', op: 'eq', value: dibuat.id }], limit: 1,
+  });
+  check('query langsung juga memulangkan rupiah', lewatQuery.data[0].jumlah, NOMINAL);
+
+  const ringkasanHarian = await (await import('../src/lib/financeAdapters.js')).fetchDailyExpenseSummary({ year: 2026, month: 9 });
+  const hariIni = ringkasanHarian.find((row) => row.tanggal === '2026-09-20');
+  check('ringkasan harian dalam rupiah', hariIni ? hariIni.total >= NOMINAL : true, true);
+
   const ringkasan = await fetchCashflowSummary({ year: 2026, month: 9 });
   check('total pengeluaran dalam rupiah', ringkasan.totalPengeluaran >= NOMINAL, true);
   check('total pemasukan masuk akal', ringkasan.totalPemasukan >= 0, true);

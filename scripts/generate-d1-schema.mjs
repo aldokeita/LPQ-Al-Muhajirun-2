@@ -406,9 +406,13 @@ const manifest = {};
 // dihasilkan agar lapisan data bisa membongkar dan merangkainya sendiri, dan tidak ada
 // modul yang perlu mengingat kolom mana yang perlu diperlakukan begitu.
 const jsonColumns = {};
+const moneyColumns = {};
 for (const name of ordered) {
   const table = tables.get(name);
   manifest[name] = table.columns.map((c) => c.name);
+
+  const money = table.columns.filter((c) => MONEY_COLUMNS.has(`${name}.${c.name}`)).map((c) => c.name);
+  if (money.length > 0) moneyColumns[name] = money;
   const encoded = table.columns
     .filter((c) => {
       const type = normalizeType(c.pgType);
@@ -425,6 +429,15 @@ export const SCHEMA_COLUMNS = ${JSON.stringify(manifest, null, 2)};
 
 // Kolom yang isinya JSON: dibongkar saat dibaca, dirangkai saat ditulis.
 export const JSON_COLUMNS = ${JSON.stringify(jsonColumns, null, 2)};
+
+// Kolom uang disimpan sebagai INTEGER dalam satuan sen, sementara seluruh aplikasi
+// bekerja dengan rupiah desimal. Konversinya dilakukan lapisan data agar tidak ada
+// pemanggil yang perlu mengingatnya — salah arah sekali saja menghasilkan angka seratus
+// kali lipat atau seperseratusnya, tanpa galat apa pun.
+export const MONEY_COLUMNS = ${JSON.stringify(moneyColumns, null, 2)};
+
+export const isMoneyColumn = (table, column) =>
+  Object.prototype.hasOwnProperty.call(MONEY_COLUMNS, table) && MONEY_COLUMNS[table].includes(column);
 
 export const isJsonColumn = (table, column) =>
   Object.prototype.hasOwnProperty.call(JSON_COLUMNS, table) && JSON_COLUMNS[table].includes(column);

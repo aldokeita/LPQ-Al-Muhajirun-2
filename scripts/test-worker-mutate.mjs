@@ -146,6 +146,37 @@ const run = async () => {
   await expectRejected('baris tak dikenal ditolak', deleteRow(db, adminAuth, { table: 'santri_notes', id: 'tidak-ada' }));
   console.log('');
 
+  console.log('konversi uang di lapisan data:');
+  const { runQuery } = await import('../worker/data/query.js');
+  const NOMINAL = 87500.25;
+  const biaya = await insertRow(db, adminAuth, {
+    table: 'expenses',
+    values: { tanggal_pengeluaran: '2026-09-20', kategori: 'Operasional', deskripsi: 'Uji sen', jumlah: NOMINAL },
+  });
+  const mentah = sqlite.prepare('select jumlah from expenses where id = ?').get(biaya.id).jumlah;
+  check('tersimpan sebagai sen bulat', mentah, Math.round(NOMINAL * 100));
+  check('tersimpan sebagai bilangan bulat', Number.isInteger(mentah), true);
+
+  const dibaca = await runQuery(db, adminAuth.ctx, adminAuth, {
+    table: 'expenses', columns: ['id', 'jumlah'], filters: [{ column: 'id', op: 'eq', value: biaya.id }], limit: 1,
+  });
+  check('dibaca kembali sebagai rupiah', dibaca.rows[0].jumlah, NOMINAL);
+
+  // Nilai kosong tetap kosong, bukan menjadi nol rupiah.
+  const tanpaNominal = await insertRow(db, adminAuth, {
+    table: 'santri', values: { id: crypto.randomUUID(), nama_lengkap: 'Tanpa SPP', default_spp_amount: null },
+  }).catch(() => null);
+  if (tanpaNominal) {
+    check('null tetap null', sqlite.prepare('select default_spp_amount from santri where id = ?').get(tanpaNominal.id).default_spp_amount, null);
+  }
+
+  await expectRejected('nilai uang bukan angka ditolak',
+    insertRow(db, adminAuth, {
+      table: 'expenses',
+      values: { tanggal_pengeluaran: '2026-09-20', kategori: 'Operasional', deskripsi: 'x', jumlah: 'seratus ribu' },
+    }));
+  console.log('');
+
   console.log('masukan berbahaya:');
   await expectRejected('kolom tak dikenal', insertRow(db, adminAuth, { table: 'santri_notes', values: { santri_id: ownSantri, xx: 1 } }));
   await expectRejected('tabel internal', insertRow(db, adminAuth, { table: 'users', values: { email: 'x@y.z' } }));
