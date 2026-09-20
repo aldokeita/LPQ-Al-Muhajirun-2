@@ -9,7 +9,7 @@ import {
 import SplitText from '@/components/reactbits/SplitText/SplitText';
 import GradientText from '@/components/reactbits/GradientText/GradientText';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import '@/styles/public-qiroati.css';
 
@@ -102,11 +102,11 @@ const QiroatiMethodPage = () => {
 
   useEffect(() => {
     const fetchVideos = async () => {
-      const { data, error } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'qiroatiVideos')
-        .maybeSingle();
+      const { data, error } = await queryOne({
+      table: 'website_content',
+      columns: ['content'],
+      filters: [{ column: 'key', op: 'eq', value: 'qiroatiVideos' }],
+    });
 
       const defaultVideos = [
         { id: 1, title: 'Pengenalan Metode Qiroati untuk Pemula', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },

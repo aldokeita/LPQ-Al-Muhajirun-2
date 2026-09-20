@@ -109,8 +109,15 @@ const run = async () => {
   console.log('tanpa login:');
   const news = await query(null, { table: 'news', columns: ['id', 'status'], limit: 10 });
   check('hanya berita berstatus published', news.rows.every((r) => r.status === 'published'), true);
-  await expectRejected('ditolak membaca santri', null, { table: 'santri', columns: ['id'] });
-  await expectRejected('ditolak membaca payments', null, { table: 'payments', columns: ['id'] });
+
+  // Tabel tanpa jalur publik memulangkan himpunan kosong, bukan galat, persis seperti RLS.
+  // Yang wajib dibuktikan adalah nol baris, bukan adanya pesan penolakan.
+  const santriAnon = await query(null, { table: 'santri', columns: ['id'], limit: 1000 });
+  check('tidak melihat satu pun santri', santriAnon.rows.length, 0);
+  const paymentsAnon = await query(null, { table: 'payments', columns: ['id'], limit: 1000 });
+  check('tidak melihat satu pun payments', paymentsAnon.rows.length, 0);
+  const guruAnon = await query(null, { table: 'guru', columns: ['id'], limit: 1000 });
+  check('tidak melihat satu pun guru', guruAnon.rows.length, 0);
   console.log('');
 
   console.log('penolakan masukan berbahaya:');

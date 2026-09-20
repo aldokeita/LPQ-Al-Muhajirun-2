@@ -194,10 +194,12 @@ export const runQuery = async (db, ctx, authorizer, body) => {
     const clause = await buildAuthorizationClause(ctx, table, policy);
     if (clause) { where.push(clause.sql); params.push(...clause.params); }
   } else {
-    // Tanpa login hanya baris publik yang boleh terbaca, dan hanya untuk tabel
-    // yang memang punya jalur publik.
+    // Tanpa login hanya baris publik yang boleh terbaca. Tabel tanpa jalur publik
+    // memulangkan himpunan kosong, bukan galat — itulah yang dilakukan RLS, dan halaman
+    // publik yang membaca tabel tertutup selama ini memang menampilkan bagian kosong.
+    // Menggantinya dengan galat akan mengubah halaman yang kosong menjadi halaman rusak.
     const publicRead = authorizer.publicRead(table);
-    if (!publicRead) throw new QueryError('Akses ditolak.', 403);
+    if (!publicRead) return { rows: [], limit: DEFAULT_LIMIT, offset: 0 };
     where.push(`(${publicRead.where})`);
     params.push(...publicRead.params);
   }

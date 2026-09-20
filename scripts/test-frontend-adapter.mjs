@@ -63,10 +63,13 @@ const check = (label, actual, expected = true) => {
 
 const run = async () => {
   console.log('sebelum login:');
+  // Tanpa sesi, tabel tertutup memulangkan himpunan kosong seperti yang dilakukan RLS.
+  // Yang wajib dijamin adalah tidak ada satu baris pun yang bocor, bukan adanya galat.
   const denied = await query({ table: 'santri', columns: ['id'], limit: 5 });
-  check('membaca santri ditolak', denied.error !== null, true);
-  check('galat memulangkan objek Error', denied.error instanceof Error, true);
-  check('data null saat galat', denied.data, null);
+  check('tidak ada galat', denied.error, null);
+  check('tidak ada satu baris santri pun', denied.data.length, 0);
+  const deniedPayments = await query({ table: 'payments', columns: ['id'], limit: 5 });
+  check('tidak ada satu baris payments pun', deniedPayments.data.length, 0);
   console.log('');
 
   console.log('login admin uji:');
@@ -289,9 +292,9 @@ const run = async () => {
   const sebelumKirim = hitungMasukan();
   await konten.submitPublicFeedback({ nama: 'Pengunjung Uji', message: 'Pesan uji migrasi.' });
   check('masukan tersimpan tanpa login', hitungMasukan(), sebelumKirim + 1);
-  let bacaFeedbackGagal = false;
-  try { await konten.fetchAdminFeedbacks(); } catch { bacaFeedbackGagal = true; }
-  check('membaca masukan ditolak tanpa login', bacaFeedbackGagal, true);
+  // Pengunjung boleh mengirim, tetapi tidak boleh melihat satu pun masukan.
+  const masukanTerlihat = await konten.fetchAdminFeedbacks();
+  check('pengunjung tidak melihat masukan siapa pun', masukanTerlihat.length, 0);
   // Pembersihan lewat API, karena handle SQLite di sini hanya untuk membaca.
   sessionCookie = cookieTersimpan;
   const masukan = (await konten.fetchAdminFeedbacks()).filter((row) => row.message === 'Pesan uji migrasi.');
@@ -389,6 +392,28 @@ const run = async () => {
 
   const murojaah = await akademik.fetchMurojaahSubmissions();
   check('murojaah punya relasi santri', murojaah.every((row) => 'santri' in row), true);
+  console.log('');
+
+  console.log('halaman publik tanpa login:');
+  const cookieHalaman = sessionCookie;
+  sessionCookie = null;
+
+  // Halaman publik membaca website_content lewat queryOne. Yang dijaga: pembacaan
+  // berhasil tanpa sesi, dan hanya baris publik yang terbaca.
+  const kontenPublik = await queryOne({
+    table: 'website_content', columns: ['key', 'content', 'is_public'],
+    filters: [{ column: 'key', op: 'eq', value: 'logoUrl' }],
+  });
+  check('konten situs terbaca tanpa login', kontenPublik.error, null);
+  if (kontenPublik.data) check('hanya konten publik', kontenPublik.data.is_public, 1);
+
+  // Tabel tertutup memulangkan kosong, bukan galat — halaman publik yang membacanya
+  // menampilkan bagian kosong, bukan halaman rusak.
+  const guruPublik = await query({ table: 'guru', columns: ['id', 'nama'], limit: 10 });
+  check('tabel guru memulangkan kosong tanpa galat', guruPublik.error, null);
+  check('tidak ada baris guru untuk pengunjung', guruPublik.data.length, 0);
+
+  sessionCookie = cookieHalaman;
   console.log('');
 
   console.log('galat RPC diteruskan apa adanya:');

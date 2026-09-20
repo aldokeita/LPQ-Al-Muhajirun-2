@@ -14,7 +14,7 @@ import {
   RefreshCw,
   Loader2,
 } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import '@/styles/public-parenting.css';
 
 /* ---------- Animation Variants ---------- */
@@ -183,11 +183,11 @@ const ParentingPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'parentingArticles')
-        .single();
+      const { data, error: fetchError } = await queryOne({
+      table: 'website_content',
+      columns: ['content'],
+      filters: [{ column: 'key', op: 'eq', value: 'parentingArticles' }],
+    });
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         setError('Gagal memuat artikel parenting. Silakan coba lagi.');

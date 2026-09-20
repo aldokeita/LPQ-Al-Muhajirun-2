@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, Video, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import { toast } from '@/components/ui/use-toast';
 
 const WaliDiscussionPage = () => {
@@ -15,11 +15,11 @@ const WaliDiscussionPage = () => {
     useEffect(() => {
         const fetchDiscussions = async () => {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('website_content')
-                .select('content')
-                .eq('key', 'waliDiscussions')
-                .single();
+            const { data, error } = await queryOne({
+      table: 'website_content',
+      columns: ['content'],
+      filters: [{ column: 'key', op: 'eq', value: 'waliDiscussions' }],
+    });
 
             if (error && error.code !== 'PGRST116') {
                 toast({ title: "Error", description: "Gagal memuat jadwal diskusi.", variant: "destructive" });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import { Image as ImageIcon, AlertTriangle, RefreshCw, X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import '@/styles/public-gallery.css';
 
@@ -253,11 +253,11 @@ const GalleryPage = () => {
     setLoading(true);
     setError(false);
     try {
-      const { data, error: fetchErr } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'galleryPhotos')
-        .maybeSingle();
+      const { data, error: fetchErr } = await queryOne({
+      table: 'website_content',
+      columns: ['content'],
+      filters: [{ column: 'key', op: 'eq', value: 'galleryPhotos' }],
+    });
 
       if (fetchErr) throw fetchErr;
 

@@ -13,7 +13,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import '@/styles/public-facilities.css';
 
@@ -175,11 +175,11 @@ const FacilitiesPage = () => {
     setLoading(true);
     setError(false);
     try {
-      const { data, error: fetchErr } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'facilities')
-        .maybeSingle();
+      const { data, error: fetchErr } = await queryOne({
+      table: 'website_content',
+      columns: ['content'],
+      filters: [{ column: 'key', op: 'eq', value: 'facilities' }],
+    });
 
       if (fetchErr) throw fetchErr;
 

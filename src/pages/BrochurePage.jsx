@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query } from '@/lib/dataClient';
 import { Download, Eye, FileText, Image as ImageIcon, X, Loader2, RefreshCw, BookOpen } from 'lucide-react';
 import '@/styles/public-brochure.css';
 
@@ -324,10 +324,12 @@ const BrochurePage = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('website_content')
-        .select('key, content')
-        .in('key', ['brochures', 'pustaka']);
+      const { data, error: fetchError } = await query({
+      table: 'website_content',
+      columns: ['key', 'content'],
+      filters: [{ column: 'key', op: 'in', value: ['brochures', 'pustaka'] }],
+      limit: 100,
+    });
 
       if (fetchError) {
         throw new Error(fetchError.message || 'Gagal memuat data brosur');

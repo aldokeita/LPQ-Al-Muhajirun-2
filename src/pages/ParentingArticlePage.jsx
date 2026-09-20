@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryOne } from '@/lib/dataClient';
 import {
   User,
   Clock,
@@ -157,11 +157,11 @@ const ParentingArticlePage = () => {
   useEffect(() => {
     const fetchArticle = async () => {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('website_content')
-        .select('content')
-        .eq('key', 'parentingArticles')
-        .single();
+      const { data, error: fetchError } = await queryOne({
+      table: 'website_content',
+      columns: ['content'],
+      filters: [{ column: 'key', op: 'eq', value: 'parentingArticles' }],
+    });
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         setError('Gagal memuat artikel. Silakan coba lagi.');
