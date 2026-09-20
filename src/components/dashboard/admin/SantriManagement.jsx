@@ -18,7 +18,7 @@ import {
   santriCategoryValues,
   updateSantriProfile,
 } from '@/lib/santriManagementAdapters';
-import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
+import { enableAccountManagement, accountManagementDisabledMessage } from '@/lib/featureFlags';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
@@ -628,10 +628,10 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const confirmBulkUpload = async () => {
     if (!uploadReport?.validData || uploadReport.validData.length === 0) return;
 
-    if (!enableEdgeFunctions) {
+    if (!enableAccountManagement) {
       toast({
         title: 'Impor Massal Tidak Tersedia',
-        description: 'Impor massal santri memerlukan Edge Function yang belum aktif di environment ini. Aktifkan VITE_ENABLE_EDGE_FUNCTIONS=true.',
+        description: 'Impor massal santri membutuhkan pengelolaan akun yang sedang dimatikan sementara oleh administrator.',
         variant: 'destructive',
       });
       return;
@@ -866,7 +866,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       return;
     }
 
-    if (finalFormData.default_spp_amount !== '' && finalFormData.default_spp_amount !== null) {
+    // Kolom ini boleh kosong. Field-nya menampilkan `?? ''`, jadi nilai undefined
+    // terlihat kosong di layar dan harus ikut dianggap kosong di sini juga.
+    if (finalFormData.default_spp_amount !== '' && finalFormData.default_spp_amount != null) {
       const defaultSppAmount = Number(finalFormData.default_spp_amount);
       if (!Number.isFinite(defaultSppAmount) || defaultSppAmount < 10000) {
         toast({ title: "Default SPP Tidak Valid", description: "Default SPP minimal Rp10.000 atau kosongkan jika belum ditentukan.", variant: "destructive" });
@@ -879,8 +881,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       let targetId = editingSantri?.id;
 
       if (!editingSantri) {
-        if (!enableEdgeFunctions) {
-          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+        if (!enableAccountManagement) {
+          toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
           return;
         }
         const { data, error } = await manageUser({
@@ -922,14 +924,14 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       }
 
       const needsAuthEdgeFunction = shouldArchiveAfterSave;
-      if (needsAuthEdgeFunction && !enableEdgeFunctions) {
-        toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+      if (needsAuthEdgeFunction && !enableAccountManagement) {
+        toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
         return;
       }
 
       if (editingSantri && Object.prototype.hasOwnProperty.call(profilePayload, 'nomor_induk_qiroati')) {
-        if (!enableEdgeFunctions) {
-          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+        if (!enableAccountManagement) {
+          toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
           return;
         }
 
@@ -997,8 +999,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       title: 'Pindahkan ke Arsip',
       description: `${selectedSantri.size} santri akan dinonaktifkan dan dipindahkan ke arsip. Kelas, hafalan, karakter, absensi, pembayaran, dan seluruh riwayat tetap tersimpan serta dapat dipulihkan kapan saja.`,
       onConfirm: async () => {
-        if (!enableEdgeFunctions) {
-          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+        if (!enableAccountManagement) {
+          toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
           return;
         }
 
@@ -1025,8 +1027,8 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       onConfirm: async () => {
         const idsToUpdate = Array.from(selectedSantri);
 
-        if (!enableEdgeFunctions) {
-          toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+        if (!enableAccountManagement) {
+          toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
           return;
         }
 
@@ -1140,7 +1142,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setFormData({
       nama_lengkap: '', nama_panggilan: '', nomor_induk_qiroati: '', jenis_kelamin: 'Laki-laki', tempat_lahir: '', tanggal_lahir: '', tanggal_pendaftaran: '',
       nama_ayah: '', nama_ibu: '', no_hp_ortu: '', alamat: '', status: 'Aktif', foto_url: '', password: '', sesi_mengaji: sessionOptions[0] || 'Pagi', rfid_tag: '',
-      jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', juz_hafalan: subCategory === 'ptpt' ? ['Juz 30'] : [], no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
+      jilid: subCategory === 'ptpt' ? 'Juz 30' : 'Pra TK A', juz_hafalan: subCategory === 'ptpt' ? ['Juz 30'] : [], no_kk: '', no_nik: '', berkas_foto: false, berkas_akta: false, berkas_kk: false, berkas_form: false, link_qiroati: '', default_spp_amount: '', id_kelas: null, points: 0, kategori: subCategory === 'ptpt' ? 'PTPT' : 'Anak'
     });
     setEditingSantri(null);
   };

@@ -16,7 +16,7 @@ import {
   insertSantriBulk,
   updateSantriProfile,
 } from '@/lib/santriManagementAdapters';
-import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
+import { enableAccountManagement, accountManagementDisabledMessage } from '@/lib/featureFlags';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
@@ -454,8 +454,8 @@ const SantriDewasaManagement = () => {
       }
     }
 
-    if (!enableEdgeFunctions) {
-      toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+    if (!enableAccountManagement) {
+      toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
       return;
     }
 
@@ -756,7 +756,7 @@ const SantriDewasaManagement = () => {
                 </Avatar>
                 <div className="flex-1 w-full space-y-2.5">
                     <div className="flex flex-wrap gap-2">
-                         <button type="button" className="santri-glass-avatar-upload" onClick={triggerPhotoUpload} disabled={isUploading || !enableEdgeFunctions || !editingSantri?.id} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : (!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined)}>
+                         <button type="button" className="santri-glass-avatar-upload" onClick={triggerPhotoUpload} disabled={isUploading || !enableAccountManagement || !editingSantri?.id} title={!enableAccountManagement ? accountManagementDisabledMessage : (!editingSantri?.id ? 'Simpan akun sebelum upload avatar.' : undefined)}>
                              <Upload className="w-3.5 h-3.5" /> {isUploading ? 'Mengunggah...' : 'Upload Foto'}
                          </button>
                          <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />

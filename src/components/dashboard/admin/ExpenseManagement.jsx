@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown, Eye, EyeOff, X, FileSpreadsheet, Printer, FolderSearch } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import * as XLSX from 'xlsx';
 import {
     downloadDailyExpenseExcel,
     downloadDailyExpensePdf,

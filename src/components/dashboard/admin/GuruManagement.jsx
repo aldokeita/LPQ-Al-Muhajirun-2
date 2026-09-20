@@ -18,7 +18,7 @@ import {
   updateGuru,
   upsertGuru,
 } from '@/lib/guruAdapters';
-import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
+import { enableAccountManagement, accountManagementDisabledMessage } from '@/lib/featureFlags';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -105,8 +105,8 @@ const GuruManagement = () => {
   };
 
   const handleDelete = async (guruToDelete) => {
-    if (!enableEdgeFunctions) {
-      toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+    if (!enableAccountManagement) {
+      toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
       return;
     }
 
@@ -271,8 +271,8 @@ const GuruManagement = () => {
     let userId = editingGuru?.id;
     const requiresAuthEdgeFunction = !editingGuru;
     const requiresPasswordReset = Boolean(editingGuru && formData.password);
-    if ((requiresAuthEdgeFunction || requiresPasswordReset) && !enableEdgeFunctions) {
-        toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
+    if ((requiresAuthEdgeFunction || requiresPasswordReset) && !enableAccountManagement) {
+        toast({ title: "Fitur belum aktif", description: accountManagementDisabledMessage, variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
@@ -451,7 +451,7 @@ const GuruManagement = () => {
                 </td>
                 <td className="p-3"><div className="flex flex-col"><span className="text-xs" style={{ color: 'hsl(var(--admin-text-primary))' }}>{guru.email}</span><span className="text-xs" style={{ color: 'hsl(var(--admin-text-muted))' }}>{guru.no_hp}</span></div></td>
                 <td className="p-3 text-xs font-mono" style={{ color: 'hsl(var(--admin-text-muted))' }}>{guru.rfid_tag || '-'}</td>
-                <td className="p-3"><div className="flex gap-1"><Button onClick={() => handleEdit(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" style={{ color: 'hsl(var(--admin-text-muted))' }}><Edit className="w-4 h-4" /></Button><Button onClick={() => handleDelete(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50" disabled={!enableEdgeFunctions} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : undefined}><Trash2 className="w-4 h-4" /></Button></div></td>
+                <td className="p-3"><div className="flex gap-1"><Button onClick={() => handleEdit(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" style={{ color: 'hsl(var(--admin-text-muted))' }}><Edit className="w-4 h-4" /></Button><Button onClick={() => handleDelete(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50" disabled={!enableAccountManagement} title={!enableAccountManagement ? accountManagementDisabledMessage : undefined}><Trash2 className="w-4 h-4" /></Button></div></td>
             </tr>
           ))}
           </tbody>

@@ -49,9 +49,9 @@ const RouteLogger = () => {
 const DeferredFeaturePage = () => (
   <div className="min-h-screen flex items-center justify-center bg-background px-4">
     <div className="max-w-md text-center space-y-3">
-      <h1 className="text-2xl font-bold text-foreground">Fitur belum diaktifkan</h1>
+      <h1 className="text-2xl font-bold text-foreground">Fitur belum tersedia</h1>
       <p className="text-muted-foreground">
-        Fitur ini akan diaktifkan setelah Supabase baru dan Edge Function tersedia.
+        Halaman ini belum aktif. Silakan kembali ke beranda.
       </p>
     </div>
   </div>
