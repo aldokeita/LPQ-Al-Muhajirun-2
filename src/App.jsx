@@ -23,8 +23,6 @@ import QiroatiMethodPage from '@/pages/QiroatiMethodPage';
 import FacilitiesPage from '@/pages/FacilitiesPage';
 import ParentingPage from '@/pages/ParentingPage';
 import ParentingArticlePage from '@/pages/ParentingArticlePage';
-import ForumPage from '@/pages/ForumPage';
-import ForumTopicPage from '@/pages/ForumTopicPage';
 import EduMediaPage from '@/pages/EduMediaPage';
 import SystemPage from '@/pages/SystemPage';
 import WaliDiscussionPage from '@/pages/WaliDiscussionPage';
@@ -38,7 +36,7 @@ import HijaiyahGamePage from '@/pages/HijaiyahGamePage';
 import TopScorePage from '@/pages/TopScorePage';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { enableDeferredFeatures, enableGameFeatures } from '@/lib/featureFlags';
+import { enableGameFeatures } from '@/lib/featureFlags';
 
 const RouteLogger = () => {
   const location = useLocation();
@@ -129,17 +127,20 @@ function App() {
                         <Route path="/parenting/:articleId" element={<ParentingArticlePage />} />
                         <Route path="/parenting/media-edukatif" element={<EduMediaPage />} />
                         <Route path="/parenting/diskusi-wali" element={<WaliDiscussionPage />} />
-                        {enableDeferredFeatures ? (
-                          <>
-                            <Route path="/forum" element={<ForumPage />} />
-                            <Route path="/forum/:topicId" element={<ForumTopicPage />} />
-                          </>
-                        ) : (
-                          <>
-                            <Route path="/forum" element={<DeferredFeaturePage />} />
-                            <Route path="/forum/:topicId" element={<DeferredFeaturePage />} />
-                          </>
-                        )}
+                        {/*
+                          Forum dihapus, bukan dipindahkan. Tabel forum_topics dan
+                          forum_replies tidak pernah ada di basis data Supabase — nol
+                          kemunculan di seluruh dump skema — jadi halamannya tidak pernah
+                          bisa memuat apa pun, dan sejak awal ditutup oleh
+                          VITE_ENABLE_DEFERRED_FEATURES=false. Tidak ada perilaku yang
+                          hilang karena tidak pernah ada perilakunya.
+
+                          Rutenya dipertahankan agar tautan lama tidak berakhir di halaman
+                          404 yang membingungkan, dan tetap menampilkan keterangan yang
+                          sama seperti sebelumnya.
+                        */}
+                        <Route path="/forum" element={<DeferredFeaturePage />} />
+                        <Route path="/forum/:topicId" element={<DeferredFeaturePage />} />
                         <Route path="/kontak" element={<ContactPage />} />
                         <Route path="/status-pembayaran/:paymentId" element={<PaymentStatusPage />} />
                         <Route path="/berita" element={<NewsPage />} />
