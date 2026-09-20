@@ -10,7 +10,7 @@ import { Search, Printer, Book, Wallet, Shirt, WalletCards as IdCard, BookOpen, 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/lib/customSupabaseClient';
+import { insertMany, query, queryAll, queryIn, removeMany } from '@/lib/dataClient';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { toPng } from 'html-to-image';
 import {
   MONTH_NAMES,
-  PAYMENT_HISTORY_SELECT,
+  PAYMENT_COLUMNS,
   formatSantriCategory,
   getPaymentErrorMessage,
   getSharedDefaultSppAmount,
@@ -205,11 +205,12 @@ const PaymentSystem = () => {
     let active = true;
 
     const fetchSantri = async () => {
-      const { data, error } = await supabase
-        .from('santri')
-        .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, default_spp_amount, no_hp_ortu')
-        .eq('status', 'Aktif')
-        .order('nama_lengkap');
+      const { data, error } = await queryAll({
+        table: 'santri',
+        columns: ['id', 'nomor_induk_qiroati', 'nama_lengkap', 'nama_panggilan', 'kategori', 'status', 'foto_url', 'avatar_path', 'rfid_tag', 'default_spp_amount', 'no_hp_ortu'],
+        filters: { status: 'Aktif' },
+        order: { column: 'nama_lengkap', ascending: true },
+      });
       if (error) toast({ title: "Error", description: "Gagal memuat data santri.", variant: "destructive" });
       else {
         const santriWithAvatars = await Promise.all((data || []).map(async (santri) => ({
@@ -300,11 +301,12 @@ const PaymentSystem = () => {
   };
 
   const loadPaymentHistory = async (santriId) => {
-    const { data, error } = await supabase
-      .from('payments')
-      .select(PAYMENT_HISTORY_SELECT)
-      .eq('santri_id', santriId)
-      .order('tanggal_pembayaran', { ascending: false });
+    const { data, error } = await queryAll({
+      table: 'payments',
+      columns: PAYMENT_COLUMNS,
+      filters: { santri_id: santriId },
+      order: { column: 'tanggal_pembayaran', ascending: false },
+    });
     if (error) toast({ title: "Error", description: "Gagal memuat riwayat pembayaran.", variant: "destructive" });
     else setPaymentHistory(data || []);
   };
@@ -317,14 +319,20 @@ const PaymentSystem = () => {
       if (selectedSantri.length === 0) return false;
       const santriIds = selectedSantri.map(s => s.id);
       const monthNumbers = config.months.map(monthNameToNumber).filter(Boolean);
-      const { data, error } = await supabase
-        .from('payments')
-        .select('id, santri_id, bulan, tahun')
-        .in('santri_id', santriIds)
-        .eq('tahun', config.year)
-        .in('bulan', monthNumbers)
-        .eq('status', 'paid')
-        .is('deleted_at', null);
+      // Daftar santri bisa panjang, jadi bagian "in" yang dipecah adalah santri_id;
+      // daftar bulannya paling banyak dua belas nilai sehingga aman ikut sebagai filter.
+      const { data, error } = await queryIn({
+        table: 'payments',
+        columns: ['id', 'santri_id', 'bulan', 'tahun'],
+        column: 'santri_id',
+        values: santriIds,
+        extraFilters: [
+          { column: 'tahun', op: 'eq', value: config.year },
+          { column: 'bulan', op: 'in', value: monthNumbers },
+          { column: 'status', op: 'eq', value: 'paid' },
+          { column: 'deleted_at', op: 'is_null' },
+        ],
+      });
       if (error) {
         toast({ title: "Error", description: "Gagal memeriksa duplikasi pembayaran.", variant: "destructive" });
         return false;
@@ -399,7 +407,9 @@ const PaymentSystem = () => {
                 }
             }
         }
-        const { data, error } = await supabase.from('payments').insert(newPayments).select('id');
+        // Seluruh baris ditulis dalam satu transaksi, seperti insert berbentuk larik
+        // sebelumnya: kegagalan di tengah tidak boleh menyisakan pembayaran separuh jadi.
+        const { data, error } = await insertMany('payments', newPayments);
         if (error) throw error;
         if (selectedSantri.length === 1) loadPaymentHistory(selectedSantri[0].id);
         
@@ -409,7 +419,7 @@ const PaymentSystem = () => {
         for (const item of cart) { if (item.monthly) { totalAmount += (item.amount * item.months.length); } else { totalAmount += (item.amount * item.quantity); } }
         totalAmount = totalAmount * selectedSantri.length;
         const qrCodeLoginUrl = `https://lpqalmuhajirun.id/login`;
-        setReceiptData({ items: cart, total: totalAmount, santri: selectedSantri, qrCodeUrl: qrCodeLoginUrl, timestamp: new Date(), method: paymentMethod, transactionId: transactionId, paymentId: data[0].id });
+        setReceiptData({ items: cart, total: totalAmount, santri: selectedSantri, qrCodeUrl: qrCodeLoginUrl, timestamp: new Date(), method: paymentMethod, transactionId: transactionId, paymentId: data.ids[0] });
         setIsReceiptOpen(true);
         setCart([]);
     } catch (error) {
@@ -418,7 +428,7 @@ const PaymentSystem = () => {
   };
 
   const handleDeleteHistory = async () => {
-    const { error } = await supabase.from('payments').delete().in('id', selectedHistory);
+    const { error } = await removeMany('payments', selectedHistory);
     if (error) { toast({ title: 'Gagal Menghapus', description: getPaymentErrorMessage(error), variant: 'destructive' }); }
     else {
         toast({ title: 'Riwayat Dihapus', description: `${selectedHistory.length} data pembayaran telah berhasil dihapus.` });

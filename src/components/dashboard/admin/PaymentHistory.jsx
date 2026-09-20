@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import { queryAll, removeMany } from '@/lib/dataClient';
 import { Trash2, Search, AlertTriangle, Edit, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import EditPaymentModal from './EditPaymentModal';
 import PaymentProofModal from './PaymentProofModal';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PAYMENT_DETAIL_SELECT, getPaymentErrorMessage, monthNumberToName } from '@/lib/paymentAdapters';
+import { PAYMENT_COLUMNS, attachPaymentSantri, getPaymentErrorMessage, monthNumberToName } from '@/lib/paymentAdapters';
 
 const DeleteConfirmationDialog = ({ open, onOpenChange, onConfirm, count }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,13 +57,11 @@ const PaymentHistory = () => {
         setError(null);
         
         try {
-            let query = supabase
-                .from('payments')
-                .select(PAYMENT_DETAIL_SELECT, { count: 'exact' })
-                .order('created_at', { ascending: false });
-
-            // Execute the query
-            const { data, error: queryError } = await query;
+            const { data, error: queryError } = await queryAll({
+                table: 'payments',
+                columns: PAYMENT_COLUMNS,
+                order: { column: 'created_at', ascending: false },
+            });
 
             if (queryError) {
                 setError(queryError.message);
@@ -72,8 +70,9 @@ const PaymentHistory = () => {
                 return;
             }
 
-            setPayments(data || []);
-            
+            // Data santri dulu ikut lewat join bersarang; sekarang dijahit setelahnya.
+            setPayments(await attachPaymentSantri(data));
+
         } catch (err) {
             setError(err.message);
             toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -125,11 +124,11 @@ const PaymentHistory = () => {
 
     const handleDelete = async () => {
         const idsToDelete = Array.from(selectedPayments);
-        const { error } = await supabase.from('payments').delete().in('id', idsToDelete);
+        const { error } = await removeMany('payments', idsToDelete);
         if (error) {
             toast({ title: 'Gagal Menghapus', description: getPaymentErrorMessage(error), variant: 'destructive' });
         } else {
-            toast({ title: 'Berhasil', description: `${selectedPayments.size} riwayat pembayaran telah dihapus.` });
+            toast({ title: 'Berhasil', description: `${idsToDelete.length} riwayat pembayaran telah dihapus.` });
             setSelectedPayments(new Set());
             fetchPayments();
         }

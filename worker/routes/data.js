@@ -6,7 +6,7 @@
 
 import { AuthorizationError, createAuthorizer } from '../auth/authorize.js';
 import { QueryError, runCount, runQuery } from '../data/query.js';
-import { deleteRow, insertRow, updateRow, upsertRow } from '../data/mutate.js';
+import { deleteRow, deleteRows, insertRow, insertRows, updateRow, upsertRow } from '../data/mutate.js';
 import { readSessionCookie, verifySession } from '../auth/session.js';
 
 const json = (data, status = 200) =>
@@ -22,6 +22,10 @@ const ROUTES = {
   '/api/data/update': (db, authorizer, body) => updateRow(db, authorizer, body),
   '/api/data/upsert': (db, authorizer, body) => upsertRow(db, authorizer, body),
   '/api/data/delete': (db, authorizer, body) => deleteRow(db, authorizer, body),
+  // Menulis beberapa baris sekaligus dalam satu transaksi, seperti insert dan delete
+  // berbentuk larik yang dipakai sistem pembayaran sebelumnya.
+  '/api/data/insert-many': (db, authorizer, body) => insertRows(db, authorizer, body),
+  '/api/data/delete-many': (db, authorizer, body) => deleteRows(db, authorizer, body),
 };
 
 export const handleData = async (request, env, url) => {

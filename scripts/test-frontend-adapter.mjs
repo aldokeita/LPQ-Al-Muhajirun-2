@@ -30,7 +30,7 @@ globalThis.fetch = (input, init = {}) => {
 const { changeSantriJilid } = await import('../src/lib/santriJilidAdapters.js');
 const { adjustSantriPoints, getSantriPointsErrorMessage } = await import('../src/lib/santriPointsAdapters.js');
 const { fetchGuruTransferClassOptions, getClassTransferErrorMessage, transferSantriByGuru } = await import('../src/lib/classTransferAdapters.js');
-const { query, queryOne, rpc } = await import('../src/lib/dataClient.js');
+const { insertMany, query, queryAll, queryOne, removeMany, rpc } = await import('../src/lib/dataClient.js');
 
 const findLocalD1 = () => {
   const stack = [path.join('.wrangler', 'state', 'v3', 'd1')];
@@ -414,6 +414,44 @@ const run = async () => {
   check('tidak ada baris guru untuk pengunjung', guruPublik.data.length, 0);
 
   sessionCookie = cookieHalaman;
+  console.log('');
+
+  console.log('penulisan banyak baris lewat adapter:');
+  // Sistem pembayaran menulis seluruh keranjang sekaligus. Yang diuji di sini jalur
+  // utuhnya: klien, rute, otorisasi, sampai D1.
+  const banyak = await insertMany('payments', [1, 2].map((bulan) => ({
+    santri_id: target.id, bulan, tahun: 2032, jumlah: 125000,
+    tanggal_pembayaran: '2032-01-05', status: 'paid', metode_pembayaran: 'Tunai',
+  })));
+  check('dua baris tersisip', banyak.error, null);
+  check('id-nya dipulangkan', banyak.data?.ids.length, 2);
+
+  const terbaca = await queryAll({
+    table: 'payments', columns: ['id', 'jumlah', 'bulan'],
+    filters: [{ column: 'santri_id', op: 'eq', value: target.id }, { column: 'tahun', op: 'eq', value: 2032 }],
+  });
+  check('terbaca kembali', terbaca.data.length, 2);
+  // Uang disimpan sebagai sen dan dipulangkan sebagai rupiah; sisipan banyak baris
+  // harus melewati konversi yang sama dengan sisipan tunggal.
+  check('nominalnya utuh dalam rupiah', terbaca.data.every((r) => r.jumlah === 125000), true);
+
+  const hapus = await removeMany('payments', banyak.data.ids);
+  check('keduanya terhapus', hapus.error, null);
+  check('hasilnya dilaporkan per baris', hapus.data?.deleted.length, 2);
+  // payments dihapus secara lunak, persis seperti sebelumnya: barisnya tetap ada dengan
+  // deleted_at terisi, dan pemanggil yang menyaringnya sendiri.
+  const sisaAktif = await queryAll({
+    table: 'payments', columns: ['id'],
+    filters: [
+      { column: 'santri_id', op: 'eq', value: target.id },
+      { column: 'tahun', op: 'eq', value: 2032 },
+      { column: 'deleted_at', op: 'is_null' },
+    ],
+  });
+  check('tidak terbaca lagi sebagai baris aktif', sisaAktif.data.length, 0);
+
+  const larikKosong = await insertMany('payments', []);
+  check('larik kosong tidak memanggil server', larikKosong.error, null);
   console.log('');
 
   console.log('galat RPC diteruskan apa adanya:');

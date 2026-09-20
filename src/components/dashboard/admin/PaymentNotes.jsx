@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query, queryAll, remove } from '@/lib/dataClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Trash2, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
-import { PAYMENT_DETAIL_SELECT, getPaymentErrorMessage, monthNameToNumber, monthNumberToName } from '@/lib/paymentAdapters';
+import { PAYMENT_COLUMNS, attachPaymentSantri, getPaymentErrorMessage, monthNameToNumber, monthNumberToName } from '@/lib/paymentAdapters';
 
 const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const currentYear = new Date().getFullYear();
@@ -22,24 +22,27 @@ const PaymentStatusTable = () => {
   const fetchStatus = async () => {
     setIsLoading(true);
     const selectedMonthNumber = monthNameToNumber(selectedMonth);
-    const { data: santri, error: santriError } = await supabase
-      .from('santri')
-      .select('id, nama_lengkap, current_class_id')
-      .eq('status', 'Aktif')
-      .order('nama_lengkap');
+    const { data: santri, error: santriError } = await queryAll({
+      table: 'santri',
+      columns: ['id', 'nama_lengkap', 'current_class_id'],
+      filters: { status: 'Aktif' },
+      order: { column: 'nama_lengkap', ascending: true },
+    });
     if (santriError) {
       toast({ title: 'Error', description: 'Gagal mengambil data santri.', variant: 'destructive' });
       setIsLoading(false);
       return;
     }
 
+    // payment_status_summary tetap sebuah view. Otorisasinya dulu menyatu di klausa WHERE
+    // view itu; sekarang lapisan kebijakan yang menerapkannya, dengan hasil yang sama.
     const [{ data: statusRows, error: statusError }, { data: classes, error: classError }] = await Promise.all([
-      supabase
-        .from('payment_status_summary')
-        .select('santri_id, class_id, bulan, tahun, status')
-        .eq('bulan', selectedMonthNumber)
-        .eq('tahun', selectedYear),
-      supabase.from('classes').select('id, nama_kelas')
+      queryAll({
+        table: 'payment_status_summary',
+        columns: ['santri_id', 'class_id', 'bulan', 'tahun', 'status'],
+        filters: { bulan: selectedMonthNumber, tahun: selectedYear },
+      }),
+      query({ table: 'classes', columns: ['id', 'nama_kelas'], limit: 1000 }),
     ]);
     if (statusError || classError) {
       toast({ title: 'Error', description: 'Gagal mengambil status pembayaran.', variant: 'destructive' });
@@ -134,15 +137,16 @@ const PaymentNotes = () => {
 
   const fetchPayments = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('payments')
-      .select(PAYMENT_DETAIL_SELECT)
-      .order('tanggal_pembayaran', { ascending: false });
-    
+    const { data, error } = await queryAll({
+      table: 'payments',
+      columns: PAYMENT_COLUMNS,
+      order: { column: 'tanggal_pembayaran', ascending: false },
+    });
+
     if (error) {
       toast({ title: 'Error', description: 'Gagal mengambil riwayat pembayaran.', variant: 'destructive' });
     } else {
-      setPayments(data || []);
+      setPayments(await attachPaymentSantri(data));
     }
     setIsLoading(false);
   };
@@ -153,7 +157,7 @@ const PaymentNotes = () => {
       title: 'Hapus Pembayaran',
       description: 'Anda yakin ingin menghapus riwayat pembayaran ini? Aksi ini tidak dapat dibatalkan.',
       onConfirm: async () => {
-        const { error } = await supabase.from('payments').delete().eq('id', paymentId);
+        const { error } = await remove('payments', paymentId);
         if (error) {
           toast({ title: 'Gagal Menghapus', description: getPaymentErrorMessage(error), variant: 'destructive' });
         } else {

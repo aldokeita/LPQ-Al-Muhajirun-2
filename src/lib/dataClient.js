@@ -86,6 +86,41 @@ export const remove = (table, id) => request('/api/data/delete', { table, id });
 
 export const removeWhere = (table, where) => request('/api/data/delete', { table, where });
 
+// Beberapa baris sekaligus, dalam satu transaksi. Dipakai di tempat yang dulu mengirim
+// larik ke insert() atau memakai delete().in('id', ids): kegagalan di tengah tidak boleh
+// meninggalkan sebagian baris tertulis. Batasnya BATCH_ROWS baris per permintaan, sama
+// dengan batas yang ditegakkan server.
+const BATCH_ROWS = 100;
+
+export const insertMany = async (table, rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return { data: { ids: [] }, error: null };
+  const ids = [];
+  for (let index = 0; index < rows.length; index += BATCH_ROWS) {
+    const { data, error } = await request('/api/data/insert-many', {
+      table,
+      values: rows.slice(index, index + BATCH_ROWS),
+    });
+    if (error) return { data: null, error };
+    ids.push(...(data?.ids ?? []));
+  }
+  return { data: { ids }, error: null };
+};
+
+export const removeMany = async (table, ids) => {
+  const unique = [...new Set((ids || []).filter(Boolean))];
+  if (unique.length === 0) return { data: { deleted: [] }, error: null };
+  const deleted = [];
+  for (let index = 0; index < unique.length; index += BATCH_ROWS) {
+    const { data, error } = await request('/api/data/delete-many', {
+      table,
+      ids: unique.slice(index, index + BATCH_ROWS),
+    });
+    if (error) return { data: null, error };
+    deleted.push(...(data?.deleted ?? []));
+  }
+  return { data: { deleted }, error: null };
+};
+
 // conflictColumn menentukan baris mana yang dianggap sudah ada. website_content memakai
 // "key", sedangkan tabel konten lain memakai "id".
 export const upsert = (table, values, conflictColumn = 'id') =>
@@ -94,6 +129,21 @@ export const upsert = (table, values, conflictColumn = 'id') =>
 // D1 hanya menerima 100 parameter terikat per query, jadi daftar id panjang dipecah.
 const IN_CHUNK = 80;
 const MAX_ROWS = 1000;
+
+// Menarik seluruh baris yang boleh dilihat, berapa pun jumlahnya. Server membatasi satu
+// permintaan pada MAX_ROWS baris, sama seperti batas 1000 baris PostgREST dulu, jadi
+// tabel yang tumbuh melewati angka itu akan terpotong tanpa pemberitahuan. Di sini
+// halamannya diambil berurutan sampai habis.
+export const queryAll = async (options) => {
+  const collected = [];
+  for (let offset = 0; ; offset += MAX_ROWS) {
+    const { data, error } = await query({ ...options, limit: MAX_ROWS, offset });
+    if (error) return { data: null, error };
+    collected.push(...(data ?? []));
+    if ((data?.length ?? 0) < MAX_ROWS) break;
+  }
+  return { data: collected, error: null };
+};
 
 // Membaca dengan filter "in" berisi daftar panjang; hasil tiap potongan disatukan kembali.
 export const queryIn = async ({ table, columns, column, values, extraFilters = [], order = null }) => {

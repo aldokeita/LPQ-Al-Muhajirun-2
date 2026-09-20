@@ -10,7 +10,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import { createAuthorizer } from '../worker/auth/authorize.js';
 import { QueryError } from '../worker/data/query.js';
-import { deleteRow, insertRow, updateRow } from '../worker/data/mutate.js';
+import { deleteRow, deleteRows, insertRow, insertRows, updateRow } from '../worker/data/mutate.js';
 
 const [, , schemaPath, dataPath] = process.argv;
 if (!schemaPath || !dataPath) {
@@ -34,6 +34,20 @@ const db = {
         };
       },
     };
+  },
+  // D1 menjalankan batch sebagai satu transaksi. Tiruan itu di sini, supaya sifat
+  // semua-atau-tidak-sama-sekali ikut teruji, bukan hanya diasumsikan.
+  async batch(statements) {
+    sqlite.exec('begin');
+    try {
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      sqlite.exec('commit');
+      return results;
+    } catch (error) {
+      sqlite.exec('rollback');
+      throw error;
+    }
   },
 };
 
@@ -144,6 +158,50 @@ const run = async () => {
   const santriAfter = sqlite.prepare('select deleted_at from santri where id = ?').get(ownSantri);
   check('deleted_at santri terisi', typeof santriAfter?.deleted_at === 'string', true);
   await expectRejected('baris tak dikenal ditolak', deleteRow(db, adminAuth, { table: 'santri_notes', id: 'tidak-ada' }));
+  console.log('');
+
+  console.log('penulisan banyak baris:');
+  // Sistem pembayaran dulu mengirim seluruh baris dalam satu perintah insert, jadi
+  // kegagalan tidak pernah menyisakan sebagian baris tersimpan. Sifat itu yang diuji.
+  const sebelumInsert = sqlite.prepare('select count(*) c from payments').get().c;
+  const banyak = await insertRows(db, adminAuth, {
+    table: 'payments',
+    values: [1, 2, 3].map((bulan) => ({
+      santri_id: otherSantri, bulan, tahun: 2031, jumlah: 50000,
+      tanggal_pembayaran: '2031-01-05', status: 'paid', metode_pembayaran: 'Tunai',
+    })),
+  });
+  check('tiga baris tersisip', banyak.ids.length, 3);
+  check('jumlah baris bertambah tiga',
+    sqlite.prepare('select count(*) c from payments').get().c, sebelumInsert + 3);
+
+  // Satu baris cacat harus membatalkan seluruh kiriman, bukan menyisakan yang sebelumnya.
+  const sebelumGagal = sqlite.prepare('select count(*) c from payments').get().c;
+  await expectRejected('satu baris cacat membatalkan semuanya', insertRows(db, adminAuth, {
+    table: 'payments',
+    values: [
+      { santri_id: otherSantri, bulan: 4, tahun: 2031, jumlah: 50000, tanggal_pembayaran: '2031-01-05', status: 'paid' },
+      { santri_id: otherSantri, bulan: 5, tahun: 2031, jumlah: 'bukan angka', tanggal_pembayaran: '2031-01-05', status: 'paid' },
+    ],
+  }));
+  check('tidak ada baris tersisa dari kiriman gagal',
+    sqlite.prepare('select count(*) c from payments').get().c, sebelumGagal);
+
+  await expectRejected('guru ditolak menyisip pembayaran', insertRows(db, guruAuth, {
+    table: 'payments',
+    values: [{ santri_id: ownSantri, bulan: 6, tahun: 2031, jumlah: 50000, tanggal_pembayaran: '2031-01-05', status: 'paid' }],
+  }));
+
+  const hapusBanyak = await deleteRows(db, adminAuth, { table: 'payments', ids: banyak.ids });
+  check('tiga baris terhapus', hapusBanyak.deleted.length, 3);
+  // payments punya kolom deleted_at, jadi penghapusannya lunak: barisnya tetap ada,
+  // hanya ditandai. Itu perilaku yang sama dengan sebelumnya.
+  check('penghapusannya lunak', hapusBanyak.deleted.every((d) => d.soft), true);
+  check('ketiganya ditandai terhapus', banyak.ids.every((id) =>
+    typeof sqlite.prepare('select deleted_at from payments where id = ?').get(id)?.deleted_at === 'string'), true);
+
+  await expectRejected('id tak dikenal membatalkan penghapusan',
+    deleteRows(db, adminAuth, { table: 'payments', ids: ['tidak-ada'] }));
   console.log('');
 
   console.log('konversi uang di lapisan data:');

@@ -198,6 +198,41 @@ const run = async () => {
     { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
   console.log('');
 
+  console.log('view payment_status_summary:');
+  // Di Postgres otorisasi view ini menyatu di klausa WHERE-nya. Di sini ia dipindahkan ke
+  // lapisan kebijakan, dengan dua predikat memakai kolom berbeda: kepemilikan lewat
+  // santri_id, akses guru lewat class_id.
+  const viewAdmin = await query(admin.id, {
+    table: 'payment_status_summary', columns: ['santri_id', 'class_id', 'status'], limit: 1000,
+  });
+  check('admin melihat isi view', viewAdmin.rows.length > 0, true);
+  check('status hanya dua nilai',
+    viewAdmin.rows.every((r) => ['Lunas', 'Belum Lunas'].includes(r.status)), true);
+
+  const guruClassIds = new Set(sqlite.prepare(
+    'select id from classes where id_guru = ? and deleted_at is null',
+  ).all(guru.guru_id).map((r) => r.id));
+  const viewGuru = await query(guru.guru_id, {
+    table: 'payment_status_summary', columns: ['santri_id', 'class_id'], limit: 1000,
+  });
+  check('guru melihat sebagian baris', viewGuru.rows.length > 0, true);
+  check('guru hanya melihat kelasnya', viewGuru.rows.every((r) => guruClassIds.has(r.class_id)), true);
+  check('guru melihat lebih sedikit dari admin', viewGuru.rows.length < viewAdmin.rows.length, true);
+
+  // Santri uji diambil dari isi view itu sendiri, supaya pemeriksaan tidak lolos hanya
+  // karena kebetulan tidak ada barisnya.
+  const santriDiView = viewAdmin.rows[0].santri_id;
+  const viewSantri = await query(santriDiView, {
+    table: 'payment_status_summary', columns: ['santri_id'], limit: 1000,
+  });
+  check('santri melihat barisnya sendiri', viewSantri.rows.length > 0, true);
+  check('santri tidak melihat baris orang lain',
+    viewSantri.rows.every((r) => r.santri_id === santriDiView), true);
+
+  const viewAnon = await query(null, { table: 'payment_status_summary', columns: ['santri_id'], limit: 1000 });
+  check('pengunjung tidak melihat apa pun', viewAnon.rows.length, 0);
+  console.log('');
+
   console.log('menghitung baris:');
   const { runCount } = await import('../worker/data/query.js');
   const hitung = async (userId, body) => {

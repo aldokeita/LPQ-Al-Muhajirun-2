@@ -105,7 +105,10 @@ const loadRow = async (db, table, key) => {
     .first();
 };
 
-export const insertRow = async (db, authorizer, { table, values }) => {
+// Menyiapkan satu baris sisipan lengkap dengan kolom audit, lalu memeriksa haknya.
+// Dipisahkan dari penulisannya supaya sisipan banyak baris bisa memeriksa seluruhnya
+// lebih dulu, baru menulis sekali jalan.
+const prepareInsert = async (db, authorizer, table, values) => {
   const policy = requireWritableTable(table, 'insert');
   const clean = sanitizeValues(table, values);
 
@@ -131,8 +134,36 @@ export const insertRow = async (db, authorizer, { table, values }) => {
 
   const columns = Object.keys(row);
   const sql = `insert into ${quote(table)} (${columns.map(quote).join(', ')}) values (${columns.map(() => '?').join(', ')})`;
-  await db.prepare(sql).bind(...columns.map((c) => row[c])).run();
-  return { id: row.id ?? null };
+  return { id: row.id ?? null, statement: db.prepare(sql).bind(...columns.map((c) => row[c])) };
+};
+
+export const insertRow = async (db, authorizer, { table, values }) => {
+  const { id, statement } = await prepareInsert(db, authorizer, table, values);
+  await statement.run();
+  return { id };
+};
+
+// D1 membatasi satu permintaan pada jumlah statement tertentu; angka ini dipilih jauh
+// di bawahnya dan sekaligus menjaga permintaan tetap ringan.
+const MAX_BATCH_ROWS = 100;
+
+// Sisipan banyak baris sekaligus. Dulu beberapa pembayaran ditulis dalam satu perintah
+// insert, jadi kegagalan di tengah tidak pernah meninggalkan sebagian baris tersimpan.
+// db.batch menjalankan seluruh statement dalam satu transaksi, sehingga sifat itu tetap.
+export const insertRows = async (db, authorizer, { table, values }) => {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new QueryError('values harus berupa larik berisi minimal satu baris.');
+  }
+  if (values.length > MAX_BATCH_ROWS) {
+    throw new QueryError(`Sekali kirim paling banyak ${MAX_BATCH_ROWS} baris.`);
+  }
+
+  // Seluruh baris diperiksa lebih dulu. Kalau satu saja ditolak, tidak ada yang ditulis.
+  const prepared = [];
+  for (const row of values) prepared.push(await prepareInsert(db, authorizer, table, row));
+
+  await db.batch(prepared.map((p) => p.statement));
+  return { ids: prepared.map((p) => p.id) };
 };
 
 export const updateRow = async (db, authorizer, { table, id = null, where = null, values }) => {
@@ -199,7 +230,7 @@ export const upsertRow = async (db, authorizer, { table, values, conflictColumn 
   return { ...(await insertRow(db, authorizer, { table, values })), inserted: true };
 };
 
-export const deleteRow = async (db, authorizer, { table, id = null, where = null }) => {
+const prepareDelete = async (db, authorizer, table, { id = null, where = null }) => {
   requireWritableTable(table, 'delete');
   const key = buildKey(table, { id, where });
 
@@ -214,13 +245,36 @@ export const deleteRow = async (db, authorizer, { table, id = null, where = null
     if (columnExists(table, 'updated_at')) values.updated_at = values.deleted_at;
     if (columnExists(table, 'updated_by')) values.updated_by = authorizer.ctx.userId;
     const columns = Object.keys(values);
-    await db
+    const statement = db
       .prepare(`update ${quote(table)} set ${columns.map((c) => `${quote(c)} = ?`).join(', ')} where ${key.clause}`)
-      .bind(...columns.map((c) => values[c]), ...key.params)
-      .run();
-    return { id: existing.id ?? null, key: key.describe, soft: true };
+      .bind(...columns.map((c) => values[c]), ...key.params);
+    return { result: { id: existing.id ?? null, key: key.describe, soft: true }, statement };
   }
 
-  await db.prepare(`delete from ${quote(table)} where ${key.clause}`).bind(...key.params).run();
-  return { id: existing.id ?? null, key: key.describe, soft: false };
+  const statement = db.prepare(`delete from ${quote(table)} where ${key.clause}`).bind(...key.params);
+  return { result: { id: existing.id ?? null, key: key.describe, soft: false }, statement };
+};
+
+export const deleteRow = async (db, authorizer, { table, id = null, where = null }) => {
+  const { result, statement } = await prepareDelete(db, authorizer, table, { id, where });
+  await statement.run();
+  return result;
+};
+
+// Penghapusan banyak baris sekaligus, menggantikan delete().in('id', ids) yang dulu
+// berjalan sebagai satu perintah. Seperti sisipan banyak baris, seluruhnya diperiksa
+// lebih dulu lalu ditulis dalam satu transaksi.
+export const deleteRows = async (db, authorizer, { table, ids }) => {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new QueryError('ids harus berupa larik berisi minimal satu nilai.');
+  }
+  if (ids.length > MAX_BATCH_ROWS) {
+    throw new QueryError(`Sekali kirim paling banyak ${MAX_BATCH_ROWS} baris.`);
+  }
+
+  const prepared = [];
+  for (const id of ids) prepared.push(await prepareDelete(db, authorizer, table, { id }));
+
+  await db.batch(prepared.map((p) => p.statement));
+  return { deleted: prepared.map((p) => p.result) };
 };
