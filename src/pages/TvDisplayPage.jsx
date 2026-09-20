@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, insert, query, queryOne, update } from '@/lib/dataClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -24,7 +24,19 @@ import CmsLogo from '@/components/public/CmsLogo';
 // Absensi berubah sepanjang sesi mengaji, daftar santri dan kelas tidak.
 const ATTENDANCE_REFRESH_MS = 30 * 1000;
 const MASTER_REFRESH_MS = 30 * 60 * 1000;
-const MASTER_REALTIME_DEBOUNCE_MS = 3 * 1000;
+
+// Kolom yang dibaca saat pemindaian kartu dan saat menarik absensi harian.
+const GURU_SCAN_COLUMNS = [
+  'id', 'nama', 'email', 'no_hp', 'alamat', 'foto_url', 'avatar_path', 'rfid_tag', 'jabatan',
+  'roles', 'is_notulen', 'jenis_kelamin', 'tanggal_lahir', 'status_guru', 'status',
+  'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by',
+];
+
+const ATTENDANCE_COLUMNS = [
+  'id', 'user_id', 'role', 'attendance_date', 'check_in_time', 'check_in_timestamp',
+  'class_id', 'sesi', 'status', 'source', 'correction_reason', 'corrected_by',
+  'created_at', 'updated_at', 'created_by', 'updated_by',
+];
 
 const registrationSessionTimes = {
   'Pagi': { start: '08:00', end: '11:00', defaultQuota: 60 },
@@ -219,7 +231,11 @@ const TvDisplayPage = () => {
         let user = null, userRole = '', sesiUser = '';
 
         // Check Guru
-        let { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, alamat, foto_url, avatar_path, rfid_tag, jabatan, roles, is_notulen, jenis_kelamin, tanggal_lahir, status_guru, status, created_at, updated_at, deleted_at, created_by, updated_by').eq('rfid_tag', tag).maybeSingle();
+        let { data: guruData } = await queryOne({
+                table: 'guru',
+                columns: GURU_SCAN_COLUMNS,
+                filters: [{ column: 'rfid_tag', op: 'eq', value: tag }],
+            });
         if (guruData) { 
             user = guruData; userRole = 'guru'; 
             const hour = new Date().getHours();
@@ -229,11 +245,23 @@ const TvDisplayPage = () => {
             else sesiUser = 'Malam';
         } else {
             // Check Santri
-            let { data: santriData } = await supabase
-                .from('santri')
-                .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, class:current_class_id(id, nama_kelas, sesi)')
-                .eq('rfid_tag', tag)
-                .maybeSingle();
+            const { data: scanned } = await queryOne({
+                table: 'santri',
+                columns: [
+                    'id', 'nama_lengkap', 'nama_panggilan', 'kategori', 'status', 'foto_url',
+                    'avatar_path', 'rfid_tag', 'current_class_id', 'sesi_mengaji', 'jilid', 'points',
+                ],
+                filters: [{ column: 'rfid_tag', op: 'eq', value: tag }],
+            });
+            // Kelas dulu ikut lewat join bersarang class:current_class_id(...).
+            const [santriData] = scanned
+                ? await attachRelated([scanned], {
+                    foreignKey: 'current_class_id',
+                    table: 'classes',
+                    columns: ['id', 'nama_kelas', 'sesi'],
+                    as: 'class',
+                })
+                : [null];
             if (santriData) {
                 const foto_url = await resolveAvatarUrl({
                     ownerType: 'santri',
@@ -250,7 +278,14 @@ const TvDisplayPage = () => {
         if (!user) return; 
 
         // Check existing attendance
-        const { data: existing } = await supabase.from('attendance').select('id, status').eq('user_id', user.id).eq('attendance_date', today).maybeSingle();
+        const { data: existing } = await queryOne({
+            table: 'attendance',
+            columns: ['id', 'status'],
+            filters: [
+                { column: 'user_id', op: 'eq', value: user.id },
+                { column: 'attendance_date', op: 'eq', value: today },
+            ],
+        });
         const shouldRestoreAbsentAttendance = userRole === 'santri'
             && existing
             && isExplicitAbsentAttendance(existing.status);
@@ -287,24 +322,21 @@ const TvDisplayPage = () => {
                     source: 'rfid',
                 };
             if (shouldRestoreAbsentAttendance) {
-                await supabase
-                    .from('attendance')
-                    .update({
-                        check_in_time: payload.check_in_time,
-                        check_in_timestamp: payload.check_in_timestamp,
-                        class_id: payload.class_id,
-                        attended_session: payload.attended_session,
-                        status: payload.status,
-                        source: 'rfid',
-                    })
-                    .eq('id', existing.id);
+                await update('attendance', existing.id, {
+                    check_in_time: payload.check_in_time,
+                    check_in_timestamp: payload.check_in_timestamp,
+                    class_id: payload.class_id,
+                    attended_session: payload.attended_session,
+                    status: payload.status,
+                    source: 'rfid',
+                });
                 setDailyAttendance(prev => prev.map(record => (
                     record.user_id === user.id
                         ? { ...record, check_in_time: payload.check_in_time, class_id: payload.class_id, status: payload.status }
                         : record
                 )));
             } else {
-                await supabase.from('attendance').insert(payload);
+                await insert('attendance', payload);
                 setDailyAttendance(prev => [...prev, { user_id: user.id, check_in_time: payload.check_in_time, class_id: payload.class_id, status: payload.status }]);
             }
         }
@@ -329,28 +361,36 @@ const TvDisplayPage = () => {
     useEffect(() => {
         const fetchMasterData = async () => {
             try {
-                const { data: cfg } = await supabase.from('website_content').select('content').eq('key', 'tv_config').maybeSingle();
+                const { data: cfg } = await queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'tv_config' }] });
                 if(cfg?.content) setConfig(prev => ({...prev, ...cfg.content}));
 
-                const { data: lvlCfg } = await supabase.from('website_content').select('content').eq('key', 'level_config').maybeSingle();
+                const { data: lvlCfg } = await queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'level_config' }] });
                 if(lvlCfg?.content) setLevelConfig(lvlCfg.content);
 
-                const { data: logoContent } = await supabase.from('website_content').select('content').eq('key', 'logoUrl').maybeSingle();
+                const { data: logoContent } = await queryOne({ table: 'website_content', columns: ['content'], filters: [{ column: 'key', op: 'eq', value: 'logoUrl' }] });
                 if (typeof logoContent?.content === 'string' && logoContent.content.trim()) {
                     setLogoUrl(logoContent.content.trim());
                 }
 
                 const [classesRes, santriRes] = await Promise.all([
-                    supabase
-                        .from('classes')
-                        .select('id, nama_kelas, sesi, kategori, sort_order, is_active, guru:id_guru(nama)')
-                        .eq('is_active', true)
-                        .order('sort_order', { ascending: true, nullsFirst: false }),
-                    supabase
-                        .from('santri')
-                        .select('id, nama_lengkap, nama_panggilan, nomor_induk_qiroati, kategori, status, foto_url, avatar_path, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin')
-                        .eq('status', 'Aktif')
-                        .order('nama_lengkap', { ascending: true }),
+                    query({
+                        table: 'classes',
+                        columns: ['id', 'nama_kelas', 'sesi', 'kategori', 'sort_order', 'is_active', 'id_guru'],
+                        filters: [{ column: 'is_active', op: 'eq', value: 1 }],
+                        order: [{ column: 'sort_order', ascending: true, nullsFirst: false }],
+                        limit: 1000,
+                    }),
+                    query({
+                        table: 'santri',
+                        columns: [
+                            'id', 'nama_lengkap', 'nama_panggilan', 'nomor_induk_qiroati', 'kategori',
+                            'status', 'foto_url', 'avatar_path', 'current_class_id', 'sesi_mengaji',
+                            'jilid', 'points', 'jenis_kelamin',
+                        ],
+                        filters: [{ column: 'status', op: 'eq', value: 'Aktif' }],
+                        order: [{ column: 'nama_lengkap', ascending: true }],
+                        limit: 1000,
+                    }),
                 ]);
 
                 if (classesRes.error) throw classesRes.error;
@@ -370,7 +410,10 @@ const TvDisplayPage = () => {
                     };
                 }));
 
-                const classes = classesRes.data || [];
+                // Nama guru dulu ikut lewat join bersarang guru:id_guru(nama).
+                const classes = await attachRelated(classesRes.data || [], {
+                    foreignKey: 'id_guru', table: 'guru', columns: ['id', 'nama'], as: 'guru',
+                });
                 const santri = santriWithAvatars;
 
                 if (classes && santri) {
@@ -394,10 +437,12 @@ const TvDisplayPage = () => {
 
         const fetchAttendance = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('attendance')
-                    .select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by')
-                    .eq('attendance_date', getLocalDateString());
+                const { data, error } = await query({
+                    table: 'attendance',
+                    columns: ATTENDANCE_COLUMNS,
+                    filters: [{ column: 'attendance_date', op: 'eq', value: getLocalDateString() }],
+                    limit: 1000,
+                });
                 if (error) throw error;
                 setDailyAttendance(data || []);
             } catch {
@@ -405,36 +450,17 @@ const TvDisplayPage = () => {
             }
         };
 
-        // Perubahan data master jarang terjadi, jadi notifikasi apa pun cukup memicu
-        // penarikan ulang alih-alih menerapkan delta satu per satu. Debounce menyatukan
-        // perubahan beruntun, misalnya saat admin menyimpan banyak santri sekaligus.
-        let masterRefreshTimer = null;
-        const scheduleMasterRefresh = () => {
-            if (masterRefreshTimer) return;
-            masterRefreshTimer = setTimeout(() => {
-                masterRefreshTimer = null;
-                fetchMasterData();
-            }, MASTER_REALTIME_DEBOUNCE_MS);
-        };
-
-        const masterChannel = supabase
-            .channel('tv-display-master-data')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'santri' }, scheduleMasterRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'classes' }, scheduleMasterRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, scheduleMasterRefresh)
-            .subscribe();
-
+        // Subscription realtime ke santri, classes, dan website_content dilepas: backend
+        // baru belum punya padanannya. Interval di bawah yang menggantikannya, dan itu
+        // memang jaring pengaman yang sejak awal dipasang untuk kasus koneksi realtime
+        // putus tanpa pemberitahuan.
         fetchMasterData();
         fetchAttendance();
-        // Interval dipertahankan sebagai jaring pengaman: koneksi realtime bisa putus
-        // tanpa pemberitahuan, dan layar ini berjalan tanpa ada yang menunggui.
         const masterInterval = setInterval(fetchMasterData, MASTER_REFRESH_MS);
         const attendanceInterval = setInterval(fetchAttendance, ATTENDANCE_REFRESH_MS);
         return () => {
             clearInterval(masterInterval);
             clearInterval(attendanceInterval);
-            if (masterRefreshTimer) clearTimeout(masterRefreshTimer);
-            supabase.removeChannel(masterChannel);
         };
     }, []);
 
