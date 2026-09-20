@@ -19,6 +19,39 @@ const json = (data, status = 200) =>
   });
 
 const handleApi = async (request, env, url) => {
+  // Endpoint kesehatan diperiksa lebih dulu, sebelum pagar rahasia sesi di bawah. Justru
+  // ketika rahasianya hilang endpoint ini paling dibutuhkan, jadi ia tidak boleh ikut
+  // tertahan oleh pagar yang melaporkan keadaan itu.
+  if (url.pathname === '/api/health') {
+    try {
+      const row = await env.DB.prepare('select count(*) as tables from sqlite_master where type = ?')
+        .bind('table')
+        .first();
+      // Keberadaan rahasia sesi ikut dilaporkan, bukan nilainya. Ini membuat hasil deploy
+      // bisa diperiksa tanpa harus mencoba login lebih dulu.
+      return json({
+        status: env.SESSION_SECRET ? 'ok' : 'error',
+        database: 'reachable',
+        tables: row?.tables ?? null,
+        session_secret: env.SESSION_SECRET ? 'configured' : 'missing',
+      }, env.SESSION_SECRET ? 200 : 503);
+    } catch (error) {
+      return json({ status: 'error', database: 'unreachable', message: error.message }, 503);
+    }
+  }
+
+  // Tanpa SESSION_SECRET tidak ada sesi yang bisa diterbitkan maupun diperiksa, jadi
+  // seluruh aplikasi mati. Kegagalannya sendiri aman — penandatanganan melempar dan
+  // pemeriksaan memulangkan null, sehingga tidak ada token yang bisa dipalsukan — tetapi
+  // tanpa pemeriksaan di sini yang terlihat hanyalah 500 kosong saat mencoba login.
+  // Menyebutkan sebabnya sekali di sini jauh lebih murah daripada menebaknya nanti.
+  if (!env.SESSION_SECRET) {
+    return json({
+      error: 'session_secret_missing',
+      message: 'SESSION_SECRET belum diset pada Worker. Jalankan: npx wrangler secret put SESSION_SECRET',
+    }, 503);
+  }
+
   if (url.pathname.startsWith('/api/auth/')) {
     const response = await handleAuth(request, env, url);
     if (response) return response;
@@ -43,19 +76,6 @@ const handleApi = async (request, env, url) => {
   if (url.pathname === '/api/manage-user') {
     const response = await handleManageUser(request, env, url);
     if (response) return response;
-  }
-
-  // Endpoint kesehatan: memastikan binding D1 benar-benar tersambung tanpa
-  // membocorkan isi tabel apa pun.
-  if (url.pathname === '/api/health') {
-    try {
-      const row = await env.DB.prepare('select count(*) as tables from sqlite_master where type = ?')
-        .bind('table')
-        .first();
-      return json({ status: 'ok', database: 'reachable', tables: row?.tables ?? null });
-    } catch (error) {
-      return json({ status: 'error', database: 'unreachable', message: error.message }, 503);
-    }
   }
 
   return json({ error: 'not_found', path: url.pathname }, 404);
