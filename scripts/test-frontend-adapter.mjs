@@ -288,6 +288,34 @@ const run = async () => {
     sqlite.prepare("select count(*) c from feedbacks where message = 'Pesan uji migrasi.'").get().c, 0);
   console.log('');
 
+  console.log('mmqAdapters (penjahitan relasi):');
+  const mmq = await import('../src/lib/mmqAdapters.js');
+  const jadwal = await mmq.fetchMmqSchedules();
+  check('jadwal MMQ terbaca', Array.isArray(jadwal), true);
+
+  const kehadiran = await mmq.fetchMmqAttendance();
+  check('kehadiran MMQ terbaca', Array.isArray(kehadiran), true);
+  if (kehadiran.length > 0) {
+    // Relasi yang dulu ikut lewat join bersarang harus tetap ada bentuknya.
+    check('setiap baris punya properti guru', kehadiran.every((row) => 'guru' in row), true);
+    check('setiap baris punya properti schedule', kehadiran.every((row) => 'schedule' in row), true);
+    const berguru = kehadiran.find((row) => row.guru_id);
+    if (berguru) {
+      check('guru terjahit berisi nama', typeof berguru.guru?.nama, 'string');
+      check('guru yang terjahit sesuai guru_id', berguru.guru?.id, berguru.guru_id);
+    }
+  }
+
+  const notulensi = await mmq.fetchMmqNotulensi();
+  check('notulensi terbaca', Array.isArray(notulensi), true);
+  check('notulensi punya properti relasi', notulensi.every((row) => 'notulen' in row && 'schedule' in row), true);
+
+  const daftarGuru = await mmq.fetchGuruForMmq();
+  check('daftar guru terbaca', Array.isArray(daftarGuru) && daftarGuru.length > 0, true);
+  check('guru terurut menurut nama', daftarGuru.every((g, i, arr) => i === 0
+    || String(arr[i - 1].nama ?? '').localeCompare(String(g.nama ?? '')) <= 0), true);
+  console.log('');
+
   console.log('galat RPC diteruskan apa adanya:');
   const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
   check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');

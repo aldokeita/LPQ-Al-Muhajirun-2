@@ -78,6 +78,38 @@ export const remove = (table, id) => request('/api/data/delete', { table, id });
 export const upsert = (table, values, conflictColumn = 'id') =>
   request('/api/data/upsert', { table, values, conflictColumn });
 
+// Menjahit relasi yang dulu ditulis sebagai join bersarang Supabase, misalnya
+// guru:guru_id(id, nama). Endpoint data tidak melayani join, jadi tabel terkait ditarik
+// terpisah lalu dipasangkan di sini.
+//
+// D1 hanya menerima 100 parameter terikat per query, jadi daftar id dipecah.
+const IN_CHUNK = 80;
+
+export const attachRelated = async (rows, { foreignKey, table, columns, as, keyColumn = 'id' }) => {
+  const ids = [...new Set(rows.map((row) => row[foreignKey]).filter(Boolean))];
+  if (ids.length === 0) return rows.map((row) => ({ ...row, [as]: null }));
+
+  const byKey = new Map();
+  for (let index = 0; index < ids.length; index += IN_CHUNK) {
+    const chunk = ids.slice(index, index + IN_CHUNK);
+    const { data, error } = await query({
+      table,
+      columns,
+      filters: [{ column: keyColumn, op: 'in', value: chunk }],
+      limit: chunk.length,
+    });
+    // Relasi yang tidak boleh dibaca dipulangkan sebagai null, sama seperti join
+    // bersarang di bawah RLS. Galat lain tetap dilempar agar tidak tertelan diam-diam.
+    if (error) {
+      if (error.code === 'forbidden') return rows.map((row) => ({ ...row, [as]: null }));
+      throw error;
+    }
+    for (const item of data ?? []) byKey.set(item[keyColumn], item);
+  }
+
+  return rows.map((row) => ({ ...row, [as]: byKey.get(row[foreignKey]) ?? null }));
+};
+
 // Nama RPC sama dengan nama function lama, jadi pemanggilan lama bisa dipetakan langsung.
 export const rpc = (name, params = {}) => request(`/api/rpc/${name}`, params);
 

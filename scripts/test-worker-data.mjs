@@ -191,6 +191,17 @@ const run = async () => {
     { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
   console.log('');
 
+  console.log('batas parameter terikat D1:');
+  const ids = sqlite.prepare('select id from santri limit 80').all().map((r) => r.id);
+  const inMax = await query(admin.id, {
+    table: 'santri', columns: ['id'], filters: [{ column: 'id', op: 'in', value: ids }], limit: 1000,
+  });
+  check('80 nilai in diterima', inMax.rows.length, ids.length);
+  const terlalu = sqlite.prepare('select id from santri limit 200').all().map((r) => r.id);
+  await expectRejected('lebih dari 80 nilai ditolak dengan jelas', admin.id,
+    { table: 'santri', columns: ['id'], filters: [{ column: 'id', op: 'in', value: terlalu }] });
+  console.log('');
+
   console.log(`lulus: ${passed}, gagal: ${failed}`);
   process.exit(failed === 0 ? 0 : 1);
 };

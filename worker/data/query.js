@@ -15,6 +15,10 @@ import { currentUserRole } from '../auth/predicates.js';
 export const MAX_LIMIT = 1000;
 const DEFAULT_LIMIT = 100;
 
+// D1 menerima paling banyak 100 parameter terikat dalam satu query. Batas ini dipasang
+// di bawahnya agar masih ada ruang untuk filter lain, limit, dan offset.
+export const MAX_IN_VALUES = 80;
+
 export class QueryError extends Error {
   constructor(message, status = 400) {
     super(message);
@@ -146,7 +150,11 @@ const buildFilters = (table, filters, depth = 0) => {
     if (op === 'not_null') { sql.push(`${qualified} is not null`); continue; }
     if (op === 'in') {
       if (!Array.isArray(value) || value.length === 0) throw new QueryError('Operator "in" butuh array tidak kosong.');
-      if (value.length > MAX_LIMIT) throw new QueryError('Operator "in" melebihi batas jumlah nilai.');
+      // D1 membatasi 100 parameter terikat per query. Sisanya disisakan untuk filter lain
+      // beserta limit dan offset, jadi ambangnya ditaruh di bawah batas itu.
+      if (value.length > MAX_IN_VALUES) {
+        throw new QueryError(`Operator "in" dibatasi ${MAX_IN_VALUES} nilai sekali jalan karena batas parameter D1.`);
+      }
       sql.push(`${qualified} in (${value.map(() => '?').join(', ')})`);
       params.push(...value);
       continue;

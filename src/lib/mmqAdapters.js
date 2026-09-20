@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import { attachRelated, insert, query, remove, update } from '@/lib/dataClient';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 
 const ALLOWED_ATTENDANCE_STATUSES = new Set(['Hadir', 'Terlambat', 'Tidak Hadir', 'Alpha', 'Izin', 'Sakit']);
@@ -49,11 +49,12 @@ const sanitizeAttendancePayload = (payload) => {
 };
 
 export const fetchMmqSchedules = async () => {
-  const { data, error } = await supabase
-    .from('mmq_schedule')
-    .select('id, day_of_week, start_time, end_time, location, is_active')
-    .order('day_of_week', { ascending: true })
-    .order('start_time', { ascending: true });
+  const { data, error } = await query({
+    table: 'mmq_schedule',
+    columns: ['id', 'day_of_week', 'start_time', 'end_time', 'location', 'is_active'],
+    order: [{ column: 'day_of_week', ascending: true }, { column: 'start_time', ascending: true }],
+    limit: 1000,
+  });
 
   if (error) throw error;
   return data || [];
@@ -61,44 +62,44 @@ export const fetchMmqSchedules = async () => {
 
 export const saveMmqSchedule = async (payload) => {
   const schedulePayload = sanitizeSchedulePayload(payload);
-  const query = payload.id
-    ? supabase.from('mmq_schedule').update(schedulePayload).eq('id', payload.id)
-    : supabase.from('mmq_schedule').insert(schedulePayload);
-
-  const { data, error } = await query.select().single();
+  const { data, error } = payload.id
+    ? await update('mmq_schedule', payload.id, schedulePayload)
+    : await insert('mmq_schedule', schedulePayload);
   if (error) throw error;
-  return data;
+  return { ...schedulePayload, id: payload.id ?? data?.id ?? null };
 };
 
 export const deleteMmqSchedule = async (id) => {
-  const { error } = await supabase.from('mmq_schedule').delete().eq('id', id);
+  const { error } = await remove('mmq_schedule', id);
   if (error) throw error;
 };
 
 export const fetchMmqAttendance = async ({ date } = {}) => {
-  let query = supabase
-    .from('mmq_attendance')
-    .select(`
-      id,
-      schedule_id,
-      guru_id,
-      attendance_date,
-      check_in_timestamp,
-      status,
-      notes,
-      guru:guru_id(id, nama, foto_url, no_hp),
-      schedule:schedule_id(id, day_of_week, start_time, end_time, location)
-    `)
-    .order('attendance_date', { ascending: false })
-    .order('check_in_timestamp', { ascending: false, nullsFirst: false });
-
-  if (date) {
-    query = query.eq('attendance_date', date);
-  }
-
-  const { data, error } = await query;
+  const filters = date ? [{ column: 'attendance_date', op: 'eq', value: date }] : [];
+  const { data, error } = await query({
+    table: 'mmq_attendance',
+    columns: ['id', 'schedule_id', 'guru_id', 'attendance_date', 'check_in_timestamp', 'status', 'notes'],
+    filters,
+    order: [
+      { column: 'attendance_date', ascending: false },
+      { column: 'check_in_timestamp', ascending: false, nullsFirst: false },
+    ],
+    limit: 1000,
+  });
   if (error) throw error;
-  return Promise.all((data || []).map(async (record) => ({
+
+  // Dulu guru dan jadwal ikut lewat join bersarang; keduanya kini dijahit terpisah.
+  let records = await attachRelated(data || [], {
+    foreignKey: 'guru_id', table: 'guru', columns: ['id', 'nama', 'foto_url', 'no_hp'], as: 'guru',
+  });
+  records = await attachRelated(records, {
+    foreignKey: 'schedule_id',
+    table: 'mmq_schedule',
+    columns: ['id', 'day_of_week', 'start_time', 'end_time', 'location'],
+    as: 'schedule',
+  });
+
+  return Promise.all(records.map(async (record) => ({
     ...record,
     guru: await resolveAvatarRecord(record.guru, { ownerType: 'guru' }),
   })));
@@ -106,104 +107,89 @@ export const fetchMmqAttendance = async ({ date } = {}) => {
 
 export const saveMmqAttendance = async (payload) => {
   const attendancePayload = sanitizeAttendancePayload(payload);
-  const query = payload.id
-    ? supabase.from('mmq_attendance').update(attendancePayload).eq('id', payload.id)
-    : supabase.from('mmq_attendance').insert(attendancePayload);
-
-  const { data, error } = await query.select().single();
+  const { data, error } = payload.id
+    ? await update('mmq_attendance', payload.id, attendancePayload)
+    : await insert('mmq_attendance', attendancePayload);
   if (error) throw error;
-  return data;
+  return { ...attendancePayload, id: payload.id ?? data?.id ?? null };
 };
 
 export const createMmqAttendance = async (payload) => {
   const attendancePayload = sanitizeAttendancePayload(payload);
-  const { data, error } = await supabase
-    .from('mmq_attendance')
-    .insert(attendancePayload)
-    .select()
-    .single();
-
+  const { data, error } = await insert('mmq_attendance', attendancePayload);
   if (error) throw error;
-  return data;
+  return { ...attendancePayload, id: data?.id ?? null };
 };
 
 export const deleteMmqAttendance = async (id) => {
-  const { error } = await supabase.from('mmq_attendance').delete().eq('id', id);
+  const { error } = await remove('mmq_attendance', id);
   if (error) throw error;
 };
 
 export const fetchMmqNotulensi = async () => {
-  const { data, error } = await supabase
-    .from('mmq_notulensi')
-    .select(`
-      id,
-      schedule_id,
-      tanggal,
-      judul,
-      isi,
-      notulen_id,
-      notulen:notulen_id(id, nama),
-      schedule:schedule_id(id, day_of_week, start_time, end_time, location)
-    `)
-    .order('tanggal', { ascending: false })
-    .order('created_at', { ascending: false });
-
+  const { data, error } = await query({
+    table: 'mmq_notulensi',
+    columns: ['id', 'schedule_id', 'tanggal', 'judul', 'isi', 'notulen_id'],
+    order: [{ column: 'tanggal', ascending: false }, { column: 'created_at', ascending: false }],
+    limit: 1000,
+  });
   if (error) throw error;
-  return data || [];
+
+  const withNotulen = await attachRelated(data || [], {
+    foreignKey: 'notulen_id', table: 'guru', columns: ['id', 'nama'], as: 'notulen',
+  });
+  return attachRelated(withNotulen, {
+    foreignKey: 'schedule_id',
+    table: 'mmq_schedule',
+    columns: ['id', 'day_of_week', 'start_time', 'end_time', 'location'],
+    as: 'schedule',
+  });
 };
 
 export const createMmqNotulensi = async ({ schedule_id, tanggal, judul, isi, notulen_id }) => {
-  const { data, error } = await supabase
-    .from('mmq_notulensi')
-    .insert({ schedule_id, tanggal, judul, isi, notulen_id })
-    .select()
-    .single();
-
+  const payload = { schedule_id, tanggal, judul, isi, notulen_id };
+  const { data, error } = await insert('mmq_notulensi', payload);
   if (error) throw error;
-  return data;
+  return { ...payload, id: data?.id ?? null };
 };
 
 export const updateMmqNotulensi = async (id, payload) => {
-  const { data, error } = await supabase
-    .from('mmq_notulensi')
-    .update({
-      judul: payload.judul,
-      isi: payload.isi,
-      tanggal: payload.tanggal,
-      schedule_id: payload.schedule_id,
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
+  const values = {
+    judul: payload.judul,
+    isi: payload.isi,
+    tanggal: payload.tanggal,
+    schedule_id: payload.schedule_id,
+  };
+  const { error } = await update('mmq_notulensi', id, values);
   if (error) throw error;
-  return data;
+  return { ...values, id };
 };
 
 export const deleteMmqNotulensi = async (id) => {
-  const { error } = await supabase.from('mmq_notulensi').delete().eq('id', id);
+  const { error } = await remove('mmq_notulensi', id);
   if (error) throw error;
 };
 
 export const fetchGuruForMmq = async () => {
-  const { data, error } = await supabase
-    .from('guru')
-    .select('id, nama, email, no_hp, foto_url, rfid_tag, is_notulen')
-    .order('nama', { ascending: true });
-
+  const { data, error } = await query({
+    table: 'guru',
+    columns: ['id', 'nama', 'email', 'no_hp', 'foto_url', 'rfid_tag', 'is_notulen'],
+    order: [{ column: 'nama', ascending: true }],
+    limit: 1000,
+  });
   if (error) throw error;
   return resolveAvatarRecords(data, { ownerType: 'guru' });
 };
 
 export const findGuruByRfid = async (rfidTag) => {
-  const { data, error } = await supabase
-    .from('guru')
-    .select('id, nama, foto_url, rfid_tag, is_notulen')
-    .eq('rfid_tag', rfidTag)
-    .maybeSingle();
-
+  const { data, error } = await query({
+    table: 'guru',
+    columns: ['id', 'nama', 'foto_url', 'rfid_tag', 'is_notulen'],
+    filters: [{ column: 'rfid_tag', op: 'eq', value: rfidTag }],
+    limit: 1,
+  });
   if (error) throw error;
-  return resolveAvatarRecord(data, { ownerType: 'guru' });
+  return resolveAvatarRecord(data?.[0] ?? null, { ownerType: 'guru' });
 };
 
 export const pickScheduleForToday = (schedules, date = new Date()) => {
