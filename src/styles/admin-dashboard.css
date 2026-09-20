@@ -2954,6 +2954,139 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   z-index: 1;
 }
 
+/* ============================================================
+   IDENTITY ROW — lambang tier | pembatas | nama & sesi
+   ============================================================
+   Barisnya terpusat sebagai satu kesatuan, jadi lambang selalu berada tepat di
+   kiri pembatas dan nama di kanannya, berapa pun panjang namanya. Nama yang
+   panjang membungkus ke bawah tanpa mendorong lambang keluar kartu, karena hanya
+   kolom teks yang boleh menyusut. */
+.attendance-profile-card__identity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 0.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.attendance-profile-card__identity-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;          /* izinkan menyusut supaya nama panjang membungkus */
+  text-align: left;
+}
+
+/* Tiga kelas, supaya menang atas aturan --white-glass untuk nama yang berada
+   lebih bawah di berkas ini dan sama-sama bernilai dua kelas. */
+.attendance-profile-card .attendance-profile-card__identity-text .attendance-profile-card__name {
+  margin-bottom: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.attendance-profile-card .attendance-profile-card__identity-text .attendance-profile-card__session-label {
+  margin: 0.1rem 0 0;
+}
+
+/* Pembatas vertikal: garis tipis yang memudar di kedua ujungnya, mengambil warna
+   accent tier supaya menyatu dengan kartunya. */
+.attendance-profile-card__identity-divider {
+  flex: 0 0 auto;
+  width: 2px;
+  align-self: stretch;
+  min-height: 2.4rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--attendance-profile-accent, #94a3b8) 55%, transparent) 22%,
+    color-mix(in srgb, var(--attendance-profile-accent, #94a3b8) 78%, transparent) 50%,
+    color-mix(in srgb, var(--attendance-profile-accent, #94a3b8) 55%, transparent) 78%,
+    transparent
+  );
+}
+
+/* Lambang tier. Tanpa kartu, bingkai, pil, atau latar solid — kedalamannya datang
+   dari aura radial di belakangnya dan bayangan jatuh pada gambarnya sendiri.
+   Kotaknya berukuran tetap dan sama untuk seluruh tier. */
+.attendance-profile-card__tier-emblem {
+  --tier-emblem-size: 56px;
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tier-emblem-size);
+  height: var(--tier-emblem-size);
+}
+
+.attendance-profile-card__tier-emblem::before {
+  content: '';
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--tier-emblem-aura, #94a3b8) 34%, transparent) 0%,
+    color-mix(in srgb, var(--tier-emblem-aura, #94a3b8) 14%, transparent) 46%,
+    transparent 72%
+  );
+  pointer-events: none;
+}
+
+.attendance-profile-card__tier-emblem-img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;   /* rasio aspek dijaga, tidak pernah diregangkan */
+  filter: drop-shadow(0 3px 6px rgba(15, 23, 42, 0.32));
+  user-select: none;
+}
+
+.attendance-profile-card__tier-emblem-fallback {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--tier-emblem-aura, #94a3b8);
+  opacity: 0.85;
+}
+
+.attendance-profile-card__tier-emblem-fallback svg {
+  width: 68%;
+  height: 68%;
+  filter: drop-shadow(0 2px 5px rgba(15, 23, 42, 0.28));
+}
+
+.dark .attendance-profile-card__tier-emblem-img {
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.5));
+}
+
+@media (min-width: 768px) {
+  .attendance-profile-card__tier-emblem {
+    --tier-emblem-size: 64px;
+  }
+}
+
+/* Layar sempit: lambang sedikit mengecil dan jaraknya dirapatkan, tetapi
+   susunannya tetap sama supaya posisinya tidak berpindah antar peranti. */
+@media (max-width: 400px) {
+  .attendance-profile-card__identity {
+    gap: 0.55rem;
+  }
+
+  .attendance-profile-card__tier-emblem {
+    --tier-emblem-size: 48px;
+  }
+}
+
 /* Status & Time Row — centered */
 .attendance-profile-card__status-row {
   display: flex;

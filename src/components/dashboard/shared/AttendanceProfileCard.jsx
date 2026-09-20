@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getSessionName } from '@/utils/sessionMapping';
+import TierEmblem from '@/components/dashboard/shared/TierEmblem';
 
 /**
  * AttendanceProfileCard — Shared premium profile card for attendance results.
@@ -144,18 +145,33 @@ const AttendanceProfileCard = ({
         )}
       </div>
 
-      {/* Name — primary hierarchy, centered */}
-      <h2
-        className="attendance-profile-card__name attendance-profile-card__name--gradient"
-        style={{ '--attendance-name-gradient': nameGradient }}
-      >
-        {name}
-      </h2>
-
-      {!isTeacher && sesi && (
-        <p className="attendance-profile-card__session-label">
-          Sesi {getSessionName(sesi)}
-        </p>
+      {/* Baris identitas santri: lambang tier, pembatas, lalu nama dengan sesi di
+          bawahnya. Guru tetap memakai susunan lama karena tidak punya tier. */}
+      {!isTeacher ? (
+        <div className="attendance-profile-card__identity">
+          <TierEmblem levelInfo={levelInfo} />
+          <span className="attendance-profile-card__identity-divider" aria-hidden="true" />
+          <div className="attendance-profile-card__identity-text">
+            <h2
+              className="attendance-profile-card__name attendance-profile-card__name--gradient"
+              style={{ '--attendance-name-gradient': nameGradient }}
+            >
+              {name}
+            </h2>
+            {sesi && (
+              <p className="attendance-profile-card__session-label">
+                Sesi {getSessionName(sesi)}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <h2
+          className="attendance-profile-card__name attendance-profile-card__name--gradient"
+          style={{ '--attendance-name-gradient': nameGradient }}
+        >
+          {name}
+        </h2>
       )}
 
       {/* Subtitle */}
