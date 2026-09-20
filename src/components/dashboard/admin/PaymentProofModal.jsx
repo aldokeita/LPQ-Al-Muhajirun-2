@@ -6,8 +6,8 @@ import { Loader2, Download, Printer, MessageSquare } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { toast } from '@/components/ui/use-toast';
 import QRCode from 'qrcode';
-import { supabase } from '@/lib/customSupabaseClient';
-import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
+import { queryOne } from '@/lib/dataClient';
+import { PAYMENT_COLUMNS, attachPaymentSantri, formatPaymentPeriod } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
 import CmsLogo from '@/components/public/CmsLogo';
 import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
@@ -30,11 +30,12 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
 
             setIsLoadingPayment(true);
             try {
-                const { data, error } = await supabase
-                    .from('payments')
-                    .select(PAYMENT_DETAIL_SELECT)
-                    .eq('id', payment.id)
-                    .maybeSingle();
+                const { data: row, error } = await queryOne({
+                    table: 'payments',
+                    columns: PAYMENT_COLUMNS,
+                    filters: [{ column: 'id', op: 'eq', value: payment.id }],
+                });
+                const [data] = row ? await attachPaymentSantri([row]) : [null];
 
                 if (error) throw error;
                 if (!data) throw new Error('Record pembayaran tidak ditemukan.');

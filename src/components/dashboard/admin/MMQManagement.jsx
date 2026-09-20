@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query } from '@/lib/dataClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,11 @@ const MMQManagement = () => {
         const attendanceData = await fetchMMQAttendance({ date: historyDateFilter });
         if (attendanceData) setAttendances(attendanceData);
 
-        const { data: guruData } = await supabase.from('guru').select('id, nama, email, no_hp, foto_url');
+        const { data: guruData } = await query({
+      table: 'guru',
+      columns: ['id', 'nama', 'email', 'no_hp', 'foto_url'],
+      limit: 1000,
+    });
         if (guruData) setGurus(await resolveAvatarRecords(guruData, { ownerType: 'guru' }));
     };
 

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/customSupabaseClient';
+import { query } from '@/lib/dataClient';
 import { MessageCircle, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { generateWhatsAppLink, resolveWhatsAppGroupLink } from '@/utils/whatsappMessages';
 import { toast } from '@/components/ui/use-toast';
@@ -26,12 +26,16 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
 
     const checkSiblings = async () => {
         if (!santri?.no_hp_ortu) return;
-        const { data } = await supabase
-            .from('santri')
-            .select('id')
-            .eq('no_hp_ortu', santri.no_hp_ortu)
-            .eq('status', 'Aktif')
-            .neq('id', santri.id);
+        const { data } = await query({
+            table: 'santri',
+            columns: ['id'],
+            filters: [
+                { column: 'no_hp_ortu', op: 'eq', value: santri.no_hp_ortu },
+                { column: 'status', op: 'eq', value: 'Aktif' },
+                { column: 'id', op: 'neq', value: santri.id },
+            ],
+            limit: 1000,
+        });
 
         setHasSiblings(data && data.length > 0);
     };

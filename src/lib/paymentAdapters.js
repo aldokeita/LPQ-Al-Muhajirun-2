@@ -13,34 +13,33 @@ export const MONTH_NAMES = [
     'Desember',
 ];
 
-export const PAYMENT_DETAIL_SELECT = `
-    id,
-    santri_id,
-    bulan,
-    tahun,
-    jumlah,
-    tanggal_pembayaran,
-    metode_pembayaran,
-    status,
-    catatan,
-    transaction_id,
-    created_at,
-    santri:santri_id(id, nama_lengkap, nomor_induk_qiroati, kategori, no_hp_ortu)
-`;
+import { attachRelated } from '@/lib/dataClient';
 
-export const PAYMENT_HISTORY_SELECT = `
-    id,
-    santri_id,
-    bulan,
-    tahun,
-    jumlah,
-    tanggal_pembayaran,
-    metode_pembayaran,
-    status,
-    catatan,
-    transaction_id,
-    created_at
-`;
+// Kolom pembayaran. Nilai jumlah dipulangkan lapisan data dalam rupiah desimal,
+// bukan sen, jadi pemanggil tidak perlu mengonversinya.
+export const PAYMENT_COLUMNS = [
+    'id',
+    'santri_id',
+    'bulan',
+    'tahun',
+    'jumlah',
+    'tanggal_pembayaran',
+    'metode_pembayaran',
+    'status',
+    'catatan',
+    'transaction_id',
+    'created_at',
+];
+
+// Data santri dulu ikut lewat join bersarang santri:santri_id(...). Endpoint data tidak
+// melayani join, jadi relasinya dijahit di sini agar seluruh pemanggil memakai bentuk
+// yang sama.
+export const attachPaymentSantri = (rows) => attachRelated(rows, {
+    foreignKey: 'santri_id',
+    table: 'santri',
+    columns: ['id', 'nama_lengkap', 'nomor_induk_qiroati', 'kategori', 'no_hp_ortu'],
+    as: 'santri',
+});
 
 export const monthNameToNumber = (value) => {
     if (value === null || value === undefined || value === '') return null;

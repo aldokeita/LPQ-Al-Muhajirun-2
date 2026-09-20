@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import { update } from '@/lib/dataClient';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { MONTH_NAMES, getPaymentErrorMessage, monthNameToNumber, validatePaymentAmount } from '@/lib/paymentAdapters';
 
@@ -90,18 +90,15 @@ const EditPaymentModal = ({ isOpen, onClose, payment, onUpdate }) => {
     const handleConfirmUpdate = async () => {
         setIsSubmitting(true);
         try {
-            const { error } = await supabase
-                .from('payments')
-                .update({
-                    jumlah: formData.jumlah,
-                    tanggal_pembayaran: formData.tanggal_pembayaran,
-                    metode_pembayaran: formData.metode_pembayaran,
-                    bulan: monthNameToNumber(formData.bulan),
-                    catatan: formData.catatan,
-                    tahun: Number(formData.tahun),
-                    status: 'paid',
-                })
-                .eq('id', payment.id);
+            const { error } = await update('payments', payment.id, {
+                jumlah: formData.jumlah,
+                tanggal_pembayaran: formData.tanggal_pembayaran,
+                metode_pembayaran: formData.metode_pembayaran,
+                bulan: monthNameToNumber(formData.bulan),
+                catatan: formData.catatan,
+                tahun: Number(formData.tahun),
+                status: 'paid',
+            });
 
             if (error) throw error;
 
