@@ -74,8 +74,20 @@ const LEADERBOARD_ROLES = new Set(['admin', 'guru', 'pentashih']);
 export const getSantriLeaderboard = async (db, ctx, { page, pageSize }) => {
   requireActor(ctx, 'melihat papan peringkat');
   const role = await currentUserRole(ctx);
+
+  // Tiga sebab yang berbeda dulu memulangkan kalimat yang sama, sehingga laporan
+  // "tidak memiliki izin" tidak bisa ditelusuri: peran yang memang tidak berhak,
+  // profil yang tidak berstatus aktif, dan profil yang barisnya tidak ada sama
+  // sekali. currentUserRole memulangkan null untuk dua yang terakhir, jadi
+  // keduanya dulu tersamar sebagai masalah izin padahal bukan.
+  if (role === null) {
+    throw new RpcError(
+      'Profil akun Anda tidak ditemukan atau tidak berstatus aktif, jadi papan peringkat tidak bisa dibuka. Hubungi admin.',
+      403,
+    );
+  }
   if (!LEADERBOARD_ROLES.has(role)) {
-    throw new RpcError('Anda tidak memiliki izin untuk melihat papan peringkat.', 403);
+    throw new RpcError(`Papan peringkat hanya untuk admin dan guru. Akun Anda berperan ${role}.`, 403);
   }
 
   const ukuran = Math.min(

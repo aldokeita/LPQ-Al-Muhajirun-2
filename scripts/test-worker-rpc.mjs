@@ -160,6 +160,19 @@ const run = async () => {
     await expectMessage('tanpa login ditolak',
       getSantriLeaderboard(db, anonCtx, { page: 1, pageSize: 10 }),
       'Login diperlukan untuk melihat papan peringkat.');
+
+    // Tiga sebab penolakan harus terbaca berbeda, supaya laporan dari lapangan bisa
+    // ditelusuri tanpa menebak-nebak.
+    const santriProfil = sqlite.prepare(
+      "select id from user_profiles where role = 'santri' and status = 'active' limit 1").get();
+    await expectMessage('santri ditolak dengan menyebut perannya',
+      getSantriLeaderboard(db, createAuthContext(db, santriProfil.id), { page: 1, pageSize: 10 }),
+      'Papan peringkat hanya untuk admin dan guru. Akun Anda berperan santri.');
+
+    const idHantu = '00000000-0000-4000-8000-000000000000';
+    await expectMessage('profil tidak aktif ditolak dengan sebab yang benar',
+      getSantriLeaderboard(db, createAuthContext(db, idHantu), { page: 1, pageSize: 10 }),
+      'Profil akun Anda tidak ditemukan atau tidak berstatus aktif, jadi papan peringkat tidak bisa dibuka. Hubungi admin.');
   }
   console.log('');
 
