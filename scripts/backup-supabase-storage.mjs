@@ -29,6 +29,20 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const outputDir = path.resolve(getArg('--out', path.join(privateRoot, `backup-${stamp}`)));
 const concurrency = Number(getArg('--concurrency', '4'));
 
+// Membatasi pengunduhan ke bucket tertentu, misalnya --bucket avatars.
+//
+// Ini ada karena kuota egress bisa habis lagi di tengah jalan. Foto santri dan guru tidak
+// tergantikan — kalau hilang, satu-satunya jalan adalah memotret ulang 400-an anak — jadi
+// bucket itu harus bisa diselamatkan lebih dulu, terpisah dari aset situs yang masih bisa
+// diunggah ulang dari berkas aslinya.
+//
+// Manifest dari jalan yang dibatasi digabungkan dengan yang sudah ada, bukan menimpanya,
+// supaya beberapa jalan terpisah tetap menghasilkan satu manifest utuh.
+const bucketFilter = getArg('--bucket', '')
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean);
+
 // Kredensial dibaca dari file env di dalam _private_reference (gitignored) supaya
 // tidak perlu menempel di shell history maupun berpindah antar sesi terminal.
 const envFile = path.resolve(getArg('--env-file', path.join(privateRoot, 'backup.env')));
@@ -169,10 +183,28 @@ const main = async () => {
   fs.mkdirSync(outputDir, { recursive: true });
   console.log(`Backup storage -> ${outputDir}`);
 
-  const buckets = await listBuckets();
-  console.log(`Ditemukan ${buckets.length} bucket: ${buckets.map((b) => b.name).join(', ')}`);
+  const semuaBucket = await listBuckets();
+  console.log(`Ditemukan ${semuaBucket.length} bucket: ${semuaBucket.map((b) => b.name).join(', ')}`);
 
-  const manifest = { created_at: new Date().toISOString(), buckets: [] };
+  const buckets = bucketFilter.length > 0
+    ? semuaBucket.filter((b) => bucketFilter.includes(b.id) || bucketFilter.includes(b.name))
+    : semuaBucket;
+
+  if (bucketFilter.length > 0) {
+    console.log(`Dibatasi ke: ${buckets.map((b) => b.id).join(', ') || '(tidak ada yang cocok)'}`);
+    if (buckets.length === 0) fail(`Tidak ada bucket yang cocok dengan --bucket ${bucketFilter.join(',')}.`);
+  }
+
+  // Manifest yang sudah ada dipertahankan, supaya menjalankan skrip ini per bucket tidak
+  // menghapus catatan bucket yang sudah lebih dulu terunduh.
+  const manifestPath = path.join(outputDir, 'storage-manifest.json');
+  const sebelumnya = fs.existsSync(manifestPath)
+    ? JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    : { buckets: [] };
+  const manifest = {
+    created_at: new Date().toISOString(),
+    buckets: (sebelumnya.buckets ?? []).filter((b) => !buckets.some((current) => current.id === b.id)),
+  };
   const failures = [];
 
   for (const bucket of buckets) {
@@ -210,7 +242,7 @@ const main = async () => {
   }
 
   manifest.failures = failures;
-  const manifestPath = path.join(outputDir, 'storage-manifest.json');
+  manifest.buckets.sort((a, b) => a.id.localeCompare(b.id));
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
   console.log(`\nManifest: ${manifestPath}`);
