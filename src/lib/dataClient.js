@@ -69,22 +69,51 @@ export const queryOne = async (options) => {
 
 export const insert = (table, values) => request('/api/data/insert', { table, values });
 
+// Baris dipilih dengan id, atau dengan objek kunci untuk tabel berkunci gabungan yang
+// tidak punya kolom id, misalnya santri_character_strengths.
 export const update = (table, id, values) => request('/api/data/update', { table, id, values });
 
+export const updateWhere = (table, where, values) => request('/api/data/update', { table, where, values });
+
 export const remove = (table, id) => request('/api/data/delete', { table, id });
+
+export const removeWhere = (table, where) => request('/api/data/delete', { table, where });
 
 // conflictColumn menentukan baris mana yang dianggap sudah ada. website_content memakai
 // "key", sedangkan tabel konten lain memakai "id".
 export const upsert = (table, values, conflictColumn = 'id') =>
   request('/api/data/upsert', { table, values, conflictColumn });
 
+// D1 hanya menerima 100 parameter terikat per query, jadi daftar id panjang dipecah.
+const IN_CHUNK = 80;
+const MAX_ROWS = 1000;
+
+// Membaca dengan filter "in" berisi daftar panjang; hasil tiap potongan disatukan kembali.
+export const queryIn = async ({ table, columns, column, values, extraFilters = [], order = null }) => {
+  const unique = [...new Set((values || []).filter(Boolean))];
+  if (unique.length === 0) return { data: [], error: null };
+
+  const collected = [];
+  for (let index = 0; index < unique.length; index += IN_CHUNK) {
+    const chunk = unique.slice(index, index + IN_CHUNK);
+    const { data, error } = await query({
+      table,
+      columns,
+      filters: [...extraFilters, { column, op: 'in', value: chunk }],
+      order,
+      limit: MAX_ROWS,
+    });
+    if (error) return { data: null, error };
+    collected.push(...(data ?? []));
+  }
+  return { data: collected, error: null };
+};
+
 // Menjahit relasi yang dulu ditulis sebagai join bersarang Supabase, misalnya
 // guru:guru_id(id, nama). Endpoint data tidak melayani join, jadi tabel terkait ditarik
 // terpisah lalu dipasangkan di sini.
 //
-// D1 hanya menerima 100 parameter terikat per query, jadi daftar id dipecah.
-const IN_CHUNK = 80;
-
+// Daftar id panjang dipecah memakai IN_CHUNK, sama seperti queryIn.
 export const attachRelated = async (rows, { foreignKey, table, columns, as, keyColumn = 'id' }) => {
   const ids = [...new Set(rows.map((row) => row[foreignKey]).filter(Boolean))];
   if (ids.length === 0) return rows.map((row) => ({ ...row, [as]: null }));

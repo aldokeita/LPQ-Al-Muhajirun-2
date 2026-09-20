@@ -316,6 +316,69 @@ const run = async () => {
     || String(arr[i - 1].nama ?? '').localeCompare(String(g.nama ?? '')) <= 0), true);
   console.log('');
 
+  console.log('academicAdapters:');
+  const akademik = await import('../src/lib/academicAdapters.js');
+  // Akun admin uji yang disemai ke D1 lokal; id-nya tetap agar bisa dicocokkan.
+  const admin = { id: '11111111-2222-3333-4444-555555555555' };
+  // assessed_by merujuk tabel guru, bukan users, jadi penilainya harus guru sungguhan.
+  const penilai = sqlite.prepare('select id from guru limit 1').get().id;
+
+  const hafalanItems = await akademik.fetchHafalanItems();
+  check('item hafalan terbaca', Array.isArray(hafalanItems), true);
+  check('hanya item aktif', hafalanItems.every((row) => row.is_active === 1 || row.is_active === true), true);
+
+  const kalender = await akademik.fetchCalendarEvents({ startDate: '2026-01-01', endDate: '2026-12-31' });
+  check('kalender terbaca', Array.isArray(kalender), true);
+
+  const targetSantri = sqlite.prepare(`
+    select s.id from santri s join user_profiles up on up.id = s.id
+     where up.role = 'santri' and s.deleted_at is null limit 1`).get().id;
+
+  // Skor disimpan lewat pola cari-lalu-perbarui; menyimpan dua kali tidak boleh
+  // menghasilkan dua baris.
+  const sebelumJuz = sqlite.prepare('select count(*) c from santri_juz_scores where santri_id = ?').get(targetSantri).c;
+  await akademik.upsertSantriJuzScore({ santriId: targetSantri, juzNumber: 30, score: 3, userId: penilai });
+  await akademik.upsertSantriJuzScore({ santriId: targetSantri, juzNumber: 30, score: 4, userId: penilai });
+  const sesudahJuz = sqlite.prepare('select count(*) c from santri_juz_scores where santri_id = ? and juz_number = 30').get(targetSantri).c;
+  check('skor juz hanya satu baris', sesudahJuz, 1);
+  check('skor juz terbarui ke nilai terakhir',
+    sqlite.prepare('select score from santri_juz_scores where santri_id = ? and juz_number = 30').get(targetSantri).score, 4);
+  check('tidak menambah baris berlebih',
+    sqlite.prepare('select count(*) c from santri_juz_scores where santri_id = ?').get(targetSantri).c >= sebelumJuz, true);
+
+  const skorJuz = await akademik.fetchSantriJuzScores([targetSantri]);
+  check('skor juz terbaca kembali', skorJuz.some((row) => row.juz_number === 30 && row.score === 4), true);
+
+  // assessed_by diisi pemanggil, tetapi created_by tetap ditetapkan server dari sesi.
+  check('created_by diisi server',
+    sqlite.prepare('select created_by from santri_juz_scores where santri_id = ? and juz_number = 30').get(targetSantri).created_by,
+    admin.id);
+
+  await akademik.upsertSantriSurahScore({
+    santriId: targetSantri, juzNumber: 30, surahName: 'An-Naba', score: 2, userId: penilai,
+  });
+  check('skor surah tersimpan',
+    sqlite.prepare("select score from santri_surah_scores where santri_id = ? and juz_number = 30 and surah_name = 'An-Naba'").get(targetSantri).score, 2);
+
+  // Kekuatan karakter: memilih lalu membatalkan harus bersih, tanpa baris tertinggal.
+  await akademik.setSantriCharacterStrength({ santriId: targetSantri, strengthKey: 'Disiplin', selected: true, userId: penilai });
+  const kekuatan = await akademik.fetchSantriCharacterStrengths(targetSantri);
+  check('kekuatan karakter tercatat', kekuatan.some((row) => row.strength_key === 'Disiplin'), true);
+  await akademik.setSantriCharacterStrength({ santriId: targetSantri, strengthKey: 'Disiplin', selected: false, userId: penilai });
+  check('kekuatan karakter dibatalkan',
+    (await akademik.fetchSantriCharacterStrengths(targetSantri)).some((row) => row.strength_key === 'Disiplin'), false);
+
+  const catatan = await akademik.fetchSantriNotes(targetSantri);
+  check('catatan santri terbaca', Array.isArray(catatan), true);
+  check('catatan punya relasi guru', catatan.every((row) => 'guru' in row), true);
+
+  const perilaku = await akademik.fetchSantriBehaviorRecords(targetSantri);
+  check('catatan perilaku punya relasi guru', perilaku.every((row) => 'guru' in row), true);
+
+  const murojaah = await akademik.fetchMurojaahSubmissions();
+  check('murojaah punya relasi santri', murojaah.every((row) => 'santri' in row), true);
+  console.log('');
+
   console.log('galat RPC diteruskan apa adanya:');
   const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
   check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');

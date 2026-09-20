@@ -59,9 +59,38 @@ const sanitizeValues = (table, values, { allowServerOwned = false } = {}) => {
   return clean;
 };
 
-const loadRow = async (db, table, id) => {
+// Tidak semua tabel berkunci tunggal "id". santri_character_strengths, misalnya, berkunci
+// gabungan (santri_id, strength_key) dan tidak punya kolom id sama sekali. Karena itu
+// pemilihan baris dinyatakan sebagai objek kunci, bukan satu nilai.
+const buildKey = (table, { id = null, where = null }) => {
+  const key = where && typeof where === 'object' && !Array.isArray(where)
+    ? where
+    : (id !== null && id !== undefined ? { id } : null);
+
+  if (!key || Object.keys(key).length === 0) throw new QueryError('Kunci baris wajib diisi.');
+
+  for (const column of Object.keys(key)) {
+    if (!columnExists(table, column)) throw new QueryError(`Kolom kunci "${column}" tidak dikenal pada tabel "${table}".`);
+    const value = key[column];
+    if (value === null || value === undefined || typeof value === 'object') {
+      throw new QueryError(`Nilai kunci "${column}" tidak valid.`);
+    }
+  }
+
+  const columns = Object.keys(key);
+  return {
+    clause: columns.map((c) => `${quote(c)} = ?`).join(' and '),
+    params: columns.map((c) => key[c]),
+    describe: columns.map((c) => `${c}=${key[c]}`).join(', '),
+  };
+};
+
+const loadRow = async (db, table, key) => {
   const columns = SCHEMA_COLUMNS[table].map(quote).join(', ');
-  return db.prepare(`select ${columns} from ${quote(table)} where "id" = ? limit 1`).bind(id).first();
+  return db
+    .prepare(`select ${columns} from ${quote(table)} where ${key.clause} limit 1`)
+    .bind(...key.params)
+    .first();
 };
 
 export const insertRow = async (db, authorizer, { table, values }) => {
@@ -94,12 +123,12 @@ export const insertRow = async (db, authorizer, { table, values }) => {
   return { id: row.id ?? null };
 };
 
-export const updateRow = async (db, authorizer, { table, id, values }) => {
+export const updateRow = async (db, authorizer, { table, id = null, where = null, values }) => {
   const policy = requireWritableTable(table, 'update');
-  if (typeof id !== 'string' || id === '') throw new QueryError('id wajib diisi.');
+  const key = buildKey(table, { id, where });
   const clean = sanitizeValues(table, values);
 
-  const existing = await loadRow(db, table, id);
+  const existing = await loadRow(db, table, key);
   if (!existing) throw new QueryError('Baris tidak ditemukan.', 404);
 
   // Baris lama diperiksa lebih dulu: yang menentukan hak adalah keadaan sekarang,
@@ -120,9 +149,9 @@ export const updateRow = async (db, authorizer, { table, id, values }) => {
   if (columnExists(table, 'updated_by')) clean.updated_by = authorizer.ctx.userId;
 
   const columns = Object.keys(clean);
-  const sql = `update ${quote(table)} set ${columns.map((c) => `${quote(c)} = ?`).join(', ')} where "id" = ?`;
-  await db.prepare(sql).bind(...columns.map((c) => clean[c]), id).run();
-  return { id };
+  const sql = `update ${quote(table)} set ${columns.map((c) => `${quote(c)} = ?`).join(', ')} where ${key.clause}`;
+  await db.prepare(sql).bind(...columns.map((c) => clean[c]), ...key.params).run();
+  return { id: existing.id ?? null, key: key.describe };
 };
 
 // Upsert dijalankan sebagai pencarian lalu insert atau update, bukan sebagai
@@ -144,20 +173,25 @@ export const upsertRow = async (db, authorizer, { table, values, conflictColumn 
     return { ...(await insertRow(db, authorizer, { table, values })), inserted: true };
   }
 
+  // Pemilihan baris memakai kolom konflik itu sendiri, bukan "id", agar tabel berkunci
+  // gabungan tanpa kolom id tetap bisa dilayani.
   const existing = await db
-    .prepare(`select "id" from ${quote(table)} where ${quote(conflictColumn)} = ? limit 1`)
+    .prepare(`select ${quote(conflictColumn)} from ${quote(table)} where ${quote(conflictColumn)} = ? limit 1`)
     .bind(key)
     .first();
 
-  if (existing) return { ...(await updateRow(db, authorizer, { table, id: existing.id, values })), inserted: false };
+  if (existing) {
+    const result = await updateRow(db, authorizer, { table, where: { [conflictColumn]: key }, values });
+    return { ...result, inserted: false };
+  }
   return { ...(await insertRow(db, authorizer, { table, values })), inserted: true };
 };
 
-export const deleteRow = async (db, authorizer, { table, id }) => {
+export const deleteRow = async (db, authorizer, { table, id = null, where = null }) => {
   requireWritableTable(table, 'delete');
-  if (typeof id !== 'string' || id === '') throw new QueryError('id wajib diisi.');
+  const key = buildKey(table, { id, where });
 
-  const existing = await loadRow(db, table, id);
+  const existing = await loadRow(db, table, key);
   if (!existing) throw new QueryError('Baris tidak ditemukan.', 404);
   await authorizer.assert(table, 'delete', existing);
 
@@ -169,12 +203,12 @@ export const deleteRow = async (db, authorizer, { table, id }) => {
     if (columnExists(table, 'updated_by')) values.updated_by = authorizer.ctx.userId;
     const columns = Object.keys(values);
     await db
-      .prepare(`update ${quote(table)} set ${columns.map((c) => `${quote(c)} = ?`).join(', ')} where "id" = ?`)
-      .bind(...columns.map((c) => values[c]), id)
+      .prepare(`update ${quote(table)} set ${columns.map((c) => `${quote(c)} = ?`).join(', ')} where ${key.clause}`)
+      .bind(...columns.map((c) => values[c]), ...key.params)
       .run();
-    return { id, soft: true };
+    return { id: existing.id ?? null, key: key.describe, soft: true };
   }
 
-  await db.prepare(`delete from ${quote(table)} where "id" = ?`).bind(id).run();
-  return { id, soft: false };
+  await db.prepare(`delete from ${quote(table)} where ${key.clause}`).bind(...key.params).run();
+  return { id: existing.id ?? null, key: key.describe, soft: false };
 };
