@@ -484,6 +484,111 @@ const run = async () => {
   }
   console.log('');
 
+  console.log('santriManagementAdapters:');
+  {
+  const santriAdapter = await import('../src/lib/santriManagementAdapters.js');
+
+  // Penyaring dasar: belum dihapus, kategorinya cocok, statusnya kosong atau berbunyi
+  // aktif dalam ejaan mana pun. Angka pembandingnya dihitung langsung dari basis data
+  // dengan SQL yang setara, bukan dari adapternya sendiri.
+  const filterTpq = santriAdapter.buildSantriFilters({
+    categoryValues: santriAdapter.santriCategoryValues('tpq'),
+  });
+  const halamanTpq = await santriAdapter.fetchSantriPage({
+    filters: filterTpq, sortColumn: 'nama_lengkap', ascending: true, page: 1, pageSize: 10,
+  });
+  const tpqSql = sqlite.prepare(`
+    select count(*) c from santri
+     where deleted_at is null
+       and kategori in ('Anak','anak','TPQ','tpq')
+       and (status is null or lower(status) = 'aktif' or lower(status) = 'active')`).get().c;
+  check('hitungan santri TPQ sama dengan SQL setara', halamanTpq.count, tpqSql);
+  check('satu halaman berisi sepuluh baris', halamanTpq.data.length, Math.min(10, tpqSql));
+  check('terurut menurut nama', halamanTpq.data.every((s, i, arr) =>
+    i === 0 || String(arr[i - 1].nama_lengkap ?? '') <= String(s.nama_lengkap ?? '')), true);
+
+  // Halaman kedua harus melanjutkan, bukan mengulang.
+  const halamanKedua = await santriAdapter.fetchSantriPage({
+    filters: filterTpq, sortColumn: 'nama_lengkap', ascending: true, page: 2, pageSize: 10,
+  });
+  check('hitungannya sama di halaman lain', halamanKedua.count, tpqSql);
+  const idHalamanSatu = new Set(halamanTpq.data.map((s) => s.id));
+  check('halaman kedua tidak mengulang halaman pertama',
+    halamanKedua.data.every((s) => !idHalamanSatu.has(s.id)), true);
+
+  // Pencarian menyapu empat kolom sekaligus dengan OR, seperti dulu.
+  const santriContoh = halamanTpq.data[0];
+  const potongan = String(santriContoh.nama_lengkap).slice(0, 4);
+  const hasilCari = await santriAdapter.fetchSantriPage({
+    filters: santriAdapter.buildSantriFilters({
+      categoryValues: santriAdapter.santriCategoryValues('tpq'),
+      search: potongan,
+    }),
+    sortColumn: 'nama_lengkap', ascending: true, page: 1, pageSize: 100,
+  });
+  check('pencarian menemukan santrinya', hasilCari.data.some((s) => s.id === santriContoh.id), true);
+  check('pencarian mempersempit hasil', hasilCari.count <= tpqSql, true);
+  check('setiap hasil memuat kata yang dicari', hasilCari.data.every((s) => {
+    const cari = potongan.toLowerCase();
+    return [s.nama_lengkap, s.nama_panggilan, s.nama_ayah, s.rfid_tag]
+      .some((v) => String(v ?? '').toLowerCase().includes(cari));
+  }), true);
+
+  // RFID: terpasang berarti tidak null dan tidak kosong; belum terpasang kebalikannya.
+  const terpasang = await santriAdapter.fetchSantriPage({
+    filters: santriAdapter.buildSantriFilters({ rfid: 'assigned' }),
+    sortColumn: 'nama_lengkap', ascending: true, page: 1, pageSize: 100,
+  });
+  check('rfid terpasang tidak pernah kosong',
+    terpasang.data.every((s) => s.rfid_tag !== null && s.rfid_tag !== ''), true);
+  const belumTerpasang = await santriAdapter.fetchSantriPage({
+    filters: santriAdapter.buildSantriFilters({ rfid: 'unassigned' }),
+    sortColumn: 'nama_lengkap', ascending: true, page: 1, pageSize: 100,
+  });
+  check('rfid belum terpasang selalu kosong',
+    belumTerpasang.data.every((s) => s.rfid_tag === null || s.rfid_tag === ''), true);
+  const semuaAktif = await santriAdapter.fetchSantriPage({
+    filters: santriAdapter.buildSantriFilters({}),
+    sortColumn: 'nama_lengkap', ascending: true, page: 1, pageSize: 1,
+  });
+  check('terpasang dan belum terpasang menjumlah utuh',
+    terpasang.count + belumTerpasang.count, semuaAktif.count);
+
+  // juz_hafalan bertipe array yang tersimpan sebagai JSON, jadi penyaringnya menguji
+  // keanggotaan per nilai, bukan mencocokkan teks.
+  const contohJuz = sqlite.prepare(`
+    select json_extract(juz_hafalan, '$[0]') j from santri
+     where deleted_at is null and juz_hafalan is not null and json_array_length(juz_hafalan) > 0
+     limit 1`).get()?.j;
+  if (contohJuz) {
+    const hasilJuz = await santriAdapter.fetchSantriPage({
+      filters: santriAdapter.buildSantriFilters({ juzValue: contohJuz }),
+      sortColumn: 'nama_lengkap', ascending: true, page: 1, pageSize: 100,
+    });
+    check('penyaring juz memulangkan baris', hasilJuz.count > 0, true);
+    check('setiap baris benar memuat juz itu',
+      hasilJuz.data.every((s) => (s.juz_hafalan ?? []).includes(contohJuz)), true);
+    // Nilainya sudah terurai menjadi larik, bukan teks JSON.
+    check('juz_hafalan terurai sebagai larik', Array.isArray(hasilJuz.data[0].juz_hafalan), true);
+  }
+
+  // Ekspor memakai fungsi penyaring yang sama; isinya harus sama dengan yang di layar.
+  const ekspor = await santriAdapter.fetchSantriForExport({ filters: filterTpq });
+  check('ekspor memulangkan seluruh baris, bukan sehalaman', ekspor.data.length, tpqSql);
+
+  const opsiKelas = await santriAdapter.fetchClassOptions();
+  check('opsi kelas terbaca', opsiKelas.error, null);
+  check('nama guru ikut terjahit', opsiKelas.data.every((c) => 'guru' in c), true);
+
+  const ulangTahun = await santriAdapter.fetchBirthdayCandidates();
+  check('calon ulang tahun terbaca', ulangTahun.error, null);
+  check('hanya santri aktif', ulangTahun.data.length, sqlite.prepare(`
+    select count(*) c from santri
+     where deleted_at is null
+       and (status is null or lower(status) = 'aktif' or lower(status) = 'active')`).get().c);
+  }
+  console.log('');
+
   console.log('penulisan banyak baris lewat adapter:');
   // Sistem pembayaran menulis seluruh keranjang sekaligus. Yang diuji di sini jalur
   // utuhnya: klien, rute, otorisasi, sampai D1.

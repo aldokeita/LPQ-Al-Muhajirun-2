@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { Award, Edit, Trash2, Clock, CalendarDays, History, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Minus, FileText, Download, Loader2, PieChart as PieChartIcon, BookOpen, Sparkles, UserCheck, HeartHandshake } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { fetchSantriAttendanceHistory } from '@/lib/attendanceAdapters';
+import { queryOne } from '@/lib/dataClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -61,13 +62,12 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
     const fetchJilidHistory = useCallback(async () => {
         if (!santri) return;
-        const { data, error } = await supabase
-            .from('jilid_history')
-            .select('changed_at')
-            .eq('santri_id', santri.id)
-            .order('changed_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        const { data } = await queryOne({
+            table: 'jilid_history',
+            columns: ['changed_at'],
+            filters: [{ column: 'santri_id', op: 'eq', value: santri.id }],
+            order: [{ column: 'changed_at', ascending: false }],
+        });
 
         let startDate = new Date(santri.created_at);
         if (data?.changed_at) {
@@ -108,7 +108,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         setIsLoadingReportData(true);
         try {
             // Get full attendance history
-            const { data: attData, error: attErr } = await supabase.from('attendance').select('id, user_id, role, attendance_date, check_in_time, check_in_timestamp, class_id, sesi, status, source, correction_reason, corrected_by, created_at, updated_at, created_by, updated_by').eq('user_id', santri.id);
+            const { data: attData, error: attErr } = await fetchSantriAttendanceHistory(santri.id);
             if (attErr) throw attErr;
             setAttendanceHistory(attData || []);
 

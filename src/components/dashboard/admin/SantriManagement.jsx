@@ -8,7 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/lib/customSupabaseClient';
+import { manageUser, rpc } from '@/lib/dataClient';
+import {
+  buildSantriFilters,
+  fetchBirthdayCandidates,
+  fetchClassOptions,
+  fetchSantriForExport,
+  fetchSantriPage,
+  santriCategoryValues,
+  updateSantriProfile,
+} from '@/lib/santriManagementAdapters';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -35,14 +44,7 @@ const jilidOptions = SANTRI_JILID_OPTIONS;
 
 const ptptTargetOptions = ALL_JUZ;
 
-const SANTRI_BASE_SELECT = 'id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, juz_hafalan, status, points, order_in_class, created_at, updated_at, deleted_at';
-const SANTRI_EXTENDED_SELECT = `${SANTRI_BASE_SELECT}, tanggal_pendaftaran, nama_ayah, nama_ibu, no_kk, no_nik, berkas_foto, berkas_akta, berkas_kk, berkas_form, link_qiroati, default_spp_amount`;
-
 const getSelectedClassId = (input) => input?.current_class_id || input?.id_kelas || null;
-
-const isMissingSantriExtendedColumn = (error) =>
-  error?.code === '42703' ||
-  /column santri\.(tanggal_pendaftaran|nama_ayah|nama_ibu|no_kk|no_nik|berkas_foto|berkas_akta|berkas_kk|berkas_form|link_qiroati) does not exist/i.test(error?.message || '');
 
 const BULK_IMPORT_COLUMNS = [
   'Nama Lengkap',
@@ -531,54 +533,31 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     setIsLoadingData(true);
     setFetchError(null);
     try {
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
       const normalizedSearch = debouncedSearch.replace(/[%_,().]/g, ' ').trim();
-      const categoryValues = currentTab === 'ptpt' ? ['PTPT', 'ptpt'] : ['Anak', 'anak', 'TPQ', 'tpq'];
       const sortColumn = ['nama_lengkap', 'tanggal_pendaftaran', 'jenis_kelamin', 'jilid', 'sesi_mengaji'].includes(sortConfig.key)
         ? sortConfig.key
         : 'nama_lengkap';
 
-      const fetchSantri = async (selectColumns = SANTRI_EXTENDED_SELECT) => {
-        let query = supabase
-          .from('santri')
-          .select(selectColumns, { count: 'exact' })
-          .is('deleted_at', null)
-          .in('kategori', categoryValues)
-          .or('status.is.null,status.ilike.aktif,status.ilike.active');
+      const santriFilters = buildSantriFilters({
+        categoryValues: santriCategoryValues(currentTab),
+        search: normalizedSearch,
+        sesiValues: filters.sesi === 'all' ? null : [String(getSessionNumber(filters.sesi)), filters.sesi],
+        jilidValues: filters.jilid === 'all' || currentTab === 'ptpt' ? null : getSantriJilidQueryValues(filters.jilid),
+        juzValue: filters.jilid !== 'all' && currentTab === 'ptpt' ? filters.jilid : null,
+        rfid: filters.rfid,
+      });
 
-        if (normalizedSearch) {
-          query = query.or(`nama_lengkap.ilike.%${normalizedSearch}%,nama_panggilan.ilike.%${normalizedSearch}%,nama_ayah.ilike.%${normalizedSearch}%,rfid_tag.ilike.%${normalizedSearch}%`);
-        }
-        if (filters.sesi !== 'all') query = query.in('sesi_mengaji', [String(getSessionNumber(filters.sesi)), filters.sesi]);
-        if (filters.jilid !== 'all') {
-          if (currentTab === 'ptpt') {
-            query = query.contains('juz_hafalan', [filters.jilid]);
-          } else {
-            query = query.in('jilid', getSantriJilidQueryValues(filters.jilid));
-          }
-        }
-        if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
-        if (filters.rfid === 'unassigned') query = query.or('rfid_tag.is.null,rfid_tag.eq.');
-
-        return query
-          .order(sortColumn, { ascending: sortConfig.direction === 'ascending', nullsFirst: false })
-          .range(from, to);
-      };
-
-      const [santriRes, classesRes, birthdayRes] = await Promise.all([
-        fetchSantri(),
-        supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
-        supabase
-          .from('santri')
-          .select('id, nama_lengkap, tanggal_lahir, no_hp_ortu, foto_url, avatar_path')
-          .is('deleted_at', null)
-          .or('status.is.null,status.ilike.aktif,status.ilike.active')
+      const [resolvedSantriRes, classesRes, birthdayRes] = await Promise.all([
+        fetchSantriPage({
+          filters: santriFilters,
+          sortColumn,
+          ascending: sortConfig.direction === 'ascending',
+          page: currentPage,
+          pageSize: PAGE_SIZE,
+        }),
+        fetchClassOptions(),
+        fetchBirthdayCandidates(),
       ]);
-
-      const resolvedSantriRes = isMissingSantriExtendedColumn(santriRes.error)
-        ? await fetchSantri(SANTRI_BASE_SELECT)
-        : santriRes;
 
       if (resolvedSantriRes.error) {
           console.error("Query execution error for santri:", resolvedSantriRes.error);
@@ -674,8 +653,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         const initialPassword = nomorInduk;
 
         try {
-          const { data, error: edgeErr } = await supabase.functions.invoke('manage-user', {
-            body: {
+          const { data, error: edgeErr } = await manageUser({
               action: 'create',
               role: 'santri',
               profile: {
@@ -699,19 +677,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                 points: item.points ?? 0,
               },
               initial_password: initialPassword,
-            },
           });
 
-          if (edgeErr) {
-            // Coba ekstrak pesan error sebenarnya dari response body
-            let errMsg = edgeErr.message || 'Edge Function error';
-            try {
-              const body = await edgeErr.context?.json?.();
-              if (body?.message) errMsg = body.message;
-              else if (body?.error) errMsg = body.error;
-            } catch (_) { /* ignore parse error */ }
-            throw new Error(errMsg);
-          }
+          // Pesan galat sekarang sudah utuh di error.message; dulu ia harus digali dari
+          // badan respons Edge Function.
+          if (edgeErr) throw new Error(edgeErr.message || 'Gagal membuat akun santri');
           if (!data?.ok) throw new Error(data?.message || data?.error || 'Gagal membuat akun santri');
 
           successCount++;
@@ -758,23 +728,21 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const handleDownloadData = async () => {
     try {
       const normalizedSearch = filters.search.replace(/[%_,().]/g, ' ').trim();
-      const categoryValues = subCategory === 'ptpt' ? ['PTPT', 'ptpt'] : ['Anak', 'anak', 'TPQ', 'tpq'];
-      let query = supabase
-        .from('santri')
-        .select(SANTRI_EXTENDED_SELECT)
-        .is('deleted_at', null)
-        .in('kategori', categoryValues)
-        .or('status.is.null,status.ilike.aktif,status.ilike.active');
-
-      if (normalizedSearch) {
-        query = query.or(`nama_lengkap.ilike.%${normalizedSearch}%,nama_panggilan.ilike.%${normalizedSearch}%,nama_ayah.ilike.%${normalizedSearch}%,rfid_tag.ilike.%${normalizedSearch}%`);
-      }
-      if (filters.sesi !== 'all') query = query.in('sesi_mengaji', [String(getSessionNumber(filters.sesi)), filters.sesi]);
-      if (filters.jilid !== 'all') query = query.in('jilid', getSantriJilidQueryValues(filters.jilid));
-      if (filters.rfid === 'assigned') query = query.not('rfid_tag', 'is', null).neq('rfid_tag', '');
-      if (filters.rfid === 'unassigned') query = query.or('rfid_tag.is.null,rfid_tag.eq.');
-
-      const { data, error } = await query.order('nama_lengkap').range(0, 4999);
+      // Penyaring yang sama dengan tabel di layar, dibangun oleh fungsi yang sama, supaya
+      // isi berkas yang diunduh tidak bisa menyimpang dari yang ditampilkan.
+      //
+      // Satu perbedaan yang memang sudah ada sejak dulu dan dipertahankan: ekspor selalu
+      // menyaring jilid lewat kolom jilid, termasuk pada tab PTPT, sedangkan tabelnya
+      // memakai juz_hafalan di tab itu.
+      const { data, error } = await fetchSantriForExport({
+        filters: buildSantriFilters({
+          categoryValues: santriCategoryValues(subCategory),
+          search: normalizedSearch,
+          sesiValues: filters.sesi === 'all' ? null : [String(getSessionNumber(filters.sesi)), filters.sesi],
+          jilidValues: filters.jilid === 'all' ? null : getSantriJilidQueryValues(filters.jilid),
+          rfid: filters.rfid,
+        }),
+      });
       if (error) throw error;
 
       const dataToExport = (data || []).map(mapSantriForLegacyUi).map(s => ({
@@ -806,12 +774,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
     try {
         const { path, signedUrl } = await uploadAvatar({ ownerType: 'santri', ownerId: editingSantri.id, file });
-        const { data, error } = await supabase
-            .from('santri')
-            .update({ avatar_path: path })
-            .eq('id', editingSantri.id)
-            .select('id, avatar_path, foto_url')
-            .maybeSingle();
+        const { data, error } = await updateSantriProfile(editingSantri.id, { avatar_path: path });
 
         if (error) throw error;
         if (!data) throw new Error('Avatar terunggah, tetapi referensi profil santri tidak tersimpan.');
@@ -920,13 +883,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
           return;
         }
-        const { data, error } = await supabase.functions.invoke('manage-user', {
-          body: {
-            action: 'create',
-            role: 'santri',
-            profile: pickSantriProfileFields(finalFormData),
-            initial_password: finalFormData.password,
-          },
+        const { data, error } = await manageUser({
+          action: 'create',
+          role: 'santri',
+          profile: pickSantriProfileFields(finalFormData),
+          initial_password: finalFormData.password,
         });
 
         if (error) {
@@ -972,13 +933,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
           return;
         }
 
-        const { data, error } = await supabase.functions.invoke('manage-user', {
-          body: {
-            action: 'update',
-            role: 'santri',
-            target_user_id: targetId,
-            profile: { nomor_induk_qiroati: profilePayload.nomor_induk_qiroati },
-          },
+        const { data, error } = await manageUser({
+          action: 'update',
+          role: 'santri',
+          target_user_id: targetId,
+          profile: { nomor_induk_qiroati: profilePayload.nomor_induk_qiroati },
         });
 
         if (error) throw new Error(await getFunctionErrorMessage(error, 'Login santri gagal disinkronkan.'));
@@ -987,19 +946,16 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       }
 
       if (Object.keys(profilePayload).length > 0) {
-        const { data: savedSantri, error } = await supabase
-          .from('santri')
-          .update(profilePayload)
-          .eq('id', targetId)
-          .select('id')
-          .maybeSingle();
+        // Endpoint pembaruan melempar galat ketika barisnya tidak ada, jadi id yang
+        // dipulangkannya sudah cukup untuk memastikan ada yang benar-benar tersimpan.
+        const { data: savedSantri, error } = await updateSantriProfile(targetId, profilePayload);
 
         if (error) throw error;
         if (!savedSantri) throw new Error('Data santri tidak tersimpan karena tidak ada row yang diperbarui.');
       }
 
       if (classChanged) {
-        const { error: classError } = await supabase.rpc('move_santri_to_class', {
+        const { error: classError } = await rpc('move_santri_to_class', {
           p_santri_id: targetId,
           p_to_class_id: selectedClassId,
           p_reason: editingSantri ? 'Perubahan kelas dari Data Santri' : 'Penempatan kelas awal dari Data Santri',
@@ -1090,7 +1046,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const getMigrationLabel = (targetCategory) => targetCategory === 'Anak' ? 'TPQ' : targetCategory;
 
   const migrateSantriCategory = async (santriId, targetCategory, reason) => {
-      const { data, error } = await supabase.rpc('change_santri_category', {
+      const { data, error } = await rpc('change_santri_category', {
           p_santri_id: santriId,
           p_target_category: targetCategory,
           p_reason: reason,

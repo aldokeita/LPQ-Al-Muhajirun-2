@@ -1,4 +1,4 @@
-import { supabase } from '../lib/customSupabaseClient';
+import { queryAll, queryOne } from '../lib/dataClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
@@ -44,12 +44,15 @@ export const getHafalanItemName = (item) => {
 
 export const calculateAttendanceData = async (santriId, startDate, endDate) => {
     try {
-        let query = supabase.from('attendance').select('status, attendance_date, check_in_timestamp, class_id').eq('user_id', santriId);
+        const filters = [{ column: 'user_id', op: 'eq', value: santriId }];
+        if (startDate) filters.push({ column: 'attendance_date', op: 'gte', value: startDate });
+        if (endDate) filters.push({ column: 'attendance_date', op: 'lte', value: endDate });
 
-        if (startDate) query = query.gte('attendance_date', startDate);
-        if (endDate) query = query.lte('attendance_date', endDate);
-
-        const { data, error } = await query;
+        const { data, error } = await queryAll({
+            table: 'attendance',
+            columns: ['status', 'attendance_date', 'check_in_timestamp', 'class_id'],
+            filters,
+        });
         if (error) throw error;
 
         const totalPresent = (data || []).filter(d => (d.status || '').toLowerCase() === 'hadir').length;
@@ -87,17 +90,30 @@ export const calculateAttendanceData = async (santriId, startDate, endDate) => {
 
 export const getHafalanProgressData = async (santriId) => {
     try {
-        const { data: santri, error: santriError } = await supabase
-            .from('santri')
-            .select('kategori')
-            .eq('id', santriId)
-            .single();
+        const { data: santri, error: santriError } = await queryOne({
+            table: 'santri',
+            columns: ['kategori'],
+            filters: [{ column: 'id', op: 'eq', value: santriId }],
+        });
         if (santriError) throw santriError;
         const programScope = String(santri?.kategori || '').toUpperCase() === 'PTPT' ? 'PTPT' : 'TPQ';
 
         const [itemsRes, progressRes] = await Promise.all([
-            supabase.from('hafalan_items').select('id,program_scope,category,jilid,item_name,item_order,is_active,created_at').eq('program_scope', programScope).eq('is_active', true).order('item_order'),
-            supabase.from('hafalan_progress').select('id,santri_id,item_id,category,item_name,status,score,created_at,updated_at').eq('santri_id', santriId)
+            queryAll({
+                table: 'hafalan_items',
+                columns: ['id', 'program_scope', 'category', 'jilid', 'item_name', 'item_order', 'is_active', 'created_at'],
+                filters: [
+                    { column: 'program_scope', op: 'eq', value: programScope },
+                    // is_active bertipe boolean dan tersimpan sebagai 1/0 di D1.
+                    { column: 'is_active', op: 'eq', value: 1 },
+                ],
+                order: [{ column: 'item_order', ascending: true }],
+            }),
+            queryAll({
+                table: 'hafalan_progress',
+                columns: ['id', 'santri_id', 'item_id', 'category', 'item_name', 'status', 'score', 'created_at', 'updated_at'],
+                filters: [{ column: 'santri_id', op: 'eq', value: santriId }],
+            }),
         ]);
 
         if (itemsRes.error) throw itemsRes.error;
@@ -166,7 +182,11 @@ export const getHafalanProgressData = async (santriId) => {
 
 export const getPointsData = async (santriId, startDate, endDate) => {
     try {
-        const { data, error } = await supabase.from('santri').select('points').eq('id', santriId).single();
+        const { data, error } = await queryOne({
+            table: 'santri',
+            columns: ['points'],
+            filters: [{ column: 'id', op: 'eq', value: santriId }],
+        });
         if (error) throw error;
 
         return {

@@ -4,6 +4,22 @@ import {
     getJakartaTimeString,
     normalizeAttendanceSessionName,
 } from '@/utils/AttendanceStatusLogic';
+import { queryAll } from '@/lib/dataClient';
+
+export const ATTENDANCE_COLUMNS = [
+    'id', 'user_id', 'role', 'attendance_date', 'check_in_time', 'check_in_timestamp',
+    'class_id', 'sesi', 'status', 'source', 'correction_reason', 'corrected_by',
+    'created_at', 'updated_at', 'created_by', 'updated_by',
+];
+
+// Seluruh riwayat kehadiran satu orang. Dulu ini tidak dibatasi jumlahnya sehingga
+// terpotong diam-diam di 1000 baris; queryAll menyusuri halamannya sampai habis, yang
+// penting karena satu santri bisa punya ratusan baris per tahun.
+export const fetchSantriAttendanceHistory = (userId, { extraFilters = [] } = {}) => queryAll({
+    table: 'attendance',
+    columns: ATTENDANCE_COLUMNS,
+    filters: [{ column: 'user_id', op: 'eq', value: userId }, ...extraFilters],
+});
 
 const ACTIVE_STATUS = new Set(['aktif', 'active']);
 const EXPLICIT_ABSENT_STATUSES = new Set(['tidak hadir', 'alpha', 'ghaib', 'absen']);

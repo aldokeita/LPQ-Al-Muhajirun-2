@@ -9,7 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/lib/customSupabaseClient';
+import { manageUser, rpc } from '@/lib/dataClient';
+import {
+  fetchAllSantri,
+  fetchClassOptions,
+  insertSantriBulk,
+  updateSantriProfile,
+} from '@/lib/santriManagementAdapters';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -248,10 +254,11 @@ const SantriDewasaManagement = () => {
     setIsLoadingData(true);
     try {
       console.log('--- INVESTIGATION: Fetching all santri (Dewasa) ---');
-      const [santriRes, classesRes, configRes] = await Promise.all([
-        supabase.from('santri').select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ayah, nama_ibu, no_kk, no_nik, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, tanggal_pendaftaran, alamat, no_hp_ortu, foto_url, avatar_path, email, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, link_qiroati, default_spp_amount, juz_hafalan, berkas_foto, berkas_akta, berkas_kk, berkas_form, created_at, updated_at, deleted_at, created_by, updated_by'),
-        supabase.from('classes').select('id, nama_kelas, kategori, guru:id_guru(nama)'),
-        supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
+      // Konfigurasi sesi dulu ikut dibaca di sini tetapi hasilnya tidak pernah dipakai —
+      // daftar sesinya datang dari getAllSessions() di bawah. Pembacaannya dihapus.
+      const [santriRes, classesRes] = await Promise.all([
+        fetchAllSantri(),
+        fetchClassOptions({ columns: ['id', 'nama_kelas', 'kategori', 'id_guru'] }),
       ]);
 
       if (santriRes.data) {
@@ -373,7 +380,7 @@ const SantriDewasaManagement = () => {
   const confirmBulkUpload = async () => {
       if (!uploadReport?.validData) return;
       const cleanData = uploadReport.validData.map((item) => pickSantriProfileFields(item));
-      const { error } = await supabase.from('santri').insert(cleanData);
+      const { error } = await insertSantriBulk(cleanData);
       if (error) {
           toast({ title: "Gagal Menyimpan", description: error.message, variant: "destructive" });
       } else {
@@ -472,32 +479,28 @@ const SantriDewasaManagement = () => {
       }
 
       if (!editingSantri) {
-        const { data, error } = await supabase.functions.invoke('manage-user', {
-          body: {
-            action: 'create',
-            role: 'santri',
-            profile: profilePayload,
-            initial_password: finalFormData.password,
-          },
+        const { data, error } = await manageUser({
+          action: 'create',
+          role: 'santri',
+          profile: profilePayload,
+          initial_password: finalFormData.password,
         });
         if (error) throw error;
         if (!data?.ok || !data?.data?.user_id) throw new Error(data?.error?.message || 'Akun santri dewasa gagal dibuat.');
         targetId = data.data.user_id;
       } else if (Object.keys(profilePayload).length > 0) {
-        const { data, error } = await supabase.functions.invoke('manage-user', {
-          body: {
-            action: 'update',
-            role: 'santri',
-            target_user_id: targetId,
-            profile: profilePayload,
-          },
+        const { data, error } = await manageUser({
+          action: 'update',
+          role: 'santri',
+          target_user_id: targetId,
+          profile: profilePayload,
         });
         if (error) throw error;
         if (!data?.ok) throw new Error(data?.error?.message || 'Data santri dewasa gagal diperbarui.');
       }
 
       if (classChanged && selectedClassId) {
-        const { error } = await supabase.rpc('move_santri_to_class', {
+        const { error } = await rpc('move_santri_to_class', {
           p_santri_id: targetId,
           p_to_class_id: selectedClassId,
           p_reason: editingSantri ? 'Perubahan kelas santri dewasa' : 'Penempatan kelas awal santri dewasa',
@@ -560,7 +563,7 @@ const SantriDewasaManagement = () => {
           title: 'Migrasi ke TPQ',
           description: `Yakin ingin memindahkan ${editingSantri.nama_lengkap} ke kategori TPQ (Anak)? Santri akan dikeluarkan dari kelas Dewasa saat ini.`,
           onConfirm: async () => {
-              const { data, error } = await supabase.rpc('change_santri_category', {
+              const { data, error } = await rpc('change_santri_category', {
                   p_santri_id: editingSantri.id,
                   p_target_category: 'Anak',
                   p_reason: 'Migrasi santri dewasa ke TPQ oleh admin',
