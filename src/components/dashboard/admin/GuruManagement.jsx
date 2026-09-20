@@ -8,10 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { manageUser } from '@/lib/dataClient';
+// Diberi nama lain karena komponen ini punya fungsi bernama fetchGuru sendiri. Tanpa
+// alias, nama lokalnya menutupi impor ini dan pemanggilan di dalamnya berubah menjadi
+// rekursi ke dirinya sendiri.
 import {
   GURU_BACKUP_COLUMNS,
   deactivateGuruProfile,
-  fetchGuru,
+  fetchGuru as fetchGuruRecords,
   updateGuru,
   upsertGuru,
 } from '@/lib/guruAdapters';
@@ -48,7 +51,7 @@ const GuruManagement = () => {
   const fetchGuru = useCallback(async () => {
     try {
         console.log("Fetching guru data from database...");
-        const { data, error } = await fetchGuru();
+        const { data, error } = await fetchGuruRecords();
         if (error) {
             console.error("Database Error fetching guru:", error);
             throw new Error(error.message);
@@ -138,7 +141,7 @@ const GuruManagement = () => {
         toast({ title: "Memproses Backup", description: "Sedang menyiapkan data untuk diekspor..." });
         console.log("Starting Backup to Excel for Guru...");
 
-        const { data: allGuru, error } = await fetchGuru({ columns: GURU_BACKUP_COLUMNS });
+        const { data: allGuru, error } = await fetchGuruRecords({ columns: GURU_BACKUP_COLUMNS });
         if (error) {
             console.error("Backup DB Fetch Error:", error);
             throw new Error(error.message);
