@@ -104,6 +104,10 @@ const run = async () => {
       and lower(trim(s.status)) in ('aktif','active')
     limit 1`).get();
 
+  // Suite ini memindahkan jilid dan menambah poin santri sungguhan. Barisnya dipotret
+  // utuh sekarang dan dikembalikan di akhir, supaya basis data tetap cerminan Supabase.
+  const potretTarget = sqlite.prepare('select * from santri where id = ?').get(target.id);
+
   const kosong = await changeSantriJilid({ santriId: null, toJilid: 'Jilid 2' });
   check('santri kosong ditolak di sisi klien', kosong.error?.message, 'Santri belum dipilih.');
 
@@ -888,6 +892,39 @@ const run = async () => {
   const ditolak = await rpc('move_santri_to_class', { p_santri_id: target.id, p_to_class_id: null });
   check('pesan dari server sampai ke pemanggil', ditolak.error?.message, 'Kelas tujuan wajib dipilih.');
   check('bentuknya tetap { data, error }', ditolak.data, null);
+  console.log('');
+
+  // Suite ini menulis ke basis data sungguhan, jadi jejaknya dibuang sebelum keluar.
+  // Tanpa ini setiap jalannya meninggalkan baris uji yang ikut terhitung di laporan
+  // keuangan dan di panel konten.
+  console.log('membersihkan jejak pengujian:');
+  {
+    const ADMIN_UJI_ID = '11111111-2222-3333-4444-555555555555';
+    const buang = (label, sql, ...param) => {
+      const { changes } = sqlite.prepare(sql).run(...param);
+      console.log(`  ${label}: ${changes} baris`);
+    };
+    buang('konten uji', "delete from website_content where key like 'uji_panel_%'");
+    buang('pengeluaran uji', "delete from expenses where deskripsi = 'Uji konversi sen'");
+    buang('pembayaran uji', 'delete from payments where tahun = 2032');
+    // Penilaian PTPT dan perpindahan jilid meninggalkan baris turunan, sebagian
+    // ditulis pemicu. Patokannya created_by, yang diisi server dari sesi admin uji;
+    // assessed_by tidak bisa dipakai karena merujuk guru sungguhan.
+    buang('skor juz uji', 'delete from santri_juz_scores where created_by = ?', ADMIN_UJI_ID);
+    buang('skor surah uji', 'delete from santri_surah_scores where created_by = ?', ADMIN_UJI_ID);
+    buang('riwayat jilid uji', 'delete from jilid_history where changed_by = ?', ADMIN_UJI_ID);
+
+    // Pemicu AFTER akan menulis ulang updated_at saat baris dipulihkan, jadi
+    // dimatikan sebentar supaya nilai aslinya benar-benar kembali.
+    const pemicu = sqlite.prepare("select name, sql from sqlite_master where type='trigger'").all();
+    for (const t of pemicu) sqlite.exec(`drop trigger if exists "${t.name}"`);
+    const kolom = Object.keys(potretTarget).filter((c) => c !== 'id');
+    sqlite
+      .prepare(`update santri set ${kolom.map((c) => `"${c}" = ?`).join(', ')} where id = ?`)
+      .run(...kolom.map((c) => potretTarget[c]), potretTarget.id);
+    for (const t of pemicu) if (t.sql) sqlite.exec(t.sql);
+    console.log(`  santri target dipulihkan: ${potretTarget.nama_lengkap}`);
+  }
   console.log('');
 
   console.log(`lulus: ${passed}, gagal: ${failed}`);

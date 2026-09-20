@@ -19,6 +19,7 @@
     "test:data": "node --experimental-sqlite scripts/test-worker-data.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
     "test:mutate": "node --experimental-sqlite scripts/test-worker-mutate.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
     "test:shadow": "node scripts/check-shadowed-imports.mjs",
+    "check:parity": "node --experimental-sqlite scripts/check-d1-parity.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
     "test:entry": "node --experimental-sqlite scripts/test-worker-entry.mjs migrations-d1/0001_initial_schema.sql",
     "test:files": "node --experimental-sqlite scripts/test-worker-files.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
     "test:urls": "node --experimental-sqlite scripts/test-storage-url-rewrite.mjs migrations-d1/0001_initial_schema.sql _private_reference/backup-2026-09-19-143019/d1-data.sql",
