@@ -580,7 +580,7 @@ const BackupRestoreManagement = () => {
                 <CardHeader>
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg"><Database className="w-6 h-6 text-blue-600 dark:text-blue-400" /></div>
-                        <div><CardTitle className="text-2xl font-bold text-slate-800 dark:text-white">Backup & Restore Database</CardTitle><CardDescription>Kelola cadangan data sistem untuk keamanan dan pemulihan bencana. Jalur admin langsung aktif dan Edge Function digunakan otomatis bila tersedia.</CardDescription></div>
+                        <div><CardTitle className="text-2xl font-bold text-slate-800 dark:text-white">Backup & Restore Database</CardTitle><CardDescription>Kelola cadangan data sistem untuk keamanan dan pemulihan bencana.</CardDescription></div>
                     </div>
                 </CardHeader>
                 <CardContent>
