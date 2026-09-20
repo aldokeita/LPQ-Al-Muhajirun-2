@@ -1,15 +1,31 @@
 // Verifikasi password dan jalur pemindahan bcrypt ke PBKDF2.
 //
-// 602 akun warisan Supabase memakai bcrypt $2a$ cost 10, yang menghabiskan sekitar 50 ms
-// CPU per verifikasi. Paket Workers Free hanya memberi 10 ms CPU per request, jadi jalur
-// bcrypt mensyaratkan Workers Paid. Setelah sebuah akun login sekali, password-nya
-// disimpan ulang sebagai PBKDF2 dan bcrypt tidak pernah dipanggil lagi untuk akun itu.
-//
 // PBKDF2 dipilih karena WebCrypto menyediakannya secara native, tanpa dependensi tambahan.
-
+//
+// Jumlah iterasinya ditentukan oleh anggaran CPU Workers Free: 10 ms per permintaan, dan
+// permintaan login juga harus menyisakan waktu untuk membaca akun dari D1, menandatangani
+// sesi, dan menyusun cookie. Hasil pengukuran: 100.000 iterasi ~12 ms, 50.000 ~6 ms,
+// 30.000 ~4 ms. Angka 30.000 dipilih agar muat berikut sisa pekerjaannya.
+//
+// Ini memang lebih lemah dari anjuran umum untuk PBKDF2-SHA256, dan itu konsekuensi sadar
+// dari bertahan di paket gratis. Yang menahan serangan tebak-menebak lewat jaringan bukan
+// jumlah iterasi melainkan pembatas percobaan login di auth_rate_limits; iterasi hanya
+// memperlambat penyerang yang sudah memegang salinan basis data.
+//
+// 602 akun warisan Supabase memakai bcrypt $2a$ cost 10, sekitar 50 ms CPU — lima kali
+// anggaran itu. Jalur bcrypt tetap ada dan dilewati sekali saja per akun: begitu login
+// pertama berhasil, password-nya disimpan ulang sebagai PBKDF2 dan bcrypt tidak pernah
+// dipanggil lagi untuk akun tersebut.
+//
+// Itu bersandar pada kelonggaran yang dinyatakan dokumentasi Workers: isolate mentoleransi
+// pelampauan batas yang jarang, dan baru menghentikan Worker yang melampauinya terus
+// menerus. Dengan 29 akun berpassword yang masing-masing melewati bcrypt satu kali, itu
+// memang jarang — tetapi kelonggarannya tidak dijamin. Kalau sebuah login gagal dengan
+// Error 1102, akun itu perlu direset password-nya oleh admin, dan sesudah reset ia
+// langsung tersimpan sebagai PBKDF2.
 import bcrypt from 'bcryptjs';
 
-export const PBKDF2_ITERATIONS = 100000;
+export const PBKDF2_ITERATIONS = 30000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEY_BITS = 256;
 const SALT_BYTES = 16;
@@ -74,9 +90,11 @@ export const verifyPassword = async (password, stored, declaredAlgorithm = null)
 
   if (algorithm === 'pbkdf2') {
     const valid = await verifyPbkdf2(password, stored);
-    // Iterasi yang tertinggal dari standar sekarang juga memicu penyimpanan ulang.
+    // Iterasi yang berbeda dari angka sekarang memicu penyimpanan ulang, ke arah mana pun.
+    // Bukan hanya yang terlalu rendah: hash yang tersimpan dengan iterasi lebih tinggi dari
+    // anggaran akan memakan CPU berlebih di setiap login, bukan sekali saja.
     const iterations = Number(String(stored).split('$')[2]);
-    return { valid, algorithm, needsRehash: valid && iterations < PBKDF2_ITERATIONS };
+    return { valid, algorithm, needsRehash: valid && iterations !== PBKDF2_ITERATIONS };
   }
 
   const valid = await verifyBcrypt(password, stored);

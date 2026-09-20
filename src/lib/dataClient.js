@@ -88,9 +88,12 @@ export const removeWhere = (table, where) => request('/api/data/delete', { table
 
 // Beberapa baris sekaligus, dalam satu transaksi. Dipakai di tempat yang dulu mengirim
 // larik ke insert() atau memakai delete().in('id', ids): kegagalan di tengah tidak boleh
-// meninggalkan sebagian baris tertulis. Batasnya BATCH_ROWS baris per permintaan, sama
-// dengan batas yang ditegakkan server.
-const BATCH_ROWS = 100;
+// meninggalkan sebagian baris tertulis.
+//
+// Angkanya harus sama dengan MAX_BATCH_ROWS di worker/data/mutate.js, yang ditentukan oleh
+// batas 50 kueri D1 per pemanggilan Worker di paket gratis. Kiriman yang lebih panjang
+// dipecah di sini, dan tiap potongan menjadi transaksinya sendiri.
+const BATCH_ROWS = 15;
 
 export const insertMany = async (table, rows) => {
   if (!Array.isArray(rows) || rows.length === 0) return { data: { ids: [] }, error: null };

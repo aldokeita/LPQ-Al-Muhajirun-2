@@ -80,6 +80,20 @@ const run = async () => {
   check('password salah ditolak', (await verifyPassword('salah', modernHash)).valid, false);
   check('hash rusak ditolak', (await verifyPassword(PASSWORD, 'pbkdf2$sha256$x$y$z')).valid, false);
   console.log(`  waktu hash ${PBKDF2_ITERATIONS} iterasi: ${hashMs} ms, verifikasi: ${verifyMs} ms`);
+
+  // Workers Free memberi 10 ms CPU per permintaan, dan login juga harus membaca akun dari
+  // D1, menandatangani sesi, dan menyusun cookie. Ambang 6 ms menyisakan ruang untuk itu.
+  // Pemeriksaan ini menjaga agar jumlah iterasi tidak dinaikkan tanpa sengaja sampai
+  // login berhenti bekerja di paket gratis.
+  const ANGGARAN_MS = 6;
+  check(`verifikasi muat anggaran CPU (${verifyMs} ms < ${ANGGARAN_MS} ms)`, verifyMs < ANGGARAN_MS);
+
+  // Hash dengan iterasi lebih tinggi dari anggaran harus diturunkan, bukan dibiarkan,
+  // karena ia memakan CPU berlebih pada setiap login, bukan sekali saja.
+  const hashBerat = await hashPbkdf2(PASSWORD, PBKDF2_ITERATIONS * 4);
+  const berat = await verifyPassword(PASSWORD, hashBerat);
+  check('hash beriterasi tinggi tetap diterima', berat.valid);
+  check('hash beriterasi tinggi minta disimpan ulang', berat.needsRehash);
   console.log('');
 
   console.log('jalur rehash tersimpan ke database:');

@@ -151,9 +151,16 @@ export const insertRow = async (db, authorizer, { table, values }) => {
   return { id };
 };
 
-// D1 membatasi satu permintaan pada jumlah statement tertentu; angka ini dipilih jauh
-// di bawahnya dan sekaligus menjaga permintaan tetap ringan.
-const MAX_BATCH_ROWS = 100;
+// Workers Free hanya mengizinkan 50 kueri D1 per pemanggilan Worker. Penghapusan banyak
+// baris memakai dua kueri per baris — sekali membaca barisnya untuk diperiksa haknya,
+// sekali menulis — jadi lima belas baris berarti sekitar tiga puluh kueri, ditambah
+// beberapa kueri pemeriksaan hak. Itu menyisakan ruang yang cukup.
+//
+// Akibatnya sifat semua-atau-tidak-sama-sekali hanya berlaku per kiriman: keranjang berisi
+// lebih dari lima belas baris dipecah klien menjadi beberapa permintaan, dan kegagalan di
+// permintaan kedua tidak membatalkan yang pertama. Di paket berbayar batasnya 1000 kueri
+// per pemanggilan, sehingga angka ini bisa dinaikkan jauh.
+const MAX_BATCH_ROWS = 15;
 
 // Sisipan banyak baris sekaligus. Dulu beberapa pembayaran ditulis dalam satu perintah
 // insert, jadi kegagalan di tengah tidak pernah meninggalkan sebagian baris tersimpan.
