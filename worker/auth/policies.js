@@ -128,7 +128,10 @@ export const TABLE_POLICIES = {
   announcements: {
     select: ['admin'],
     publicFilter: `"status" = 'published' and ("valid_until" is null or "valid_until" >= ?)`,
-    publicFilterParams: () => [new Date().toISOString().slice(0, 10)],
+    // Tanggal hari ini menurut WIB, sama seperti seluruh perbandingan tanggal lain di
+    // lapisan ini. Pengumuman yang berlaku sampai hari ini tidak boleh hilang tujuh jam
+    // lebih awal hanya karena servernya menghitung dengan UTC.
+    publicFilterParams: () => [new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)],
     insert: ['admin'], update: ['admin'], delete: ['admin'],
   },
   news: {

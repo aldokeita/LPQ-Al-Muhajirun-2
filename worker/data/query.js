@@ -114,6 +114,52 @@ const buildAuthorizationClause = async (ctx, table, policy) => {
   return { sql: `(${fragments.join(' or ')})`, params };
 };
 
+// Menyusun syarat baris yang boleh dibaca, menggabungkan hak berdasarkan peran dengan
+// hak baca publik.
+//
+// Ini memperbaiki salah terjemahan. Di Postgres, tabel konten publik punya dua policy
+// terpisah yang keduanya PERMISSIVE, dan yang kedua berlaku untuk "authenticated" juga:
+//
+//   ... FOR SELECT TO "anon"          USING ("is_public")
+//   ... FOR SELECT TO "authenticated" USING ("is_public" OR "public"."is_admin"())
+//
+// Versi sebelumnya hanya memakai syarat publik ketika pemanggilnya belum login, sehingga
+// santri, guru, dan pentashih yang sudah login justru tidak melihat apa pun di
+// website_content, news, announcements, dan music_files — padahal pengunjung tanpa login
+// melihatnya. Sekarang syarat publik ikut di-OR-kan untuk pengguna yang sudah login.
+//
+// Memulangkan null bila seluruh baris boleh dilihat, atau { sql, params } bila terbatas.
+// Melempar bila tidak ada jalan sama sekali.
+const buildReadClause = async (ctx, table, policy) => {
+  const publicRead = policy.publicFilter
+    ? {
+      sql: `(${policy.publicFilter})`,
+      params: policy.publicFilterParams ? policy.publicFilterParams() : [],
+    }
+    : null;
+
+  if (!ctx.userId) {
+    if (!publicRead) throw new QueryError('Akses ditolak.', 403);
+    return publicRead;
+  }
+
+  let scoped;
+  try {
+    scoped = await buildAuthorizationClause(ctx, table, policy);
+  } catch (error) {
+    // Peran pemanggil tidak memberi hak apa pun, tetapi barisnya mungkin publik.
+    if (publicRead && error instanceof QueryError && error.status === 403) return publicRead;
+    throw error;
+  }
+
+  if (scoped === null) return null;
+  if (!publicRead) return scoped;
+  return {
+    sql: `(${scoped.sql} or ${publicRead.sql})`,
+    params: [...scoped.params, ...publicRead.params],
+  };
+};
+
 const validateColumns = (table, requested) => {
   if (!Array.isArray(requested) || requested.length === 0) return SCHEMA_COLUMNS[table];
   for (const column of requested) {
@@ -204,15 +250,12 @@ const buildSelection = async (db, ctx, authorizer, body) => {
   const where = [...filterSql];
   const params = [...filterParams];
 
-  if (ctx.userId) {
-    const clause = await buildAuthorizationClause(ctx, table, policy);
-    if (clause) { where.push(clause.sql); params.push(...clause.params); }
-  } else {
-    const publicRead = authorizer.publicRead(table);
-    if (!publicRead) return { table, policy, where: null, params: [] };
-    where.push(`(${publicRead.where})`);
-    params.push(...publicRead.params);
-  }
+  // Tanpa sesi dan tanpa jalur publik, hitungannya nol — bukan galat. Itu perilaku yang
+  // sama dengan pembacaan, dan sama dengan yang dilakukan RLS.
+  if (!ctx.userId && !policy.publicFilter) return { table, policy, where: null, params: [] };
+
+  const clause = await buildReadClause(ctx, table, policy);
+  if (clause) { where.push(clause.sql); params.push(...clause.params); }
 
   return { table, policy, where, params };
 };
@@ -231,19 +274,14 @@ export const runQuery = async (db, ctx, authorizer, body) => {
   const where = [...filterSql];
   const params = [...filterParams];
 
-  if (ctx.userId) {
-    const clause = await buildAuthorizationClause(ctx, table, policy);
-    if (clause) { where.push(clause.sql); params.push(...clause.params); }
-  } else {
-    // Tanpa login hanya baris publik yang boleh terbaca. Tabel tanpa jalur publik
-    // memulangkan himpunan kosong, bukan galat — itulah yang dilakukan RLS, dan halaman
-    // publik yang membaca tabel tertutup selama ini memang menampilkan bagian kosong.
-    // Menggantinya dengan galat akan mengubah halaman yang kosong menjadi halaman rusak.
-    const publicRead = authorizer.publicRead(table);
-    if (!publicRead) return { rows: [], limit: DEFAULT_LIMIT, offset: 0 };
-    where.push(`(${publicRead.where})`);
-    params.push(...publicRead.params);
-  }
+  // Tanpa login hanya baris publik yang boleh terbaca. Tabel tanpa jalur publik
+  // memulangkan himpunan kosong, bukan galat — itulah yang dilakukan RLS, dan halaman
+  // publik yang membaca tabel tertutup selama ini memang menampilkan bagian kosong.
+  // Menggantinya dengan galat akan mengubah halaman yang kosong menjadi halaman rusak.
+  if (!ctx.userId && !policy.publicFilter) return { rows: [], limit: DEFAULT_LIMIT, offset: 0 };
+
+  const clause = await buildReadClause(ctx, table, policy);
+  if (clause) { where.push(clause.sql); params.push(...clause.params); }
 
   // Urutan bisa lebih dari satu kolom. Penempatan NULL dinyatakan eksplisit karena
   // Postgres menaruhnya di akhir untuk urutan menaik sedangkan SQLite di awal.

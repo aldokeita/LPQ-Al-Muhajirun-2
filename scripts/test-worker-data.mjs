@@ -198,6 +198,42 @@ const run = async () => {
     { table: 'santri', order: [{ column: 'drop table santri', ascending: true }] });
   console.log('');
 
+  console.log('konten publik untuk pengguna yang sudah login:');
+  // Policy Postgres-nya berpasangan, dan yang kedua berlaku untuk "authenticated" juga:
+  //   FOR SELECT TO "anon"          USING ("is_public")
+  //   FOR SELECT TO "authenticated" USING ("is_public" OR is_admin())
+  // Jadi santri dan guru yang sudah login harus melihat baris publik, bukan kosong.
+  const publikSql = sqlite.prepare('select count(*) c from website_content where is_public = 1').get().c;
+  const totalKonten = sqlite.prepare('select count(*) c from website_content').get().c;
+
+  for (const [sebutan, id] of [['santri', santriUser.id], ['guru', guru.guru_id]]) {
+    const hasil = await query(id, { table: 'website_content', columns: ['key', 'is_public'], limit: 1000 });
+    check(`${sebutan} melihat konten publik`, hasil.rows.length, publikSql);
+    check(`${sebutan} hanya melihat yang publik`, hasil.rows.every((r) => r.is_public === 1), true);
+  }
+
+  const kontenAdmin = await query(admin.id, { table: 'website_content', columns: ['key'], limit: 1000 });
+  check('admin melihat seluruh konten', kontenAdmin.rows.length, totalKonten);
+
+  const kontenAnon = await query(null, { table: 'website_content', columns: ['key'], limit: 1000 });
+  check('pengunjung tetap melihat yang publik', kontenAnon.rows.length, publikSql);
+
+  // news dan music_files berpola sama.
+  const beritaSantri = await query(santriUser.id, { table: 'news', columns: ['id', 'status'], limit: 1000 });
+  check('santri melihat berita terbit', beritaSantri.rows.every((r) => r.status === 'published'), true);
+  check('jumlahnya sama dengan yang terbit', beritaSantri.rows.length,
+    sqlite.prepare("select count(*) c from news where status = 'published'").get().c);
+
+  const musikGuru = await query(guru.guru_id, { table: 'music_files', columns: ['id', 'is_active'], limit: 1000 });
+  check('guru melihat musik aktif', musikGuru.rows.every((r) => r.is_active === 1), true);
+  check('jumlahnya sama dengan yang aktif', musikGuru.rows.length,
+    sqlite.prepare('select count(*) c from music_files where is_active = 1').get().c);
+
+  // feedbacks tidak punya jalur baca publik, jadi non-admin tetap ditolak.
+  await expectRejected('santri tetap ditolak membaca feedbacks', santriUser.id,
+    { table: 'feedbacks', columns: ['id'] });
+  console.log('');
+
   console.log('view payment_status_summary:');
   // Di Postgres otorisasi view ini menyatu di klausa WHERE-nya. Di sini ia dipindahkan ke
   // lapisan kebijakan, dengan dua predikat memakai kolom berbeda: kepemilikan lewat
