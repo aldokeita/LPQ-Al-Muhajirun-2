@@ -2961,22 +2961,32 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
    kiri pembatas dan nama di kanannya, berapa pun panjang namanya. Nama yang
    panjang membungkus ke bawah tanpa mendorong lambang keluar kartu, karena hanya
    kolom teks yang boleh menyusut. */
+/* Bloknya berlebar tetap dan dipusatkan, bukan menyusut-melar mengikuti panjang
+   nama. Kalau barisnya dipusatkan sebagai isi, lambang akan berpindah tempat
+   setiap kali panjang nama berbeda — santri bernama pendek membuatnya bergeser ke
+   kanan, yang bernama panjang mendorongnya ke kiri. Dengan lebar yang dikunci lalu
+   dipusatkan, lambang selalu berada di titik yang sama dan setiap nama mulai dari
+   garis yang sama, sehingga komposisinya terbaca seimbang di tengah kartu. */
 .attendance-profile-card__identity {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
+  justify-content: flex-start;
+  gap: 0.8rem;
   width: 100%;
-  max-width: 100%;
-  margin: 0 0 0.1rem;
+  max-width: min(100%, 24rem);
+  /* Jarak ke baris status di bawahnya. Sebelumnya nyaris nol, sehingga nama, sesi,
+     status, dan jam terbaca sebagai satu gumpalan. */
+  margin: 0 auto 1.05rem;
   position: relative;
   z-index: 1;
 }
 
+/* Teksnya rata kiri terhadap pembatas, dan mengisi sisa lebar blok. */
 .attendance-profile-card__identity-text {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  flex: 1 1 auto;
   min-width: 0;          /* izinkan menyusut supaya nama panjang membungkus */
   text-align: left;
 }
@@ -2987,10 +2997,17 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   margin-bottom: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
+  /* Lebar kolomnya sudah dikunci oleh blok identitas, jadi ukurannya tidak lagi
+     diikatkan pada lebar layar seperti aturan umum — dengan vw, layar lebar justru
+     memperbesar huruf di kolom yang lebarnya tetap dan nama panjang pecah tiga
+     baris. Rentangnya dipersempit supaya nama panjang cukup dua baris sementara
+     nama pendek tetap tampil besar. */
+  font-size: clamp(1.25rem, 4.4vw, 1.8rem);
+  line-height: 1.14;
 }
 
 .attendance-profile-card .attendance-profile-card__identity-text .attendance-profile-card__session-label {
-  margin: 0.1rem 0 0;
+  margin: 0.28rem 0 0;
 }
 
 /* Pembatas vertikal: garis tipis yang memudar di kedua ujungnya, mengambil warna
@@ -3015,7 +3032,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
    dari aura radial di belakangnya dan bayangan jatuh pada gambarnya sendiri.
    Kotaknya berukuran tetap dan sama untuk seluruh tier. */
 .attendance-profile-card__tier-emblem {
-  --tier-emblem-size: 56px;
+  --tier-emblem-size: 80px;
   position: relative;
   flex: 0 0 auto;
   display: inline-flex;
@@ -3071,7 +3088,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 @media (min-width: 768px) {
   .attendance-profile-card__tier-emblem {
-    --tier-emblem-size: 64px;
+    --tier-emblem-size: 92px;
   }
 }
 
@@ -3079,11 +3096,12 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
    susunannya tetap sama supaya posisinya tidak berpindah antar peranti. */
 @media (max-width: 400px) {
   .attendance-profile-card__identity {
-    gap: 0.55rem;
+    gap: 0.65rem;
+    margin-bottom: 0.9rem;
   }
 
   .attendance-profile-card__tier-emblem {
-    --tier-emblem-size: 48px;
+    --tier-emblem-size: 70px;
   }
 }
 
