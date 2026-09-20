@@ -737,7 +737,12 @@ const DigitalAttendancePage = () => {
                     limit: 30,
                   })
               ]);
-              const guruClasses = classesResult;
+              // Menulis ke guruClasses milik luar, bukan mendeklarasikan yang baru.
+              // `const guruClasses` di sini membuat namanya terikat ke blok ini sejak
+              // awal blok, sehingga pembacaan guruClasses.length di atas jatuh ke
+              // temporal dead zone dan melempar ReferenceError — pindaian pun
+              // menggantung di "MEMPROSES DATA" selamanya.
+              guruClasses = classesResult;
               const uniqueSessions = [...new Set((guruClasses || []).map(c => c.sesi))];
               const scheduledSessionsCount = uniqueSessions.length;
               const totalMonthAttendance = attendanceCountResult.data || 0;

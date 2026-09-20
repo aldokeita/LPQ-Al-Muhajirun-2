@@ -42,6 +42,12 @@ export default [
 			// Critical rules that prevent runtime errors
 			'no-undef': 'error', // Undefined variables cause runtime errors
 
+			// Catatan: 'no-use-before-define' akan menangkap bug temporal dead zone
+			// seperti yang pernah menggantungkan pindaian guru di kios absensi, tetapi
+			// menyalakannya sekarang memunculkan 40 pelanggaran lama yang sebagian besar
+			// aman (dipakai di dalam closure yang baru berjalan setelah deklarasinya).
+			// Perlu dibersihkan lebih dulu sebelum aturannya bisa dijadikan error.
+
 			// Override recommended import rules for stricter checking
 			'import/no-self-import': 'error', // Extremely fast rule, breaking results in infinite loop/bundling error
 
