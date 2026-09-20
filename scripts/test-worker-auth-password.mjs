@@ -90,9 +90,14 @@ const run = async () => {
   // adalah biaya perhitungannya, dan sekali ukur pada mesin yang sedang sibuk mengukur
   // beban mesin itu, bukan biaya kodenya — itu membuat pemeriksaannya kadang gagal tanpa
   // ada yang berubah.
+  // Lima kali ternyata masih kurang: saat suite dijalankan berbarengan dengan build
+  // atau peramban, kelima-limanya bisa kena jadwal yang sibuk dan pemeriksaan gagal
+  // tanpa ada yang berubah. Sampelnya diperbanyak, anggarannya tetap — 30.000 iterasi
+  // memakan sekitar 4 ms, sedangkan 100.000 akan memakan belasan milidetik, jadi
+  // kenaikan iterasi yang tidak disengaja tetap tertangkap.
   const ANGGARAN_MS = 6;
   let tercepat = Infinity;
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < 15; i += 1) {
     const mulai = performance.now();
     await verifyPassword(PASSWORD, modernHash);
     tercepat = Math.min(tercepat, performance.now() - mulai);

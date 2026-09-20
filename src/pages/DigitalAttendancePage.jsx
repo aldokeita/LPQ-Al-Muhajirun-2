@@ -636,7 +636,10 @@ const DigitalAttendancePage = () => {
             }
 
             // Normal Guru Attendance Session Assignment
-            const { data: assignedClasses } = await loadClassesWithSantri([
+            // loadClassesWithSantri memulangkan array, bukan { data }. Mengambil .data
+            // di sini membuat setiap guru tampak tidak punya kelas, sehingga sesiUser
+            // selalu kosong dan absensinya tidak pernah tercatat.
+            const assignedClasses = await loadClassesWithSantri([
             { column: 'id_guru', op: 'eq', value: user.id },
             { column: 'is_active', op: 'eq', value: 1 },
           ]);
