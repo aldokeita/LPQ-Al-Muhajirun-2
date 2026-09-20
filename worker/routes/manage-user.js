@@ -337,6 +337,55 @@ const updateSantri = async (db, actorId, targetUserId, profile) => {
 
 // --- router ----------------------------------------------------------------------------
 
+// Reset password oleh admin, menggantikan Edge Function reset-user-password.
+//
+// Password baru selalu disimpan sebagai PBKDF2, bukan bcrypt, sehingga akun yang
+// di-reset tidak pernah menambah beban bcrypt di kemudian hari.
+const resetPassword = async (db, { targetUserId, newPassword }) => {
+  const target = requireText(targetUserId, 'Target user id');
+  const password = requireText(newPassword, 'Password baru');
+  if (password.length < 8) throw new ManageUserError('WEAK_PASSWORD', 'Password baru minimal 8 karakter.');
+
+  const user = await db.prepare('select "id" from "users" where "id" = ? limit 1').bind(target).first();
+  if (!user) throw new ManageUserError('RESET_PASSWORD_FAILED', 'Password gagal direset.');
+
+  await db
+    .prepare('update "users" set "encrypted_password" = ?, "password_algorithm" = ?, "updated_at" = ? where "id" = ?')
+    .bind(await hashPbkdf2(password), 'pbkdf2', nowIso(), target)
+    .run();
+
+  return { target_user_id: target, password_updated: true };
+};
+
+export const handleResetPassword = async (request, env, url) => {
+  if (url.pathname !== '/api/reset-user-password') return null;
+  if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Metode tidak diizinkan.', 405);
+
+  const payload = await verifySession(env.SESSION_SECRET, readSessionCookie(request));
+  if (!payload) return fail('UNAUTHORIZED', 'Session tidak valid.', 401);
+
+  const ctx = createAuthContext(env.DB, payload.sub);
+  if ((await currentUserRole(ctx)) !== 'admin') return fail('FORBIDDEN', 'Akses ditolak.', 403);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return fail('VALIDATION_ERROR', 'Body harus berupa JSON.');
+  }
+
+  try {
+    return ok(await resetPassword(env.DB, {
+      targetUserId: body.target_user_id,
+      newPassword: body.new_password,
+    }));
+  } catch (error) {
+    if (error instanceof ManageUserError) return fail(error.code, error.message, error.status);
+    console.error('[reset-user-password] gagal:', error.message);
+    return fail('RESET_PASSWORD_FAILED', 'Password gagal direset.');
+  }
+};
+
 export const handleManageUser = async (request, env, url) => {
   if (url.pathname !== '/api/manage-user') return null;
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Metode tidak diizinkan.', 405);

@@ -3,14 +3,14 @@
 // Rute /api/* ditangani di sini; selebihnya diteruskan ke aset statis, dengan
 // penanganan SPA yang memulangkan index.html untuk path yang tidak dikenal.
 //
-// Lapisan otorisasi belum ada. Sampai sepuluh predikat di docs/51-d1-schema-mapping.md
-// terpasang, tidak boleh ada endpoint di sini yang memulangkan data santri, wali, atau
-// pembayaran. RLS tidak lagi menjaga apa pun setelah lepas dari Postgres.
+// Setiap endpoint data melewati lapisan otorisasi di worker/auth. RLS tidak lagi menjaga
+// apa pun setelah lepas dari Postgres, jadi query yang menembus langsung ke env.DB sama
+// dengan kebijakan yang hilang — tidak ada jaring pengaman di belakangnya.
 
 import { handleAuth } from './routes/auth.js';
 import { handleData } from './routes/data.js';
 import { handleRpc } from './routes/rpc.js';
-import { handleManageUser } from './routes/manage-user.js';
+import { handleManageUser, handleResetPassword } from './routes/manage-user.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -32,6 +32,11 @@ const handleApi = async (request, env, url) => {
 
   if (url.pathname.startsWith('/api/rpc/')) {
     const response = await handleRpc(request, env, url);
+    if (response) return response;
+  }
+
+  if (url.pathname === '/api/reset-user-password') {
+    const response = await handleResetPassword(request, env, url);
     if (response) return response;
   }
 

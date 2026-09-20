@@ -1,4 +1,17 @@
-import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/customSupabaseClient';
+// Pemanggilan fungsi backend, dulu lewat Edge Function Supabase.
+//
+// Nama fungsinya dipertahankan agar pemanggil tidak perlu berubah, tetapi tujuannya kini
+// route Worker. Sesi dibawa cookie HttpOnly, jadi tidak ada token yang perlu dibaca dan
+// disisipkan sendiri seperti sebelumnya.
+//
+// Fungsi yang belum dipindahkan sengaja ditolak dengan pesan yang terang, bukan dibiarkan
+// diam-diam memanggil Supabase — memanggil dua backend sekaligus akan menghasilkan data
+// yang tidak sinkron.
+
+const ROUTES = {
+  'reset-user-password': '/api/reset-user-password',
+  'manage-user': '/api/manage-user',
+};
 
 const parseSafeResponse = async (response) => {
   const text = await response.text();
@@ -16,33 +29,28 @@ const getRemoteMessage = (body, fallback) => {
 };
 
 export const invokeAuthenticatedEdgeFunction = async (functionName, body) => {
-  if (!/^[a-z0-9-]+$/.test(functionName)) throw new Error('Nama Edge Function tidak valid.');
-  if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase belum dikonfigurasi.');
+  if (!/^[a-z0-9-]+$/.test(functionName)) throw new Error('Nama fungsi tidak valid.');
 
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw new Error('Gagal membaca sesi login aktif.');
-  const accessToken = data?.session?.access_token;
-  if (!accessToken) throw new Error('Sesi login tidak tersedia. Silakan login ulang.');
+  const route = ROUTES[functionName];
+  if (!route) {
+    throw new Error(`Fungsi "${functionName}" belum tersedia di backend baru.`);
+  }
 
-  const endpoint = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/${functionName}`;
   let response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetch(route, {
       method: 'POST',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
   } catch (requestError) {
-    throw new Error(`Gagal menghubungi Edge Function. Periksa koneksi atau izin domain (${requestError?.message || 'network error'}).`);
+    throw new Error(`Gagal menghubungi server. Periksa koneksi (${requestError?.message || 'network error'}).`);
   }
 
   const responseBody = await parseSafeResponse(response);
   if (!response.ok || responseBody?.ok === false) {
-    throw new Error(getRemoteMessage(responseBody, `Edge Function gagal dengan status HTTP ${response.status}.`));
+    throw new Error(getRemoteMessage(responseBody, `Permintaan gagal dengan status HTTP ${response.status}.`));
   }
   return responseBody;
 };

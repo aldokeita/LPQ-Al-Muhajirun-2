@@ -9,7 +9,8 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
-import { handleManageUser } from '../worker/routes/manage-user.js';
+import { handleManageUser, handleResetPassword } from '../worker/routes/manage-user.js';
+import { verifyPassword } from '../worker/auth/password.js';
 import { issueSession } from '../worker/auth/session.js';
 
 const [, , schemaPath, dataPath] = process.argv;
@@ -159,6 +160,31 @@ const run = async () => {
   check('display_name ikut berubah', profileAfter.display_name, 'Santri Uji Diubah');
   check('telepon ikut berubah', profileAfter.phone, '0812000111');
   check('status Nonaktif menjadi inactive', profileAfter.status, 'inactive');
+  console.log('');
+
+  console.log('reset password oleh admin:');
+  const resetCall = async (body, cookie) => {
+    const request = new Request('https://contoh.test/api/reset-user-password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify(body),
+    });
+    const response = await handleResetPassword(request, env, new URL(request.url));
+    return { status: response.status, body: await response.json() };
+  };
+
+  check('tanpa sesi ditolak', (await resetCall({ target_user_id: newId, new_password: 'RahasiaBaru1' })).status, 401);
+  check('guru ditolak', (await resetCall({ target_user_id: newId, new_password: 'RahasiaBaru1' }, guruCookie)).status, 403);
+  const lemah = await resetCall({ target_user_id: newId, new_password: 'pendek' }, adminCookie);
+  check('password terlalu pendek ditolak', lemah.body?.error?.code, 'WEAK_PASSWORD');
+
+  const reset = await resetCall({ target_user_id: newId, new_password: 'RahasiaBaru#2026' }, adminCookie);
+  check('reset berhasil', reset.body?.data?.password_updated, true);
+  const setelahReset = sqlite.prepare('select encrypted_password, password_algorithm from users where id = ?').get(newId);
+  // Password baru selalu PBKDF2, jadi akun yang di-reset tidak menambah beban bcrypt.
+  check('disimpan sebagai pbkdf2', setelahReset.password_algorithm, 'pbkdf2');
+  check('password baru berlaku', (await verifyPassword('RahasiaBaru#2026', setelahReset.encrypted_password)).valid, true);
+  check('password lama tidak berlaku lagi', (await verifyPassword('Rahasia#2026', setelahReset.encrypted_password)).valid, false);
   console.log('');
 
   console.log('penghapusan permanen:');
