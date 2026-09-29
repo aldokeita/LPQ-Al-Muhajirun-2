@@ -533,6 +533,7 @@ const DigitalAttendancePage = () => {
             const foto_url = await resolveAvatarUrl({
                 ownerType: 'guru',
                 ownerId: guruData.id,
+                avatarPath: guruData.avatar_path,
                 fallbackUrl: guruData.foto_url,
             });
             user = { ...guruData, foto_url }; userRole = 'guru';
