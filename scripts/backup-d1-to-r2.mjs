@@ -55,11 +55,29 @@ if (!fs.existsSync(wranglerEntry)) fail('wrangler tidak ditemukan. Jalankan npm 
 
 // Wrangler dipanggil sebagai skrip Node, bukan lewat npx: di Windows menjalankan
 // pembungkus .cmd dari execFile gagal dengan EINVAL.
-const wrangler = (wranglerArgs) => run(
-  process.execPath,
-  [wranglerEntry, ...wranglerArgs],
-  { cwd: root, maxBuffer: 64 * 1024 * 1024 },
-);
+//
+// Galatnya dibungkus ulang karena execFile menaruh keluaran anak proses di .stderr
+// dan .stdout, sementara .message hanya berbunyi "Command failed". Melaporkan
+// .message saja membuang satu-satunya keterangan yang berguna — izin token yang
+// kurang, nama basis data yang salah, apa pun — dan itu persis yang membuat
+// kegagalan pertama di CI tidak bisa ditelusuri sama sekali.
+const wrangler = async (wranglerArgs) => {
+  try {
+    return await run(
+      process.execPath,
+      [wranglerEntry, ...wranglerArgs],
+      { cwd: root, maxBuffer: 64 * 1024 * 1024 },
+    );
+  } catch (error) {
+    const keterangan = [error.stderr, error.stdout]
+      .filter(Boolean).map((s) => String(s).trim()).filter(Boolean).join('\n');
+    const perintah = wranglerArgs.filter((a) => !a.startsWith('--')).slice(0, 3).join(' ');
+    throw new Error(
+      `perintah "wrangler ${perintah}" gagal`
+      + (keterangan ? `:\n${keterangan}` : ` (${error.message})`),
+    );
+  }
+};
 
 // Tanggal WIB, bukan UTC. Backup yang berjalan pukul 01.00 WIB harus bernama tanggal
 // hari itu, bukan tanggal kemarin menurut UTC.
@@ -76,6 +94,15 @@ const main = async () => {
   try {
     console.log(`Basis data : ${database}`);
     console.log(`Tujuan     : r2://${bucket}/${kunci}\n`);
+
+    // Dicetak lebih dulu, sebelum apa pun sempat gagal: keluarannya menyebutkan akun
+    // yang dipakai beserta daftar izin token. Kalau nanti ekspor atau unggah ditolak,
+    // sebabnya sudah terbaca di baris-baris ini tanpa perlu menebak. GitHub menyamarkan
+    // nilai secret di log, dan tokennya sendiri memang tidak pernah dicetak.
+    console.log('memeriksa kredensial...');
+    const { stdout: siapa } = await wrangler(['whoami']);
+    console.log(siapa.split('\n').map((b) => `  ${b}`).join('\n').trimEnd());
+    console.log('');
 
     console.log('mengekspor...');
     const mulai = Date.now();
