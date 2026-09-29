@@ -87,15 +87,36 @@ ulang `dist` di bawahnya dan manifes asetnya jadi basi, semua aset 404.
 
 ## Yang masih terbuka
 
-1. **27 September 2026 — pulihkan foto avatar.** Kuota egress Supabase pulih
-   sendiri di awal siklus tagihan; tidak perlu bayar apa pun. Avatar totalnya
-   hanya ~33 MB. Urutannya:
+1. ~~Pulihkan foto avatar.~~ **SELESAI 29 September 2026.** 379 dari 412 avatar
+   sudah ada di R2 produksi, 86 MB menjadi 6,5 MB WebP. Tidak ada baris basis data
+   yang diubah.
+
+   Yang perlu diingat kalau ini diulang: path di Storage Supabase **tidak** sama
+   dengan `avatar_path` di basis data. Storage berisi `santri/<id>.jpeg`,
+   `guru/<id>/<timestamp>.jpg`, `santri-profile/<id>-<timestamp>.JPEG`, dan satu
+   berkas datar; basis data meminta `<jenis>/<id>/profile.webp`. Menyalin
+   path-untuk-path menaruh berkas di alamat yang tidak pernah diminta siapa pun.
+   `scripts/stage-supabase-avatars.mjs` mencocokkannya lewat id pemilik lalu
+   menulis ke alamat yang diminta:
    ```
-   node scripts/backup-supabase-storage.mjs --bucket avatars --out _private_reference/storage-final
-   node scripts/restore-storage-to-r2.mjs
-   node scripts/rewrite-storage-urls.mjs --apply
+   node scripts/stage-supabase-avatars.mjs --from "<unduhan>/<ref>" --dry-run
+   node scripts/stage-supabase-avatars.mjs --from "<unduhan>/<ref>"
+   node scripts/restore-storage-to-r2.mjs --from _private_reference/storage-final
    ```
-   Sampai itu, `/api/files/avatars/...` memang 404 dan kartu menampilkan inisial.
+
+   **Masih tersisa: 11 aset situs belum pulih.** Unduhan 29 September berasal dari
+   proyek Supabase `wqnyoesvwnqfjqsbzmsi`, sedangkan URL di `website_content`
+   menunjuk `csvjeetirzdgebeoglqe`. Avatar cocok lewat id, tetapi logo, empat slide
+   hero, foto galeri, latar CTA, brosur, logo Qiroati, dan latar hijaiyah tidak ada
+   di unduhan itu. **Jangan jalankan `rewrite-storage-urls.mjs --apply` dulu** —
+   mengalihkan URL sekarang hanya menukar alamat Supabase yang mati dengan alamat
+   R2 yang juga kosong, sekaligus menghilangkan alamat aslinya. Ekspor dulu bucket
+   `website-assets` dari proyek `csvjeetirzdgebeoglqe`.
+
+   **33 baris menunjuk foto yang tidak pernah ada di Storage.** Sudah dipastikan
+   dengan mencari id-nya di seluruh unduhan. Mereka tetap menampilkan inisial dan
+   tetap memicu satu 404 tiap kartu tampil; `avatar_path`-nya layak dikosongkan,
+   tapi itu perubahan basis data produksi dan menunggu keputusan Aldo.
 
 2. **Laporan belum terpecahkan:** papan peringkat pernah menampilkan "tidak
    memiliki izin" saat berpindah halaman. Tidak bisa direproduksi — admin lolos
