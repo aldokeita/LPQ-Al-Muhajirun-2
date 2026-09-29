@@ -87,36 +87,37 @@ ulang `dist` di bawahnya dan manifes asetnya jadi basi, semua aset 404.
 
 ## Yang masih terbuka
 
-1. ~~Pulihkan foto avatar.~~ **SELESAI 29 September 2026.** 379 dari 412 avatar
-   sudah ada di R2 produksi, 86 MB menjadi 6,5 MB WebP. Tidak ada baris basis data
-   yang diubah.
+1. ~~Pulihkan berkas dari Supabase.~~ **SELESAI 29 September 2026.** Seluruh 412
+   avatar (32,9 MB → 6,7 MB) dan 17 aset situs ada di R2 produksi. Sembilan baris
+   `website_content` sudah dialihkan dari URL Supabase ke `/api/files/...`, dan
+   tidak ada URL Supabase tersisa di basis data.
 
-   Yang perlu diingat kalau ini diulang: path di Storage Supabase **tidak** sama
-   dengan `avatar_path` di basis data. Storage berisi `santri/<id>.jpeg`,
-   `guru/<id>/<timestamp>.jpg`, `santri-profile/<id>-<timestamp>.JPEG`, dan satu
-   berkas datar; basis data meminta `<jenis>/<id>/profile.webp`. Menyalin
-   path-untuk-path menaruh berkas di alamat yang tidak pernah diminta siapa pun.
-   `scripts/stage-supabase-avatars.mjs` mencocokkannya lewat id pemilik lalu
-   menulis ke alamat yang diminta:
+   **Ada dua unduhan, dan yang pertama proyek yang keliru.** Simpan keduanya, tetapi
+   yang sah adalah `csvjeetirzdgebeoglqe` — itu ref yang dirujuk URL di basis data.
+   Unduhan `wqnyoesvwnqfjqsbzmsi` berisi avatar sekolah yang sama (cocok lewat id)
+   tetapi tata letaknya berbeda, hanya 379 dari 412, dan **nol** dari aset situs
+   yang dirujuk.
+
+   Dua tata letak yang berbeda itu sebabnya `scripts/stage-supabase-avatars.mjs`
+   ada. `csvjeetirzdgebeoglqe` menyimpan `<jenis>/<id>/profile.webp`, persis seperti
+   `avatar_path`; `wqnyoesvwnqfjqsbzmsi` menyimpan `santri/<id>.jpeg`,
+   `guru/<id>/<timestamp>.jpg`, dan `santri-profile/<id>-<timestamp>.JPEG`. Menyalin
+   path-untuk-path dari yang kedua menaruh berkas di alamat yang tidak pernah
+   diminta siapa pun — laporan hijau, kartu tetap kosong. Skripnya mencocokkan lewat
+   id pemilik, jadi kedua tata letak sama-sama jalan:
    ```
    node scripts/stage-supabase-avatars.mjs --from "<unduhan>/<ref>" --dry-run
    node scripts/stage-supabase-avatars.mjs --from "<unduhan>/<ref>"
    node scripts/restore-storage-to-r2.mjs --from _private_reference/storage-final
+   node scripts/rewrite-storage-urls.mjs --apply --supabase-url https://csvjeetirzdgebeoglqe.supabase.co
    ```
 
-   **Masih tersisa: 11 aset situs belum pulih.** Unduhan 29 September berasal dari
-   proyek Supabase `wqnyoesvwnqfjqsbzmsi`, sedangkan URL di `website_content`
-   menunjuk `csvjeetirzdgebeoglqe`. Avatar cocok lewat id, tetapi logo, empat slide
-   hero, foto galeri, latar CTA, brosur, logo Qiroati, dan latar hijaiyah tidak ada
-   di unduhan itu. **Jangan jalankan `rewrite-storage-urls.mjs --apply` dulu** —
-   mengalihkan URL sekarang hanya menukar alamat Supabase yang mati dengan alamat
-   R2 yang juga kosong, sekaligus menghilangkan alamat aslinya. Ekspor dulu bucket
-   `website-assets` dari proyek `csvjeetirzdgebeoglqe`.
+   Gambar yang sudah WebP dan sudah ≤512 px disalin apa adanya; yang lebih besar
+   dikecilkan. Dari 412 avatar, 366 melebihi 512 px dan satu di antaranya 6000 px.
 
-   **33 baris menunjuk foto yang tidak pernah ada di Storage.** Sudah dipastikan
-   dengan mencari id-nya di seluruh unduhan. Mereka tetap menampilkan inisial dan
-   tetap memicu satu 404 tiap kartu tampil; `avatar_path`-nya layak dikosongkan,
-   tapi itu perubahan basis data produksi dan menunggu keputusan Aldo.
+   **Sisa yang perlu diputuskan:** 15 berkas dari proyek keliru masih menumpang di
+   R2 (91 MB, awalan `backgrounds/`, `gallery/`, `hero-slides/`, `logos/<timestamp>-*`).
+   Tidak ada yang merujuknya. Aman dihapus, menunggu keputusan Aldo.
 
 2. **Laporan belum terpecahkan:** papan peringkat pernah menampilkan "tidak
    memiliki izin" saat berpindah halaman. Tidak bisa direproduksi — admin lolos

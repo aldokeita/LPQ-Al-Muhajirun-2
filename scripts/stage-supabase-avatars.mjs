@@ -132,12 +132,20 @@ const main = async () => {
       mtimeMs: fs.statSync(path.join(avatarsDir, e.name)).mtimeMs,
     }));
 
+  // Dua tata letak yang pernah ditemui, dan keduanya harus dikenali:
+  //   santri/<id>.jpeg                  (proyek wqnyoesvwnqfjqsbzmsi)
+  //   santri/<id>/profile.webp          (proyek csvjeetirzdgebeoglqe, sudah sesuai avatar_path)
+  // Karena itu id dicari dari nama berkas MAUPUN dari nama folder induknya.
+  const santriBersarang = kumpulkan(path.join(avatarsDir, 'santri'))
+    .filter((f) => UUID.test(path.basename(path.dirname(f.penuh))));
+
   const petaSantri = new Map([
-    // Versi lama lebih dulu supaya berkas datar yang lebih kanonis bisa menimpanya
+    // Versi lama lebih dulu supaya berkas yang lebih kanonis bisa menimpanya
     // bila mtime-nya memang lebih baru.
     ...indekskan(santriLama, (f) => f.nama.slice(0, 36)),
-    ...indekskan(santriDatar, (f) => stemTanpaEkstensi(f.nama)),
     ...indekskan(akar, (f) => stemTanpaEkstensi(f.nama).replace(/-avatar$/i, '')),
+    ...indekskan(santriDatar, (f) => stemTanpaEkstensi(f.nama)),
+    ...indekskan(santriBersarang, (f) => path.basename(path.dirname(f.penuh))),
   ]);
   const petaGuru = indekskan(guruBersarang, (f) => path.basename(path.dirname(f.penuh)));
 
@@ -170,11 +178,20 @@ const main = async () => {
 
       if (!dryRun) {
         fs.mkdirSync(path.dirname(tujuan), { recursive: true });
-        await sharp(sumberBerkas.penuh)
-          .rotate()                  // hormati orientasi EXIF sebelum data itu dibuang
-          .resize({ width: SISI_MAKS, height: SISI_MAKS, fit: 'inside', withoutEnlargement: true })
-          .webp({ quality: KUALITAS })
-          .toFile(tujuan);
+
+        // Berkas yang sudah WebP dan sudah cukup kecil disalin apa adanya. Menyandi
+        // ulang gambar yang sudah pas hanya menurunkan mutunya tanpa menghemat apa pun.
+        const meta = await sharp(sumberBerkas.penuh).metadata();
+        const sisiTerbesar = Math.max(meta.width ?? 0, meta.height ?? 0);
+        if (meta.format === 'webp' && sisiTerbesar <= SISI_MAKS) {
+          fs.copyFileSync(sumberBerkas.penuh, tujuan);
+        } else {
+          await sharp(sumberBerkas.penuh)
+            .rotate()                // hormati orientasi EXIF sebelum data itu dibuang
+            .resize({ width: SISI_MAKS, height: SISI_MAKS, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: KUALITAS })
+            .toFile(tujuan);
+        }
         ukuranBaru += fs.statSync(tujuan).size;
       }
 
