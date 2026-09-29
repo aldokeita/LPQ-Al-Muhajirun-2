@@ -193,6 +193,7 @@ Terbukti jalan 29 September 2026: jalan terjadwal pertama menghasilkan
 
 ## Branch
 
-`master` dan `feat/tier-emblem-profile-card` sama-sama di `13e0152`; branch itu
-sudah ter-merge dan bisa dihapus. `chore/supabase-backup-tooling` tertinggal 28
-commit dan sudah seluruhnya tercakup master — juga bisa dihapus.
+Semua pekerjaan ada di `master`. Cabang yang sudah ter-merge dihapus pada
+29 Sep 2026. Cabang lama selain itu (`feat/dynamic-character-categories`,
+`feat/public-content-hub`, `codex/whatsapp-jilid-config`,
+`claude/zealous-villani-ed6942`) belum diperiksa dan dibiarkan apa adanya.
