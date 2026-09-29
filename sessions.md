@@ -124,9 +124,11 @@ ulang `dist` di bawahnya dan manifes asetnya jadi basi, semua aset 404.
    lima halaman, guru empat. Pesannya sudah dipecah menjadi tiga sebab yang
    berbeda supaya laporan berikutnya menunjuk tepat. Tunggu kalimat barunya.
 
-3. **Belum teruji dengan jam sungguhan:** absensi guru dan poin santri ±1 baru
-   diuji dengan jam yang dipalsukan. Senin 21 September adalah hari kerja pertama
-   dengan semuanya hidup.
+3. ~~Belum teruji dengan jam sungguhan.~~ **TERBUKTI 29 September 2026**, dari data
+   produksi 21–29 September: 116 absensi guru (97 Hadir, 19 Terlambat) dan 1.077
+   absensi santri (680 Hadir, 397 Terlambat), dengan 293 santri berpoin. Jadi
+   perbaikan crash absensi guru, aturan jendela sesi, dan poin ±1 semuanya bekerja
+   di lapangan, bukan hanya dengan jam yang dipalsukan.
 
 4. Tiga skrip diagnostik yatim — `diagnosticSantriDataFlow.js`,
    `verify_mmq_policies.js`, `verifyDataSources.js` — tidak diimpor siapa pun.
