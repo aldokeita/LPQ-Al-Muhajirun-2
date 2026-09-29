@@ -72,9 +72,27 @@ const wrangler = async (wranglerArgs) => {
     const keterangan = [error.stderr, error.stdout]
       .filter(Boolean).map((s) => String(s).trim()).filter(Boolean).join('\n');
     const perintah = wranglerArgs.filter((a) => !a.startsWith('--')).slice(0, 3).join(' ');
+
+    // Cloudflare memulangkan kode 10000 "Authentication error" baik untuk token yang
+    // tidak sah maupun untuk token sah yang izinnya kurang, sehingga pesannya sendiri
+    // tidak membedakan keduanya. Kalau whoami tadi lolos, tokennya jelas sah, jadi
+    // yang tersisa hanya izin — dan izin yang dibutuhkan disebutkan di sini supaya
+    // tidak ada yang perlu menebaknya.
+    //
+    // Ekspor D1 adalah POST yang membuat tugas di sisi server, jadi ia butuh D1 Edit;
+    // D1 Read saja akan ditolak persis seperti ini.
+    const izinKurang = /10000|Authentication error/i.test(keterangan);
+    const petunjuk = izinKurang
+      ? '\n\nToken lolos wrangler whoami di atas, jadi tokennya sah dan yang kurang izinnya.'
+        + '\nIzin yang dibutuhkan, keduanya tingkat Akun:'
+        + '\n  - D1 Edit                  (ekspor adalah POST yang membuat tugas, D1 Read tidak cukup)'
+        + '\n  - Workers R2 Storage Edit  (untuk menyimpan hasilnya)'
+      : '';
+
     throw new Error(
       `perintah "wrangler ${perintah}" gagal`
-      + (keterangan ? `:\n${keterangan}` : ` (${error.message})`),
+      + (keterangan ? `:\n${keterangan}` : ` (${error.message})`)
+      + petunjuk,
     );
   }
 };
