@@ -22,6 +22,7 @@
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
@@ -107,12 +108,19 @@ const wrangler = async (wranglerArgs) => run(
 
 // Memeriksa apakah objeknya sudah ada di R2 dengan ukuran yang sama, supaya jalan ulang
 // tidak mengunggah ulang ribuan berkas.
+// Objeknya ditarik ke berkas, bukan lewat --pipe. stdout dari execFile dipulangkan
+// sebagai string UTF-8, sehingga bita yang bukan teks teracak dan ukurannya selalu
+// terhitung lebih kecil dari yang sebenarnya — pemeriksaan "sudah ada dengan ukuran
+// sama" jadi tidak pernah cocok, dan seluruh berkas diunggah ulang setiap kali.
 const existingSize = async (key) => {
+  const sementara = path.join(os.tmpdir(), `r2-cek-${process.pid}-${Math.random().toString(16).slice(2)}`);
   try {
-    const { stdout } = await wrangler(['r2', 'object', 'get', `${bucketName}/${key}`, '--remote', '--pipe']);
-    return Buffer.byteLength(stdout, 'binary');
+    await wrangler(['r2', 'object', 'get', `${bucketName}/${key}`, '--remote', '--file', sementara]);
+    return fs.statSync(sementara).size;
   } catch {
     return null;
+  } finally {
+    fs.rmSync(sementara, { force: true });
   }
 };
 

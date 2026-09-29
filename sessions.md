@@ -134,6 +134,36 @@ ulang `dist` di bawahnya dan manifes asetnya jadi basi, semua aset 404.
    `verify_mmq_policies.js`, `verifyDataSources.js` — tidak diimpor siapa pun.
    Aldo minta dibiarkan.
 
+## Backup
+
+Sejak pindah dari Supabase tidak ada lagi yang mengambil salinan otomatis, dan D1
+tidak punya pemulihan titik waktu di paket gratis. Sejak 29 September 2026
+`.github/workflows/backup-d1.yml` berjalan setiap hari pukul 18.00 UTC (01.00 WIB)
+dan menjalankan `scripts/backup-d1-to-r2.mjs`:
+
+- ekspor penuh D1 produksi (~8 MB, 37 tabel, 16 ribu INSERT, sekitar 6 detik)
+- ditolak kalau hasilnya kurang dari 30 tabel atau 1.000 INSERT — ekspor yang
+  "berhasil" tetapi kosong lebih berbahaya daripada gagal terang-terangan
+- dikompresi menjadi sekitar 1,1 MB, diunggah ke `backups/d1/<stempel>.sql.gz`
+- ditarik kembali, dibandingkan bita per bita, lalu **benar-benar dipulihkan** ke
+  SQLite sementara di memori. Backup yang belum pernah terbukti bisa dimuat bukan
+  backup.
+
+Awalan `backups/` sengaja tidak ada di daftar `worker/routes/files.js`, jadi berkas
+ini tidak bisa diambil siapa pun lewat HTTP — hanya lewat kredensial R2. Sudah
+diperiksa: ketiga metode menjawab 404. Aturan lifecycle R2 membuang objek di bawah
+`backups/` sesudah 365 hari.
+
+Dijalankan GitHub, bukan Worker: ekspornya memuat berkas belasan megabita sementara
+anggaran CPU paket gratis dihitung per permintaan, dan menaruhnya di luar Worker
+berarti backup tetap jalan walau aplikasinya sedang bermasalah.
+
+**Butuh dua secret di repo** (Settings > Secrets and variables > Actions):
+`CLOUDFLARE_API_TOKEN` dengan izin D1 baca dan R2 tulis, serta
+`CLOUDFLARE_ACCOUNT_ID`. Tanpa keduanya jadwalnya akan merah tiap hari.
+
+Memulihkan: `wrangler d1 execute lpq-al-muhajirun --remote --file <dump.sql>`.
+
 ## Aturan kerja yang masih berlaku
 
 - Setiap perubahan harus tetap berperilaku seperti backend lama. Kalau perilaku

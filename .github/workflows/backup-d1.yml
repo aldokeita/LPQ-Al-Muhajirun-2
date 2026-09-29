@@ -1,0 +1,52 @@
+# Backup harian basis data produksi ke R2.
+#
+# Dijalankan GitHub, bukan Worker dan bukan komputer sekolah. Worker-nya sengaja
+# tidak dilibatkan karena ekspor penuh memakan waktu belasan detik dan memuat berkas
+# belasan megabita, sementara anggaran CPU paket gratis dihitung per permintaan;
+# komputer sekolah tidak dipakai karena backup harus tetap jalan walau komputernya
+# mati. Kalau aplikasinya sendiri sedang bermasalah, backup ini tetap berjalan.
+#
+# Butuh dua secret di Settings > Secrets and variables > Actions:
+#   CLOUDFLARE_API_TOKEN   token dengan izin D1 baca dan R2 tulis
+#   CLOUDFLARE_ACCOUNT_ID  id akun pemilik Worker
+#
+# Gagalnya terlihat: GitHub mengirim surel begitu satu jalannya merah.
+
+name: Backup D1 ke R2
+
+on:
+  schedule:
+    # 18:00 UTC = 01:00 WIB, sesudah seluruh sesi belajar hari itu selesai.
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-d1
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # wrangler ada di devDependencies, jadi dev deps ikut dipasang.
+      - run: npm ci
+
+      # --experimental-sqlite dipakai skripnya untuk benar-benar memulihkan hasil
+      # backup ke basis data sementara, bukan sekadar memeriksa ukurannya.
+      - name: Ekspor, unggah, dan buktikan bisa dipulihkan
+        run: node --experimental-sqlite scripts/backup-d1-to-r2.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
