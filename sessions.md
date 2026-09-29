@@ -158,11 +158,29 @@ Dijalankan GitHub, bukan Worker: ekspornya memuat berkas belasan megabita sement
 anggaran CPU paket gratis dihitung per permintaan, dan menaruhnya di luar Worker
 berarti backup tetap jalan walau aplikasinya sedang bermasalah.
 
-**Butuh dua secret di repo** (Settings > Secrets and variables > Actions):
-`CLOUDFLARE_API_TOKEN` dengan izin D1 baca dan R2 tulis, serta
-`CLOUDFLARE_ACCOUNT_ID`. Tanpa keduanya jadwalnya akan merah tiap hari.
+**Dua secret di repo** (Settings > Secrets and variables > Actions):
+`CLOUDFLARE_API_TOKEN` dan `CLOUDFLARE_ACCOUNT_ID`.
 
-Memulihkan: `wrangler d1 execute lpq-al-muhajirun --remote --file <dump.sql>`.
+Tokennya harus punya **D1 Edit**, bukan D1 Read. Ekspor D1 adalah `POST` ke
+`/accounts/<id>/d1/database/<id>/export` yang membuat tugas di sisi server, jadi
+Read ditolak — dan Cloudflare menolaknya dengan galat `10000 Authentication error`
+yang bunyinya sama persis dengan token tidak sah, sehingga mudah disalahartikan
+sebagai token kedaluwarsa. Pembedanya: kalau `wrangler whoami` di awal log lolos,
+tokennya sah dan yang kurang izinnya. Untuk unggahannya butuh **Workers R2 Storage
+Edit**. Mengubah izin token tidak mengubah nilainya, jadi secret di GitHub tidak
+perlu disentuh setelahnya.
+
+Memeriksa backup lama kapan saja, tanpa menyentuh apa pun yang hidup:
+```
+node scripts/verify-d1-backup.mjs --key backups/d1/<nama>.sql.gz
+```
+
+Memulihkan sungguhan:
+`wrangler d1 execute lpq-al-muhajirun --remote --file <dump.sql>`.
+
+Terbukti jalan 29 September 2026: jalan terjadwal pertama menghasilkan
+`backups/d1/d1-2026-09-29-12-42.sql.gz`, dan isinya dipulihkan ke SQLite sementara
+— 37 tabel, 28 pemicu, 574 santri, 811 pembayaran, 9.499 absensi.
 
 ## Aturan kerja yang masih berlaku
 
