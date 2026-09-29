@@ -115,9 +115,9 @@ ulang `dist` di bawahnya dan manifes asetnya jadi basi, semua aset 404.
    Gambar yang sudah WebP dan sudah ≤512 px disalin apa adanya; yang lebih besar
    dikecilkan. Dari 412 avatar, 366 melebihi 512 px dan satu di antaranya 6000 px.
 
-   **Sisa yang perlu diputuskan:** 15 berkas dari proyek keliru masih menumpang di
-   R2 (91 MB, awalan `backgrounds/`, `gallery/`, `hero-slides/`, `logos/<timestamp>-*`).
-   Tidak ada yang merujuknya. Aman dihapus, menunggu keputusan Aldo.
+   15 berkas dari proyek keliru yang sempat ikut terunggah sudah dihapus dari R2
+   pada 29 September, sesudah dipastikan nol yang dirujuk basis data dan nol yang
+   bentrok dengan 17 aset sah. Sumbernya tetap ada di folder unduhan Aldo.
 
 2. **Laporan belum terpecahkan:** papan peringkat pernah menampilkan "tidak
    memiliki izin" saat berpindah halaman. Tidak bisa direproduksi — admin lolos
