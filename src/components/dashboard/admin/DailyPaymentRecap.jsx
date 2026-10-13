@@ -207,28 +207,28 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-3 md:grid-cols-3">
-        <article className="admin-stat-card admin-stat-card--accent">
+      <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-3 md:grid-cols-12 md:auto-rows-fr [&>article]:min-w-0">
+        <article className="admin-stat-card admin-stat-card--accent md:col-span-4">
           <p className="admin-stat-card-label">Total Pemasukan</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.total)}</p>
         </article>
-        <article className="admin-stat-card">
+        <article className="admin-stat-card md:col-span-4">
           <p className="admin-stat-card-label">Cash</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.cash)}</p>
         </article>
-        <article className="admin-stat-card admin-stat-card--amber">
+        <article className="admin-stat-card admin-stat-card--amber md:col-span-4">
           <p className="admin-stat-card-label">Transfer</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.transfer)}</p>
         </article>
-        <article className="admin-stat-card">
+        <article className="admin-stat-card md:col-span-3">
           <p className="admin-stat-card-label">Total SPP Dewasa</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.adultSppTotal)}</p>
           <p className="mt-1 text-xs text-muted-foreground">Termasuk dalam Total Pemasukan</p>
         </article>
-        <article className="admin-stat-card">
+        <article className="admin-stat-card md:col-span-3">
           <p className="admin-stat-card-label">Total SPP TPQ</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.tpqSppTotal)}</p>
           <p className="mt-1 text-xs text-muted-foreground">Termasuk PTPT</p>
         </article>
-        <article className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
+        <article className="admin-stat-card md:col-span-3" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
           <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value daily-recap-value" aria-live="polite">{expenseValue(dayExpenseTotal)}</p>
         </article>
-        <article className="admin-stat-card" style={{ borderColor: 'hsl(215 100% 50% / 0.2)', backgroundColor: 'hsl(215 100% 50% / 0.04)' }}>
+        <article className="admin-stat-card min-[390px]:col-span-2 md:col-span-3" style={{ borderColor: 'hsl(215 100% 50% / 0.2)', backgroundColor: 'hsl(215 100% 50% / 0.04)' }}>
           <p className="admin-stat-card-label"><Wallet className="inline h-3.5 w-3.5 mr-1" />Saldo Bersih</p><p className="admin-stat-card-value daily-recap-value" aria-live="polite">{expenseValue(saldoBersih)}</p>
         </article>
       </div>
