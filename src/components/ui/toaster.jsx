@@ -15,6 +15,7 @@ export function Toaster() {
 	return (
 		<ToastProvider>
 			{toasts.map(({ id, title, description, action, ...props }) => {
+				delete props.dismiss;
 				return (
 					<Toast key={id} {...props}>
 						<div className="grid gap-1">
