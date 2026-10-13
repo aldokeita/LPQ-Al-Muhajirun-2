@@ -13,11 +13,18 @@ export const fetchSantriForIdCards = async () => {
   const { data, error } = await queryAll({
     table: 'santri',
     columns: SANTRI_ID_CARD_COLUMNS,
-    filters: [{ column: 'deleted_at', op: 'is_null' }],
+    filters: [
+      { column: 'deleted_at', op: 'is_null' },
+      { column: 'kategori', op: 'in', value: ['Anak', 'TPQ'] },
+    ],
     order: [{ column: 'nama_lengkap', ascending: true }, { column: 'id', ascending: true }],
   });
   if (error) throw error;
-  const activeRows = (data || []).filter((row) => ['aktif', 'active'].includes(String(row.status || '').trim().toLowerCase()));
+  const activeRows = (data || []).filter((row) => (
+    !row.deleted_at
+    && ['anak', 'tpq'].includes(String(row.kategori || '').trim().toLowerCase())
+    && ['aktif', 'active'].includes(String(row.status || '').trim().toLowerCase())
+  ));
   const resolved = await resolveAvatarRecords(activeRows, { ownerType: 'santri' });
   return resolved.map((row) => ({
     ...row,

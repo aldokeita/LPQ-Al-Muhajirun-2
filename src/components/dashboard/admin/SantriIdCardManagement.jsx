@@ -105,7 +105,6 @@ const SantriIdCardManagement = () => {
   }, [loadSantri]);
 
   const filteredSantri = useMemo(() => filterIdCardSantri(santri, filters), [filters, santri]);
-  const categories = useMemo(() => [...new Set(santri.map((row) => String(row.kategori || '').trim()).filter(Boolean))], [santri]);
   const sessions = useMemo(() => [...new Set([...getAllSessions().map((session) => session.name), ...santri.map((row) => getSessionName(row.sesi_mengaji)).filter(Boolean)])], [santri]);
 
   const selectedSantri = useMemo(
@@ -245,7 +244,7 @@ const SantriIdCardManagement = () => {
           <div>
             <p className="santri-id-card__eyebrow">Administrasi · Identitas santri</p>
             <h2 id="santri-id-card-title">ID Card Santri</h2>
-            <p>Pilih satu atau beberapa santri untuk membuat kartu identitas yang siap dicetak.</p>
+            <p>Pilih santri TPQ aktif untuk membuat kartu identitas yang siap dicetak.</p>
           </div>
         </div>
         <div className="santri-id-card__privacy"><ShieldCheck aria-hidden="true" /><span>Data aktual<br /><strong>Tidak disimpan ulang</strong></span></div>
@@ -266,13 +265,6 @@ const SantriIdCardManagement = () => {
             aria-label="Cari santri untuk ID Card"
           />
         </div>
-        <Select value={filters.kategori} onValueChange={(value) => setFilters((current) => ({ ...current, kategori: value }))}>
-          <SelectTrigger aria-label="Filter kategori santri"><SelectValue placeholder="Kategori" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua kategori</SelectItem>
-            {categories.map((category) => <SelectItem key={category} value={category}>{category === 'Anak' ? 'Santri TPQ' : `Santri ${category}`}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Select value={filters.tanggalMasuk} onValueChange={(value) => setFilters((current) => ({ ...current, tanggalMasuk: value }))}>
           <SelectTrigger aria-label="Urutan tanggal masuk"><SelectValue placeholder="Tanggal masuk" /></SelectTrigger>
           <SelectContent>
@@ -369,7 +361,7 @@ const SantriIdCardManagement = () => {
           ) : filteredSantri.length === 0 ? (
             <AdminEmptyState icon={Users} title="Santri tidak ditemukan" description="Coba ubah pencarian atau filter yang digunakan." />
           ) : (
-            <div className="santri-id-card__list santri-id-card__selection-list">
+            <div className="santri-id-card__list santri-id-card__selection-list" tabIndex={0} role="region" aria-label="Daftar santri TPQ, dapat digulir">
               {filteredSantri.map((item) => (
                 <label key={item.id} className={`santri-id-card__student ${selectedIds.has(item.id) ? 'is-selected' : ''}`}>
                   <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleSantri(item.id)} aria-label={`Pilih ${item.nama_lengkap}`} />
