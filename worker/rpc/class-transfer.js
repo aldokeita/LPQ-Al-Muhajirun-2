@@ -80,6 +80,28 @@ const performMove = async (db, ctx, { santri, targetClass, fromClassId, reason, 
   return { mutationId, order };
 };
 
+export const removeSantriFromClass = async (db, ctx, { santriId, reason = null }) => {
+  if (!ctx.userId) throw new RpcError('Login diperlukan.', 401);
+  if ((await currentUserRole(ctx)) !== 'admin') throw new RpcError('Hanya admin yang boleh mengeluarkan santri dari kelas.', 403);
+  if (!santriId) throw new RpcError('Santri wajib dipilih.');
+  const santri = await db.prepare('select "id", "status", "current_class_id" from "santri" where "id" = ? and "deleted_at" is null').bind(santriId).first();
+  if (!santri) throw new RpcError('Santri tidak ditemukan.', 404);
+  if (!isActiveStatus(santri.status)) throw new RpcError('Santri tidak aktif.');
+  const membership = await loadActiveMembership(db, santriId);
+  const fromClassId = membership?.class_id ?? santri.current_class_id;
+  if (!fromClassId) return { changed: false, active_memberships: 0, message: 'Santri sudah berada pada daftar belum masuk kelas.' };
+  const timestamp = nowIso();
+  await db.batch([
+    db.prepare(`update "class_memberships" set "status" = 'moved', "end_date" = ?, "updated_by" = ?, "updated_at" = ? where "santri_id" = ? and "status" = 'active'`)
+      .bind(todayWib(), ctx.userId, timestamp, santriId),
+    db.prepare('update "santri" set "current_class_id" = null, "order_in_class" = null, "updated_by" = ?, "updated_at" = ? where "id" = ?')
+      .bind(ctx.userId, timestamp, santriId),
+    db.prepare('insert into "class_mutations" ("id", "santri_id", "from_class_id", "to_class_id", "mutation_date", "reason", "created_by", "created_at") values (?, ?, ?, null, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), santriId, fromClassId, todayWib(), String(reason || '').trim() || 'Dikeluarkan dari kelas oleh admin', ctx.userId, timestamp),
+  ]);
+  return { changed: true, active_memberships: await countActiveMemberships(db, santriId), message: 'Santri dipindahkan ke daftar belum masuk kelas.' };
+};
+
 export const moveSantriToClass = async (db, ctx, { santriId, toClassId, reason = null }) => {
   if (!ctx.userId) throw new RpcError('Login diperlukan untuk memindahkan kelas santri.', 401);
   if ((await currentUserRole(ctx)) !== 'admin') {

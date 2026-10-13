@@ -10096,3 +10096,38 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   font-family: 'Amiri', 'Scheherazade New', serif;
   line-height: 1.5;
 }
+html:has(body.lpq-admin-context),
+body.lpq-admin-context,
+body.lpq-admin-context * {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(100 116 139 / 0.45) transparent;
+}
+
+html:has(body.lpq-admin-context)::-webkit-scrollbar,
+body.lpq-admin-context ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+html:has(body.lpq-admin-context)::-webkit-scrollbar-track,
+body.lpq-admin-context ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html:has(body.lpq-admin-context)::-webkit-scrollbar-thumb,
+body.lpq-admin-context ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(20 184 166 / 0.5), rgb(59 130 246 / 0.45)) padding-box;
+}
+
+html:has(body.lpq-admin-context)::-webkit-scrollbar-thumb:hover,
+body.lpq-admin-context ::-webkit-scrollbar-thumb:hover {
+  background: rgb(14 165 233 / 0.65) padding-box;
+}
+
+html.dark:has(body.lpq-admin-context),
+.dark body.lpq-admin-context,
+.dark body.lpq-admin-context * {
+  scrollbar-color: rgb(148 163 184 / 0.4) transparent;
+}

@@ -6,7 +6,7 @@
 import { createAuthContext } from '../auth/predicates.js';
 import { RpcError, changeSantriJilid, getSantriLeaderboard, incrementSantriPoints } from '../rpc/santri.js';
 import {
-  changeSantriCategory, getGuruTransferClassOptions, moveSantriToClass, transferSantriToClassByGuru,
+  changeSantriCategory, getGuruTransferClassOptions, moveSantriToClass, removeSantriFromClass, transferSantriToClassByGuru,
 } from '../rpc/class-transfer.js';
 import { readSessionCookie, verifySession } from '../auth/session.js';
 
@@ -17,6 +17,8 @@ const json = (data, status = 200) =>
   });
 
 const HANDLERS = {
+  remove_santri_from_class: (db, ctx, body) =>
+    removeSantriFromClass(db, ctx, { santriId: body?.p_santri_id, reason: body?.p_reason }),
   get_santri_leaderboard: (db, ctx, body) =>
     getSantriLeaderboard(db, ctx, { page: body?.p_page, pageSize: body?.p_page_size }),
   increment_santri_points: (db, ctx, body) =>

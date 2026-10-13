@@ -12,6 +12,7 @@ export const mapSantriForLegacyUi = (santri) => ({
 
 export const mapClassForLegacyUi = (classItem) => ({
   ...classItem,
+  is_active: classItem.is_active === undefined ? true : [true, 1, '1'].includes(classItem.is_active),
   order: classItem.sort_order ?? classItem.order ?? 0,
 });
 

@@ -388,7 +388,7 @@ const AdultClassManagement = () => {
       toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError).message, variant: 'destructive' });
       return;
     }
-    setClasses(classData || []);
+    setClasses((classData || []).filter((item) => [true, 1, '1'].includes(item.is_active)));
     setGuruList(guruData || []);
     setSantriList((santriData || []).map(mapSantriForLegacyUi));
     setDailyAttendance(attendanceData || []);
@@ -478,7 +478,7 @@ const AdultClassManagement = () => {
     const santri = santriList.find(s => s.id === santriId);
     const targetClass = classes.find(c => c.id === toClassId);
 
-    if (!toClassId || !targetClass) {
+    if (toClassId && !targetClass) {
       toast({
         title: 'Kelas tujuan diperlukan',
         description: 'Mutasi harus menuju kelas aktif. Pengeluaran santri dari kelas belum didukung oleh operasi mutasi.',
@@ -487,10 +487,10 @@ const AdultClassManagement = () => {
       return;
     }
 
-    const { data, error } = await rpc('move_santri_to_class', {
+    const { data, error } = await rpc(toClassId ? 'move_santri_to_class' : 'remove_santri_from_class', {
       p_santri_id: santriId,
       p_to_class_id: toClassId,
-      p_reason: `Mutasi kelas dewasa: ${santri?.nama_lengkap || 'santri'} ke ${targetClass.nama_kelas}`
+      p_reason: `Mutasi kelas dewasa ke ${targetClass?.nama_kelas || 'daftar belum masuk kelas'}`
     });
 
     if (error) {
@@ -499,7 +499,8 @@ const AdultClassManagement = () => {
       return;
     }
 
-    toast({ title: 'Mutasi berhasil', description: data?.[0]?.message || `${santri?.nama_lengkap || 'Santri'} dipindahkan ke ${targetClass.nama_kelas}.` });
+    const result = Array.isArray(data) ? data[0] : data;
+    toast({ title: 'Mutasi berhasil', description: result?.message || 'Data kelas santri diperbarui.' });
     await fetchAllData();
   };
 

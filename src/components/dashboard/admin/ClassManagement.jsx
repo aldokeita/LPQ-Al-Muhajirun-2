@@ -23,6 +23,7 @@ import {
   saveSessionConfig,
 } from '@/lib/classManagementAdapters';
 import { useDrag, useDrop } from 'react-dnd';
+import useClassDragScroll from '@/hooks/useClassDragScroll';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -592,17 +593,8 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
       toast({ title: 'Akses ditolak', description: 'Hanya admin yang boleh memindahkan kelas santri.', variant: 'destructive' });
       return;
     }
-    if (!toClassId) {
-      toast({
-        title: 'Kelas tujuan belum dipilih',
-        description: 'Mengeluarkan santri dari kelas perlu operasi backend terpisah dan masih ditunda.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     const targetClass = classes.find(c => c.id === toClassId);
-    const { data, error } = await rpc('move_santri_to_class', {
+    const { data, error } = await rpc(toClassId ? 'move_santri_to_class' : 'remove_santri_from_class', {
       p_santri_id: item.santriId,
       p_to_class_id: toClassId,
       p_reason: `Mutasi kelas melalui dashboard admin${targetClass ? ` ke ${targetClass.nama_kelas}` : ''}`,
@@ -963,6 +955,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 };
 
 const ClassManagementWrapper = ({ userRole = 'admin' }) => {
+    useClassDragScroll();
     const [activeTab, setActiveTab] = useState("tpq");
 
     const subTabs = [
