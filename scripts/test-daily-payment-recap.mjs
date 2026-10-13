@@ -71,6 +71,7 @@ const report = buildDailyPaymentReportData({
 });
 assert.deepEqual(report.adultSppPayments.map((payment) => payment.id).sort(), ['adult-cash', 'adult-transfer']);
 assert.equal(report.summary.adultSppTotal, 100000.30);
+assert.equal(report.summary.tpqSppTotal, 250000.30);
 assert.equal(report.summary.total, 374003.10);
 assert.equal(report.summary.expenseTotal, 20000.30);
 assert.equal(report.summary.netBalance, 354002.80);
@@ -80,9 +81,11 @@ const transferReport = buildDailyPaymentReportData({
   payments: filterDailyPayments(mixedPayments, { ...dailyFilters, method: 'transfer' }), santri: mixedSantri,
 });
 assert.equal(transferReport.summary.adultSppTotal, 50000.20);
+assert.equal(transferReport.summary.tpqSppTotal, 0);
 assert.equal(transferReport.summary.total, 50000.20);
 const emptyReport = buildDailyPaymentReportData({});
 assert.equal(emptyReport.summary.adultSppTotal, 0);
+assert.equal(emptyReport.summary.tpqSppTotal, 0);
 assert.equal(emptyReport.summary.netBalance, 0);
 assert.deepEqual(emptyReport.adultSppPayments, []);
 console.log('Daily payment recap regression tests passed (including adult SPP, historical owners, filters, and decimal totals).');

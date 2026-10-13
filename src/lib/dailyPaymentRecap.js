@@ -145,6 +145,10 @@ export const getAdultSppPayments = (payments = []) => payments.filter((payment) 
 export const buildDailyPaymentReportData = ({ payments = [], santri = [], expenses = [], ...metadata }) => {
   const detailedPayments = enrichDailyPayments(payments, santri);
   const adultSppPayments = getAdultSppPayments(detailedPayments);
+  const tpqSppPayments = detailedPayments.filter((payment) => (
+    ['anak', 'tpq', 'ptpt'].includes(String(payment.kategori_santri || '').trim().toLowerCase())
+    && /^spp\b/i.test(String(payment.catatan || '').trim())
+  ));
   const summary = buildDailyPaymentSummary(payments);
   const expenseCents = expenses.reduce((total, expense) => total + amountToCents(expense.jumlah), 0);
   return {
@@ -155,6 +159,7 @@ export const buildDailyPaymentReportData = ({ payments = [], santri = [], expens
     summary: {
       ...summary,
       adultSppTotal: buildDailyPaymentSummary(adultSppPayments).total,
+      tpqSppTotal: buildDailyPaymentSummary(tpqSppPayments).total,
       expenseTotal: expenseCents / 100,
       netBalance: (amountToCents(summary.total) - expenseCents) / 100,
     },

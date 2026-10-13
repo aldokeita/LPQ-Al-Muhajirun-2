@@ -221,6 +221,10 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
           <p className="admin-stat-card-label">Total SPP Dewasa</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.adultSppTotal)}</p>
           <p className="mt-1 text-xs text-muted-foreground">Termasuk dalam Total Pemasukan</p>
         </article>
+        <article className="admin-stat-card">
+          <p className="admin-stat-card-label">Total SPP TPQ</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.tpqSppTotal)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Termasuk PTPT</p>
+        </article>
         <article className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
           <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value daily-recap-value" aria-live="polite">{expenseValue(dayExpenseTotal)}</p>
         </article>
