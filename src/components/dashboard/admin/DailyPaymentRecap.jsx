@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Banknote, CalendarDays, CreditCard, Download, FileText, Receipt, TrendingDown, Wallet } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Banknote, CalendarDays, CreditCard, Download, FileSpreadsheet, FileText, Loader2, Receipt, TrendingDown, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import {
-  buildDailyPaymentSummary,
+  buildDailyPaymentReportData,
   DAILY_PAYMENT_METHODS,
-  enrichDailyPayments,
   filterDailyPayments,
   formatRupiah,
   getJakartaDateParts,
@@ -14,6 +13,8 @@ import {
 } from '@/lib/dailyPaymentRecap';
 import { fetchExpensesByPeriod } from '@/lib/financeAdapters';
 import { downloadDailyPaymentPdf, printDailyPaymentHtml } from '@/lib/dailyPaymentReportAdapters';
+import { downloadDailyPaymentExcel } from '@/lib/dailyPaymentExcelReport';
+import { defaultDailyReportBranding, loadDailyReportBranding } from '@/lib/dailyPaymentReportBranding';
 import { MONTH_NAMES } from '@/lib/paymentAdapters';
 
 const methodOptions = [
@@ -48,14 +49,6 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
     () => filterDailyPayments(payments, filters),
     [filters, payments],
   );
-  const detailedPayments = useMemo(
-    () => enrichDailyPayments(filteredPayments, santri),
-    [filteredPayments, santri],
-  );
-  const summary = useMemo(
-    () => buildDailyPaymentSummary(filteredPayments),
-    [filteredPayments],
-  );
 
   const selectedDateStr = useMemo(() => {
     const m = String(filters.month).padStart(2, '0');
@@ -63,32 +56,54 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
     return `${filters.year}-${m}-${d}`;
   }, [filters.year, filters.month, filters.day]);
 
-  const [dayExpenses, setDayExpenses] = useState([]);
+  const [expenseState, setExpenseState] = useState({ date: '', status: 'loading', data: [] });
+  const [expenseRetry, setExpenseRetry] = useState(0);
+  const [branding, setBranding] = useState(defaultDailyReportBranding);
+  const [brandingLoading, setBrandingLoading] = useState(true);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const excelInFlight = useRef(false);
 
   useEffect(() => {
     let active = true;
-    fetchExpensesByPeriod({ year: filters.year, month: filters.month, date: selectedDateStr })
-      .then((data) => { if (active) setDayExpenses(data || []); })
-      .catch(() => { if (active) setDayExpenses([]); });
+    loadDailyReportBranding().then((value) => {
+      if (active) { setBranding(value); setBrandingLoading(false); }
+    });
     return () => { active = false; };
-  }, [selectedDateStr, filters.year, filters.month]);
+  }, []);
 
-  const dayExpenseTotal = useMemo(() =>
-    dayExpenses.reduce((sum, e) => sum + Number(e.jumlah || 0), 0),
-    [dayExpenses],
-  );
+  useEffect(() => {
+    let active = true;
+    setExpenseState({ date: selectedDateStr, status: 'loading', data: [] });
+    fetchExpensesByPeriod({ year: filters.year, month: filters.month, date: selectedDateStr })
+      .then((data) => { if (active) setExpenseState({ date: selectedDateStr, status: 'ready', data: data || [] }); })
+      .catch(() => { if (active) setExpenseState({ date: selectedDateStr, status: 'error', data: [] }); });
+    return () => { active = false; };
+  }, [selectedDateStr, filters.year, filters.month, expenseRetry]);
 
-  const saldoBersih = useMemo(() =>
-    summary.total - dayExpenseTotal,
-    [summary.total, dayExpenseTotal],
-  );
+  const expensesReady = expenseState.date === selectedDateStr && expenseState.status === 'ready';
+  const expensesFailed = expenseState.date === selectedDateStr && expenseState.status === 'error';
 
   const periodLabel = `${filters.day} ${MONTH_NAMES[Number(filters.month) - 1]} ${filters.year}`;
   const methodLabel = DAILY_PAYMENT_METHODS[filters.method];
 
-  const reportPayload = { payments: detailedPayments, summary, periodLabel, methodLabel };
+  const reportPayload = useMemo(() => buildDailyPaymentReportData({
+    payments: filteredPayments,
+    santri,
+    expenses: expenseState.date === selectedDateStr ? expenseState.data : [],
+    periodLabel,
+    methodLabel,
+    date: selectedDateStr,
+    method: filters.method,
+    branding,
+  }), [filteredPayments, santri, expenseState, selectedDateStr, periodLabel, methodLabel, filters.method, branding]);
+  const { payments: detailedPayments, expenses: dayExpenses, summary } = reportPayload;
+  const dayExpenseTotal = summary.expenseTotal;
+  const saldoBersih = summary.netBalance;
+  const exportDisabled = !detailedPayments.length || !expensesReady || brandingLoading || exportingExcel;
+  const expenseValue = (value) => expensesReady ? formatRupiah(value) : expensesFailed ? 'Tidak tersedia' : 'Memuat...';
 
   const handleHtmlReport = () => {
+    if (exportDisabled) return;
     try {
       printDailyPaymentHtml(reportPayload);
     } catch (error) {
@@ -97,10 +112,25 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
   };
 
   const handlePdfReport = () => {
+    if (exportDisabled) return;
     try {
       downloadDailyPaymentPdf(reportPayload);
     } catch (error) {
       toast({ title: 'PDF gagal dibuat', description: 'Coba muat ulang halaman lalu ulangi ekspor.', variant: 'destructive' });
+    }
+  };
+
+  const handleExcelReport = async () => {
+    if (exportDisabled || excelInFlight.current) return;
+    excelInFlight.current = true;
+    setExportingExcel(true);
+    try {
+      await downloadDailyPaymentExcel(reportPayload);
+    } catch {
+      toast({ title: 'Excel gagal dibuat', description: 'Coba muat ulang halaman lalu ulangi ekspor.', variant: 'destructive' });
+    } finally {
+      excelInFlight.current = false;
+      setExportingExcel(false);
     }
   };
 
@@ -155,18 +185,29 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
               </button>
             ))}
           </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={handleHtmlReport} disabled={!detailedPayments.length} className="flex-1 sm:flex-none">
+          <div className="flex flex-wrap gap-2" aria-busy={exportingExcel}>
+            <Button type="button" variant="outline" onClick={handleHtmlReport} disabled={exportDisabled} className="flex-1 sm:flex-none">
               <FileText className="mr-2 h-4 w-4" aria-hidden="true" />Cetak HTML
             </Button>
-            <Button type="button" onClick={handlePdfReport} disabled={!detailedPayments.length} className="flex-1 sm:flex-none">
+            <Button type="button" onClick={handlePdfReport} disabled={exportDisabled} className="flex-1 sm:flex-none">
               <Download className="mr-2 h-4 w-4" aria-hidden="true" />Unduh PDF
+            </Button>
+            <Button type="button" variant="outline" onClick={handleExcelReport} disabled={exportDisabled} className="flex-1 sm:flex-none">
+              {exportingExcel ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden="true" />}
+              {exportingExcel ? 'Menyiapkan Excel...' : 'Unduh Excel'}
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      {expensesFailed && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+          <p>Pengeluaran belum dapat dimuat. Saldo dan ekspor menunggu data pengeluaran tersedia.</p>
+          <Button type="button" variant="outline" onClick={() => setExpenseRetry((value) => value + 1)}>Coba lagi</Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-3 md:grid-cols-3">
         <article className="admin-stat-card admin-stat-card--accent">
           <p className="admin-stat-card-label">Total Pemasukan</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.total)}</p>
         </article>
@@ -176,11 +217,15 @@ const DailyPaymentRecap = ({ payments = [], santri = [] }) => {
         <article className="admin-stat-card admin-stat-card--amber">
           <p className="admin-stat-card-label">Transfer</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.transfer)}</p>
         </article>
+        <article className="admin-stat-card">
+          <p className="admin-stat-card-label">Total SPP Dewasa</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(summary.adultSppTotal)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Termasuk dalam Total Pemasukan</p>
+        </article>
         <article className="admin-stat-card" style={{ borderColor: 'hsl(0 84% 60% / 0.2)', backgroundColor: 'hsl(0 84% 60% / 0.04)' }}>
-          <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(dayExpenseTotal)}</p>
+          <p className="admin-stat-card-label"><TrendingDown className="inline h-3.5 w-3.5 mr-1" />Pengeluaran</p><p className="admin-stat-card-value daily-recap-value" aria-live="polite">{expenseValue(dayExpenseTotal)}</p>
         </article>
         <article className="admin-stat-card" style={{ borderColor: 'hsl(215 100% 50% / 0.2)', backgroundColor: 'hsl(215 100% 50% / 0.04)' }}>
-          <p className="admin-stat-card-label"><Wallet className="inline h-3.5 w-3.5 mr-1" />Saldo Bersih</p><p className="admin-stat-card-value daily-recap-value">{formatRupiah(saldoBersih)}</p>
+          <p className="admin-stat-card-label"><Wallet className="inline h-3.5 w-3.5 mr-1" />Saldo Bersih</p><p className="admin-stat-card-value daily-recap-value" aria-live="polite">{expenseValue(saldoBersih)}</p>
         </article>
       </div>
 

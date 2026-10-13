@@ -121,6 +121,7 @@ export const enrichDailyPayments = (payments = [], santri = []) => {
       ...payment,
       nama_santri: owner?.nama_lengkap || 'Santri tidak ditemukan',
       nomor_induk: owner?.nomor_induk_qiroati || '-',
+      kategori_santri: owner?.kategori || '',
       kelas: owner?.current_class?.nama_kelas || '-',
       periode: formatPaymentPeriod(payment.bulan, payment.tahun),
       kategori_pembayaran: getPaymentCategory(payment.catatan),
@@ -133,3 +134,38 @@ export const enrichDailyPayments = (payments = [], santri = []) => {
     };
   });
 };
+
+export const getAdultSppPayments = (payments = []) => payments.filter((payment) => (
+  String(payment.kategori_santri || '').trim().toLowerCase() === 'dewasa'
+  && /^spp\b/i.test(String(payment.catatan || '').trim())
+));
+
+// Semua tampilan dan ekspor memakai snapshot yang sama. SPP dewasa merupakan
+// bagian dari pemasukan, sehingga tidak ditambahkan lagi saat menghitung saldo.
+export const buildDailyPaymentReportData = ({ payments = [], santri = [], expenses = [], ...metadata }) => {
+  const detailedPayments = enrichDailyPayments(payments, santri);
+  const adultSppPayments = getAdultSppPayments(detailedPayments);
+  const summary = buildDailyPaymentSummary(payments);
+  const expenseCents = expenses.reduce((total, expense) => total + amountToCents(expense.jumlah), 0);
+  return {
+    ...metadata,
+    payments: detailedPayments,
+    adultSppPayments,
+    expenses,
+    summary: {
+      ...summary,
+      adultSppTotal: buildDailyPaymentSummary(adultSppPayments).total,
+      expenseTotal: expenseCents / 100,
+      netBalance: (amountToCents(summary.total) - expenseCents) / 100,
+    },
+  };
+};
+
+export const getDailyReportIndicators = (summary) => [
+  ['Total Pemasukan', summary.total],
+  ['Cash', summary.cash],
+  ['Transfer', summary.transfer],
+  ['Total SPP Dewasa', summary.adultSppTotal],
+  ['Pengeluaran', summary.expenseTotal],
+  ['Saldo Bersih', summary.netBalance],
+];

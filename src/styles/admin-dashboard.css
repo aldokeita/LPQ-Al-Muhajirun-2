@@ -428,15 +428,16 @@
     font-size: 2rem;
   }
 }
-.daily-recap-value {
+.admin-stat-card-value.daily-recap-value {
   font-size: 1.15rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 @media (min-width: 768px) {
-  .daily-recap-value {
+  .admin-stat-card-value.daily-recap-value {
     font-size: 1.4rem;
   }
 }

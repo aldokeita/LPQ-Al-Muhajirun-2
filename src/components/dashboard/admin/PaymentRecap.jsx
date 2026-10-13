@@ -89,7 +89,7 @@ const PaymentRecap = () => {
 
         const { data: santriRows, error: santriError } = await queryAll({
           table: 'santri',
-          columns: ['id', 'nama_lengkap', 'nomor_induk_qiroati', 'status', 'sesi_mengaji', 'foto_url', 'avatar_path', 'rfid_tag', 'current_class_id'],
+          columns: ['id', 'nama_lengkap', 'nomor_induk_qiroati', 'kategori', 'status', 'sesi_mengaji', 'foto_url', 'avatar_path', 'rfid_tag', 'current_class_id'],
         });
         // current_class:classes!...(nama_kelas) dulu ikut lewat join bersarang.
         const santriData = santriError ? null : await attachRelated(santriRows, {

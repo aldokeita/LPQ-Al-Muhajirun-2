@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildDailyPaymentSummary,
+  buildDailyPaymentReportData,
   enrichDailyPayments,
   filterDailyPayments,
   getDailyPaymentDateKey,
@@ -40,4 +41,48 @@ assert.equal(detailed[0].nama_santri, 'Santri Satu');
 assert.equal(detailed[1].kelas, '-');
 assert.equal(detailed[2].periode, 'Agustus 2026');
 
-console.log('Daily payment recap tests: 12/12 passed');
+const mixedSantri = [
+  { id: 'tpq', kategori: 'Anak', nama_lengkap: 'Santri TPQ' },
+  { id: 'ptpt', kategori: 'PTPT', nama_lengkap: 'Santri PTPT' },
+  { id: 'adult', kategori: '  dEWaSa  ', status: 'Nonaktif', nama_lengkap: 'Santri Dewasa', nomor_induk_qiroati: '0000123' },
+  { id: 'unknown', kategori: '', nama_lengkap: 'Kategori kosong' },
+];
+const makePayment = (id, owner, note, amount, overrides = {}) => ({
+  ...payments[0], id, santri_id: owner, catatan: note, jumlah: amount, ...overrides,
+});
+const mixedPayments = [
+  makePayment('tpq-spp', 'tpq', 'SPP Bulanan', '100000.10'),
+  makePayment('ptpt-spp', 'ptpt', 'SPP', '150000.20'),
+  makePayment('adult-cash', 'adult', '  spp Bulanan (Agustus 2026)', '50000.10'),
+  makePayment('adult-transfer', 'adult', 'SPP (50k)', '50000.20', { metode_pembayaran: 'Transfer Bank' }),
+  makePayment('adult-book', 'adult', 'Buku Prestasi', '20000.30'),
+  makePayment('not-spp-prefix', 'adult', 'SPPT', '1000.40'),
+  makePayment('not-spp', 'adult', 'Buku SPP', '1000.50'),
+  makePayment('unknown-spp', 'unknown', 'SPP', '1000.60'),
+  makePayment('missing-owner', 'missing', 'SPP', '1000.70'),
+  makePayment('deleted-adult', 'adult', 'SPP', '999', { deleted_at: '2026-08-03' }),
+  makePayment('unpaid-adult', 'adult', 'SPP', '999', { status: 'unpaid' }),
+  makePayment('other-date-adult', 'adult', 'SPP', '999', { tanggal_pembayaran: '2026-08-02' }),
+];
+const dailyFilters = { day: 3, month: 8, year: 2026, method: 'all' };
+const report = buildDailyPaymentReportData({
+  payments: filterDailyPayments(mixedPayments, dailyFilters), santri: mixedSantri,
+  expenses: [{ jumlah: '10000.10' }, { jumlah: '10000.20' }],
+});
+assert.deepEqual(report.adultSppPayments.map((payment) => payment.id).sort(), ['adult-cash', 'adult-transfer']);
+assert.equal(report.summary.adultSppTotal, 100000.30);
+assert.equal(report.summary.total, 374003.10);
+assert.equal(report.summary.expenseTotal, 20000.30);
+assert.equal(report.summary.netBalance, 354002.80);
+assert.equal(report.summary.count, 9);
+assert.equal(report.adultSppPayments[0].nomor_induk, '0000123');
+const transferReport = buildDailyPaymentReportData({
+  payments: filterDailyPayments(mixedPayments, { ...dailyFilters, method: 'transfer' }), santri: mixedSantri,
+});
+assert.equal(transferReport.summary.adultSppTotal, 50000.20);
+assert.equal(transferReport.summary.total, 50000.20);
+const emptyReport = buildDailyPaymentReportData({});
+assert.equal(emptyReport.summary.adultSppTotal, 0);
+assert.equal(emptyReport.summary.netBalance, 0);
+assert.deepEqual(emptyReport.adultSppPayments, []);
+console.log('Daily payment recap regression tests passed (including adult SPP, historical owners, filters, and decimal totals).');
